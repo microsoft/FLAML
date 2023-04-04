@@ -10,10 +10,11 @@ on:
       - 'flaml/integrations/oai/**'
       - 'test/openai/**'
       - 'notebook/integrate_openai.ipynb'
+      - 'notebook/integrate_chatgpt_math.ipynb'
       - '.github/workflows/openai.yml'
 
 jobs:
-  build:
+  test:
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -39,6 +40,7 @@ jobs:
           pip install coverage pytest datasets nbconvert nbformat ipykernel
           coverage run -a -m pytest test/openai
           coverage xml
+          cat "$(pwd)/test/openai/executed_openai_notebook_output.txt"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:

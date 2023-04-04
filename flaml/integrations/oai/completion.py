@@ -1,6 +1,7 @@
 from time import sleep
 import logging
 import numpy as np
+import time
 from flaml import tune, BlendSearch
 
 try:
@@ -11,9 +12,9 @@ try:
         APIError,
         InvalidRequestError,
         APIConnectionError,
+        Timeout,
     )
     import diskcache
-    from urllib3.exceptions import ReadTimeoutError
 
     ERROR = None
 except ImportError:
@@ -46,7 +47,14 @@ class Completion:
     """
 
     # set of models that support chat completion
-    chat_models = {"gpt-3.5-turbo"}
+    chat_models = {
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-0301",
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4-32k-0314",
+        "gpt-4-0314",
+    }
 
     # price per 1k tokens
     price1K = {
@@ -58,10 +66,23 @@ class Completion:
         "text-davinci-002": 0.02,
         "text-davinci-003": 0.02,
         "gpt-3.5-turbo": 0.002,
+        "gpt-3.5-turbo-0301": 0.002,
+        "gpt-4": (0.03, 0.06),
+        "gpt-4-0314": (0.03, 0.06),
+        "gpt-4-32k": (0.06, 0.12),
+        "gpt-4-32k-0314": (0.06, 0.12),
     }
 
     default_search_space = {
-        "model": tune.choice(list(price1K.keys())),
+        "model": tune.choice(
+            [
+                "text-ada-001",
+                "text-babbage-001",
+                "text-davinci-003",
+                "gpt-3.5-turbo",
+                "gpt-4",
+            ]
+        ),
         "temperature_or_top_p": tune.choice(
             [
                 {"temperature": tune.uniform(0, 1)},
@@ -78,6 +99,8 @@ class Completion:
     retry_time = 10
     # fail a request after hitting RateLimitError for this many seconds
     retry_timeout = 60
+    # time out for request to openai server
+    request_timeout = 30
 
     openai_completion_class = not ERROR and openai.Completion
     _total_cost = 0
@@ -97,46 +120,54 @@ class Completion:
         cls.cache_path = f"{cache_path}/{seed}"
 
     @classmethod
-    def _get_response(cls, config: dict, eval_only=False):
+    def _get_response(cls, config: dict, eval_only=False, use_cache=True):
         """Get the response from the openai api call.
 
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
         """
         key = get_key(config)
-        response = cls._cache.get(key, None)
-        if response is not None and (response != -1 or not eval_only):
-            # print("using cached response")
-            return response
-        retry = 0
+        if use_cache:
+            response = cls._cache.get(key, None)
+            if response is not None and (response != -1 or not eval_only):
+                # print("using cached response")
+                return response
         openai_completion = (
             openai.ChatCompletion
             if config["model"] in cls.chat_models
             else openai.Completion
         )
-        while eval_only or retry * cls.retry_time < cls.retry_timeout:
+        start_time = time.time()
+        while True:
             try:
-                response = openai_completion.create(**config)
+                response = openai_completion.create(
+                    request_timeout=cls.request_timeout, **config
+                )
                 cls._cache.set(key, response)
                 return response
             except (
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
-                ReadTimeoutError,
             ):
+                # transient error
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
-            except RateLimitError:
-                logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
-                retry += 1
+            except (RateLimitError, Timeout):
+                # retry after retry_time seconds
+                if time.time() - start_time + cls.retry_time < cls.retry_timeout:
+                    logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                elif not eval_only:
+                    break
+                sleep(cls.retry_time)
             except InvalidRequestError:
-                if "model" in config:
+                if "azure" == openai.api_type and "model" in config:
+                    # azure api uses "engine" instead of "model"
                     config = config.copy()
                     config["engine"] = config.pop("model")
                 else:
                     raise
         logger.warning(
-            f"Failed to get response from openai api due to getting RateLimitError for {cls.retry_timeout} seconds."
+            f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
         )
         response = -1
         cls._cache.set(key, response)
@@ -189,32 +220,8 @@ class Completion:
             )
 
     @classmethod
-    def eval(cls, config: dict, prune=True, eval_only=False):
-        """Evaluate the given config as the hyperparameter setting for the openai api call.
-
-        Args:
-            config (dict): Hyperparameter setting for the openai api call.
-            prune (bool, optional): Whether to enable pruning. Defaults to True.
-            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
-              Defaults to False.
-
-        Returns:
-            dict: Evaluation results.
-        """
-        cost = 0
-        data = cls.data
-        model = config["model"]
-        data_length = len(data)
-        target_n_tokens = getattr(cls, "inference_budget", None) and (
-            1000 * cls.inference_budget / cls.price1K[model]
-            if cls.inference_budget and cls.price1K.get(model)
-            else None
-        )
-        prune_hp = getattr(cls, "_prune_hp", "n")
-        metric = cls._metric
-        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", 16)  # default value in OpenAI is 16
-        region_key = cls._get_region_key(config)
+    def _get_prompt_messages_from_config(cls, model, config):
+        prompt, messages = None, None
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
             # or "messages" should be in config (for tuning chat models only)
@@ -230,18 +237,55 @@ class Completion:
                 prompt = cls._prompts[prompt]
         else:
             prompt = cls._prompts[config["prompt"]]
+        return prompt, messages
+
+    @classmethod
+    def _eval(cls, config: dict, prune=True, eval_only=False):
+        """Evaluate the given config as the hyperparameter setting for the openai api call.
+
+        Args:
+            config (dict): Hyperparameter setting for the openai api call.
+            prune (bool, optional): Whether to enable pruning. Defaults to True.
+            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
+              Defaults to False.
+
+        Returns:
+            dict: Evaluation results.
+        """
+        cost = 0
+        data = cls.data
+        model = config["model"]
+        data_length = len(data)
+        price = cls.price1K.get(model)
+        price_input, price_output = (
+            price if isinstance(price, tuple) else (price, price)
+        )
+        inference_budget = getattr(cls, "inference_budget", None)
+        prune_hp = getattr(cls, "_prune_hp", "n")
+        metric = cls._metric
+        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
+        max_tokens = config.get(
+            "max_tokens", np.inf if model in cls.chat_models else 16
+        )
+        prompt, messages = cls._get_prompt_messages_from_config(model, config)
         stop = cls._stops and cls._stops[config["stop"]]
-        if prune and target_n_tokens:
+        target_output_tokens = None
+        if not cls.avg_input_tokens:
+            input_tokens = [None] * data_length
+        prune = prune and inference_budget and not eval_only
+        if prune:
+            region_key = cls._get_region_key(config)
             max_valid_n = cls._get_max_valid_n(region_key, max_tokens)
             if cls.avg_input_tokens:
+                target_output_tokens = (
+                    inference_budget * 1000 - cls.avg_input_tokens * price_input
+                ) / price_output
                 # max_tokens bounds the maximum tokens
                 # so using it we can calculate a valid n according to the avg # input tokens
                 max_valid_n = max(
                     max_valid_n,
-                    int((target_n_tokens - cls.avg_input_tokens) // max_tokens),
+                    int(target_output_tokens // max_tokens),
                 )
-            else:
-                input_tokens = [None] * data_length
             if config_n <= max_valid_n:
                 start_n = config_n
             else:
@@ -275,33 +319,7 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    if prompt is None:
-                        params["messages"] = [
-                            {
-                                "role": m["role"],
-                                "content": m["content"].format(**data_i)
-                                if isinstance(m["content"], str)
-                                else m["content"](data_i),
-                            }
-                            for m in messages
-                        ]
-                    elif model in cls.chat_models:
-                        # convert prompt to messages
-                        params["messages"] = [
-                            {
-                                "role": "user",
-                                "content": prompt.format(**data_i)
-                                if isinstance(prompt, str)
-                                else prompt(data_i),
-                            },
-                        ]
-                        params.pop("prompt", None)
-                    else:
-                        params["prompt"] = (
-                            prompt.format(**data_i)
-                            if isinstance(prompt, str)
-                            else prompt(data_i)
-                        )
+                    params = cls._construct_params(data_i, params, prompt, messages)
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -316,24 +334,15 @@ class Completion:
                         if model in cls.chat_models
                         else [r["text"].rstrip() for r in response["choices"]]
                     )
-                    n_tokens = (
-                        response["usage"]["completion_tokens"]
-                        if previous_num_completions
-                        else response["usage"]["total_tokens"]
-                    )
-                    if (
-                        prune
-                        and target_n_tokens
-                        and not cls.avg_input_tokens
-                        and not input_tokens[i]
-                    ):
+                    usage = response["usage"]
+                    n_input_tokens = usage["prompt_tokens"]
+                    n_output_tokens = usage.get("completion_tokens", 0)
+                    if not cls.avg_input_tokens and not input_tokens[i]:
                         # store the # input tokens
-                        input_tokens[i] = response["usage"]["prompt_tokens"]
-                    # Under Assumption 1, we should count both the input and output tokens in the first query,
-                    # and only count ouput tokens afterwards
+                        input_tokens[i] = n_input_tokens
                     query_cost = (
-                        response["usage"]["total_tokens"] * cls.price1K[model] / 1000
-                    )
+                        price_input * n_input_tokens + price_output * n_output_tokens
+                    ) / 1000
                     cls._total_cost += query_cost
                     cost += query_cost
                     if (
@@ -348,12 +357,12 @@ class Completion:
                             "cost": cost,
                         }
                     if previous_num_completions:
-                        n_tokens_list[i] += n_tokens
+                        n_tokens_list[i] += n_output_tokens
                         responses_list[i].extend(responses)
                         # Assumption 1: assuming requesting n1, n2 responses separatively then combining them
                         # is the same as requesting (n1+n2) responses together
                     else:
-                        n_tokens_list.append(n_tokens)
+                        n_tokens_list.append(n_output_tokens)
                         responses_list.append(responses)
                 avg_n_tokens = np.mean(n_tokens_list[:data_limit])
                 rho = (
@@ -364,8 +373,8 @@ class Completion:
                 # Hoeffding-Serfling bound
                 ratio = 0.1 * np.sqrt(rho / data_limit)
                 if (
-                    target_n_tokens
-                    and avg_n_tokens > target_n_tokens * (1 + ratio)
+                    target_output_tokens
+                    and avg_n_tokens > target_output_tokens * (1 + ratio)
                     and not eval_only
                 ):
                     cls._update_invalid_n(
@@ -377,8 +386,8 @@ class Completion:
                     return result
                 if (
                     prune
-                    and target_n_tokens
-                    and avg_n_tokens <= target_n_tokens * (1 - ratio)
+                    and target_output_tokens
+                    and avg_n_tokens <= target_output_tokens * (1 - ratio)
                     and (
                         num_completions < config_n
                         or num_completions == config_n
@@ -410,16 +419,24 @@ class Completion:
                     metrics = cls._eval_func(responses, **data_i)
                     if result:
                         for key, value in metrics.items():
-                            result[key] += value
+                            if isinstance(value, (float, int)):
+                                result[key] += value
                     else:
                         result = metrics
                 for key in result.keys():
-                    result[key] /= data_limit
+                    if isinstance(result[key], (float, int)):
+                        result[key] /= data_limit
                 result["total_cost"] = cls._total_cost
                 result["cost"] = cost
-                result["inference_cost"] = avg_n_tokens * cls.price1K[model] / 1000
-                if prune and target_n_tokens and not cls.avg_input_tokens:
+                if not cls.avg_input_tokens:
                     cls.avg_input_tokens = np.mean(input_tokens)
+                    if prune:
+                        target_output_tokens = (
+                            inference_budget * 1000 - cls.avg_input_tokens * price_input
+                        ) / price_output
+                result["inference_cost"] = (
+                    avg_n_tokens * price_output + cls.avg_input_tokens * price_input
+                ) / 1000
                 break
             else:
                 if data_early_stop:
@@ -448,6 +465,7 @@ class Completion:
         """Tune the parameters for the OpenAI API call.
 
         TODO: support parallel tuning with ray or spark.
+        TODO: support agg_method as in test
 
         Args:
             data (list): The list of data points.
@@ -457,20 +475,20 @@ class Completion:
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. For example,
 
-            ```python
-            def eval_func(responses, **data):
-                solution = data["solution"]
-                success_list = []
-                n = len(responses)
-                for i in range(n):
-                    response = responses[i]
-                    succeed = is_equiv_chain_of_thought(response, solution)
-                    success_list.append(succeed)
-                return {
-                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
-                    "success": any(s for s in success_list),
-                }
-            ```
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
 
             log_file_name (str, optional): The log file.
             inference_budget (float, optional): The inference budget.
@@ -559,11 +577,12 @@ class Completion:
             mode=mode,
             space=space,
         )
-        if len(space["model"]) > 1:
+        space_model = space["model"]
+        if not isinstance(space_model, str) and len(space_model) > 1:
             # start all the models with the same hp config
             config0 = search_alg.suggest("t0")
             points_to_evaluate = [config0]
-            for model in space["model"]:
+            for model in space_model:
                 if model != config0["model"]:
                     point = config0.copy()
                     point["model"] = model
@@ -579,7 +598,7 @@ class Completion:
         logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
-                cls.eval,
+                cls._eval,
                 search_alg=search_alg,
                 num_samples=num_samples,
                 log_file_name=log_file_name,
@@ -616,35 +635,200 @@ class Completion:
         """
         if ERROR:
             raise ERROR
+        params = cls._construct_params(context, config)
+        if use_cache:
+            with diskcache.Cache(cls.cache_path) as cls._cache:
+                return cls._get_response(params)
+        return cls.openai_completion_class.create(
+            request_timeout=cls.request_timeout, **params
+        )
+
+    @classmethod
+    def _construct_params(cls, data_instance, config, prompt=None, messages=None):
         params = config.copy()
-        prompt = config.get("prompt")
-        if "messages" in config:
+        model = config["model"]
+        prompt = config.get("prompt") if prompt is None else prompt
+        messages = config.get("messages") if messages is None else messages
+        # either "prompt" should be in config (for being compatible with non-chat models)
+        # or "messages" should be in config (for tuning chat models only)
+        if prompt is None and model in cls.chat_models:
+            if messages is None:
+                raise ValueError(
+                    "Either prompt or messages should be in config for chat models."
+                )
+        if prompt is None:
             params["messages"] = [
                 {
-                    k: v.format(**context) if isinstance(v, str) else v(context)
-                    for k, v in message.items()
+                    "role": m["role"],
+                    "content": m["content"].format(**data_instance)
+                    if isinstance(m["content"], str)
+                    else m["content"](data_instance),
                 }
-                for message in config["messages"]
+                for m in messages
             ]
-            params.pop("prompt", None)
-        elif config["model"] in cls.chat_models:
+        elif model in cls.chat_models:
+            # convert prompt to messages
+            if isinstance(prompt, str):
+                prompt_msg = prompt.format(**data_instance)
+            else:
+                prompt_msg = prompt(data_instance)
             params["messages"] = [
                 {
                     "role": "user",
-                    "content": prompt.format(**context)
+                    "content": prompt_msg
                     if isinstance(prompt, str)
-                    else prompt(context),
-                }
+                    else prompt(data_instance),
+                },
             ]
             params.pop("prompt", None)
         else:
             params["prompt"] = (
-                prompt.format(**context) if isinstance(prompt, str) else prompt(context)
+                prompt.format(**data_instance)
+                if isinstance(prompt, str)
+                else prompt(data_instance)
             )
-        if use_cache:
-            with diskcache.Cache(cls.cache_path) as cls._cache:
-                return cls._get_response(params)
-        return cls.openai_completion_class.create(**params)
+        return params
+
+    @classmethod
+    def test(
+        cls,
+        data,
+        config,
+        eval_func=None,
+        use_cache=True,
+        agg_method="avg",
+        return_responses_and_per_instance_result=False,
+        seed=41,
+        cache_path=".cache",
+    ):
+        """Evaluate the responses created with the config for the OpenAI API call.
+
+        Args:
+            data (list): The list of test data points.
+            config (dict): Hyperparameter setting for the openai api call.
+            eval_func (Callable): The evaluation function for responses per data instance.
+                The function should take a list of responses and a data point as input,
+                and return a dict of metrics. You need to either provide a valid callable
+                eval_func; or do not provide one (set None) but call the test function after
+                calling the tune function in which a eval_func is provided.
+                In the latter case we will use the eval_func provided via tune function.
+                Defaults to None.
+
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
+            use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
+            agg_method (str, Callable or a dict of Callable): Result aggregation method (across
+                multiple instances) for each of the metrics. Defaults to 'avg'.
+                An example agg_method in str:
+
+        ```python
+        agg_method = 'median'
+        ```
+                An example agg_method in a Callable:
+
+        ```python
+        agg_method = np.median
+        ```
+
+                An example agg_method in a dict of Callable:
+
+        ```python
+        agg_method={'median_success': np.median, 'avg_success': np.mean}
+        ```
+
+            return_responses_and_per_instance_result (bool): Whether to also return responses
+                and per instance results in addition to the aggregated results.
+            seed (int): Random seed for the evaluation. Defaults to 41.
+            cache_path (str): Path to the cache directory. Defaults to '.cache'.
+                If a cache directory does not exist, it will be created, otherwise use the existing one.
+        Returns:
+            None in case of rate limit error or when a valid eval_func is not provided in either test or tune;
+            Otherwise, a dict of aggregated results, responses and per instance results if `return_responses_and_per_instance_result` is True;
+            Otherwise, a dict of aggregated results (responses and per instance results are not returned).
+        """
+        model = config["model"]
+        result_agg, responses_list, result_list = {}, [], []
+        metric_keys = None
+        cls.set_cache(seed, cache_path)
+        with diskcache.Cache(cls.cache_path) as cls._cache:
+            for i, data_i in enumerate(data):
+                logger.info(f"evaluating data instance {i}")
+                params = cls._construct_params(data_i, config)
+                response = cls._get_response(
+                    params, eval_only=True, use_cache=use_cache
+                )
+                if response == -1:  # rate limit error, treat as invalid
+                    return None
+                # evaluate the quality of the responses
+                responses = (
+                    [r["message"]["content"].rstrip() for r in response["choices"]]
+                    if model in cls.chat_models
+                    else [r["text"].rstrip() for r in response["choices"]]
+                )
+
+                if eval_func is not None:
+                    metrics = eval_func(responses, **data_i)
+                elif hasattr(cls, "_eval_func"):
+                    metrics = cls._eval_func(responses, **data_i)
+                else:
+                    logger.warning(
+                        "Please either provide a valid eval_func or do the test after the tune function is called"
+                    )
+                    return
+                if not metric_keys:
+                    metric_keys = []
+                    for k in metrics.keys():
+                        try:
+                            _ = float(metrics[k])
+                            metric_keys.append(k)
+                        except ValueError:
+                            pass
+                result_list.append(metrics)
+                if return_responses_and_per_instance_result:
+                    responses_list.append(responses)
+        if isinstance(agg_method, str):
+            if agg_method in ["avg", "average"]:
+                for key in metric_keys:
+                    result_agg[key] = np.mean([r[key] for r in result_list])
+            elif agg_method == "median":
+                for key in metric_keys:
+                    result_agg[key] = np.median([r[key] for r in result_list])
+            else:
+                logger.warning(
+                    f"Aggregation method {agg_method} not supported. Please write your own aggregation method as a callable(s)."
+                )
+        elif callable(agg_method):
+            for key in metric_keys:
+                result_agg[key] = agg_method([r[key] for r in result_list])
+        elif isinstance(agg_method, dict):
+            for key in metric_keys:
+                metric_agg_method = agg_method[key]
+                assert callable(
+                    metric_agg_method
+                ), "please provide a callable for each metric"
+                result_agg[key] = metric_agg_method([r[key] for r in result_list])
+        else:
+            raise ValueError(
+                "agg_method needs to be a string ('avg' or 'median'),\
+                or a callable, or a dictionary of callable."
+            )
+        # should we also return the result_list and responses_list or not?
+        if return_responses_and_per_instance_result:
+            return result_agg, result_list, responses_list
+        else:
+            return result_agg
 
 
 class ChatCompletion(Completion):
@@ -652,8 +836,13 @@ class ChatCompletion(Completion):
 
     price1K = {
         "gpt-3.5-turbo": 0.002,
+        "gpt-3.5-turbo-0301": 0.002,
+        "gpt-4": (0.03, 0.06),
+        "gpt-4-0314": (0.03, 0.06),
+        "gpt-4-32k": (0.06, 0.12),
+        "gpt-4-32k-0314": (0.06, 0.12),
     }
 
     default_search_space = Completion.default_search_space.copy()
-    default_search_space["model"] = tune.choice(list(price1K.keys()))
+    default_search_space["model"] = tune.choice(["gpt-3.5-turbo", "gpt-4"])
     openai_completion_class = not ERROR and openai.ChatCompletion
