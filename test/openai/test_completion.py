@@ -451,9 +451,7 @@ def test_math(num_samples=-1):
             "stop": "###",
         }
         test_data_sample = test_data[0:3]
-        result = oai.ChatCompletion.test(
-            test_data_sample, vanilla_config, success_metrics
-        )
+        result = oai.ChatCompletion.test(test_data_sample, vanilla_config, success_metrics)
         test_data_sample = test_data[3:6]
         result = oai.ChatCompletion.test(
             test_data_sample,
