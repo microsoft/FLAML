@@ -3,7 +3,9 @@ import logging
 import numpy as np
 import time
 from typing import List
+import sys
 from flaml import tune, BlendSearch
+from flaml.automl.logger import logger_formatter
 
 try:
     import openai
@@ -23,6 +25,11 @@ except ImportError:
         "please install flaml[openai] option to use the flaml.oai subpackage."
     )
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    # Add the console handler.
+    _ch = logging.StreamHandler(stream=sys.stdout)
+    _ch.setFormatter(logger_formatter)
+    logger.addHandler(_ch)
 
 
 def get_key(config):
@@ -158,7 +165,9 @@ class Completion:
                 # retry after retry_time seconds
                 if time.time() - start_time + cls.retry_time < cls.retry_timeout:
                     logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
-                elif not eval_only:
+                elif eval_only:
+                    raise
+                else:
                     break
                 sleep(cls.retry_time)
             except InvalidRequestError:
@@ -503,6 +512,7 @@ class Completion:
             num_samples (int, optional): The number of samples to evaluate.
                 -1 means no hard restriction in the number of trials
                 and the actual number is decided by optimization_budget. Defaults to 1.
+            logging_level (optional): logging level. Defaults to logging.WARNING.
             **config (dict): The search space to update over the default search.
                 For prompt, please provide a string/Callable or a list of strings/Callables.
                     - If prompt is provided for chat models, it will be converted to messages under role "user".
@@ -626,6 +636,7 @@ class Completion:
                 mode=mode,
                 space=space,
             )
+        old_level = logger.getEffectiveLevel()
         logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
@@ -646,6 +657,7 @@ class Completion:
         temperature_or_top_p = params.pop("temperature_or_top_p", None)
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
+        logger.setLevel(old_level)
         return params, analysis
 
     @classmethod
@@ -731,6 +743,7 @@ class Completion:
         use_cache=True,
         agg_method="avg",
         return_responses_and_per_instance_result=False,
+        logging_level=logging.WARNING,
     ):
         """Evaluate the responses created with the config for the OpenAI API call.
 
@@ -781,6 +794,7 @@ class Completion:
 
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to the aggregated results.
+            logging_level (optional): logging level. Defaults to logging.WARNING.
 
         Returns:
             None when no valid eval_func is provided in either test or tune;
@@ -791,6 +805,8 @@ class Completion:
         metric_keys = None
         cost = 0
         model = config["model"]
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel(logging_level)
         for i, data_i in enumerate(data):
             logger.info(f"evaluating data instance {i}")
             response = cls.create(data_i, use_cache, **config)
@@ -843,6 +859,7 @@ class Completion:
                 "agg_method needs to be a string ('avg' or 'median'),\
                 or a callable, or a dictionary of callable."
             )
+        logger.setLevel(old_level)
         # should we also return the result_list and responses_list or not?
         if "cost" not in result_agg:
             result_agg["cost"] = cost
