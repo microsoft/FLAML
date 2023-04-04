@@ -7,7 +7,7 @@ learning models automatically, efficiently and economically. It frees users from
 
 ### Main Features
 
-1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large foundational models such as ChatGPT and GPT-4.
+1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including foundation models such as ChatGPT and GPT-4.
 2. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code). Users can customize only when and what they need to, and leave the rest to the library.
 3. It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
 hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)

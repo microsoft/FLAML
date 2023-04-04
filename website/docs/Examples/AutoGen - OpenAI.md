@@ -54,7 +54,7 @@ test_data = [
 
 ### Defining the metric
 
-Before starting tuning, you need to define the metric for the optimization. For each code generation task, we can use the model to generate multiple candidates, and then select one from them. If the final selected response can pass a unit test, we consider the task as successfully solved. Then we can define the mean success rate of a collection of tasks.
+Before starting tuning, you need to define the metric for the optimization. For each code generation task, we can use the model to generate multiple candidate responses, and then select one from them. If the final selected response can pass a unit test, we consider the task as successfully solved. Then we can define the average success rate on a collection of tasks as the optimization metric.
 
 ```python
 from functools import partial

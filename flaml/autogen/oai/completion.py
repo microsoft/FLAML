@@ -899,7 +899,7 @@ class Completion:
             response (dict): The response from OpenAI API.
 
         Returns:
-            The text.
+            A list of text in the responses.
         """
         choices = response["choices"]
         if "text" in choices[0]:
