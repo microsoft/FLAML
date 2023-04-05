@@ -1192,12 +1192,12 @@ class TransformersEstimator(BaseEstimator):
 
         new_trainer = self._init_model_for_predict()
         try:
-            predictions = new_trainer.predict(test_dataset)
+            predictions = new_trainer.predict(test_dataset).predictions
         except ZeroDivisionError:
             logger.warning("Zero division error appeared in HuggingFace Transformers.")
-            return np.array([-0.05] * len(test_dataset))
+            predictions = np.array([-0.05] * len(test_dataset))
         else:
-            return predictions.predictions       
+            return predictions
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
@@ -1226,7 +1226,6 @@ class TransformersEstimator(BaseEstimator):
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
-
 
         kwargs = {} if self._task not in NLG_TASKS else {"metric_key_prefix": "predict"}
         try:
