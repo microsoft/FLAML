@@ -60,7 +60,7 @@ assertions:"""
 def _remove_check(response):
     """Remove the check function from the response."""
     # find the position of the check function
-    pos = response.find("def check")
+    pos = response.find("def check(")
     if pos == -1:
         return response
     return response[:pos]
@@ -92,7 +92,11 @@ def success_metrics(
         success_list = []
         for i in range(n):
             response = _remove_check(responses[i])
-            code = f"{definition}{response}\n{test}\ncheck({entry_point})"
+            code = (
+                f"{response}\n{test}\ncheck({entry_point})"
+                if response.startswith("def")
+                else f"{definition}{response}\n{test}\ncheck({entry_point})"
+            )
             success = execute_code(code)
             success_list.append(success)
         return {
@@ -150,6 +154,7 @@ def implement(definition: str, configs: List[Dict]) -> Tuple[str, float]:
     Returns:
         str: The implementation.
         float: The cost of the implementation.
+        int: The index of the configuration which generates the implementation.
     """
     assertions, cost = generate_assertions(definition)
     for i, config in enumerate(configs):
@@ -158,4 +163,4 @@ def implement(definition: str, configs: List[Dict]) -> Tuple[str, float]:
         responses = oai.Completion.extract_text(response)
         metrics = success_metrics(responses, definition, assertions=assertions)
         if metrics["succeed_assertions"] or i == len(configs) - 1:
-            return responses[metrics["index_selected"]], cost
+            return responses[metrics["index_selected"]], cost, i

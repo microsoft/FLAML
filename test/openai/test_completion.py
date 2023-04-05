@@ -75,7 +75,7 @@ def test_humaneval(num_samples=1):
     )
     responses = oai.ChatCompletion.create(context=test_data[0], **config)
     print(responses)
-    code, cost = implement(tune_data[1], [config])
+    code, cost, _ = implement(tune_data[1], [config])
     print(code)
     print(cost)
     print(success_metrics([code], **tune_data[1]))
