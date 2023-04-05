@@ -1227,26 +1227,22 @@ class TransformersEstimator(BaseEstimator):
 
         new_trainer = self._init_model_for_predict()
 
-        try:
-            if self._task not in NLG_TASKS:
-                predictions = new_trainer.predict(test_dataset)
-            else:
-                predictions = new_trainer.predict(
-                    test_dataset,
-                    metric_key_prefix="predict",
-                )
 
-            post_y_pred, _ = postprocess_prediction_and_true(
-                task=self._task,
-                y_pred=predictions.predictions,
-                tokenizer=self.tokenizer,
-                hf_args=self._training_args,
-                X=X,
-            )
-            return post_y_pred
+        kwargs = {} if self._task not in NLG_TASKS else {"metric_key_prefix": "predict"}
+        try:
+            predictions = new_trainer.predict(test_dataset, **kwargs)
         except ZeroDivisionError:
             logger.warning("Zero division error appeared in HuggingFace Transformers.")
-            return np.array([0] * len(test_dataset))
+            predictions = np.array([0] * len(test_dataset))
+
+        post_y_pred, _ = postprocess_prediction_and_true(
+            task=self._task,
+            y_pred=predictions.predictions,
+            tokenizer=self.tokenizer,
+            hf_args=self._training_args,
+            X=X,
+        )
+        return post_y_pred
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
