@@ -104,7 +104,7 @@ One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#
 
 ```python
 response = oai.Completion.create(problme=problem, **config)
-responses = oai.Completion.extract_test(response)
+responses = oai.Completion.extract_text(response)
 # Extract a list of str responses
 ```
 
