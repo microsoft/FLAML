@@ -58,7 +58,7 @@ class Completion:
     chat_models = {
         "gpt-3.5-turbo",
         "gpt-3.5-turbo-0301",
-        "chatgpt-35-turbo-0301",
+        "gpt-35-turbo",
         "gpt-4",
         "gpt-4-32k",
         "gpt-4-32k-0314",
@@ -76,7 +76,7 @@ class Completion:
         "text-davinci-003": 0.02,
         "gpt-3.5-turbo": 0.002,
         "gpt-3.5-turbo-0301": 0.002,
-        "chatgpt-35-turbo-0301": 0.002,
+        "gpt-35-turbo": 0.002,
         "gpt-4": (0.03, 0.06),
         "gpt-4-0314": (0.03, 0.06),
         "gpt-4-32k": (0.06, 0.12),
