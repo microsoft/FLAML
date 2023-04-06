@@ -21,6 +21,8 @@ if "OPENAI_API_KEY" not in os.environ:
 If you use Azure OpenAI, set up Azure using the following code:
 
 ```python
+import openai
+
 openai.api_type = "azure"
 openai.api_base = "https://<your_endpoint>.openai.azure.com/"
 openai.api_version = "2023-03-15-preview"  # change if necessary
