@@ -512,8 +512,8 @@ class Completion:
         ```
 
             log_file_name (str, optional): The log file.
-            inference_budget (float, optional): The inference budget.
-            optimization_budget (float, optional): The optimization budget.
+            inference_budget (float, optional): The inference budget, dollar per instance.
+            optimization_budget (float, optional): The optimization budget, dollar in total.
             num_samples (int, optional): The number of samples to evaluate.
                 -1 means no hard restriction in the number of trials
                 and the actual number is decided by optimization_budget. Defaults to 1.

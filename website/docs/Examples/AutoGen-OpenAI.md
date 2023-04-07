@@ -88,8 +88,8 @@ config, analysis = oai.Completion.tune(
     mode="max",  # the optimization mode
     eval_func=eval_with_generated_assertions,  # the evaluation function to return the success metrics
     # log_file_name="logs/humaneval.log",  # the log file name
-    inference_budget=0.05,  # the inference budget (dollar)
-    optimization_budget=3,  # the optimization budget (dollar)
+    inference_budget=0.05,  # the inference budget (dollar per instance)
+    optimization_budget=3,  # the optimization budget (dollar in total)
     # num_samples can further limit the number of trials for different hyperparameter configurations;
     # -1 means decided by the optimization budget only
     num_samples=-1,
