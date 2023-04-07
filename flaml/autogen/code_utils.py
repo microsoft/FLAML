@@ -166,6 +166,8 @@ def implement(
         int: The index of the configuration which generates the implementation.
     """
     cost = 0
+    if len(configs) > 1 and callable(assertions):
+        assertions, cost = assertions(definition)
     for i, config in enumerate(configs):
         response = oai.Completion.create({"definition": definition}, **config)
         cost += oai.Completion.cost(config["model"], response)
