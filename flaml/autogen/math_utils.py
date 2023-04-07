@@ -310,3 +310,104 @@ def eval_math_responses(responses, solution=None, **args):
         "voted_answer": responses[answer],
         "votes": votes,
     }
+
+
+def nestmkdir(path: str):
+    import os
+
+    current_path = ""
+
+    for folder in path.split("/"):
+        current_path = os.path.join(current_path, folder)
+
+        if not os.path.exists(current_path):
+            os.mkdir(current_path)
+            print(f"Created directory: {current_path}")
+
+
+def boxed_number(s):
+    # use regular expression to extract the number within the square brackets
+    import re
+
+    match = re.match(r"\[(\d+)\]", s)
+    if match:
+        # extract the number from the match object
+        num = match.group(1)
+        # return the boxed version of the number
+        return f"\\boxed{{{num}}}"
+    else:
+        # if the string doesn't match the expected format, return None
+        return None
+
+
+def strip_math_message(message):
+    if "\\boxed{" not in message and "\boxed" in message:
+        message = message.replace("\box", "\\box")
+    message = remove_boxed(last_boxed_only_string(message))
+
+    if message is not None and "=" in message:
+        message = message.split("=")[1]
+    return message
+
+
+def write_json(dict_to_save, file):
+    import json
+
+    jstring = json.dumps(dict_to_save, indent=2)
+    with open(file, "w") as j:
+        j.write(jstring)
+
+
+def voting(responses):
+    """
+    Take in list of responses and return the most voted ans, and a list of responses that have the most voted ans.
+    The answer must be in the box.
+    """
+    n = len(responses)
+
+    ans_counting = {}
+    solution_lists = {}
+    for i in range(n):
+        equiv = i
+        tmp_ans = strip_math_message(responses[i])
+
+        if tmp_ans is None or tmp_ans == "":
+            # ignore None answers
+            continue
+
+        for j in ans_counting:
+            if is_equiv(tmp_ans, strip_math_message(responses[j])):
+                equiv = j
+                break
+        if equiv in ans_counting:
+            ans_counting[equiv] += 1
+            solution_lists[equiv].append(responses[i])
+        else:
+            ans_counting[equiv] = 1
+            solution_lists[equiv] = [responses[i]]
+
+    # in case no response is valid
+    if len(ans_counting) == 0:
+        print(
+            "Caution: You have no valid answers. You must put your answer in \\boxed{}. This function only takes out answer from the box."
+        )
+        return None, None
+
+    ans_index = max(ans_counting.items(), key=lambda x: x[1], default=(0, 0))[
+        0
+    ]  # answer with most voting
+
+    ans_vote_dict = {}
+    for k in ans_counting.keys():
+        ans_vote_dict.update(
+            {
+                # ans : votes for this ans
+                strip_math_message(solution_lists[k][0]): ans_counting[k]
+            }
+        )
+
+    return (
+        strip_math_message(responses[ans_index]),
+        solution_lists[ans_index],
+        ans_vote_dict,
+    )
