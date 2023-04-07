@@ -323,6 +323,7 @@ class Completion:
                 start_n = max_valid_n + 1
         else:
             start_n = config_n
+            region_key = None
         params = config.copy()
         if "stop" in config:
             params["stop"] = stop
