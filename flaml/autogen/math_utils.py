@@ -280,8 +280,8 @@ def voting_counts(responses):
     return answers
 
 
-def success_metrics(responses, solution, **args):
-    """Check if each response is correct.
+def eval_math_responses(responses, solution=None, **args):
+    """Select a response for a math problem using voting, and check if the response is correct if the solution is provided.
 
     Args:
         responses (list): The list of responses.
@@ -292,10 +292,11 @@ def success_metrics(responses, solution, **args):
     """
     success_list = []
     n = len(responses)
-    for i in range(n):
-        response = responses[i]
-        succeed = is_equiv_chain_of_thought(response, solution)
-        success_list.append(succeed)
+    if solution is not None:
+        for i in range(n):
+            response = responses[i]
+            succeed = is_equiv_chain_of_thought(response, solution)
+            success_list.append(succeed)
     # voting
     answers = voting_counts(responses)
     # find the answer with highest votes in answers

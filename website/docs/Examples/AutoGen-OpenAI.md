@@ -62,9 +62,9 @@ Before starting tuning, you need to define the metric for the optimization. For 
 
 ```python
 from functools import partial
-from flaml.autogen.code_utils import success_metrics, generate_assertions
+from flaml.autogen.code_utils import eval_function_completions, generate_assertions
 
-success_metrics_with_generated_assertions = partial(success_metrics, assertions=generate_assertions)
+eval_with_generated_assertions = partial(eval_function_completions, assertions=generate_assertions)
 ```
 
 This function will first generate assertion statements for each problem. Then, it uses the assertions to select the generated responses.
@@ -86,7 +86,7 @@ config, analysis = oai.Completion.tune(
     data=tune_data,  # the data for tuning
     metric="success",  # the metric to optimize
     mode="max",  # the optimization mode
-    eval_func=success_metrics_with_generated_assertions,  # the evaluation function to return the success metrics
+    eval_func=eval_with_generated_assertions,  # the evaluation function to return the success metrics
     # log_file_name="logs/humaneval.log",  # the log file name
     inference_budget=0.05,  # the inference budget (dollar)
     optimization_budget=3,  # the optimization budget (dollar)
@@ -118,7 +118,7 @@ We can apply the tuned config to the request for an instance:
 ```python
 responses = oai.Completion.create(context=tune_data[1], **config)
 print(responses)
-print(success_metrics(oai.Completion.extract_text(response), **tune_data[1]))
+print(eval_with_generated_assertions(oai.Completion.extract_text(response), **tune_data[1]))
 ```
 
 #### Evaluate the success rate on the test data

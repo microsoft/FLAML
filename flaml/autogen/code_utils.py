@@ -66,14 +66,14 @@ def _remove_check(response):
     return response[:pos]
 
 
-def success_metrics(
+def eval_function_completions(
     responses: List[str],
     definition: str,
     test: Optional[str] = None,
     entry_point: Optional[str] = None,
     assertions: Optional[Union[str, Callable[[str], Tuple[str, float]]]] = None,
 ) -> Dict:
-    """Check if the task is successful.
+    """Select a response from a list of responses for the function completion task (using generated assertions), and/or evaluate if the task is successful using a gold test.
 
     Args:
         responses (list): The list of responses.
@@ -153,7 +153,7 @@ def implement(
         Union[str, Callable[[str], Tuple[str, float]]]
     ] = generate_assertions,
 ) -> Tuple[str, float]:
-    """Implement a function.
+    """Implement a function from a definition.
 
     Args:
         definition (str): The function definition, including the signature and docstr.
@@ -172,7 +172,9 @@ def implement(
         response = oai.Completion.create({"definition": definition}, **config)
         cost += oai.Completion.cost(config["model"], response)
         responses = oai.Completion.extract_text(response)
-        metrics = success_metrics(responses, definition, assertions=assertions)
+        metrics = eval_function_completions(
+            responses, definition, assertions=assertions
+        )
         assertions = metrics["assertions"]
         cost += metrics["gen_cost"]
         if metrics["succeed_assertions"] or i == len(configs) - 1:

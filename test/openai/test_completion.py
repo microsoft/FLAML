@@ -4,8 +4,12 @@ import numpy as np
 import pytest
 from functools import partial
 from flaml import oai
-from flaml.autogen.code_utils import success_metrics, generate_assertions, implement
-from flaml.autogen.math_utils import success_metrics as math_success_metrics
+from flaml.autogen.code_utils import (
+    eval_function_completions,
+    generate_assertions,
+    implement,
+)
+from flaml.autogen.math_utils import eval_math_responses
 
 
 @pytest.mark.skipif(
@@ -13,8 +17,8 @@ from flaml.autogen.math_utils import success_metrics as math_success_metrics
     reason="do not run on windows",
 )
 def test_humaneval(num_samples=1):
-    success_metrics_with_generated_assertions = partial(
-        success_metrics, assertions=generate_assertions
+    eval_with_generated_assertions = partial(
+        eval_function_completions, assertions=generate_assertions
     )
 
     seed = 41
@@ -48,7 +52,7 @@ def test_humaneval(num_samples=1):
         data=tune_data,
         metric="success",
         mode="max",
-        eval_func=success_metrics,
+        eval_func=eval_function_completions,
         n=1,
         prompt="{definition}",
     )
@@ -58,7 +62,7 @@ def test_humaneval(num_samples=1):
         data=tune_data,
         metric="succeed_assertions",
         mode="max",
-        eval_func=success_metrics_with_generated_assertions,
+        eval_func=eval_with_generated_assertions,
         n=1,
         model="gpt-3.5-turbo",
         prompt="{definition}",
@@ -69,7 +73,7 @@ def test_humaneval(num_samples=1):
         data=tune_data,
         metric="expected_success",
         mode="max",
-        eval_func=success_metrics,
+        eval_func=eval_function_completions,
         n=1,
         messages=[{"role": "user", "content": "{definition}"}],
     )
@@ -78,13 +82,13 @@ def test_humaneval(num_samples=1):
     code, cost, _ = implement(tune_data[1], [config])
     print(code)
     print(cost)
-    print(success_metrics([code], **tune_data[1]))
+    print(eval_function_completions([code], **tune_data[1]))
     # a more comprehensive tuning example
-    config, analysis = oai.Completion.tune(
+    config2, analysis = oai.Completion.tune(
         data=tune_data,
         metric="success",
         mode="max",
-        eval_func=success_metrics_with_generated_assertions,
+        eval_func=eval_with_generated_assertions,
         log_file_name="logs/humaneval.log",
         inference_budget=0.002,
         optimization_budget=2,
@@ -96,16 +100,19 @@ def test_humaneval(num_samples=1):
         ],
         stop=[["\nclass", "\ndef", "\nif", "\nprint"], None],  # the stop sequences
     )
-    print(config)
+    print(config2)
     print(analysis.best_result)
     print(test_data[0])
-    responses = oai.Completion.create(context=test_data[0], **config)
+    responses = oai.Completion.create(context=test_data[0], **config2)
     print(responses)
     oai.Completion.data = test_data[:num_samples]
     result = oai.Completion._eval(analysis.best_config, prune=False, eval_only=True)
     print("result without pruning", result)
-    result = oai.Completion.test(test_data[:num_samples], config=config)
+    result = oai.Completion.test(test_data[:num_samples], config=config2)
     print(result)
+    code, cost, selected = implement(tune_data[1], [config2, config])
+    print(selected)
+    print(eval_function_completions([code], **tune_data[1]))
 
 
 def test_math(num_samples=-1):
@@ -159,13 +166,13 @@ def test_math(num_samples=-1):
     }
     test_data_sample = test_data[0:3]
     result = oai.ChatCompletion.test(
-        test_data_sample, vanilla_config, math_success_metrics
+        test_data_sample, vanilla_config, eval_math_responses
     )
     test_data_sample = test_data[3:6]
     result = oai.ChatCompletion.test(
         test_data_sample,
         vanilla_config,
-        math_success_metrics,
+        eval_math_responses,
         use_cache=False,
         agg_method="median",
     )
@@ -179,14 +186,14 @@ def test_math(num_samples=-1):
     result = oai.ChatCompletion.test(
         test_data_sample,
         vanilla_config,
-        math_success_metrics,
+        eval_math_responses,
         use_cache=False,
         agg_method=my_median,
     )
     result = oai.ChatCompletion.test(
         test_data_sample,
         vanilla_config,
-        math_success_metrics,
+        eval_math_responses,
         use_cache=False,
         agg_method={
             "expected_success": my_median,
@@ -202,7 +209,7 @@ def test_math(num_samples=-1):
         data=tune_data,  # the data for tuning
         metric="expected_success",  # the metric to optimize
         mode="max",  # the optimization mode
-        eval_func=math_success_metrics,  # the evaluation function to return the success metrics
+        eval_func=eval_math_responses,  # the evaluation function to return the success metrics
         # log_file_name="logs/math.log",  # the log file name
         inference_budget=0.002,  # the inference budget (dollar)
         optimization_budget=0.01,  # the optimization budget (dollar)
@@ -220,4 +227,4 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_humaneval(1)
-    test_math(1)
+    # test_math(1)
