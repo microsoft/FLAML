@@ -176,7 +176,9 @@ class Completion:
                 if "azure" == openai.api_type and "model" in config:
                     # azure api uses "engine" instead of "model"
                     config = config.copy()
-                    config["engine"] = config.pop("model")
+                    config["engine"] = config.pop("model").replace(
+                        "gpt-3.5-turbo", "gpt-35-turbo"
+                    )
                 else:
                     raise
         logger.warning(

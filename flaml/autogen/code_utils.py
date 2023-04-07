@@ -129,6 +129,7 @@ def success_metrics(
             "index_selected": i,
             "succeed_assertions": succeed_assertions,
             "gen_cost": gen_cost,
+            "assertions": assertions,
         }
     code_test = (
         f"{response}\n{test}\ncheck({entry_point})"
@@ -141,26 +142,36 @@ def success_metrics(
         "succeed_assertions": succeed_assertions,
         "success": success,
         "gen_cost": gen_cost,
+        "assertions": assertions,
     }
 
 
-def implement(definition: str, configs: List[Dict]) -> Tuple[str, float]:
+def implement(
+    definition: str,
+    configs: List[Dict],
+    assertions: Optional[
+        Union[str, Callable[[str], Tuple[str, float]]]
+    ] = generate_assertions,
+) -> Tuple[str, float]:
     """Implement a function.
 
     Args:
         definition (str): The function definition, including the signature and docstr.
         configs (list): The list of configurations for completion.
+        assertions (Optional, str or Callable): The assertion code which serves as a filter of the responses, or an assertion generator.
 
     Returns:
         str: The implementation.
         float: The cost of the implementation.
         int: The index of the configuration which generates the implementation.
     """
-    assertions, cost = generate_assertions(definition)
+    cost = 0
     for i, config in enumerate(configs):
         response = oai.Completion.create({"definition": definition}, **config)
         cost += oai.Completion.cost(config["model"], response)
         responses = oai.Completion.extract_text(response)
         metrics = success_metrics(responses, definition, assertions=assertions)
+        assertions = metrics["assertions"]
+        cost += metrics["gen_cost"]
         if metrics["succeed_assertions"] or i == len(configs) - 1:
             return responses[metrics["index_selected"]], cost, i
