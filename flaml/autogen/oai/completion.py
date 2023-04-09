@@ -2,7 +2,10 @@ from time import sleep
 import logging
 import numpy as np
 import time
+from typing import List
+import sys
 from flaml import tune, BlendSearch
+from flaml.automl.logger import logger_formatter
 
 try:
     import openai
@@ -22,6 +25,11 @@ except ImportError:
         "please install flaml[openai] option to use the flaml.oai subpackage."
     )
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    # Add the console handler.
+    _ch = logging.StreamHandler(stream=sys.stdout)
+    _ch.setFormatter(logger_formatter)
+    logger.addHandler(_ch)
 
 
 def get_key(config):
@@ -50,6 +58,7 @@ class Completion:
     chat_models = {
         "gpt-3.5-turbo",
         "gpt-3.5-turbo-0301",
+        "gpt-35-turbo",
         "gpt-4",
         "gpt-4-32k",
         "gpt-4-32k-0314",
@@ -67,6 +76,7 @@ class Completion:
         "text-davinci-003": 0.02,
         "gpt-3.5-turbo": 0.002,
         "gpt-3.5-turbo-0301": 0.002,
+        "gpt-35-turbo": 0.002,
         "gpt-4": (0.03, 0.06),
         "gpt-4-0314": (0.03, 0.06),
         "gpt-4-32k": (0.06, 0.12),
@@ -95,10 +105,13 @@ class Completion:
     }
 
     seed = 41
+    cache_path = f".cache/{seed}"
     # retry after this many seconds
     retry_time = 10
     # fail a request after hitting RateLimitError for this many seconds
-    retry_timeout = 60
+    retry_timeout = 120
+    # time out for request to openai server
+    request_timeout = 60
 
     openai_completion_class = not ERROR and openai.Completion
     _total_cost = 0
@@ -118,16 +131,17 @@ class Completion:
         cls.cache_path = f"{cache_path}/{seed}"
 
     @classmethod
-    def _get_response(cls, config: dict, eval_only=False):
+    def _get_response(cls, config: dict, eval_only=False, use_cache=True):
         """Get the response from the openai api call.
 
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
         """
         key = get_key(config)
-        response = cls._cache.get(key, None)
-        if response is not None and (response != -1 or not eval_only):
-            # print("using cached response")
-            return response
+        if use_cache:
+            response = cls._cache.get(key, None)
+            if response is not None and (response != -1 or not eval_only):
+                # print("using cached response")
+                return response
         openai_completion = (
             openai.ChatCompletion
             if config["model"] in cls.chat_models
@@ -136,7 +150,9 @@ class Completion:
         start_time = time.time()
         while True:
             try:
-                response = openai_completion.create(**config)
+                response = openai_completion.create(
+                    request_timeout=cls.request_timeout, **config
+                )
                 cls._cache.set(key, response)
                 return response
             except (
@@ -151,14 +167,18 @@ class Completion:
                 # retry after retry_time seconds
                 if time.time() - start_time + cls.retry_time < cls.retry_timeout:
                     logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
-                elif not eval_only:
+                elif eval_only:
+                    raise
+                else:
                     break
                 sleep(cls.retry_time)
             except InvalidRequestError:
                 if "azure" == openai.api_type and "model" in config:
                     # azure api uses "engine" instead of "model"
                     config = config.copy()
-                    config["engine"] = config.pop("model")
+                    config["engine"] = config.pop("model").replace(
+                        "gpt-3.5-turbo", "gpt-35-turbo"
+                    )
                 else:
                     raise
         logger.warning(
@@ -215,34 +235,15 @@ class Completion:
             )
 
     @classmethod
-    def eval(cls, config: dict, prune=True, eval_only=False):
-        """Evaluate the given config as the hyperparameter setting for the openai api call.
+    def _pop_subspace(cls, config):
+        if "subspace" in config:
+            config = config.copy()
+            config.update(config.pop("subspace"))
+        return config
 
-        Args:
-            config (dict): Hyperparameter setting for the openai api call.
-            prune (bool, optional): Whether to enable pruning. Defaults to True.
-            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
-              Defaults to False.
-
-        Returns:
-            dict: Evaluation results.
-        """
-        cost = 0
-        data = cls.data
-        model = config["model"]
-        data_length = len(data)
-        price = cls.price1K.get(model)
-        price_input, price_output = (
-            price if isinstance(price, tuple) else (price, price)
-        )
-        inference_budget = getattr(cls, "inference_budget", None)
-        prune_hp = getattr(cls, "_prune_hp", "n")
-        metric = cls._metric
-        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get(
-            "max_tokens", np.inf if model in cls.chat_models else 16
-        )
-        # default value in OpenAI
+    @classmethod
+    def _get_prompt_messages_from_config(cls, model, config):
+        prompt, messages = None, None
         if model in cls.chat_models:
             # either "prompt" should be in config (for being compatible with non-chat models)
             # or "messages" should be in config (for tuning chat models only)
@@ -258,6 +259,38 @@ class Completion:
                 prompt = cls._prompts[prompt]
         else:
             prompt = cls._prompts[config["prompt"]]
+        return prompt, messages
+
+    @classmethod
+    def _eval(cls, config: dict, prune=True, eval_only=False):
+        """Evaluate the given config as the hyperparameter setting for the openai api call.
+
+        Args:
+            config (dict): Hyperparameter setting for the openai api call.
+            prune (bool, optional): Whether to enable pruning. Defaults to True.
+            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
+              Defaults to False.
+
+        Returns:
+            dict: Evaluation results.
+        """
+        cost = 0
+        data = cls.data
+        config = cls._pop_subspace(config)
+        model = config["model"]
+        data_length = len(data)
+        price = cls.price1K.get(model)
+        price_input, price_output = (
+            price if isinstance(price, tuple) else (price, price)
+        )
+        inference_budget = getattr(cls, "inference_budget", None)
+        prune_hp = getattr(cls, "_prune_hp", "n")
+        metric = cls._metric
+        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
+        max_tokens = config.get(
+            "max_tokens", np.inf if model in cls.chat_models else 16
+        )
+        prompt, messages = cls._get_prompt_messages_from_config(model, config)
         stop = cls._stops and cls._stops[config["stop"]]
         target_output_tokens = None
         if not cls.avg_input_tokens:
@@ -290,8 +323,10 @@ class Completion:
                 start_n = max_valid_n + 1
         else:
             start_n = config_n
+            region_key = None
         params = config.copy()
-        params["stop"] = stop
+        if "stop" in config:
+            params["stop"] = stop
         temperature_or_top_p = params.pop("temperature_or_top_p", None)
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
@@ -309,33 +344,7 @@ class Completion:
                         f"num_completions={num_completions}, data instance={i}"
                     )
                     data_i = data[i]
-                    if prompt is None:
-                        params["messages"] = [
-                            {
-                                "role": m["role"],
-                                "content": m["content"].format(**data_i)
-                                if isinstance(m["content"], str)
-                                else m["content"](data_i),
-                            }
-                            for m in messages
-                        ]
-                    elif model in cls.chat_models:
-                        # convert prompt to messages
-                        params["messages"] = [
-                            {
-                                "role": "user",
-                                "content": prompt.format(**data_i)
-                                if isinstance(prompt, str)
-                                else prompt(data_i),
-                            },
-                        ]
-                        params.pop("prompt", None)
-                    else:
-                        params["prompt"] = (
-                            prompt.format(**data_i)
-                            if isinstance(prompt, str)
-                            else prompt(data_i)
-                        )
+                    params = cls._construct_params(data_i, params, prompt, messages)
                     response = cls._get_response(params, eval_only)
                     if response == -1:  # rate limit error, treat as invalid
                         cls._update_invalid_n(
@@ -345,11 +354,7 @@ class Completion:
                         result["cost"] = cost
                         return result
                     # evaluate the quality of the responses
-                    responses = (
-                        [r["message"]["content"].rstrip() for r in response["choices"]]
-                        if model in cls.chat_models
-                        else [r["text"].rstrip() for r in response["choices"]]
-                    )
+                    responses = cls.extract_text(response)
                     usage = response["usage"]
                     n_input_tokens = usage["prompt_tokens"]
                     n_output_tokens = usage.get("completion_tokens", 0)
@@ -481,6 +486,7 @@ class Completion:
         """Tune the parameters for the OpenAI API call.
 
         TODO: support parallel tuning with ray or spark.
+        TODO: support agg_method as in test
 
         Args:
             data (list): The list of data points.
@@ -490,27 +496,28 @@ class Completion:
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. For example,
 
-            ```python
-            def eval_func(responses, **data):
-                solution = data["solution"]
-                success_list = []
-                n = len(responses)
-                for i in range(n):
-                    response = responses[i]
-                    succeed = is_equiv_chain_of_thought(response, solution)
-                    success_list.append(succeed)
-                return {
-                    "expected_success": 1 - pow(1 - sum(success_list) / n, n),
-                    "success": any(s for s in success_list),
-                }
-            ```
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
 
             log_file_name (str, optional): The log file.
-            inference_budget (float, optional): The inference budget.
-            optimization_budget (float, optional): The optimization budget.
+            inference_budget (float, optional): The inference budget, dollar per instance.
+            optimization_budget (float, optional): The optimization budget, dollar in total.
             num_samples (int, optional): The number of samples to evaluate.
                 -1 means no hard restriction in the number of trials
                 and the actual number is decided by optimization_budget. Defaults to 1.
+            logging_level (optional): logging level. Defaults to logging.WARNING.
             **config (dict): The search space to update over the default search.
                 For prompt, please provide a string/Callable or a list of strings/Callables.
                     - If prompt is provided for chat models, it will be converted to messages under role "user".
@@ -585,22 +592,38 @@ class Completion:
         cls.data = data
         cls.avg_input_tokens = None
 
-        search_alg = BlendSearch(
-            cost_attr="cost",
-            cost_budget=optimization_budget,
-            metric=metric,
-            mode=mode,
-            space=space,
-        )
         space_model = space["model"]
         if not isinstance(space_model, str) and len(space_model) > 1:
+            # make a hierarchical search space
+            subspace = {}
+            if "max_tokens" in space:
+                subspace["max_tokens"] = space.pop("max_tokens")
+            if "temperature_or_top_p" in space:
+                subspace["temperature_or_top_p"] = space.pop("temperature_or_top_p")
+            if "best_of" in space:
+                subspace["best_of"] = space.pop("best_of")
+            if "n" in space:
+                subspace["n"] = space.pop("n")
+            choices = []
+            for model in space["model"]:
+                choices.append({"model": model, **subspace})
+            space["subspace"] = tune.choice(choices)
+            space.pop("model")
             # start all the models with the same hp config
+            search_alg = BlendSearch(
+                cost_attr="cost",
+                cost_budget=optimization_budget,
+                metric=metric,
+                mode=mode,
+                space=space,
+            )
             config0 = search_alg.suggest("t0")
             points_to_evaluate = [config0]
             for model in space_model:
-                if model != config0["model"]:
+                if model != config0["subspace"]["model"]:
                     point = config0.copy()
-                    point["model"] = model
+                    point["subspace"] = point["subspace"].copy()
+                    point["subspace"]["model"] = model
                     points_to_evaluate.append(point)
             search_alg = BlendSearch(
                 cost_attr="cost",
@@ -610,17 +633,26 @@ class Completion:
                 space=space,
                 points_to_evaluate=points_to_evaluate,
             )
+        else:
+            search_alg = BlendSearch(
+                cost_attr="cost",
+                cost_budget=optimization_budget,
+                metric=metric,
+                mode=mode,
+                space=space,
+            )
+        old_level = logger.getEffectiveLevel()
         logger.setLevel(logging_level)
         with diskcache.Cache(cls.cache_path) as cls._cache:
             analysis = tune.run(
-                cls.eval,
+                cls._eval,
                 search_alg=search_alg,
                 num_samples=num_samples,
                 log_file_name=log_file_name,
                 verbose=3,
             )
         config = analysis.best_config
-        params = config.copy()
+        params = cls._pop_subspace(config)
         if cls._prompts:
             params["prompt"] = cls._prompts[config["prompt"]]
         else:
@@ -630,6 +662,7 @@ class Completion:
         temperature_or_top_p = params.pop("temperature_or_top_p", None)
         if temperature_or_top_p:
             params.update(temperature_or_top_p)
+        logger.setLevel(old_level)
         return params, analysis
 
     @classmethod
@@ -650,48 +683,237 @@ class Completion:
         """
         if ERROR:
             raise ERROR
+        params = cls._construct_params(context, config)
+        if not use_cache:
+            return cls._get_response(params, eval_only=True, use_cache=False)
+        seed = cls.seed
+        if "seed" in params:
+            cls.set_cache(params.pop("seed"))
+        with diskcache.Cache(cls.cache_path) as cls._cache:
+            cls.set_cache(seed)
+            return cls._get_response(params, eval_only=True)
+
+    @classmethod
+    def _construct_params(cls, data_instance, config, prompt=None, messages=None):
         params = config.copy()
-        prompt = config.get("prompt")
-        if "messages" in config:
+        model = config["model"]
+        prompt = config.get("prompt") if prompt is None else prompt
+        messages = config.get("messages") if messages is None else messages
+        # either "prompt" should be in config (for being compatible with non-chat models)
+        # or "messages" should be in config (for tuning chat models only)
+        if prompt is None and model in cls.chat_models:
+            if messages is None:
+                raise ValueError(
+                    "Either prompt or messages should be in config for chat models."
+                )
+        if prompt is None:
             params["messages"] = [
                 {
-                    k: v.format(**context) if isinstance(v, str) else v(context)
-                    for k, v in message.items()
+                    "role": m["role"],
+                    "content": m["content"].format(**data_instance)
+                    if isinstance(m["content"], str)
+                    else m["content"](data_instance),
                 }
-                for message in config["messages"]
+                for m in messages
             ]
-            params.pop("prompt", None)
-        elif config["model"] in cls.chat_models:
+        elif model in cls.chat_models:
+            # convert prompt to messages
+            if isinstance(prompt, str):
+                prompt_msg = prompt.format(**data_instance)
+            else:
+                prompt_msg = prompt(data_instance)
             params["messages"] = [
                 {
                     "role": "user",
-                    "content": prompt.format(**context)
+                    "content": prompt_msg
                     if isinstance(prompt, str)
-                    else prompt(context),
-                }
+                    else prompt(data_instance),
+                },
             ]
             params.pop("prompt", None)
         else:
             params["prompt"] = (
-                prompt.format(**context) if isinstance(prompt, str) else prompt(context)
+                prompt.format(**data_instance)
+                if isinstance(prompt, str)
+                else prompt(data_instance)
             )
-        if use_cache:
-            with diskcache.Cache(cls.cache_path) as cls._cache:
-                return cls._get_response(params)
-        return cls.openai_completion_class.create(**params)
+        return params
+
+    @classmethod
+    def test(
+        cls,
+        data,
+        config,
+        eval_func=None,
+        use_cache=True,
+        agg_method="avg",
+        return_responses_and_per_instance_result=False,
+        logging_level=logging.WARNING,
+    ):
+        """Evaluate the responses created with the config for the OpenAI API call.
+
+        Args:
+            data (list): The list of test data points.
+            config (dict): Hyperparameter setting for the openai api call.
+            eval_func (Callable): The evaluation function for responses per data instance.
+                The function should take a list of responses and a data point as input,
+                and return a dict of metrics. You need to either provide a valid callable
+                eval_func; or do not provide one (set None) but call the test function after
+                calling the tune function in which a eval_func is provided.
+                In the latter case we will use the eval_func provided via tune function.
+                Defaults to None.
+
+        ```python
+        def eval_func(responses, **data):
+            solution = data["solution"]
+            success_list = []
+            n = len(responses)
+            for i in range(n):
+                response = responses[i]
+                succeed = is_equiv_chain_of_thought(response, solution)
+                success_list.append(succeed)
+            return {
+                "expected_success": 1 - pow(1 - sum(success_list) / n, n),
+                "success": any(s for s in success_list),
+            }
+        ```
+            use_cache (bool, Optional): Whether to use cached responses. Defaults to True.
+            agg_method (str, Callable or a dict of Callable): Result aggregation method (across
+                multiple instances) for each of the metrics. Defaults to 'avg'.
+                An example agg_method in str:
+
+        ```python
+        agg_method = 'median'
+        ```
+                An example agg_method in a Callable:
+
+        ```python
+        agg_method = np.median
+        ```
+
+                An example agg_method in a dict of Callable:
+
+        ```python
+        agg_method={'median_success': np.median, 'avg_success': np.mean}
+        ```
+
+            return_responses_and_per_instance_result (bool): Whether to also return responses
+                and per instance results in addition to the aggregated results.
+            logging_level (optional): logging level. Defaults to logging.WARNING.
+
+        Returns:
+            None when no valid eval_func is provided in either test or tune;
+            Otherwise, a dict of aggregated results, responses and per instance results if `return_responses_and_per_instance_result` is True;
+            Otherwise, a dict of aggregated results (responses and per instance results are not returned).
+        """
+        result_agg, responses_list, result_list = {}, [], []
+        metric_keys = None
+        cost = 0
+        model = config["model"]
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel(logging_level)
+        for i, data_i in enumerate(data):
+            logger.info(f"evaluating data instance {i}")
+            response = cls.create(data_i, use_cache, **config)
+            cost += cls.cost(model, response)
+            # evaluate the quality of the responses
+            responses = cls.extract_text(response)
+            if eval_func is not None:
+                metrics = eval_func(responses, **data_i)
+            elif hasattr(cls, "_eval_func"):
+                metrics = cls._eval_func(responses, **data_i)
+            else:
+                logger.warning(
+                    "Please either provide a valid eval_func or do the test after the tune function is called."
+                )
+                return
+            if not metric_keys:
+                metric_keys = []
+                for k in metrics.keys():
+                    try:
+                        _ = float(metrics[k])
+                        metric_keys.append(k)
+                    except ValueError:
+                        pass
+            result_list.append(metrics)
+            if return_responses_and_per_instance_result:
+                responses_list.append(responses)
+        if isinstance(agg_method, str):
+            if agg_method in ["avg", "average"]:
+                for key in metric_keys:
+                    result_agg[key] = np.mean([r[key] for r in result_list])
+            elif agg_method == "median":
+                for key in metric_keys:
+                    result_agg[key] = np.median([r[key] for r in result_list])
+            else:
+                logger.warning(
+                    f"Aggregation method {agg_method} not supported. Please write your own aggregation method as a callable(s)."
+                )
+        elif callable(agg_method):
+            for key in metric_keys:
+                result_agg[key] = agg_method([r[key] for r in result_list])
+        elif isinstance(agg_method, dict):
+            for key in metric_keys:
+                metric_agg_method = agg_method[key]
+                assert callable(
+                    metric_agg_method
+                ), "please provide a callable for each metric"
+                result_agg[key] = metric_agg_method([r[key] for r in result_list])
+        else:
+            raise ValueError(
+                "agg_method needs to be a string ('avg' or 'median'),\
+                or a callable, or a dictionary of callable."
+            )
+        logger.setLevel(old_level)
+        # should we also return the result_list and responses_list or not?
+        if "cost" not in result_agg:
+            result_agg["cost"] = cost
+        if "inference_cost" not in result_agg:
+            result_agg["inference_cost"] = cost / len(data)
+        if return_responses_and_per_instance_result:
+            return result_agg, result_list, responses_list
+        else:
+            return result_agg
+
+    @classmethod
+    def cost(cls, model: str, response: dict):
+        """Compute the cost of a completion.
+
+        Args:
+            model (str): The model name.
+            response (dict): The response from OpenAI API.
+
+        Returns:
+            The cost in USD.
+        """
+        if model not in cls.price1K:
+            raise ValueError(f"Unknown model: {model}")
+        usage = response["usage"]
+        n_input_tokens = usage["prompt_tokens"]
+        n_output_tokens = usage.get("completion_tokens", 0)
+        price1K = cls.price1K[model]
+        if isinstance(price1K, tuple):
+            return (price1K[0] * n_input_tokens + price1K[1] * n_output_tokens) / 1000
+        return price1K * (n_input_tokens + n_output_tokens) / 1000
+
+    @classmethod
+    def extract_text(cls, response: dict) -> List[str]:
+        """Extract the text from a completion response.
+
+        Args:
+            response (dict): The response from OpenAI API.
+
+        Returns:
+            A list of text in the responses.
+        """
+        choices = response["choices"]
+        if "text" in choices[0]:
+            return [choice["text"] for choice in choices]
+        return [choice["message"]["content"] for choice in choices]
 
 
 class ChatCompletion(Completion):
     """A class for OpenAI API ChatCompletion."""
-
-    price1K = {
-        "gpt-3.5-turbo": 0.002,
-        "gpt-3.5-turbo-0301": 0.002,
-        "gpt-4": (0.03, 0.06),
-        "gpt-4-0314": (0.03, 0.06),
-        "gpt-4-32k": (0.06, 0.12),
-        "gpt-4-32k-0314": (0.06, 0.12),
-    }
 
     default_search_space = Completion.default_search_space.copy()
     default_search_space["model"] = tune.choice(["gpt-3.5-turbo", "gpt-4"])
