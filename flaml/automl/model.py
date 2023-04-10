@@ -2292,9 +2292,7 @@ class HoltWinters(ARIMA):
             },
             "use_boxcox": {"domain": tune.choice([False, True]), "init_value": False},
             "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
-                "domain": tune.choice(
-                    [7, 12, 4, 52, 6]
-                ),  # weekly, yearly, quarterly, weekly w yearly data
+                "domain": tune.choice([7, 12, 4, 52, 6]),  # weekly, yearly, quarterly, weekly w yearly data
                 "init_value": 7,
             },
         }
