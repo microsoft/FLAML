@@ -1,23 +1,23 @@
-# Does Model Selection and Hyperparameter Tuning Matter for LLM? - A Case Study for MATH
+# Does Model and Inference Parameter Matter in LLM Applications? - A Case Study for MATH
 
 - Introduction
-  - Explain what LLM and MATH are and why they are important for natural language processing tasks
-  - State the main question of the blog post: Does model selection and hyperparameter tuning matter for LLM? - A case study for MATH
+  - Explain what LLM is and why it is important to study its applications.
+  - State the main question of the blog post: Does model and inference parameter matter in LLM applications? - A case study for MATH
   - Provide an overview of the methods and results of the case study
 - Background
   - Review some previous works on LLM and MATH and their challenges and limitations
-  - Introduce FLAML as a tool for efficient model selection and hyperparameter tuning for LLM
+  - Introduce FLAML as a tool for efficient model and inference parameter tuning for LLM
   - Describe the main features and advantages of FLAML
 - Methodology
   - Explain how the case study was conducted using FLAML
-  - Describe the data set, the models, the metrics, and the budget constraints used in the case study
-  - Provide some details on how FLAML works and how it finds the optimal hyperparameters for each model
+  - Describe the data set, the models, the inference parameters, and the metrics used in the case study
+  - Provide some details on how FLAML works and how it finds the optimal inference parameters for each model
 - Results and Discussion
   - Present the results of the case study in tables and graphs
-  - Compare the performance of different models and hyperparameters on MATH
-  - Analyze the impact of model selection and hyperparameter tuning on LLM
+  - Compare the performance of different models and inference parameters on MATH
+  - Analyze the impact of model and inference parameter tuning on LLM applications
   - Discuss the implications and limitations of the case study
 - Conclusion
   - Summarize the main findings and contributions of the blog post
-  - Answer the main question of the blog post: Does model selection and hyperparameter tuning matter for LLM? - A case study for MATH
+  - Answer the main question of the blog post: Does model and inference parameter matter in LLM applications? - A case study for MATH
   - Provide some suggestions for future work and research directions on LLM and MATH
