@@ -4,10 +4,10 @@ description-file = "README.md"
 
 
 [tool.pytest.ini_options]
-addopts = -m "not conda"
-markers =
-    conda: test related to conda forge distribution
-
+addopts = '-m "not conda"'
+markers = [
+    "conda: test related to conda forge distribution"
+]
 
 [tool.black]
 # https://github.com/psf/black
@@ -26,10 +26,8 @@ select = [
 #    "S",  # see: https://pypi.org/project/flake8-bandit
 ]
 ignore = [
-    "E203",
-    "E266",
     "E501",
-    "W503",
+    "F401",
     "F403",
     "C901",
 ]
