@@ -2,7 +2,9 @@ import numpy as np
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=5):
+def test_forecast_automl(
+    budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
+):
     # using dataframe
     import statsmodels.api as sm
 
@@ -33,7 +35,7 @@ def test_forecast_automl(budget=5):
         automl.fit(
             dataframe=df,
             **settings,
-            estimator_list=["arima", "sarimax"],
+            estimator_list=estimators_when_no_prophet,
             period=time_horizon,
         )
     """ retrieve best config and best learner"""
@@ -83,7 +85,7 @@ def test_forecast_automl(budget=5):
             X_train=X_train,
             y_train=y_train,
             **settings,
-            estimator_list=["arima", "sarimax"],
+            estimator_list=estimators_when_no_prophet,
             period=time_horizon,
         )
 
@@ -155,7 +157,9 @@ def load_multi_dataset():
     return df
 
 
-def test_multivariate_forecast_num(budget=5):
+def test_multivariate_forecast_num(
+    budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
+):
     df = load_multi_dataset()
     # split data into train and test
     time_horizon = 180
@@ -187,7 +191,7 @@ def test_multivariate_forecast_num(budget=5):
         automl.fit(
             dataframe=train_df,
             **settings,
-            estimator_list=["arima", "sarimax"],
+            estimator_list=estimators_when_no_prophet,
             period=time_horizon,
         )
     """ retrieve best config and best learner"""
@@ -285,7 +289,9 @@ def load_multi_dataset_cat(time_horizon):
     return train_df, test_df
 
 
-def test_multivariate_forecast_cat(budget=5):
+def test_multivariate_forecast_cat(
+    budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
+):
     time_horizon = 180
     train_df, test_df = load_multi_dataset_cat(time_horizon)
     X_test = test_df[
@@ -312,7 +318,7 @@ def test_multivariate_forecast_cat(budget=5):
         automl.fit(
             dataframe=train_df,
             **settings,
-            estimator_list=["arima", "sarimax"],
+            estimator_list=estimators_when_no_prophet,
             period=time_horizon,
         )
     """ retrieve best config and best learner"""

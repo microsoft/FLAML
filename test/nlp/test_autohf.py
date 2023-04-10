@@ -50,7 +50,9 @@ def test_hf_data():
 
     automl.retrain_from_log(X_train=X_train, y_train=y_train, train_full=True, record_id=0, **automl_settings)
     automl.predict(X_test, **{"per_device_eval_batch_size": 2})
-    automl.predict(["test test", "test test"])
+    automl.predict(["", ""])
+    automl.predict_proba(["", ""])
+
     automl.predict(
         [
             ["test test", "test test"],
