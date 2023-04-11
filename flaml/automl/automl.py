@@ -859,7 +859,9 @@ class AutoML(BaseEstimator):
         else:
             self._state.fit_kwargs_by_estimator[best_estimator] = self._state.fit_kwargs
 
-        logger.info("estimator = {}, config = {}, #training instances = {}".format(best_estimator, best_config, sample_size))
+        logger.info(
+            "estimator = {}, config = {}, #training instances = {}".format(best_estimator, best_config, sample_size)
+        )
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
         self._split_type = task.decide_split_type(
@@ -914,7 +916,11 @@ class AutoML(BaseEstimator):
             ], "eval_method must be 'holdout', 'cv' or 'auto'."
             return eval_method
         nrow, dim = self._nrow, self._ndim
-        if time_budget < 0 or nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600) and nrow < CV_HOLDOUT_THRESHOLD:
+        if (
+            time_budget < 0
+            or nrow * dim / 0.9 < SMALL_LARGE_THRES * (time_budget / 3600)
+            and nrow < CV_HOLDOUT_THRESHOLD
+        ):
             # time allows or sampling can be used and cv is necessary
             return "cv"
         else:
@@ -968,7 +974,10 @@ class AutoML(BaseEstimator):
                 configs.append(c)
             configs.append(
                 np.argmin(
-                    [self._state.learner_classes.get(estimator).cost_relative2lgbm() for estimator in self.estimator_list]
+                    [
+                        self._state.learner_classes.get(estimator).cost_relative2lgbm()
+                        for estimator in self.estimator_list
+                    ]
                 )
             )
             config = {"ml": configs}
@@ -1084,7 +1093,9 @@ class AutoML(BaseEstimator):
             if states[estimator].learner_class.size(config) <= mem_res:
                 del config["learner"]
                 config.pop("_choice_", None)
-                result = AutoMLState._compute_with_config_base(config, state=state, estimator=estimator, is_report=is_report)
+                result = AutoMLState._compute_with_config_base(
+                    config, state=state, estimator=estimator, is_report=is_report
+                )
             else:
                 # If search algorithm is not in flaml, it does not handle the config constraint, should also tune.report before return
                 result = {
@@ -1529,7 +1540,9 @@ class AutoML(BaseEstimator):
         ensemble = self._settings.get("ensemble") if ensemble is None else ensemble
         log_type = log_type or self._settings.get("log_type")
         model_history = self._settings.get("model_history") if model_history is None else model_history
-        log_training_metric = self._settings.get("log_training_metric") if log_training_metric is None else log_training_metric
+        log_training_metric = (
+            self._settings.get("log_training_metric") if log_training_metric is None else log_training_metric
+        )
         mem_thres = mem_thres or self._settings.get("mem_thres")
         pred_time_limit = pred_time_limit or self._settings.get("pred_time_limit")
         train_time_limit = train_time_limit or self._settings.get("train_time_limit")
@@ -1685,7 +1698,11 @@ class AutoML(BaseEstimator):
                     _sample_size_from_starting_points[_estimator] = sample_size
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
                     _sample_size_set = set(
-                        [config["FLAML_sample_size"] for config in _point_per_estimator if "FLAML_sample_size" in config]
+                        [
+                            config["FLAML_sample_size"]
+                            for config in _point_per_estimator
+                            if "FLAML_sample_size" in config
+                        ]
                     )
                     if _sample_size_set:
                         _sample_size_from_starting_points[_estimator] = min(_sample_size_set)
@@ -1888,7 +1905,9 @@ class AutoML(BaseEstimator):
             if hpo_method != "auto"
             else (
                 "bs"
-                if n_concurrent_trials > 1 or (self._use_ray is not False or self._use_spark) and len(estimator_list) > 1
+                if n_concurrent_trials > 1
+                or (self._use_ray is not False or self._use_spark)
+                and len(estimator_list) > 1
                 else "cfo"
             )
         )
@@ -2062,7 +2081,11 @@ class AutoML(BaseEstimator):
             )
         # logger.info([trial.last_result for trial in analysis.trials])
         trials = sorted(
-            (trial for trial in analysis.trials if trial.last_result and trial.last_result.get("wall_clock_time") is not None),
+            (
+                trial
+                for trial in analysis.trials
+                if trial.last_result and trial.last_result.get("wall_clock_time") is not None
+            ),
             key=lambda x: x.last_result["wall_clock_time"],
         )
         for self._track_iter, trial in enumerate(trials):
@@ -2162,7 +2185,9 @@ class AutoML(BaseEstimator):
         elif "cfocat" == self._hpo_method:
             from flaml.tune.searcher.cfo_cat import CFOCat as SearchAlgo
         else:
-            raise NotImplementedError(f"hpo_method={self._hpo_method} is not recognized. " "'cfo' and 'bs' are supported.")
+            raise NotImplementedError(
+                f"hpo_method={self._hpo_method} is not recognized. " "'cfo' and 'bs' are supported."
+            )
 
         est_retrain_time = next_trial_time = 0
         best_config_sig = None
@@ -2535,7 +2560,9 @@ class AutoML(BaseEstimator):
                     self._trained_estimator.model = stacker
                 except ValueError as e:
                     if passthrough:
-                        logger.warning("Using passthrough=False for ensemble because the data contain categorical features.")
+                        logger.warning(
+                            "Using passthrough=False for ensemble because the data contain categorical features."
+                        )
                         stacker = Stacker(
                             estimators,
                             final_estimator,
@@ -2586,7 +2613,11 @@ class AutoML(BaseEstimator):
                     logger.info("not retraining because the time budget is too small.")
 
     def __del__(self):
-        if hasattr(self, "_trained_estimator") and self._trained_estimator and hasattr(self._trained_estimator, "cleanup"):
+        if (
+            hasattr(self, "_trained_estimator")
+            and self._trained_estimator
+            and hasattr(self._trained_estimator, "cleanup")
+        ):
             if self.preserve_checkpoint is False:
                 self._trained_estimator.cleanup()
             del self._trained_estimator
@@ -2607,7 +2638,8 @@ class AutoML(BaseEstimator):
                 search_state = self._search_states[estimator]
                 if (
                     self._state.time_budget >= 0
-                    and self._search_states[estimator].time2eval_best > self._state.time_budget - self._state.time_from_start
+                    and self._search_states[estimator].time2eval_best
+                    > self._state.time_budget - self._state.time_from_start
                     or self._iter_per_learner_fullsize[estimator] >= self._max_iter_per_learner
                 ):
                     inv.append(0)

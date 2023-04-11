@@ -241,7 +241,11 @@ class BaseEstimator:
         Returns:
             train_time: A float of the training time in seconds.
         """
-        if getattr(self, "limit_resource", None) and resource is not None and (budget is not None or psutil is not None):
+        if (
+            getattr(self, "limit_resource", None)
+            and resource is not None
+            and (budget is not None or psutil is not None)
+        ):
             start_time = time.time()
             mem = psutil.virtual_memory() if psutil is not None else None
             try:
@@ -878,7 +882,9 @@ class TransformersEstimator(BaseEstimator):
             task_to_datacollator_class,
         )
 
-        data_collator_class = task_to_datacollator_class.get(self._task.name if isinstance(self._task, Task) else self._task)
+        data_collator_class = task_to_datacollator_class.get(
+            self._task.name if isinstance(self._task, Task) else self._task
+        )
 
         if data_collator_class:
             kwargs = {
@@ -1009,7 +1015,9 @@ class TransformersEstimator(BaseEstimator):
         self._ckpt_remains = list(self._trainer.ckpt_to_metric.keys())
 
         if hasattr(self._trainer, "intermediate_results"):
-            self.intermediate_results = [x[1] for x in sorted(self._trainer.intermediate_results.items(), key=lambda x: x[0])]
+            self.intermediate_results = [
+                x[1] for x in sorted(self._trainer.intermediate_results.items(), key=lambda x: x[0])
+            ]
         self._trainer = None
 
         return time.time() - start_time
@@ -1292,7 +1300,9 @@ class LGBMEstimator(BaseEstimator):
 
     @classmethod
     def size(cls, config):
-        num_leaves = int(round(config.get("num_leaves") or config.get("max_leaves") or 1 << config.get("max_depth", 16)))
+        num_leaves = int(
+            round(config.get("num_leaves") or config.get("max_leaves") or 1 << config.get("max_depth", 16))
+        )
         n_estimators = int(round(config["n_estimators"]))
         return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
@@ -1925,7 +1935,9 @@ class CatBoostEstimator(BaseEstimator):
                 y_tr,
                 cat_features=cat_features,
                 eval_set=eval_set,
-                callbacks=CatBoostEstimator._callbacks(start_time, deadline, free_mem_ratio if use_best_model else None),
+                callbacks=CatBoostEstimator._callbacks(
+                    start_time, deadline, free_mem_ratio if use_best_model else None
+                ),
                 **kwargs,
             )
         else:
