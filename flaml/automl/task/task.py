@@ -331,8 +331,7 @@ class Task(ABC):
         return self.name == other
 
     def estimator_class_from_str(
-        self, estimator_name: str
-    ) -> "flaml.automl.ml.BaseEstimator":
+        self, estimator_name: str) -> "flaml.automl.ml.BaseEstimator":
         """Determine the estimator class corresponding to the provided name.
 
         Args:

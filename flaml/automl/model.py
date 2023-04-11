@@ -136,9 +136,7 @@ class BaseEstimator:
         if "_estimator_type" in config:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
-            self._estimator_type = (
-                "classifier" if self._task.is_classification() else "regressor"
-            )
+            self._estimator_type = "classifier" if self._task.is_classification() else "regressor"
 
     def get_params(self, deep=False):
         params = self.params.copy()
@@ -252,8 +250,7 @@ class BaseEstimator:
             mem = psutil.virtual_memory() if psutil is not None else None
             try:
                 with limit_resource(
-                    mem.available * (1 - free_mem_ratio)
-                    + psutil.Process(os.getpid()).memory_info().rss
+                    mem.available * (1 - free_mem_ratio) + psutil.Process(os.getpid()).memory_info().rss
                     if mem is not None
                     else -1,
                     budget,
@@ -287,9 +284,7 @@ class BaseEstimator:
             X = self._preprocess(X)
             return self._model.predict(X, **kwargs)
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
 
     def predict_proba(self, X, **kwargs):
@@ -340,9 +335,7 @@ class BaseEstimator:
 
         if self._model is not None:
             if self._task == "rank":
-                raise NotImplementedError(
-                    "AutoML.score() is not implemented for ranking"
-                )
+                raise NotImplementedError("AutoML.score() is not implemented for ranking")
             else:
                 X_val = self._preprocess(X_val)
                 metric = kwargs.pop("metric", None)
@@ -355,9 +348,7 @@ class BaseEstimator:
                 else:
                     return self._model.score(X_val, y_val, **kwargs)
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return 0.0
 
     def cleanup(self):
@@ -424,9 +415,7 @@ class SparkEstimator(BaseEstimator):
 
     def __init__(self, task="binary", **config):
         if not _have_spark:
-            raise ImportError(
-                "pyspark is not installed. Try `pip install flaml[spark]`."
-            )
+            raise ImportError("pyspark is not installed. Try `pip install flaml[spark]`.")
         super().__init__(task, **config)
         self.df_train = None
 
@@ -472,9 +461,7 @@ class SparkEstimator(BaseEstimator):
         current_time = time.time()
         pipeline_model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
-            logger.debug(
-                f"flaml.model - {pipeline_model} fit started with params {self.params}"
-            )
+            logger.debug(f"flaml.model - {pipeline_model} fit started with params {self.params}")
         pipeline_model.fit(df_train)
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.model - {pipeline_model} fit finished")
@@ -493,9 +480,7 @@ class SparkEstimator(BaseEstimator):
         """
         if self._model is not None:
             X = self._preprocess(X, index_col=index_col)
-            predictions = to_pandas_on_spark(
-                self._model.transform(X), index_col=index_col
-            )
+            predictions = to_pandas_on_spark(self._model.transform(X), index_col=index_col)
             predictions.index.name = None
             pred_y = predictions["prediction"]
             if return_all:
@@ -503,9 +488,7 @@ class SparkEstimator(BaseEstimator):
             else:
                 return pred_y
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
 
     def predict_proba(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
@@ -525,9 +508,7 @@ class SparkEstimator(BaseEstimator):
         ), "predict_proba() only for classification."
         if self._model is not None:
             X = self._preprocess(X, index_col=index_col)
-            predictions = to_pandas_on_spark(
-                self._model.transform(X), index_col=index_col
-            )
+            predictions = to_pandas_on_spark(self._model.transform(X), index_col=index_col)
             predictions.index.name = None
             pred_y = predictions["probability"]
 
@@ -536,9 +517,7 @@ class SparkEstimator(BaseEstimator):
             else:
                 return pred_y
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
 
 
@@ -601,9 +580,7 @@ class SparkLGBMEstimator(SparkEstimator):
 
     @classmethod
     def size(cls, config):
-        num_leaves = int(
-            round(config.get("numLeaves") or 1 << config.get("maxDepth", 16))
-        )
+        num_leaves = int(round(config.get("numLeaves") or 1 << config.get("maxDepth", 16)))
         n_estimators = int(round(config["numIterations"]))
         return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
@@ -654,23 +631,17 @@ class SparkLGBMEstimator(SparkEstimator):
     ):
         start_time = time.time()
         if self.model_n_classes_ is None and self._task not in ["regression", "rank"]:
-            self.model_n_classes_, self.model_classes_ = len_labels(
-                y_train, return_labels=True
-            )
+            self.model_n_classes_, self.model_classes_ = len_labels(y_train, return_labels=True)
         df_train = self._preprocess(X_train, y_train, index_col=index_col)
         # n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
         # trained = False
         # mem0 = psutil.virtual_memory().available if psutil is not None else 1
         _kwargs = kwargs.copy()
         if self._task not in ["regression", "rank"] and "objective" not in _kwargs:
-            _kwargs["objective"] = (
-                "binary" if self.model_n_classes_ == 2 else "multiclass"
-            )
+            _kwargs["objective"] = "binary" if self.model_n_classes_ == 2 else "multiclass"
         for k in list(_kwargs.keys()):
             if k not in self.estimator_params:
-                logger.warning(
-                    f"[SparkLGBMEstimator] [Warning] Ignored unknown parameter: {k}"
-                )
+                logger.warning(f"[SparkLGBMEstimator] [Warning] Ignored unknown parameter: {k}")
                 _kwargs.pop(k)
         # TODO: find a better estimation of early stopping
         # if (
@@ -804,9 +775,7 @@ class TransformersEstimator(BaseEstimator):
                 "If you need to fix the value of {} to {}, the only way is to add a single-value domain in the search "
                 "space by adding:\n '{}': {{ 'domain': {} }} to 'custom_hp'. For example:"
                 'automl_settings["custom_hp"] = {{ "transformer": {{ "model_path": {{ "domain" : '
-                '"google/electra-small-discriminator" }} }} }}'.format(
-                    key, key, val, key, val
-                )
+                '"google/electra-small-discriminator" }} }} }}'.format(key, key, val, key, val)
             )
 
         """
@@ -824,25 +793,18 @@ class TransformersEstimator(BaseEstimator):
         """
             Update the attributes in TrainingArguments that depends on the values of self.params
         """
-        local_dir = os.path.join(
-            self._training_args.output_dir, "train_{}".format(date_str())
-        )
+        local_dir = os.path.join(self._training_args.output_dir, "train_{}".format(date_str()))
         if self._use_ray is True:
             import ray
 
             self._training_args.output_dir = ray.tune.get_trial_dir()
         else:
-            self._training_args.output_dir = Counter.get_trial_fold_name(
-                local_dir, self.params, self.trial_id
-            )
+            self._training_args.output_dir = Counter.get_trial_fold_name(local_dir, self.params, self.trial_id)
 
         self._training_args.fp16 = self.fp16
         self._training_args.no_cuda = self.no_cuda
 
-        if (
-            self._task == TOKENCLASSIFICATION
-            and self._training_args.max_seq_length is not None
-        ):
+        if self._task == TOKENCLASSIFICATION and self._training_args.max_seq_length is not None:
             logger.warning(
                 "For token classification task, FLAML currently does not support customizing the max_seq_length, max_seq_length will be reset to None."
             )
@@ -939,10 +901,7 @@ class TransformersEstimator(BaseEstimator):
             }
 
             for key in list(kwargs.keys()):
-                if (
-                    key not in data_collator_class.__dict__.keys()
-                    and key != "tokenizer"
-                ):
+                if key not in data_collator_class.__dict__.keys() and key != "tokenizer":
                     del kwargs[key]
             return data_collator_class(**kwargs)
         else:
@@ -985,9 +944,7 @@ class TransformersEstimator(BaseEstimator):
         )  # If using roberta model, must set add_prefix_space to True to avoid the assertion error at
         # https://github.com/huggingface/transformers/blob/main/src/transformers/models/roberta/tokenization_roberta_fast.py#L249
 
-        train_dataset, self._X_train, self._y_train = self._preprocess_data(
-            X_train, y_train
-        )
+        train_dataset, self._X_train, self._y_train = self._preprocess_data(X_train, y_train)
         if X_val is not None:
             eval_dataset, self._X_val, self._y_val = self._preprocess_data(X_val, y_val)
         else:
@@ -1008,10 +965,7 @@ class TransformersEstimator(BaseEstimator):
                     self.time_per_iter = time.time() - self.step_begin_time
                 if (
                     budget
-                    and (
-                        time.time() + self.time_per_iter
-                        > self.train_begin_time + budget
-                    )
+                    and (time.time() + self.time_per_iter > self.train_begin_time + budget)
                     or state.global_step >= this_params[TransformersEstimator.ITER_HP]
                 ):
                     control.should_training_stop = True
@@ -1020,10 +974,7 @@ class TransformersEstimator(BaseEstimator):
                 return control
 
             def on_epoch_end(self, args, state, control, **callback_kwargs):
-                if (
-                    control.should_training_stop
-                    or state.epoch + 1 >= args.num_train_epochs
-                ):
+                if control.should_training_stop or state.epoch + 1 >= args.num_train_epochs:
                     control.should_save = True
                     control.should_evaluate = True
 
@@ -1052,9 +1003,7 @@ class TransformersEstimator(BaseEstimator):
             # if gpu_per_trial == 0:
             #     os.environ["CUDA_VISIBLE_DEVICES"] = ""
             if tmp_cuda_visible_devices.count(",") != math.ceil(gpu_per_trial) - 1:
-                os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
-                    [str(x) for x in range(math.ceil(gpu_per_trial))]
-                )
+                os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(x) for x in range(math.ceil(gpu_per_trial))])
 
         import time
 
@@ -1071,10 +1020,7 @@ class TransformersEstimator(BaseEstimator):
 
         if hasattr(self._trainer, "intermediate_results"):
             self.intermediate_results = [
-                x[1]
-                for x in sorted(
-                    self._trainer.intermediate_results.items(), key=lambda x: x[0]
-                )
+                x[1] for x in sorted(self._trainer.intermediate_results.items(), key=lambda x: x[0])
             ]
         self._trainer = None
 
@@ -1095,9 +1041,7 @@ class TransformersEstimator(BaseEstimator):
         from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
         if trainer.ckpt_to_metric:
-            best_ckpt, _ = min(
-                trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_automl_metric"]
-            )
+            best_ckpt, _ = min(trainer.ckpt_to_metric.items(), key=lambda x: x[1]["eval_automl_metric"])
             best_ckpt_global_step = trainer.ckpt_to_global_step[best_ckpt]
             for each_ckpt in list(trainer.ckpt_to_metric):
                 if each_ckpt != best_ckpt:
@@ -1159,9 +1103,7 @@ class TransformersEstimator(BaseEstimator):
             Need to reinit training_args because of a bug in deepspeed: if not reinit, the deepspeed config will be inconsistent
             with HF config https://github.com/huggingface/transformers/blob/main/src/transformers/training_args.py#L947
         """
-        training_args = self._TrainingArguments(
-            local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16
-        )
+        training_args = self._TrainingArguments(local_rank=-1, model_path=self._checkpoint_path, fp16=self.fp16)
         for key, val in self._training_args.__dict__.items():
             if key not in ("local_rank", "model_path", "fp16"):
                 setattr(training_args, key, val)
@@ -1192,8 +1134,13 @@ class TransformersEstimator(BaseEstimator):
         test_dataset = Dataset.from_pandas(X_test)
 
         new_trainer = self._init_model_for_predict()
-        predictions = new_trainer.predict(test_dataset)
-        return predictions.predictions
+        try:
+            predictions = new_trainer.predict(test_dataset).predictions
+        except ZeroDivisionError:
+            logger.warning("Zero division error appeared in HuggingFace Transformers.")
+            predictions = np.array([-0.05] * len(test_dataset))
+        else:
+            return predictions
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         import transformers
@@ -1223,13 +1170,13 @@ class TransformersEstimator(BaseEstimator):
 
         new_trainer = self._init_model_for_predict()
 
-        if self._task not in NLG_TASKS:
-            predictions = new_trainer.predict(test_dataset)
-        else:
-            predictions = new_trainer.predict(
-                test_dataset,
-                metric_key_prefix="predict",
-            )
+        kwargs = {} if self._task not in NLG_TASKS else {"metric_key_prefix": "predict"}
+        try:
+            predictions = new_trainer.predict(test_dataset, **kwargs)
+        except ZeroDivisionError:
+            logger.warning("Zero division error appeared in HuggingFace Transformers.")
+            predictions = np.array([0] * len(test_dataset))
+
         post_y_pred, _ = postprocess_prediction_and_true(
             task=self._task,
             y_pred=predictions.predictions,
@@ -1241,9 +1188,7 @@ class TransformersEstimator(BaseEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
-        params[TransformersEstimator.ITER_HP] = params.get(
-            TransformersEstimator.ITER_HP, sys.maxsize
-        )
+        params[TransformersEstimator.ITER_HP] = params.get(TransformersEstimator.ITER_HP, sys.maxsize)
         return params
 
 
@@ -1253,9 +1198,7 @@ class TransformersEstimatorModelSelection(TransformersEstimator):
 
     @classmethod
     def search_space(cls, data_size, task, **params):
-        search_space_dict = TransformersEstimator.search_space(
-            data_size, task, **params
-        )
+        search_space_dict = TransformersEstimator.search_space(data_size, task, **params)
 
         """
             For model selection, use the same search space regardless of memory constraint
@@ -1364,11 +1307,7 @@ class LGBMEstimator(BaseEstimator):
     @classmethod
     def size(cls, config):
         num_leaves = int(
-            round(
-                config.get("num_leaves")
-                or config.get("max_leaves")
-                or 1 << config.get("max_depth", 16)
-            )
+            round(config.get("num_leaves") or config.get("max_leaves") or 1 << config.get("max_depth", 16))
         )
         n_estimators = int(round(config["n_estimators"]))
         return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
@@ -1398,11 +1337,7 @@ class LGBMEstimator(BaseEstimator):
         self.HAS_CALLBACK = self.HAS_CALLBACK and self._callbacks(0, 0, 0) is not None
 
     def _preprocess(self, X):
-        if (
-            not isinstance(X, DataFrame)
-            and issparse(X)
-            and np.issubdtype(X.dtype, np.integer)
-        ):
+        if not isinstance(X, DataFrame) and issparse(X) and np.issubdtype(X.dtype, np.integer):
             X = X.astype(float)
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
@@ -1421,10 +1356,7 @@ class LGBMEstimator(BaseEstimator):
         if not self.HAS_CALLBACK:
             mem0 = psutil.virtual_memory().available if psutil is not None else 1
             if (
-                (
-                    not self._time_per_iter
-                    or abs(self._train_size - X_train.shape[0]) > 4
-                )
+                (not self._time_per_iter or abs(self._train_size - X_train.shape[0]) > 4)
                 and budget is not None
                 or self._mem_per_iter < 0
                 and psutil is not None
@@ -1444,9 +1376,7 @@ class LGBMEstimator(BaseEstimator):
                 # elif self._mem2 <= 0:
                 #     self._mem_per_iter = self._mem1
                 # else:
-                self._mem_per_iter = min(
-                    self._mem1, self._mem2 / self.params[self.ITER_HP]
-                )
+                self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
                 # if self._mem_per_iter <= 1 and psutil is not None:
                 #     n_iter = self.params[self.ITER_HP]
                 self._time_per_iter = (
@@ -1457,11 +1387,7 @@ class LGBMEstimator(BaseEstimator):
                     else 0.001
                 )
                 self._train_size = X_train.shape[0]
-                if (
-                    budget is not None
-                    and self._t1 + self._t2 >= budget
-                    or n_iter == self.params[self.ITER_HP]
-                ):
+                if budget is not None and self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
                     # self.params[self.ITER_HP] = n_iter
                     return time.time() - start_time
                 trained = True
@@ -1470,11 +1396,7 @@ class LGBMEstimator(BaseEstimator):
             if n_iter > 1:
                 max_iter = min(
                     n_iter,
-                    int(
-                        (budget - time.time() + start_time - self._t1)
-                        / self._time_per_iter
-                        + 1
-                    )
+                    int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
                     if budget is not None
                     else n_iter,
                     int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
@@ -1488,9 +1410,7 @@ class LGBMEstimator(BaseEstimator):
         if self.HAS_CALLBACK:
             kwargs_callbacks = kwargs.get("callbacks")
             if kwargs_callbacks:
-                callbacks = kwargs_callbacks + self._callbacks(
-                    start_time, deadline, free_mem_ratio
-                )
+                callbacks = kwargs_callbacks + self._callbacks(start_time, deadline, free_mem_ratio)
                 kwargs.pop("callbacks")
             else:
                 callbacks = self._callbacks(start_time, deadline, free_mem_ratio)
@@ -1817,9 +1737,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
         if "max_leaves" in params:
-            params["max_leaf_nodes"] = params.get(
-                "max_leaf_nodes", params.pop("max_leaves")
-            )
+            params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
         if not self._task.is_classification() and "criterion" in config:
             params.pop("criterion")
         if "random_state" not in params:
@@ -1959,12 +1877,7 @@ class CatBoostEstimator(BaseEstimator):
             if not cat_columns.empty:
                 X = X.copy()
                 X[cat_columns] = X[cat_columns].apply(
-                    lambda x: x.cat.rename_categories(
-                        [
-                            str(c) if isinstance(c, float) else c
-                            for c in x.cat.categories
-                        ]
-                    )
+                    lambda x: x.cat.rename_categories([str(c) if isinstance(c, float) else c for c in x.cat.categories])
                 )
         elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
             # numpy array is not of numeric dtype
@@ -2013,19 +1926,11 @@ class CatBoostEstimator(BaseEstimator):
         else:
             cat_features = []
         use_best_model = kwargs.get("use_best_model", True)
-        n = (
-            max(int(len(y_train) * 0.9), len(y_train) - 1000)
-            if use_best_model
-            else len(y_train)
-        )
+        n = max(int(len(y_train) * 0.9), len(y_train) - 1000) if use_best_model else len(y_train)
         X_tr, y_tr = X_train[:n], y_train[:n]
         from catboost import Pool, __version__
 
-        eval_set = (
-            Pool(data=X_train[n:], label=y_train[n:], cat_features=cat_features)
-            if use_best_model
-            else None
-        )
+        eval_set = Pool(data=X_train[n:], label=y_train[n:], cat_features=cat_features) if use_best_model else None
         if "sample_weight" in kwargs:
             weight = kwargs["sample_weight"]
             if weight is not None:

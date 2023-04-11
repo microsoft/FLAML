@@ -6,20 +6,12 @@ import pandas as pd
 from flaml import AutoML
 
 
-def test_forecast_automl(
-    budget=30, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
-):
+def test_forecast_automl(budget=30, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     # using dataframe
     import statsmodels.api as sm
 
     data = sm.datasets.co2.load_pandas().data["co2"].resample("MS").mean()
-    data = (
-        data.bfill()
-        .ffill()
-        .to_frame()
-        .reset_index()
-        .rename(columns={"index": "ds", "co2": "y"})
-    )
+    data = data.bfill().ffill().to_frame().reset_index().rename(columns={"index": "ds", "co2": "y"})
     num_samples = data.shape[0]
     time_horizon = 12
     split_idx = num_samples - time_horizon
@@ -167,9 +159,7 @@ def load_multi_dataset():
     return df
 
 
-def test_multivariate_forecast_num(
-    budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
-):
+def test_multivariate_forecast_num(budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     df = load_multi_dataset()
     # split data into train and test
     time_horizon = 180
@@ -286,9 +276,7 @@ def load_multi_dataset_cat(time_horizon):
             return 0
 
     df["season"] = df["timeStamp"].apply(season)
-    df["above_monthly_avg"] = df.apply(
-        lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1
-    )
+    df["above_monthly_avg"] = df.apply(lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1)
 
     # split data into train and test
     num_samples = df.shape[0]
@@ -301,9 +289,7 @@ def load_multi_dataset_cat(time_horizon):
     return train_df, test_df
 
 
-def test_multivariate_forecast_cat(
-    budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]
-):
+def test_multivariate_forecast_cat(budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     time_horizon = 180
     train_df, test_df = load_multi_dataset_cat(time_horizon)
     X_test = test_df[
@@ -460,16 +446,10 @@ def get_stalliion_data():
     data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
     data["time_idx"] -= data["time_idx"].min()
     # add additional features
-    data["month"] = data.date.dt.month.astype(str).astype(
-        "category"
-    )  # categories have be strings
+    data["month"] = data.date.dt.month.astype(str).astype("category")  # categories have be strings
     data["log_volume"] = np.log(data.volume + 1e-8)
-    data["avg_volume_by_sku"] = data.groupby(
-        ["time_idx", "sku"], observed=True
-    ).volume.transform("mean")
-    data["avg_volume_by_agency"] = data.groupby(
-        ["time_idx", "agency"], observed=True
-    ).volume.transform("mean")
+    data["avg_volume_by_sku"] = data.groupby(["time_idx", "sku"], observed=True).volume.transform("mean")
+    data["avg_volume_by_agency"] = data.groupby(["time_idx", "agency"], observed=True).volume.transform("mean")
     # we want to encode special days as one variable and thus need to first reverse one-hot encoding
     special_days = [
         "easter_day",
@@ -483,11 +463,7 @@ def get_stalliion_data():
         "beer_capital",
         "music_fest",
     ]
-    data[special_days] = (
-        data[special_days]
-        .apply(lambda x: x.map({0: "-", 1: x.name}))
-        .astype("category")
-    )
+    data[special_days] = data[special_days].apply(lambda x: x.map({0: "-", 1: x.name})).astype("category")
     return data, special_days
 
 
@@ -575,8 +551,7 @@ def test_forecast_panel(budget=5):
 
         y_test, y_pred = np.array(y_test), np.array(y_pred)
         return round(
-            np.mean(np.abs(y_pred - y_test) / ((np.abs(y_pred) + np.abs(y_test)) / 2))
-            * 100,
+            np.mean(np.abs(y_pred - y_test) / ((np.abs(y_pred) + np.abs(y_test)) / 2)) * 100,
             2,
         )
 
