@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
 )
-
+logger.propagate = False
 try:
+    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
     import pyspark
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
@@ -68,11 +69,7 @@ def get_n_cpus(node="driver"):
     """
     assert node in ["driver", "executor"]
     try:
-        n_cpus = int(
-            SparkSession.builder.getOrCreate()
-            .sparkContext.getConf()
-            .get(f"spark.{node}.cores")
-        )
+        n_cpus = int(SparkSession.builder.getOrCreate().sparkContext.getConf().get(f"spark.{node}.cores"))
     except (TypeError, RuntimeError):
         n_cpus = os.cpu_count()
     return n_cpus
@@ -112,9 +109,7 @@ def with_parameters(trainable, **kwargs):
 
     if not callable(trainable):
         raise ValueError(
-            f"`with_parameters() only works with function trainables`. "
-            f"Got type: "
-            f"{type(trainable)}."
+            f"`with_parameters() only works with function trainables`. " f"Got type: " f"{type(trainable)}."
         )
 
     spark_available, spark_error_msg = check_spark()

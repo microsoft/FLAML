@@ -125,6 +125,7 @@ The estimator list can contain one or more estimator names, each corresponding t
     - 'prophet': Prophet for task "ts_forecast". Hyperparameters: changepoint_prior_scale, seasonality_prior_scale, holidays_prior_scale, seasonality_mode.
     - 'arima': ARIMA for task "ts_forecast". Hyperparameters: p, d, q.
     - 'sarimax': SARIMAX for task "ts_forecast". Hyperparameters: p, d, q, P, D, Q, s.
+    - 'holt-winters': Holt-Winters (triple exponential smoothing) model for task "ts_forecast". Hyperparameters: seasonal_perdiods, seasonal, use_boxcox, trend, damped_trend.
     - 'transformer': Huggingface transformer models for task "seq-classification", "seq-regression", "multichoice-classification", "token-classification" and "summarization". Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
     - 'temporal_fusion_transformer': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate. There is a [known issue](https://github.com/jdb78/pytorch-forecasting/issues/1145) with pytorch-forecast logging.
 * Custom estimator. Use custom estimator for:
@@ -144,36 +145,36 @@ import rgf
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
-  def __init__(self, task="binary", **config):
-    super().__init__(task, **config)
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
 
-    if task in CLASSIFICATION:
-      from rgf.sklearn import RGFClassifier
+        if task in CLASSIFICATION:
+        from rgf.sklearn import RGFClassifier
 
-      self.estimator_class = RGFClassifier
-    else:
-      from rgf.sklearn import RGFRegressor
+        self.estimator_class = RGFClassifier
+        else:
+        from rgf.sklearn import RGFRegressor
 
-      self.estimator_class = RGFRegressor
+        self.estimator_class = RGFRegressor
 
-  @classmethod
-  def search_space(cls, data_size, task):
-    space = {
-      "max_leaf": {
-        "domain": tune.lograndint(lower=4, upper=data_size),
-        "low_cost_init_value": 4,
-      },
-      "n_iter": {
-        "domain": tune.lograndint(lower=1, upper=data_size),
-        "low_cost_init_value": 1,
-      },
-      "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-      "min_samples_leaf": {
-        "domain": tune.lograndint(lower=1, upper=20),
-        "init_value": 20,
-      },
-    }
-    return space
+    @classmethod
+    def search_space(cls, data_size, task):
+        space = {
+        "max_leaf": {
+            "domain": tune.lograndint(lower=4, upper=data_size),
+            "low_cost_init_value": 4,
+        },
+        "n_iter": {
+            "domain": tune.lograndint(lower=1, upper=data_size),
+            "low_cost_init_value": 1,
+        },
+        "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
+        "min_samples_leaf": {
+            "domain": tune.lograndint(lower=1, upper=20),
+            "init_value": 20,
+        },
+        }
+        return space
 ```
 
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](../reference/automl/model#xgboostestimator-objects). Importantly, we also add the `task="binary"` parameter in the signature of `__init__` so that it doesn't get grouped together with the `**config` kwargs that determines the parameters with which the underlying estimator (`self.estimator_class`) is constructed. If your estimator doesn't use one of the parameters that it is passed, for example some regressors in `scikit-learn` don't use the `n_jobs` parameter, it is enough to add `n_jobs=None` to the signature so that it is ignored by the `**config` dict.
@@ -208,18 +209,18 @@ from flaml.automl.model import XGBoostEstimator
 
 
 def logregobj(preds, dtrain):
-  labels = dtrain.get_label()
-  preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
-  grad = preds - labels
-  hess = preds * (1.0 - preds)
-  return grad, hess
+    labels = dtrain.get_label()
+    preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
+    grad = preds - labels
+    hess = preds * (1.0 - preds)
+    return grad, hess
 
 
 class MyXGB1(XGBoostEstimator):
-  """XGBoostEstimator with logregobj as the objective function"""
+    """XGBoostEstimator with logregobj as the objective function"""
 
-  def __init__(self, **config):
-    super().__init__(objective=logregobj, **config)
+    def __init__(self, **config):
+        super().__init__(objective=logregobj, **config)
 ```
 
 We override the constructor and set the training objective as a custom function `logregobj`. The hyperparameters and their search range do not change. For another example,
