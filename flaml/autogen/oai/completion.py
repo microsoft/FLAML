@@ -649,15 +649,23 @@ class Completion:
             if messages is None:
                 raise ValueError("Either prompt or messages should be in config for chat models.")
         if prompt is None:
-            params["messages"] = [
-                {
-                    "role": m["role"],
-                    "content": m["content"].format(**data_instance)
-                    if isinstance(m["content"], str)
-                    else m["content"](data_instance),
-                }
-                for m in messages
-            ]
+            params["messages"] = []
+            for m in messages:
+                if isinstance(m["content"], str):
+                    try:
+                        # try to format the message with the data instance
+                        content = m["content"].format(**data_instance)
+                    except Exception:
+                        # if it fails, use the raw message
+                        content = m["content"]
+                else:
+                    content = m["content"](data_instance)
+                params["messages"].append(
+                    {
+                        "role": m["role"],
+                        "content": content,
+                    })
+
         elif model in cls.chat_models:
             # convert prompt to messages
             if isinstance(prompt, str):
