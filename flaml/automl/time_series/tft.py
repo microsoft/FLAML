@@ -65,17 +65,11 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             max_prediction_length=max_prediction_length,
             static_categoricals=kwargs.get("static_categoricals", []),
             static_reals=kwargs.get("static_reals", []),
-            time_varying_known_categoricals=kwargs.get(
-                "time_varying_known_categoricals", []
-            ),
+            time_varying_known_categoricals=kwargs.get("time_varying_known_categoricals", []),
             time_varying_known_reals=kwargs.get("time_varying_known_reals", []),
-            time_varying_unknown_categoricals=kwargs.get(
-                "time_varying_unknown_categoricals", []
-            ),
+            time_varying_unknown_categoricals=kwargs.get("time_varying_unknown_categoricals", []),
             time_varying_unknown_reals=kwargs.get("time_varying_unknown_reals", []),
-            variable_groups=kwargs.get(
-                "variable_groups", {}
-            ),  # group of categorical variables can be treated as one variable
+            variable_groups=kwargs.get("variable_groups", {}),  # group of categorical variables can be treated as one variable
             lags=kwargs.get("lags", {}),
             target_normalizer=GroupNormalizer(
                 groups=kwargs["group_ids"], transformation="softplus"
@@ -87,18 +81,12 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
 
         # create validation set (predict=True) which means to predict the last max_prediction_length points in time
         # for each series
-        validation = TimeSeriesDataSet.from_dataset(
-            training, self.data, predict=True, stop_randomization=True
-        )
+        validation = TimeSeriesDataSet.from_dataset(training, self.data, predict=True, stop_randomization=True)
 
         # create dataloaders for model
         batch_size = kwargs.get("batch_size", 64)
-        train_dataloader = training.to_dataloader(
-            train=True, batch_size=batch_size, num_workers=0
-        )
-        val_dataloader = validation.to_dataloader(
-            train=False, batch_size=batch_size * 10, num_workers=0
-        )
+        train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=0)
+        val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size * 10, num_workers=0)
 
         return training, train_dataloader, val_dataloader
 
@@ -121,24 +109,16 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         warnings.filterwarnings("ignore")
         current_time = time.time()
         super().fit(X_train, **kwargs)
-        training, train_dataloader, val_dataloader = self.transform_ds(
-            X_train, y_train, **kwargs
-        )
+        training, train_dataloader, val_dataloader = self.transform_ds(X_train, y_train, **kwargs)
         params = self.params.copy()
         gradient_clip_val = params.pop("gradient_clip_val", None)
         params.pop("n_jobs", None)
         max_epochs = kwargs.get("max_epochs", 20)
-        early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min"
-        )
+        early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min")
         lr_logger = LearningRateMonitor()  # log the learning rate
-        logger = TensorBoardLogger(
-            kwargs.get("log_dir", "lightning_logs")
-        )  # logging results to a tensorboard
+        logger = TensorBoardLogger(kwargs.get("log_dir", "lightning_logs"))  # logging results to a tensorboard
         default_trainer_kwargs = dict(
-            gpus=self._kwargs.get("gpu_per_trial", [0])
-            if torch.cuda.is_available()
-            else None,
+            gpus=self._kwargs.get("gpu_per_trial", [0]) if torch.cuda.is_available() else None,
             max_epochs=max_epochs,
             gradient_clip_val=gradient_clip_val,
             callbacks=[lr_logger, early_stop_callback],
@@ -171,9 +151,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
     def predict(self, X):
         ids = self.group_ids.copy()
         ids.append(self.time_col)
-        encoder_data = self.data[
-            lambda x: x.time_idx > x.time_idx.max() - self.max_encoder_length
-        ]
+        encoder_data = self.data[lambda x: x.time_idx > x.time_idx.max() - self.max_encoder_length]
         # following pytorchforecasting example, make all target values equal to the last data
         last_data_cols = self.group_ids.copy()
         last_data_cols.append(self.target_names[0])
@@ -181,9 +159,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         decoder_data = X.X_val if isinstance(X, TimeSeriesDataset) else X
         if "time_idx" not in decoder_data:
             decoder_data = add_time_idx_col(decoder_data)
-        decoder_data["time_idx"] += (
-            encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
-        )
+        decoder_data["time_idx"] += encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
         decoder_data = decoder_data.merge(last_data, how="inner", on=self.group_ids)
         decoder_data = decoder_data.sort_values(ids)
         new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)

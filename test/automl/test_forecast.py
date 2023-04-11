@@ -144,9 +144,7 @@ def load_multi_dataset():
     import pandas as pd
 
     # pd.set_option("display.max_rows", None, "display.max_columns", None)
-    df = pd.read_csv(
-        "https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv"
-    )
+    df = pd.read_csv("https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv")
     # preprocessing data
     df["timeStamp"] = pd.to_datetime(df["timeStamp"])
     df = df.set_index("timeStamp")
@@ -494,9 +492,7 @@ def test_forecast_panel(budget=5):
             "static_categoricals": ["agency", "sku"],
             "static_reals": ["avg_population_2017", "avg_yearly_household_income_2017"],
             "time_varying_known_categoricals": ["special_days", "month"],
-            "variable_groups": {
-                "special_days": special_days
-            },  # group of categorical variables can be treated as one variable
+            "variable_groups": {"special_days": special_days},  # group of categorical variables can be treated as one variable
             "time_varying_known_reals": [
                 "time_idx",
                 "price_regular",
@@ -602,13 +598,9 @@ def test_cv_step():
 
     preds = {}
     for tgt in tgts:
-        features = (
-            []
-        )  # [c for c in train_df.columns if "SERIES" not in c and c != time_col]
+        features = []  # [c for c in train_df.columns if "SERIES" not in c and c != time_col]
 
-        automl = AutoML(
-            time_budget=60, metric="mae", task="ts_forecast", eval_method="cv"
-        )
+        automl = AutoML(time_budget=60, metric="mae", task="ts_forecast", eval_method="cv")
 
         automl.fit(
             dataframe=train_df[[time_col] + features + [tgt]],

@@ -40,25 +40,18 @@ class TimeSeriesDataset:
         self.train_data = train_data
         self.time_col = time_col
         self.time_idx = time_idx
-        self.target_names = (
-            [target_names] if isinstance(target_names, str) else list(target_names)
-        )
+        self.target_names = [target_names] if isinstance(target_names, str) else list(target_names)
         assert isinstance(self.target_names, list)
         assert len(self.target_names)
 
         self.frequency = pd.infer_freq(train_data[time_col].unique())
-        assert (
-            self.frequency is not None
-        ), "Only time series of regular frequency are currently supported."
+        assert self.frequency is not None, "Only time series of regular frequency are currently supported."
 
         float_cols = list(train_data.select_dtypes(include=["floating"]).columns)
         self.time_varying_known_reals = list(set(float_cols) - set(self.target_names))
 
         self.time_varying_known_categoricals = list(
-            set(train_data.columns)
-            - set(self.time_varying_known_reals)
-            - set(self.target_names)
-            - {time_col}
+            set(train_data.columns) - set(self.time_varying_known_reals) - set(self.target_names) - {time_col}
         )
         if test_data is not None:
             self.test_data = test_data
@@ -67,12 +60,8 @@ class TimeSeriesDataset:
 
     def add_test_data(self, X: pd.DataFrame) -> "TimeSeriesDataset":
         assert self.time_col in X.columns
-        train_data = self.all_data[
-            self.all_data[self.time_col] < X[self.time_col].min()
-        ]
-        return TimeSeriesDataset(
-            train_data, self.time_col, self.target_names, self.time_idx, X
-        )
+        train_data = self.all_data[self.all_data[self.time_col] < X[self.time_col].min()]
+        return TimeSeriesDataset(train_data, self.time_col, self.target_names, self.time_idx, X)
 
     @staticmethod
     def to_dataframe(X, y, target_names: List[str], time_col: str):
@@ -137,9 +126,7 @@ class TimeSeriesDataset:
         scale_map = {"D": 7, "MS": 12}
         return scale_map.get(self.frequency, 8)
 
-    def known_features_to_floats(
-        self, train: bool, drop_first: bool = True
-    ) -> np.ndarray:
+    def known_features_to_floats(self, train: bool, drop_first: bool = True) -> np.ndarray:
         # this is a bit tricky as shapes for train and test data must match, so need to encode together
         combined = pd.concat(
             [
@@ -201,9 +188,7 @@ class TimeSeriesDataset:
 
         return out
 
-    def cv_train_val_sets(
-        self, n_splits: int, val_length: int, step_size: int
-    ) -> Generator["TimeSeriesDataset", None, None]:
+    def cv_train_val_sets(self, n_splits: int, val_length: int, step_size: int) -> Generator["TimeSeriesDataset", None, None]:
         max_index = len(self.train_data) - 1
         for i in range(n_splits):
             out = copy.copy(self)
@@ -225,9 +210,7 @@ class TimeSeriesDataset:
             assert len(y_pred) == len(self.test_data)
 
             if isinstance(y_pred, np.ndarray):
-                y_pred = pd.DataFrame(
-                    data=y_pred, columns=self.target_names, index=self.test_data.index
-                )
+                y_pred = pd.DataFrame(data=y_pred, columns=self.target_names, index=self.test_data.index)
             elif isinstance(y_pred, pd.Series):
                 assert len(self.target_names) == 1, "Not enough columns in y_pred"
                 y_pred.name = self.target_names[0]
@@ -246,22 +229,16 @@ class TimeSeriesDataset:
                 assert len(self.target_names) == 1, "Not enough columns in y_pred"
                 y_pred = pd.DataFrame({self.target_names[0]: y_pred})
             # TODO auto-create the timestamps for the time column instead of throwing
-            raise NotImplementedError(
-                "Need a non-None test_data for this to work, for now"
-            )
+            raise NotImplementedError("Need a non-None test_data for this to work, for now")
 
         assert isinstance(y_pred, pd.DataFrame)
         assert self.time_col in y_pred.columns
         assert all([t in y_pred.columns for t in self.target_names])
         return y_pred
 
-    def merge_prediction_with_target(
-        self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]
-    ):
+    def merge_prediction_with_target(self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]):
         y_pred = self.prettify_prediction(y_pred)
-        return pd.concat(
-            [self.train_data[[self.time_col] + self.target_names], y_pred], axis=0
-        )
+        return pd.concat([self.train_data[[self.time_col] + self.target_names], y_pred], axis=0)
 
 
 def enrich_dataframe(
@@ -280,15 +257,9 @@ def enrich_dataframe(
             extras.columns = [f"{col}_{c}" for c in extras.columns]
             extras.index = df.index
             new_cols.append(extras)
-            date_feat = (
-                date_feature_dict_fourier(df[col])
-                if fourier_time
-                else date_feature_dict(df[col])
-            )
+            date_feat = date_feature_dict_fourier(df[col]) if fourier_time else date_feature_dict(df[col])
             if remove_constants:
-                re_date_feat = {
-                    k: v for k, v in date_feat.items() if v.nunique(dropna=False) >= 2
-                }
+                re_date_feat = {k: v for k, v in date_feat.items() if v.nunique(dropna=False) >= 2}
             else:
                 re_date_feat = date_feat
 
@@ -304,16 +275,8 @@ def enrich_dataset(
     remove_constants: bool = False,
     fourier_time: bool = True,
 ) -> TimeSeriesDataset:
-    new_train = enrich_dataframe(
-        X.train_data, fourier_degree, remove_constants, fourier_time
-    )
-    new_test = (
-        None
-        if X.test_data is None
-        else enrich_dataframe(
-            X.test_data, fourier_degree, remove_constants, fourier_time
-        )
-    )
+    new_train = enrich_dataframe(X.train_data, fourier_degree, remove_constants, fourier_time)
+    new_test = None if X.test_data is None else enrich_dataframe(X.test_data, fourier_degree, remove_constants, fourier_time)
     return TimeSeriesDataset(
         train_data=new_train,
         time_col=X.time_col,
@@ -382,9 +345,7 @@ def fourier_series(feature: pd.Series, name: str):
 class DataTransformerTS:
     """Transform input time series training data."""
 
-    def __init__(
-        self, time_col: str, label: Union[str, List[str]], time_idx: str = "time_idx"
-    ):
+    def __init__(self, time_col: str, label: Union[str, List[str]], time_idx: str = "time_idx"):
         self.time_col = time_col
         self.time_idx = time_idx
         self.label = label
@@ -412,9 +373,7 @@ class DataTransformerTS:
         X = X.copy()
         n = X.shape[0]
 
-        assert (
-            len(self.num_columns) == 0
-        ), "Trying to call fit() twice, something is wrong"
+        assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
 
         for column in X.columns:
             # sklearn/utils/validation.py needs int/float values
@@ -460,9 +419,7 @@ class DataTransformerTS:
         elif isinstance(y, pd.Series):
             ycol = y
         else:
-            raise ValueError(
-                "y must be either a pd.Series or a pd.DataFrame at this stage"
-            )
+            raise ValueError("y must be either a pd.Series or a pd.DataFrame at this stage")
 
         if not pd.api.types.is_numeric_dtype(ycol):
             self.label_transformer = LabelEncoder()
@@ -478,9 +435,7 @@ class DataTransformerTS:
             elif isinstance(y, pd.Series):
                 ycol = y
             else:
-                raise ValueError(
-                    "y must be either a pd.Series or a pd.DataFrame at this stage"
-                )
+                raise ValueError("y must be either a pd.Series or a pd.DataFrame at this stage")
             y_tr = self.label_transformer.transform(ycol)
             y.iloc[:] = y_tr.reshape(y.shape)
 
@@ -560,25 +515,14 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
 
 
 def validate_data_basic(X_train_all, y_train_all):
-    assert (
-        isinstance(X_train_all, np.ndarray)
-        or issparse(X_train_all)
-        or isinstance(X_train_all, pd.DataFrame)
-    ), (
-        "X_train_all must be a numpy array, a pandas dataframe, "
-        "or Scipy sparse matrix."
+    assert isinstance(X_train_all, np.ndarray) or issparse(X_train_all) or isinstance(X_train_all, pd.DataFrame), (
+        "X_train_all must be a numpy array, a pandas dataframe, " "or Scipy sparse matrix."
     )
 
     assert (
-        isinstance(y_train_all, np.ndarray)
-        or isinstance(y_train_all, pd.Series)
-        or isinstance(y_train_all, pd.DataFrame)
+        isinstance(y_train_all, np.ndarray) or isinstance(y_train_all, pd.Series) or isinstance(y_train_all, pd.DataFrame)
     ), "y_train_all must be a numpy array or a pandas series or DataFrame."
 
-    assert (
-        X_train_all.size != 0 and y_train_all.size != 0
-    ), "Input data must not be empty, use None if no data"
+    assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty, use None if no data"
 
-    assert (
-        X_train_all.shape[0] == y_train_all.shape[0]
-    ), "# rows in X_train must match length of y_train."
+    assert X_train_all.shape[0] == y_train_all.shape[0], "# rows in X_train must match length of y_train."

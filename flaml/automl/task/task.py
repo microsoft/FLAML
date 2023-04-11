@@ -330,8 +330,7 @@ class Task(ABC):
         """For backward compatibility with all the string comparisons to task"""
         return self.name == other
 
-    def estimator_class_from_str(
-        self, estimator_name: str) -> "flaml.automl.ml.BaseEstimator":
+    def estimator_class_from_str(self, estimator_name: str) -> "flaml.automl.ml.BaseEstimator":
         """Determine the estimator class corresponding to the provided name.
 
         Args:

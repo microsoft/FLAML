@@ -91,9 +91,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
             scale = math.ceil(scale / 1.7)
             max_lags = math.floor(points / scale)
 
-        assert (
-            scale >= 2 and max_lags >= 2
-        ), f"Too few points ({data_len}) for prediction horizon {pred_horizon}"
+        assert scale >= 2 and max_lags >= 2, f"Too few points ({data_len}) for prediction horizon {pred_horizon}"
 
         return scale, max_lags
 
@@ -123,8 +121,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
-            "Dataframe for training ts_forecast model must have column"
-            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
+            "Dataframe for training ts_forecast model must have column" f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
         y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
@@ -212,9 +209,7 @@ class Orbit(TimeSeriesEstimator):
 
             return out
         else:
-            self.logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            self.logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return None
 
     @classmethod
@@ -275,9 +270,7 @@ class Prophet(TimeSeriesEstimator):
 
         train_df = self._preprocess(train_df)
         logging.getLogger("prophet").setLevel(logging.WARNING)
-        nice_params = {
-            k: v for k, v in self.params.items() if k in self._search_space()
-        }
+        nice_params = {k: v for k, v in self.params.items() if k in self._search_space()}
         model = Prophet(**nice_params)
         for regressor in regressors:
             model.add_regressor(regressor)
@@ -309,9 +302,7 @@ class Prophet(TimeSeriesEstimator):
             return out
 
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
 
 
@@ -319,12 +310,8 @@ class ARIMA(TimeSeriesEstimator):
     """The class for tuning ARIMA."""
 
     @classmethod
-    def _search_space(
-        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
-    ):
-        scale, _ = cls.adjust_scale(
-            data.next_scale(), len(data.train_data), pred_horizon
-        )
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        scale, _ = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
         space = {
             "p": {
                 "domain": tune.qrandint(lower=0, upper=2 * scale, q=1),
@@ -364,11 +351,7 @@ class ARIMA(TimeSeriesEstimator):
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
             # this class only supports univariate regression
-            target_col = (
-                data.target_names[0]
-                if isinstance(data.target_names, list)
-                else data.target_names
-            )
+            target_col = data.target_names[0] if isinstance(data.target_names, list) else data.target_names
             self.regressors = data.regressors
             train_df = data.train_data[self.regressors + [target_col]]
             train_df.index = to_datetime(data.train_data[data.time_col])
@@ -422,9 +405,7 @@ class ARIMA(TimeSeriesEstimator):
             end = X[self.time_col].iloc[-1]
             if len(self.regressors):
                 exog = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(
-                    start=start, end=end, exog=exog.values, **kwargs
-                )
+                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
@@ -440,19 +421,11 @@ class SARIMAX(ARIMA):
     """The class for tuning SARIMA."""
 
     @classmethod
-    def _search_space(
-        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
-    ):
-        scale, max_lags = cls.adjust_scale(
-            data.next_scale(), len(data.train_data), pred_horizon
-        )
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        scale, max_lags = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
 
         # TODO: instead, downscale the dataset and take next_scale from that for P and Q
-        scales = [
-            s
-            for s in [scale, 2 * scale, 3 * scale, 4 * scale]
-            if s * max_lags <= len(data.train_data) - pred_horizon
-        ]
+        scales = [s for s in [scale, 2 * scale, 3 * scale, 4 * scale] if s * max_lags <= len(data.train_data) - pred_horizon]
 
         space = {
             "p": {
@@ -559,9 +532,7 @@ class HoltWinters(ARIMA):
     """
 
     @classmethod
-    def _search_space(
-        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
-    ):
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         space = {
             "damped_trend": {"domain": tune.choice([True, False]), "init_value": False},
             "trend": {"domain": tune.choice(["add", "mul", None]), "init_value": "add"},
@@ -571,9 +542,7 @@ class HoltWinters(ARIMA):
             },
             "use_boxcox": {"domain": tune.choice([False, True]), "init_value": False},
             "seasonal_periods": {  # statsmodels casts this to None if "seasonal" is None
-                "domain": tune.choice(
-                    [7, 12, 4, 52, 6]
-                ),  # weekly, yearly, quarterly, weekly w yearly data
+                "domain": tune.choice([7, 12, 4, 52, 6]),  # weekly, yearly, quarterly, weekly w yearly data
                 "init_value": 7,
             },
         }
@@ -648,15 +617,11 @@ class TS_SKLearn(TimeSeriesEstimator):
     base_class = SKLearnEstimator
 
     @classmethod
-    def _search_space(
-        cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params
-    ):
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         data_size = data.train_data.shape
         space = cls.base_class.search_space(data_size=data_size, task=task, **params)
 
-        scale, _ = cls.adjust_scale(
-            data.next_scale(), len(data.train_data), pred_horizon
-        )
+        scale, _ = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
 
         max_lags = max(3 * scale, int(np.sqrt(data_size[0])))
         max_lags = min(max_lags, data_size[0] - pred_horizon - 1)
@@ -700,11 +665,7 @@ class TS_SKLearn(TimeSeriesEstimator):
 
         X_train = self._preprocess(X_train)
 
-        est_params = {
-            k: v
-            for k, v in self.params.items()
-            if k not in self.top_search_space().keys()
-        }
+        est_params = {k: v for k, v in self.params.items() if k not in self.top_search_space().keys()}
 
         from flaml.automl.time_series.sklearn import SklearnWrapper
 
@@ -739,9 +700,7 @@ class TS_SKLearn(TimeSeriesEstimator):
 
             return forecast
         else:
-            logger.warning(
-                "Estimator is not fit yet. Please run fit() before predict()."
-            )
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
 
 
