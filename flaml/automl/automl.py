@@ -489,6 +489,16 @@ class AutoML(BaseEstimator):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w") as f:
             json.dump(best, f)
+            
+    @property
+    def feature_transformer(self):
+        """Returns AutoML Transformer"""
+        return self._transformer
+    
+    @property
+    def label_transformer(self):
+        """Returns AutoML label transformer"""
+        return self._label_transformer
 
     @property
     def classes_(self):
