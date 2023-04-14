@@ -493,7 +493,7 @@ class AutoML(BaseEstimator):
     @property
     def feature_transformer(self):
         """Returns AutoML Transformer"""
-        return self._transformer
+        return getattr(self, "_transformer", None)
 
     @property
     def label_transformer(self):
