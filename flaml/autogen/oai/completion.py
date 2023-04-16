@@ -142,9 +142,10 @@ class Completion:
                 return response
         openai_completion = openai.ChatCompletion if config["model"] in cls.chat_models else openai.Completion
         start_time = time.time()
+        request_timeout = cls.request_timeout
         while True:
             try:
-                response = openai_completion.create(request_timeout=cls.request_timeout, **config)
+                response = openai_completion.create(request_timeout=request_timeout, **config)
                 cls._cache.set(key, response)
                 return response
             except (
@@ -155,14 +156,22 @@ class Completion:
                 # transient error
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
-            except (RateLimitError, Timeout):
-                # retry after retry_time seconds
-                if time.time() - start_time + cls.retry_time < cls.retry_timeout:
+            except (RateLimitError, Timeout) as e:
+                time_left = cls.retry_timeout - (time.time() - start_time + cls.retry_time)
+                if (
+                    time_left > 0
+                    and isinstance(e, RateLimitError)
+                    or time_left > request_timeout
+                    and isinstance(e, Timeout)
+                ):
                     logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 elif eval_only:
                     raise
                 else:
                     break
+                if isinstance(e, Timeout):
+                    request_timeout <<= 1
+                request_timeout = min(request_timeout, time_left)
                 sleep(cls.retry_time)
             except InvalidRequestError:
                 if "azure" == openai.api_type and "model" in config:
@@ -621,6 +630,10 @@ class Completion:
                 The actual prompt sent to OpenAI will be:
                 "Complete the following sentence: Today I feel".
             use_cache (bool, Optional): Whether to use cached responses.
+            **config: Configuration for the completion.
+                Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
+                This is useful when implementing "controlled randomness" for the completion.
+                Also, the "prompt" or "messages" parameter can be a template (str or Callable) which will be instantiated with the context.
 
         Returns:
             Responses from OpenAI API.
@@ -811,7 +824,7 @@ class Completion:
 
     @classmethod
     def cost(cls, model: str, response: dict):
-        """Compute the cost of a completion.
+        """Compute the cost of an API call.
 
         Args:
             model (str): The model name.
@@ -832,7 +845,7 @@ class Completion:
 
     @classmethod
     def extract_text(cls, response: dict) -> List[str]:
-        """Extract the text from a completion response.
+        """Extract the text from a completion or chat response.
 
         Args:
             response (dict): The response from OpenAI API.

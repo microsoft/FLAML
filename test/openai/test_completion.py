@@ -13,8 +13,8 @@ from flaml.autogen.math_utils import eval_math_responses
 
 
 def test_nocontext():
-    responses = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1)
-    print(responses)
+    response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1)
+    print(response)
 
 
 @pytest.mark.skipif(
