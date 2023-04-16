@@ -2,7 +2,7 @@ from time import sleep
 import logging
 import numpy as np
 import time
-from typing import List
+from typing import List, Optional, Dict
 import sys
 from flaml import tune, BlendSearch
 from flaml.automl.logger import logger_formatter
@@ -481,14 +481,14 @@ class Completion:
                 For prompt, please provide a string/Callable or a list of strings/Callables.
                     - If prompt is provided for chat models, it will be converted to messages under role "user".
                     - Do not provide both prompt and messages for chat models, but provide either of them.
-                    - A string `prompt` template will be used to generate a prompt for each data instance
+                    - A string template will be used to generate a prompt for each data instance
                       using `prompt.format(**data)`.
-                    - A callable `prompt` template will be used to generate a prompt for each data instance
+                    - A callable template will be used to generate a prompt for each data instance
                       using `prompt(data)`.
                 For stop, please provide a string, a list of strings, or a list of lists of strings.
                 For messages (chat models only), please provide a list of messages (for a single chat prefix)
                 or a list of lists of messages (for multiple choices of chat prefix to choose from).
-                Each message should be a dict with keys "role" and "content".
+                Each message should be a dict with keys "role" and "content". The value of "content" can be a string/Callable template.
 
         Returns:
             dict: The optimized hyperparameter setting.
@@ -619,7 +619,7 @@ class Completion:
         return params, analysis
 
     @classmethod
-    def create(cls, context={}, use_cache=True, **config):
+    def create(cls, context: Optional[Dict] = None, use_cache: Optional[bool] = True, **config):
         """Make a completion for a given context.
 
         Args:
@@ -633,7 +633,7 @@ class Completion:
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
                 This is useful when implementing "controlled randomness" for the completion.
-                Also, the "prompt" or "messages" parameter can be a template (str or Callable) which will be instantiated with the context.
+                Also, the "prompt" or "messages" parameter can contain a template (str or Callable) which will be instantiated with the context.
 
         Returns:
             Responses from OpenAI API.
@@ -651,6 +651,14 @@ class Completion:
             return cls._get_response(params, eval_only=True)
 
     @classmethod
+    def _instantiate(cls, template: str, context: Optional[Dict] = None):
+        if not context:
+            return template
+        if isinstance(template, str):
+            return template.format(**context)
+        return template(context)
+
+    @classmethod
     def _construct_params(cls, data_instance, config, prompt=None, messages=None):
         params = config.copy()
         model = config["model"]
@@ -662,30 +670,28 @@ class Completion:
             if messages is None:
                 raise ValueError("Either prompt or messages should be in config for chat models.")
         if prompt is None:
-            params["messages"] = [
-                {
-                    "role": m["role"],
-                    "content": m["content"].format(**data_instance)
-                    if isinstance(m["content"], str)
-                    else m["content"](data_instance),
-                }
-                for m in messages
-            ]
+            params["messages"] = (
+                [
+                    {
+                        "role": m["role"],
+                        "content": cls._instantiate(m["content"], data_instance),
+                    }
+                    for m in messages
+                ]
+                if data_instance
+                else messages
+            )
         elif model in cls.chat_models:
             # convert prompt to messages
-            if isinstance(prompt, str):
-                prompt_msg = prompt.format(**data_instance)
-            else:
-                prompt_msg = prompt(data_instance)
             params["messages"] = [
                 {
                     "role": "user",
-                    "content": prompt_msg if isinstance(prompt, str) else prompt(data_instance),
+                    "content": cls._instantiate(prompt, data_instance),
                 },
             ]
             params.pop("prompt", None)
         else:
-            params["prompt"] = prompt.format(**data_instance) if isinstance(prompt, str) else prompt(data_instance)
+            params["prompt"] = cls._instantiate(prompt, data_instance)
         return params
 
     @classmethod
