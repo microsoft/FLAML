@@ -3,8 +3,9 @@ import sys
 from io import StringIO
 from typing import Dict, Optional
 import regex
-from pydantic import BaseModel, Field
-
+import os
+from pydantic import BaseModel, Field, Extra, root_validator
+from typing import Any, Dict, Optional
 
 class QueryHandler():
     def __init__(self):
@@ -177,9 +178,6 @@ class PythonREPL(BaseModel):
         return output, is_success
 
 
-
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Extra, root_validator
 
 # Imported from langchain
 def get_from_dict_or_env(
