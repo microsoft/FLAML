@@ -610,11 +610,11 @@ class Completion:
         return params, analysis
 
     @classmethod
-    def create(cls, context, use_cache=True, **config):
+    def create(cls, context={}, use_cache=True, **config):
         """Make a completion for a given context.
 
         Args:
-            context (dict): The context to instantiate the prompt.
+            context (dict, Optional): The context to instantiate the prompt.
                 It needs to contain keys that are used by the prompt template.
                 E.g., `prompt="Complete the following sentence: {prefix}"`.
                 `context={"prefix": "Today I feel"}`.
