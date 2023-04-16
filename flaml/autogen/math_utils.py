@@ -1,4 +1,45 @@
 from typing import Optional
+import os
+import re
+import json 
+
+math_type_mapping = {
+    "Algebra" : 'algebra',
+    "Counting & Probability" : 'counting_and_probability',
+    "Geometry" : 'geometry',
+    "Intermediate Algebra" : 'intermediate_algebra',
+    "Number Theory" : 'number_theory',
+    "Prealgebra" : 'prealgebra',
+    "Precalculus" : 'precalculus',
+    }
+
+def remove_asy_sections(input_string):
+    pattern = r'\[asy\](.*?)\[\\asy\]'
+    output_string = re.sub(pattern, '', input_string, flags=re.DOTALL)
+    pattern = r'\[asy\](.*?)\[/asy\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    pattern = r'\[ASY\](.*?)\[\\ASY\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    pattern = r'\[ASY\](.*?)\[/ASY\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    return output_string
+
+def write_json(dict_to_save, file):
+    jstring = json.dumps(dict_to_save, indent=2)
+    with open(file, 'w') as j:
+        j.write(jstring)
+
+
+def nestmkdir(path: str, verbose: bool = False) -> None:
+    current_path = ''
+    
+    for folder in path.split('/'):
+        current_path = os.path.join(current_path, folder)
+        
+        if not os.path.exists(current_path):
+            os.mkdir(current_path)
+            if verbose:
+                print(f"Created directory: {current_path}")
 
 
 def remove_boxed(string: str) -> Optional[str]:
