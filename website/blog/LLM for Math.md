@@ -1,23 +1,64 @@
 # Does Model and Inference Parameter Matter in LLM Applications? - A Case Study for MATH
 
-- Introduction
-  - Explain what LLM is and why it is important to study its applications.
-  - State the main question of the blog post: Does model and inference parameter matter in LLM applications? - A case study for MATH
-  - Provide an overview of the methods and results of the case study
-- Background
-  - Review some previous works on LLM and MATH and their challenges and limitations
-  - Introduce FLAML as a tool for efficient model and inference parameter tuning for LLM
-  - Describe the main features and advantages of FLAML
-- Methodology
-  - Explain how the case study was conducted using FLAML
-  - Describe the data set, the models, the inference parameters, and the metrics used in the case study
-  - Provide some details on how FLAML works and how it finds the optimal inference parameters for each model
-- Results and Discussion
-  - Present the results of the case study in tables and graphs
-  - Compare the performance of different models and inference parameters on MATH
-  - Analyze the impact of model and inference parameter tuning on LLM applications
-  - Discuss the implications and limitations of the case study
-- Conclusion
-  - Summarize the main findings and contributions of the blog post
-  - Answer the main question of the blog post: Does model and inference parameter matter in LLM applications? - A case study for MATH
-  - Provide some suggestions for future work and research directions on LLM and MATH
+Large language models (LLMs) are powerful tools that can generate natural language texts for various applications, such as chatbots, summarization, translation, and more. GPT-4 is currently the state of the art LLM in the world. Is model selection irrelevant? What about inference parameters?
+
+In this blog post, we will explore how model and inference parameter matter in LLM applications, using a case study for [MATH](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract-round2.html), a benchmark for evaluating LLMs on advanced mathematical problem solving. MATH consists of 12K math competition problems from AMC-10, AMC-12 and AIME. Each problem is accompanied by a step-by-step solution.
+
+We will use the new subpackage [`flaml.autogen`](../docs/Use-Cases/Auto-Generation) to automatically find the best model and inference parameter for LLMs on a given task and dataset given an inference budget, using a novel low-cost search & pruning strategy. FLAML currently supports all the LLMs from OpenAI, such as GPT-3.5 and GPT-4.
+
+We will use FLAML to perform model selection and inference parameter tuning. Then we compare the performance on solving algebra problems with the untuned gpt-4. We will also analyze how different difficulty levels affect the results.
+
+## Experiment Setup
+
+We use FLAML to select between the following models with a target inference budget $0.02 per instance:
+- gpt-3.5-turbo, a relatively cheap model that powers the popular ChatGPT app
+- gpt-4, the state of the art LLM
+
+We adapt the models using 20 examples in the train set, using the problem statement as the input and generating the solution as the output. We use the following inference parameters:
+
+- temperature: The parameter that controls the randomness of the output text. A higher temperature means more diversity but less coherence. FLAML searches for the optimal temperature in the range of [0, 1].
+- top_p: The parameter that controls the probability mass of the output tokens. Only tokens with a cumulative probability less than or equal to top-p are considered. A lower top-p means more diversity but less coherence. FLAML searches for the optimal top-p in the range of [0, 1].
+- max_tokens: The maximum number of tokens that can be generated for each output. FLAML searches for the optimal max length in the range of [50, 1000].
+- n: The number of responses to generate. Generating multiple responses and select the best among them can help with resolving potential errors due to randomness. In this experiment, we find the answer with highest votes among all the responses and then select it as the final answer to compare with the ground truth.
+- prompt: We use the template: "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}." where {problem} will be replaced by the math problem instance.
+
+We use the average accuracy and inference cost as the metric to evaluate the performance. The inference cost is measured by the price per 1K tokens and the number of tokens consumed.
+
+## Experiment Results
+
+The following figure shows the accuracy and inference cost of each configuration on the level 2 Algebra test set.
+
+![png](images/level2algebra.png)
+
+Surprisingly, the tuned gpt-3.5-turbo model is selected as a better model and it vastly outperforms untuned gpt-4 in accuracy (92% vs. 70%) with equal or 2.5 times higher inference budget.
+The same observation can be obtained on the level 3 Algebra test set.
+
+![png](images/level3algebra.png)
+
+However, the selected model changes on level 4 Algebra.
+
+![png](images/level4algebra.png)
+
+This time gpt-4 is selected as the best model. The tuned gpt-4 achieves much higher accuracy (56% vs. 44%) and lower cost than the untuned gpt-4.
+On level 5 the result is similar.
+
+![png](images/level5algebra.png)
+
+We can see that FLAML has found different optimal model and inference parameters for each subset of a particular level, which shows that these parameters matter in cost-sensitive LLM applications and need to be carefully tuned or adapted.
+
+An example notebook to run these experiments can be found at: https://github.com/microsoft/FLAML/blob/v1.2.1/notebook/autogen_chatgpt.ipynb
+
+## Analysis and Discussion
+
+While gpt-3.5-turbo demonstrates competitive accuracy with voted answers in relatively easy algebra problems under the same inference budget, gpt-4 is a better choice for the most difficult problems. In general, through parameter tuning and model selection, we can identify the opportunity to save the expensive model for more challenging tasks, and improve the overall effectiveness of a budget-constrained system.
+
+There are many other alternative ways of solving math problems, which we have not covered in this blog post. When there are choices beyond the inference parameters, they can be generally tuned via [`flaml.tune`](../docs/Use-Cases/Tune-User-Defined-Function).
+
+The need for model selection, parameter tuning and cost saving is not specific to the math problems. The [Auto-GPT](https://github.com/Significant-Gravitas/Auto-GPT) project is an example where high cost can easily prevent a generic complex task to be accomplished as it needs many LLM inference calls.
+
+For further reading:
+
+* [Research paper about the tuning technique](https://arxiv.org/abs/2303.04673)
+* [Documentation about `flaml.autogen`](../docs/Use-Cases/Auto-Generation)
+
+Do you have any experience to share about LLM applications? Do you like to see more support of LLM optimization or automation? Please join our [Discord](https://discord.gg/Cppx2vSPVP) server for discussion.
