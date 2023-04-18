@@ -4,7 +4,7 @@ Large language models (LLMs) are powerful tools that can generate natural langua
 
 In this blog post, we will explore how model and inference parameter matter in LLM applications, using a case study for [MATH](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract-round2.html), a benchmark for evaluating LLMs on advanced mathematical problem solving. MATH consists of 12K math competition problems from AMC-10, AMC-12 and AIME. Each problem is accompanied by a step-by-step solution.
 
-We will use the new subpackage [`flaml.autogen`](../docs/Use-Cases/Auto-Generation) to automatically find the best model and inference parameter for LLMs on a given task and dataset given an inference budget, using a novel low-cost search & pruning strategy. FLAML currently supports all the LLMs from OpenAI, such as GPT-3.5 and GPT-4.
+We will use the new subpackage [`flaml.autogen`](docs/Use-Cases/Auto-Generation) to automatically find the best model and inference parameter for LLMs on a given task and dataset given an inference budget, using a novel low-cost search & pruning strategy. FLAML currently supports all the LLMs from OpenAI, such as GPT-3.5 and GPT-4.
 
 We will use FLAML to perform model selection and inference parameter tuning. Then we compare the performance on solving algebra problems with the untuned gpt-4. We will also analyze how different difficulty levels affect the results.
 
@@ -52,13 +52,13 @@ An example notebook to run these experiments can be found at: https://github.com
 
 While gpt-3.5-turbo demonstrates competitive accuracy with voted answers in relatively easy algebra problems under the same inference budget, gpt-4 is a better choice for the most difficult problems. In general, through parameter tuning and model selection, we can identify the opportunity to save the expensive model for more challenging tasks, and improve the overall effectiveness of a budget-constrained system.
 
-There are many other alternative ways of solving math problems, which we have not covered in this blog post. When there are choices beyond the inference parameters, they can be generally tuned via [`flaml.tune`](../docs/Use-Cases/Tune-User-Defined-Function).
+There are many other alternative ways of solving math problems, which we have not covered in this blog post. When there are choices beyond the inference parameters, they can be generally tuned via [`flaml.tune`](docs/Use-Cases/Tune-User-Defined-Function).
 
 The need for model selection, parameter tuning and cost saving is not specific to the math problems. The [Auto-GPT](https://github.com/Significant-Gravitas/Auto-GPT) project is an example where high cost can easily prevent a generic complex task to be accomplished as it needs many LLM inference calls.
 
 For further reading:
 
 * [Research paper about the tuning technique](https://arxiv.org/abs/2303.04673)
-* [Documentation about `flaml.autogen`](../docs/Use-Cases/Auto-Generation)
+* [Documentation about `flaml.autogen`](docs/Use-Cases/Auto-Generation)
 
 Do you have any experience to share about LLM applications? Do you like to see more support of LLM optimization or automation? Please join our [Discord](https://discord.gg/Cppx2vSPVP) server for discussion.
