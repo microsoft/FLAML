@@ -8,6 +8,8 @@ from flaml.autogen.code_utils import (
     eval_function_completions,
     generate_assertions,
     implement,
+    generate_code,
+    extract_code,
 )
 from flaml.autogen.math_utils import eval_math_responses
 
@@ -21,6 +23,42 @@ def test_nocontext():
         return
     response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1)
     print(response)
+    code = generate_code(
+        model="gpt-3.5-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": "You want to become a better assistant by learning new skills and improving your existing ones.",
+            },
+            {
+                "role": "user",
+                "content": "Write reusable code to use web scraping to get information from websites.",
+            },
+        ],
+    )
+    print(code)
+    code = extract_code(
+        """
+Example:
+```python
+def scrape(url):
+    import requests
+    from bs4 import BeautifulSoup
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    title = soup.find("title").text
+    text = soup.find("div", {"id": "bodyContent"}).text
+    return title, text
+```
+Test:
+```python
+url = "https://en.wikipedia.org/wiki/Web_scraping"
+title, text = scrape(url)
+print(f"Title: {title}")
+print(f"Text: {text}")
+"""
+    )
+    print(code)
 
 
 @pytest.mark.skipif(
@@ -235,5 +273,5 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_nocontext()
-    test_humaneval(1)
-    test_math(1)
+    # test_humaneval(1)
+    # test_math(1)

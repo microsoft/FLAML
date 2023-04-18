@@ -2,7 +2,24 @@ import signal
 import subprocess
 import sys
 from typing import List, Dict, Tuple, Optional, Union, Callable
+import re
 from flaml import oai
+
+
+def extract_code(text: str) -> str:
+    # Use a regular expression to find the code block
+    pattern = r"```python\n(.*?)\n```"
+    match = re.search(pattern, text, flags=re.DOTALL)
+    # If a match is found, return the code
+    if match:
+        code = match.group(1)
+        return code
+    return text
+
+
+def generate_code(**args):
+    response = oai.Completion.create(**args)
+    return extract_code(oai.Completion.extract_text(response)[0])
 
 
 def timeout_handler(signum, frame):
