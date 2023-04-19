@@ -570,7 +570,6 @@ class HoltWinters(StatsModelsEstimator):
         )
 
         current_time = time.time()
-
         super().fit(X_train, y_train, budget=budget, **kwargs)
         X_train = self.enrich(X_train)
 
