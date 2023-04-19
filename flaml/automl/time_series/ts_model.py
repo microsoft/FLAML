@@ -306,8 +306,44 @@ class Prophet(TimeSeriesEstimator):
             return np.ones(X.shape[0])
 
 
-class ARIMA(TimeSeriesEstimator):
+class StatsModelsEstimator(TimeSeriesEstimator):
+    def predict(self, X, **kwargs) -> pd.Series:
+        X = self.enrich(X)
+        if self._model is None or self._model is False:
+            return np.ones(X if isinstance(X, int) else X.shape[0])
+
+        if isinstance(X, int):
+            return self._model.forecast(steps=X)
+
+        if isinstance(X, TimeSeriesDataset):
+            data = X
+            X = data.test_data[data.regressors + [data.time_col]]
+        else:
+            X = X[self.regressors + [self.time_col]]
+
+        if isinstance(X, DataFrame):
+            start = X[self.time_col].iloc[0]
+            end = X[self.time_col].iloc[-1]
+            if len(self.regressors):
+                exog = self._preprocess(X[self.regressors])
+                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
+            else:
+                forecast = self._model.predict(start=start, end=end, **kwargs)
+        else:
+            raise ValueError(
+                "X needs to be either a pandas Dataframe with dates as the first column"
+                " or an int number of periods for predict()."
+            )
+        forecast.name = self.target_names[0]
+        return forecast
+
+class ARIMA(StatsModelsEstimator):
     """The class for tuning ARIMA."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        print("arima params at init time:")
+        print(self.params)
+        assert "p" in self.params
 
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
@@ -386,38 +422,10 @@ class ARIMA(TimeSeriesEstimator):
         self._model = model
         return train_time
 
-    def predict(self, X, **kwargs) -> pd.Series:
-        X = self.enrich(X)
-        if self._model is None or self._model is False:
-            return np.ones(X if isinstance(X, int) else X.shape[0])
-
-        if isinstance(X, int):
-            return self._model.forecast(steps=X)
-
-        if isinstance(X, TimeSeriesDataset):
-            data = X
-            X = data.test_data[data.regressors + [data.time_col]]
-        else:
-            X = X[self.regressors + [self.time_col]]
-
-        if isinstance(X, DataFrame):
-            start = X[self.time_col].iloc[0]
-            end = X[self.time_col].iloc[-1]
-            if len(self.regressors):
-                exog = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
-            else:
-                forecast = self._model.predict(start=start, end=end, **kwargs)
-        else:
-            raise ValueError(
-                "X needs to be either a pandas Dataframe with dates as the first column"
-                " or an int number of periods for predict()."
-            )
-        forecast.name = self.target_names[0]
-        return forecast
 
 
-class SARIMAX(ARIMA):
+
+class SARIMAX(StatsModelsEstimator):
     """The class for tuning SARIMA."""
 
     @classmethod
@@ -526,7 +534,7 @@ class SARIMAX(ARIMA):
         return train_time
 
 
-class HoltWinters(ARIMA):
+class HoltWinters(StatsModelsEstimator):
     """
     The class for tuning Holt Winters model, aka 'Triple Exponential Smoothing'.
     """
