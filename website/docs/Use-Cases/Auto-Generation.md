@@ -100,8 +100,7 @@ The returned `config` contains the optimized configuration and `analysis` contai
 
 ## Perform inference with the tuned config
 
-
-One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference. It materializes a prompt using a given context. For example,
+One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference. 
 
 There are a number of benefits of using `flaml.oai.Completion.create` to perform inference.
 
