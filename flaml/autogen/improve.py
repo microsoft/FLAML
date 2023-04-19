@@ -1,4 +1,3 @@
-import openai
 from flaml import oai
 
 IMPROVE_FUNCTION_CONFIG = {
@@ -21,5 +20,7 @@ def improve_function(file_name, func_name, objective, test_cases=None):
 
 
 if __name__ == "__main__":
+    import openai
+
     openai.api_key_path = "test/openai/key.txt"
     # print(improve_function("flaml/autogen/improve.py", "improve_function", "test"))
