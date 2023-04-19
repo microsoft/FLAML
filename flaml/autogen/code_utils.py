@@ -5,21 +5,83 @@ from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
 from flaml import oai
 
+# Regular expression for finding a code block
+CODE_BLOCK_PATTERN = r"```python\n(.*?)\n```"
+
 
 def extract_code(text: str) -> str:
     # Use a regular expression to find the code block
-    pattern = r"```python\n(.*?)\n```"
-    match = re.search(pattern, text, flags=re.DOTALL)
+    match = re.search(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
     # If a match is found, return the code
     if match:
-        code = match.group(1)
-        return code
+        return match.group(1)
     return text
 
 
 def generate_code(**args):
     response = oai.Completion.create(**args)
     return extract_code(oai.Completion.extract_text(response)[0])
+
+
+IMPROVE_FUNCTION_CONFIG = {
+    "prompt": """Improve the function '{func_name}' to achieve the objective '{objective}'.
+The current implementation of the function is as follows:
+{file_string}""",
+    "model": "gpt-4",
+    "request_timeout": 300,
+}
+
+
+def improve_function(file_name, func_name, objective, test_cases=None):
+    """(work in progress) Improve the function to achieve the objective."""
+    # read the entire file into a string
+    with open(file_name, "r") as f:
+        file_string = f.read()
+    response = oai.Completion.create(locals(), **IMPROVE_FUNCTION_CONFIG)
+    return oai.Completion.extract_text(response)[0]
+
+
+SUGGEST_IMPROVEMENT_CONFIG = {
+    "prompt": """Analyze the code in the following files and return a list of suggestions for improvement, to achieve the objective of '{objective}'.
+    {code}
+""",
+    "model": "gpt-4",
+    "request_timeout": 300,
+}
+
+
+IMPROVE_CODE_CONFIG = {
+    "prompt": """Analyze the code in the following files and return a list of suggestions for improvement followed by the improved code, to achieve the objective of '{objective}'.
+{code}
+""",
+    "model": "gpt-4",
+    "request_timeout": 300,
+}
+
+
+def improve_code(files, objective, **config):
+    """(work in progress) Improve the code to achieve a given objective.
+
+    Args:
+        files (list): A list of file names containing the source code.
+        objective (str): The objective to achieve.
+        config (Optional, dict): The configuration for the API call.
+
+    Returns:
+        str: The improved code if config=IMPROVE_CODE_CONFIG; a list of suggestions if config=SUGGEST_IMPROVEMENT_CONFIG (default).
+    """
+    code = ""
+    for file_name in files:
+        # read the entire file into a string
+        with open(file_name, "r") as f:
+            file_string = f.read()
+        code += f"""{file_name}:
+{file_string}
+
+"""
+    config = config or SUGGEST_IMPROVEMENT_CONFIG
+    response = oai.Completion.create({"objective": objective, "code": code}, **config)
+    return oai.Completion.extract_text(response)[0]
 
 
 def timeout_handler(signum, frame):

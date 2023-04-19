@@ -12,10 +12,11 @@ def solve_problem(problem: str, **config) -> str:
     """Solve the math problem.
 
     Args:
-        problem (str): The problem.
+        problem (str): The problem statement.
+        config (Optional, dict): The configuration for the API call.
 
     Returns:
-        str: The solution.
+        str: The solution to the problem.
     """
     params = MATH_CONFIG.copy()
     params.update(config)

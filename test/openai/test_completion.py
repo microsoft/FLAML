@@ -10,9 +10,11 @@ from flaml.autogen.code_utils import (
     implement,
     generate_code,
     extract_code,
+    improve_function,
+    improve_code,
+    IMPROVE_CODE_CONFIG,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
-from flaml.autogen.improve import improve_function
 
 
 def test_improve():
@@ -27,8 +29,20 @@ def test_improve():
         "solve_problem",
         "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
     )
-    with open("flaml/autogen/math_utils.py.improved", "w") as f:
+    with open("test/openai/math_utils.py.improved", "w") as f:
         f.write(improved)
+    suggestion = improve_code(
+        ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
+        "leverage generative AI smartly and cost-effectively",
+    )
+    print(suggestion)
+    suggestion = improve_code(
+        ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
+        "leverage generative AI smartly and cost-effectively",
+        **IMPROVE_CODE_CONFIG
+    )
+    with open("test/openai/suggested_improvement.txt", "w") as f:
+        f.write(suggestion)
 
 
 def test_nocontext():
