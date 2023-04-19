@@ -574,6 +574,7 @@ class HoltWinters(StatsModelsEstimator):
         super().fit(X_train, y_train, budget=budget, **kwargs)
         X_train = self.enrich(X_train)
 
+        self.regressors = []
         if isinstance(X_train, TimeSeriesDataset):
             data = X_train
             target_col = data.target_names[0]
@@ -587,11 +588,10 @@ class HoltWinters(StatsModelsEstimator):
             regressors = list(train_df)
             regressors.remove(TS_VALUE_COL)
 
-        train_df = self._preprocess(train_df)
-
-        self.regressors = []
         if regressors:
             logger.warning("Regressors are ignored for Holt-Winters ETS models.")
+
+        train_df = self._preprocess(train_df)
 
         # Override incompatible parameters
         if (
