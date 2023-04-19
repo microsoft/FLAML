@@ -121,7 +121,6 @@ It is easy to hit error when calling OpenAI APIs, due to connection, rate limit,
 
 If the provided prompt or message is a template, it will be automatically materialized with a given context. For example,
 
-
 ```python
 response = oai.Completion.create(problme=problem, prompt="{problem} Solve the problem carefully.", **config)
 ```
