@@ -12,6 +12,23 @@ from flaml.autogen.code_utils import (
     extract_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+from flaml.autogen.improve import improve_function
+
+
+def test_improve():
+    try:
+        import openai
+        import diskcache
+    except ImportError as exc:
+        print(exc)
+        return
+    improved = improve_function(
+        "flaml/autogen/math_utils.py",
+        "solve_problem",
+        "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
+    )
+    with open("flaml/autogen/math_utils.py.improved", "w") as f:
+        f.write(improved)
 
 
 def test_nocontext():
@@ -274,6 +291,7 @@ if __name__ == "__main__":
     import openai
 
     openai.api_key_path = "test/openai/key.txt"
-    test_nocontext()
+    test_improve()
+    # test_nocontext()
     # test_humaneval(1)
     # test_math(1)
