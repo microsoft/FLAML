@@ -341,10 +341,15 @@ class ARIMA(StatsModelsEstimator):
     """The class for tuning ARIMA."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        print("arima params at init time:")
-        print(self.params)
-        assert "p" in self.params
-
+        if not "p" in self.params:
+            print("arima params at init time:")
+            print(self.params)
+            try:
+                raise ValueError("ARIMA initialized without required params")
+            except Exception as e:
+                import traceback
+                print(traceback.format_exc())
+                raise e
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         scale, _ = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
