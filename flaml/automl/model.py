@@ -1176,7 +1176,7 @@ class TransformersEstimator(BaseEstimator):
         else:
             post_y_pred, _ = postprocess_prediction_and_true(
                 task=self._task,
-                y_pred=predictions.predictions,
+                y_pred=predictions,
                 tokenizer=self.tokenizer,
                 hf_args=self._training_args,
                 X=X,
