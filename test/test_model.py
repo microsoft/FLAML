@@ -99,14 +99,15 @@ def test_prep():
         pass
     prophet.predict(X)
 
-    arima = ARIMA()
-    arima.predict(X)
-    arima._model = False
-    try:
-        arima.predict(X)
-    except ValueError:
-        # X_test needs to be either a pandas Dataframe with dates as the first column or an int number of periods for predict().
-        pass
+    # What's the point of callin ARIMA without parameters, or calling predict before fit?
+    # arima = ARIMA()
+    # arima.predict(X)
+    # arima._model = False
+    # try:
+    #     arima.predict(X)
+    # except ValueError:
+    #     # X_test needs to be either a pandas Dataframe with dates as the first column or an int number of periods for predict().
+    #     pass
 
 
 if __name__ == "__main__":

@@ -341,11 +341,11 @@ class ARIMA(StatsModelsEstimator):
     """The class for tuning ARIMA."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if not "p" in self.params:
+        if not all([p in self.params for p in ["p", "d", "q"]]):
             print("arima params at init time:")
             print(self.params)
             try:
-                raise ValueError("ARIMA initialized without required params")
+                raise ValueError("ARIMA initialized without required params p, d, q")
             except Exception as e:
                 import traceback
                 print(traceback.format_exc())
