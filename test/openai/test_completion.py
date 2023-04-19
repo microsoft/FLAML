@@ -11,7 +11,7 @@ from flaml.autogen.code_utils import (
     generate_code,
     extract_code,
 )
-from flaml.autogen.math_utils import eval_math_responses
+from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 
 def test_nocontext():
@@ -21,7 +21,7 @@ def test_nocontext():
     except ImportError as exc:
         print(exc)
         return
-    response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1)
+    response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1, request_timeout=10)
     print(response)
     code = generate_code(
         model="gpt-3.5-turbo",
@@ -59,6 +59,8 @@ print(f"Text: {text}")
 """
     )
     print(code)
+    solution = solve_problem("1+1=")
+    print(solution)
 
 
 @pytest.mark.skipif(

@@ -1,4 +1,26 @@
 from typing import Optional
+from flaml import oai
+
+MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
+MATH_CONFIG = {
+    "model": "gpt-4",
+    "prompt": MATH_PROMPT,
+}
+
+
+def solve_problem(problem: str, **config) -> str:
+    """Solve the math problem.
+
+    Args:
+        problem (str): The problem.
+
+    Returns:
+        str: The solution.
+    """
+    params = MATH_CONFIG.copy()
+    params.update(config)
+    response = oai.Completion.create({"problem": problem}, **params)
+    return oai.Completion.extract_text(response)[0]
 
 
 def remove_boxed(string: str) -> Optional[str]:
