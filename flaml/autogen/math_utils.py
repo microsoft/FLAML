@@ -1,9 +1,9 @@
 from typing import Optional
-from flaml import oai
+from flaml.autogen import oai, DEFAULT_MODEL
 
 _MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
 _MATH_CONFIG = {
-    "model": "gpt-4",
+    "model": DEFAULT_MODEL,
     "prompt": _MATH_PROMPT,
 }
 

@@ -3,7 +3,7 @@ import subprocess
 import sys
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
-from flaml import oai
+from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```python\n(.*?)\n```"
@@ -23,18 +23,18 @@ def generate_code(pattern: str = CODE_BLOCK_PATTERN, **args):
     return extract_code(oai.Completion.extract_text(response)[0], pattern)
 
 
-IMPROVE_FUNCTION_CONFIG = {
+_IMPROVE_FUNCTION_CONFIG = {
     "prompt": """Improve the function '{func_name}' to achieve the objective '{objective}'.
 The current implementation of the function is as follows:
 {file_string}""",
-    "model": "gpt-4",
+    "model": DEFAULT_MODEL,
     "request_timeout": 300,
 }
 
 
 def improve_function(file_name, func_name, objective, **config):
     """(work in progress) Improve the function to achieve the objective."""
-    params = {**IMPROVE_FUNCTION_CONFIG, **config}
+    params = {**_IMPROVE_FUNCTION_CONFIG, **config}
     # read the entire file into a str
     with open(file_name, "r") as f:
         file_string = f.read()
@@ -49,7 +49,7 @@ _IMPROVE_CODE_CONFIG = {
     "prompt": """Analyze the code in the following files and return a list of suggestions for improvement{followup}, to achieve the objective of '{objective}'.
 {code}
 """,
-    "model": "gpt-4",
+    "model": DEFAULT_MODEL,
     "request_timeout": 300,
 }
 
@@ -105,13 +105,13 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3):
     return int(result.returncode == 0)
 
 
-GENERATE_ASSERTIONS_CONFIG = {
+_GENERATE_ASSERTIONS_CONFIG = {
     "prompt": """Given the signature and docstring, write the exactly same number of assertion(s) for the provided example(s) in the docstring, without assertion messages.
 
 func signature:
 {definition}
 assertions:""",
-    "model": "gpt-3.5-turbo",
+    "model": FAST_MODEL,
     "max_tokens": 256,
     "stop": "\n\n",
 }
@@ -128,7 +128,7 @@ def generate_assertions(definition: str, **config) -> Tuple[str, float]:
         str: The generated assertions.
         float: The cost of the generation.
     """
-    params = {**GENERATE_ASSERTIONS_CONFIG, **config}
+    params = {**_GENERATE_ASSERTIONS_CONFIG, **config}
     response = oai.Completion.create(
         {"definition": definition},
         **params,
