@@ -12,7 +12,6 @@ from flaml.autogen.code_utils import (
     extract_code,
     improve_function,
     improve_code,
-    IMPROVE_CODE_CONFIG,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
@@ -24,25 +23,26 @@ def test_improve():
     except ImportError as exc:
         print(exc)
         return
-    improved = improve_function(
+    improved, _ = improve_function(
         "flaml/autogen/math_utils.py",
         "solve_problem",
         "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
     )
     with open("test/openai/math_utils.py.improved", "w") as f:
         f.write(improved)
-    suggestion = improve_code(
+    suggestion, _ = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
     )
     print(suggestion)
-    suggestion = improve_code(
+    improvement, cost = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
-        **IMPROVE_CODE_CONFIG
+        suggest_only=False,
     )
+    print(cost)
     with open("test/openai/suggested_improvement.txt", "w") as f:
-        f.write(suggestion)
+        f.write(improvement)
 
 
 def test_nocontext():
@@ -90,8 +90,8 @@ print(f"Text: {text}")
 """
     )
     print(code)
-    solution = solve_problem("1+1=")
-    print(solution)
+    solution, cost = solve_problem("1+1=")
+    print(solution, cost)
 
 
 @pytest.mark.skipif(
@@ -306,6 +306,6 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_improve()
-    # test_nocontext()
+    test_nocontext()
     # test_humaneval(1)
     # test_math(1)

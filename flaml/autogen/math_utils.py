@@ -1,10 +1,10 @@
 from typing import Optional
 from flaml import oai
 
-MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
-MATH_CONFIG = {
+_MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
+_MATH_CONFIG = {
     "model": "gpt-4",
-    "prompt": MATH_PROMPT,
+    "prompt": _MATH_PROMPT,
 }
 
 
@@ -18,10 +18,10 @@ def solve_problem(problem: str, **config) -> str:
     Returns:
         str: The solution to the problem.
     """
-    params = MATH_CONFIG.copy()
-    params.update(config)
+    params = {**_MATH_CONFIG, **config}
     response = oai.Completion.create({"problem": problem}, **params)
-    return oai.Completion.extract_text(response)[0]
+    cost = oai.Completion.cost(params["model"], response)
+    return oai.Completion.extract_text(response)[0], cost
 
 
 def remove_boxed(string: str) -> Optional[str]:

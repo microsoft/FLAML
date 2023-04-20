@@ -9,18 +9,18 @@ from flaml import oai
 CODE_BLOCK_PATTERN = r"```python\n(.*?)\n```"
 
 
-def extract_code(text: str) -> str:
+def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
     # Use a regular expression to find the code block
-    match = re.search(CODE_BLOCK_PATTERN, text, flags=re.DOTALL)
+    match = re.search(pattern, text, flags=re.DOTALL)
     # If a match is found, return the code
     if match:
         return match.group(1)
     return text
 
 
-def generate_code(**args):
+def generate_code(pattern: str = CODE_BLOCK_PATTERN, **args):
     response = oai.Completion.create(**args)
-    return extract_code(oai.Completion.extract_text(response)[0])
+    return extract_code(oai.Completion.extract_text(response)[0], pattern)
 
 
 IMPROVE_FUNCTION_CONFIG = {
@@ -32,26 +32,21 @@ The current implementation of the function is as follows:
 }
 
 
-def improve_function(file_name, func_name, objective, test_cases=None):
+def improve_function(file_name, func_name, objective, **config):
     """(work in progress) Improve the function to achieve the objective."""
-    # read the entire file into a string
+    params = {**IMPROVE_FUNCTION_CONFIG, **config}
+    # read the entire file into a str
     with open(file_name, "r") as f:
         file_string = f.read()
-    response = oai.Completion.create(locals(), **IMPROVE_FUNCTION_CONFIG)
-    return oai.Completion.extract_text(response)[0]
+    response = oai.Completion.create(
+        {"func_name": func_name, "objective": objective, "file_string": file_string}, **params
+    )
+    cost = oai.Completion.cost(params["model"], response)
+    return oai.Completion.extract_text(response)[0], cost
 
 
-SUGGEST_IMPROVEMENT_CONFIG = {
-    "prompt": """Analyze the code in the following files and return a list of suggestions for improvement, to achieve the objective of '{objective}'.
-    {code}
-""",
-    "model": "gpt-4",
-    "request_timeout": 300,
-}
-
-
-IMPROVE_CODE_CONFIG = {
-    "prompt": """Analyze the code in the following files and return a list of suggestions for improvement followed by the improved code, to achieve the objective of '{objective}'.
+_IMPROVE_CODE_CONFIG = {
+    "prompt": """Analyze the code in the following files and return a list of suggestions for improvement{followup}, to achieve the objective of '{objective}'.
 {code}
 """,
     "model": "gpt-4",
@@ -59,16 +54,18 @@ IMPROVE_CODE_CONFIG = {
 }
 
 
-def improve_code(files, objective, **config):
-    """(work in progress) Improve the code to achieve a given objective.
+def improve_code(files, objective, suggest_only=True, **config):
+    """Improve the code to achieve a given objective.
 
     Args:
         files (list): A list of file names containing the source code.
         objective (str): The objective to achieve.
+        suggest_only (bool): Whether to return only the suggestions or the improved code.
         config (Optional, dict): The configuration for the API call.
 
     Returns:
-        str: The improved code if config=IMPROVE_CODE_CONFIG; a list of suggestions if config=SUGGEST_IMPROVEMENT_CONFIG (default).
+        str: The improved code if suggest_only=False; a list of suggestions if suggest_only=True (default).
+        float: The cost of the generation.
     """
     code = ""
     for file_name in files:
@@ -79,9 +76,11 @@ def improve_code(files, objective, **config):
 {file_string}
 
 """
-    config = config or SUGGEST_IMPROVEMENT_CONFIG
-    response = oai.Completion.create({"objective": objective, "code": code}, **config)
-    return oai.Completion.extract_text(response)[0]
+    params = {**_IMPROVE_CODE_CONFIG, **config}
+    followup = "" if suggest_only else " followed by the improved code"
+    response = oai.Completion.create({"objective": objective, "code": code, "followup": followup}, **params)
+    cost = oai.Completion.cost(params["model"], response)
+    return oai.Completion.extract_text(response)[0], cost
 
 
 def timeout_handler(signum, frame):
@@ -106,30 +105,35 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3):
     return int(result.returncode == 0)
 
 
-def generate_assertions(definition: str, model: Optional[str] = "gpt-3.5-turbo") -> Tuple[str, float]:
+GENERATE_ASSERTIONS_CONFIG = {
+    "prompt": """Given the signature and docstring, write the exactly same number of assertion(s) for the provided example(s) in the docstring, without assertion messages.
+
+func signature:
+{definition}
+assertions:""",
+    "model": "gpt-3.5-turbo",
+    "max_tokens": 256,
+    "stop": "\n\n",
+}
+
+
+def generate_assertions(definition: str, **config) -> Tuple[str, float]:
     """Generate assertions for a function.
 
     Args:
         definition (str): The function definition, including the signature and docstr.
-        model (str): The model used for generation.
+        config (Optional, dict): The configuration for the API call.
 
     Returns:
         str: The generated assertions.
         float: The cost of the generation.
     """
-    prompt = """Given the signature and docstring, write the exactly same number of assertion(s) for the provided example(s) in the docstring, without assertion messages.
-
-func signature:
-{definition}
-assertions:"""
+    params = {**GENERATE_ASSERTIONS_CONFIG, **config}
     response = oai.Completion.create(
         {"definition": definition},
-        model=model,
-        prompt=prompt,
-        max_tokens=256,
-        stop="\n\n",
+        **params,
     )
-    cost = oai.Completion.cost(model, response)
+    cost = oai.Completion.cost(params["model"], response)
     assertions = oai.Completion.extract_text(response)[0]
     return assertions, cost
 
