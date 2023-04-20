@@ -1,6 +1,7 @@
 import signal
 import subprocess
 import sys
+import os
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
 from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
@@ -88,22 +89,69 @@ def timeout_handler(signum, frame):
     raise TimeoutError("Timed out!")
 
 
-def execute_code(code: str, max_exec_time: Optional[int] = 3):
-    signal.signal(signal.SIGALRM, timeout_handler)
-    code = code.strip()
-    with open("codetest.py", "w") as fout:
-        fout.write(code)
+def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]:
+    """Execute code in a docker container.
+
+    Args:
+        code (str): The code to execute.
+        max_exec_time (Optional, int): The maximum execution time in seconds.
+
+    Returns:
+        int: 1 if the code executes successfully; 0 otherwise.
+        str: The error message if the code fails to execute; the stdout otherwise.
+    """
+    import docker
+
+    # check if already running in a docker container
+    in_docker_container = os.path.exists("/.dockerenv")
+    if in_docker_container:
+        # already running in a docker container
+        signal.signal(signal.SIGALRM, timeout_handler)
+        code = code.strip()
+        # with open("codetest.py", "w") as fout:
+        #     fout.write(code)
+        try:
+            signal.alarm(max_exec_time)
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+            signal.alarm(0)
+        except TimeoutError:
+            return 0, "Timeout"
+        return int(result.returncode == 0), result.stderr if result.returncode else result.stdout
+    # create a docker client
+    client = docker.from_env()
+    image = "python:3.9"
+    # check if the image exists
+    try:
+        client.images.get(image)
+    except docker.errors.ImageNotFound:
+        # pull the image
+        print("Pulling image", image)
+        client.images.pull(image)
+    # create a docker container
+    container = client.containers.run(
+        image,
+        command=["python", "-c", code],
+        working_dir="/workspace",
+    )
     try:
         signal.alarm(max_exec_time)
-        result = subprocess.run(
-            [sys.executable, "codetest.py"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
+        # wait for the container to finish
+        container.wait()
         signal.alarm(0)
     except TimeoutError:
-        return 0
-    return int(result.returncode == 0)
+        return 0, "Timeout"
+    # get the container logs
+    logs = container.logs().decode("utf-8")
+    # remove the container
+    container.remove()
+    # check if the code executed successfully
+    success = "0" in logs
+    # return the logs
+    return int(success), logs
 
 
 _GENERATE_ASSERTIONS_CONFIG = {
@@ -179,7 +227,7 @@ def eval_function_completions(
                 if response.startswith("def")
                 else f"{definition}{response}\n{test}\ncheck({entry_point})"
             )
-            success = execute_code(code)
+            success, _ = execute_code(code)
             success_list.append(success)
         return {
             "expected_success": 1 - pow(1 - sum(success_list) / n, n),
@@ -196,7 +244,7 @@ def eval_function_completions(
             code = (
                 f"{response}\n{assertions}" if response.startswith("def") else f"{definition}{response}\n{assertions}"
             )
-            succeed_assertions = execute_code(code)
+            succeed_assertions, _ = execute_code(code)
             if succeed_assertions:
                 break
     else:
@@ -216,7 +264,7 @@ def eval_function_completions(
         if response.startswith("def")
         else f"{definition}{response}\n{test}\ncheck({entry_point})"
     )
-    success = execute_code(code_test)
+    success, _ = execute_code(code_test)
     return {
         "index_selected": i,
         "succeed_assertions": succeed_assertions,

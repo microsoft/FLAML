@@ -12,8 +12,19 @@ from flaml.autogen.code_utils import (
     extract_code,
     improve_function,
     improve_code,
+    execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+
+
+def test_execute_code():
+    try:
+        import docker
+    except ImportError as exc:
+        print(exc)
+        return
+    print(execute_code("print('hello world')"))
+    print(execute_code("raise"))
 
 
 def test_improve():
@@ -305,6 +316,7 @@ if __name__ == "__main__":
     import openai
 
     openai.api_key_path = "test/openai/key.txt"
+    test_execute_code()
     test_improve()
     test_nocontext()
     # test_humaneval(1)
