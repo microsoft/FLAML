@@ -149,13 +149,12 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]
     logs = container.logs().decode("utf-8")
     # remove the container
     container.remove()
-    exit_code = container.attrs['State']['ExitCode']
-    if exit_code == 0:
+    # check if the code executed successfully
+    exit_code = container.attrs["State"]["ExitCode"]
+    success = 0
+    # TODO: "Error:" in the logs may not always be reliable
+    if exit_code == 0 and "Error:" not in logs:
         success = 1
-        print("Program executed successfully")
-    else:
-        success = 0
-        print(f"Program execution failed with exit code: {exit_code}")
     # return the logs
     return int(success), logs
 
