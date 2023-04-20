@@ -136,6 +136,7 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]
         image,
         command=["python", "-c", code],
         working_dir="/workspace",
+        detach=True,
     )
     try:
         signal.alarm(max_exec_time)
@@ -148,8 +149,13 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]
     logs = container.logs().decode("utf-8")
     # remove the container
     container.remove()
-    # check if the code executed successfully
-    success = "0" in logs
+    exit_code = container.attrs['State']['ExitCode']
+    if exit_code == 0:
+        success = 1
+        print("Program executed successfully")
+    else:
+        success = 0
+        print(f"Program execution failed with exit code: {exit_code}")
     # return the logs
     return int(success), logs
 
