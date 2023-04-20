@@ -137,8 +137,8 @@ response = oai.Completion.create(problme=problem, prompt="{problem} Solve the pr
 
 ### Code
 
-[`flaml.autogen.code_utils`](../reference/autogen/code_utils) offers some powerful utilities, such as:
-- a [`improve_code`](../reference/autogen/code_utils#improve_code) function to improve code for a given objective.
+[`flaml.autogen.code_utils`](../reference/autogen/code_utils) offers code-related utilities, such as:
+- a [`improve_code`](../reference/autogen/code_utils#improve_code) function to improve code for a given objective. This is a powerful function and it has been used to improve itself.
 - a [`generate_assertions`](../reference/autogen/code_utils#generate_assertions) function to generate assertion statements from function signature and docstr.
 - a [`implement`](../reference/autogen/code_utils#implement) function to implement a function from a definition.
 - a [`eval_function_completions`](../reference/autogen/code_utils#eval_function_completions) function to evaluate the success of a function completion task, or select a response from a list of responses using generated assertions.

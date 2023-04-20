@@ -51,7 +51,7 @@ _IMPROVE_CODE_CONFIG = {
 {code}
 """,
     "model": DEFAULT_MODEL,
-    "request_timeout": 300,
+    "request_timeout": 600,
 }
 
 
