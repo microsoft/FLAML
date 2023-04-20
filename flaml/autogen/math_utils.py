@@ -9,7 +9,7 @@ _MATH_CONFIG = {
 
 
 def solve_problem(problem: str, **config) -> str:
-    """Solve the math problem.
+    """(work in progress) Solve the math problem.
 
     Args:
         problem (str): The problem statement.
@@ -21,7 +21,8 @@ def solve_problem(problem: str, **config) -> str:
     params = {**_MATH_CONFIG, **config}
     response = oai.Completion.create({"problem": problem}, **params)
     cost = oai.Completion.cost(params["model"], response)
-    return oai.Completion.extract_text(response)[0], cost
+    results = eval_math_responses(oai.Completion.extract_text(response))
+    return results.get("voted_answer"), cost
 
 
 def remove_boxed(string: str) -> Optional[str]:

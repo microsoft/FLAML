@@ -15,6 +15,7 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
     # If a match is found, return the code
     if match:
         return match.group(1)
+    # If no code block is found, return the whole text
     return text
 
 
@@ -225,9 +226,20 @@ def eval_function_completions(
     }
 
 
+_FUNC_COMPLETION_PROMPT = "# Python 3{definition}"
+_FUNC_COMPLETION_STOP = ["\nclass", "\ndef", "\nif", "\nprint"]
+_IMPLEMENT_CONFIGS = [
+    {"model": FAST_MODEL, "prompt": _FUNC_COMPLETION_PROMPT, "temperature": 0, "seed": 0},
+    {"model": FAST_MODEL, "prompt": _FUNC_COMPLETION_PROMPT, "stop": _FUNC_COMPLETION_STOP, "n": 7, "seed": 0},
+    {"model": DEFAULT_MODEL, "prompt": _FUNC_COMPLETION_PROMPT, "temperature": 0, "seed": 1},
+    {"model": DEFAULT_MODEL, "prompt": _FUNC_COMPLETION_PROMPT, "stop": _FUNC_COMPLETION_STOP, "n": 2, "seed": 2},
+    {"model": DEFAULT_MODEL, "prompt": _FUNC_COMPLETION_PROMPT, "stop": _FUNC_COMPLETION_STOP, "n": 1, "seed": 2},
+]
+
+
 def implement(
     definition: str,
-    configs: List[Dict],
+    configs: Optional[List[Dict]] = None,
     assertions: Optional[Union[str, Callable[[str], Tuple[str, float]]]] = generate_assertions,
 ) -> Tuple[str, float]:
     """Implement a function from a definition.
@@ -243,6 +255,7 @@ def implement(
         int: The index of the configuration which generates the implementation.
     """
     cost = 0
+    configs = configs or _IMPLEMENT_CONFIGS
     if len(configs) > 1 and callable(assertions):
         assertions, cost = assertions(definition)
     for i, config in enumerate(configs):
