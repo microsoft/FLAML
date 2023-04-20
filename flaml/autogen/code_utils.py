@@ -8,6 +8,7 @@ from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```python\n(.*?)\n```"
+WORKING_DIR = os.path.dirname(os.path.realpath(__file__)) + "/extensions"
 
 
 def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
@@ -89,38 +90,72 @@ def timeout_handler(signum, frame):
     raise TimeoutError("Timed out!")
 
 
-def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]:
+def execute_code(
+    code: Optional[str] = None,
+    max_exec_time: Optional[int] = 3,
+    filename: Optional[str] = None,
+    work_dir: Optional[str] = None,
+) -> Tuple[int, str]:
     """Execute code in a docker container.
 
     Args:
-        code (str): The code to execute.
+        code (Optional, str): The code to execute.
+            If None, the code from the file specified by filename will be executed.
+            Either code or filename must be provided.
         max_exec_time (Optional, int): The maximum execution time in seconds.
+        filename (Optional, str): The file name to save the code or where the code is stored when `code` is None.
+            If None, a file with a randomly generated name will be created.
+            The randomly generated file will be deleted after execution.
+            The file name must be a relative path. Relative paths are relative to the working directory.
+        work_dir (Optional, str): The working directory for the code execution.
+            If None, a default working directory will be used.
+            The default working directory is the "extensions" directory under
+            "xxx/flaml/autogen", where "xxx" is the path to the flaml package.
 
     Returns:
-        int: 1 if the code executes successfully; 0 otherwise.
+        int: 0 if the code executes successfully.
         str: The error message if the code fails to execute; the stdout otherwise.
     """
     import docker
 
+    assert code is not None or filename is not None, "Either code or filename must be provided."
+
+    original_filename = filename
+    if filename is None:
+        # create a file with a automatically generated name
+        filename = f"tmp_code_{hash(code)}.py"
+    if work_dir is None:
+        work_dir = WORKING_DIR
+    filepath = os.path.join(work_dir, filename)
+    file_dir = os.path.dirname(filepath)
+    os.makedirs(file_dir, exist_ok=True)
+
+    if code is not None:
+        code = code.strip()
+        with open(filepath, "w") as fout:
+            fout.write(code)
+    signal.signal(signal.SIGALRM, timeout_handler)
     # check if already running in a docker container
     in_docker_container = os.path.exists("/.dockerenv")
     if in_docker_container:
         # already running in a docker container
-        signal.signal(signal.SIGALRM, timeout_handler)
-        code = code.strip()
-        # with open("codetest.py", "w") as fout:
-        #     fout.write(code)
         try:
             signal.alarm(max_exec_time)
+            # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
-                [sys.executable, "-c", code],
+                [sys.executable, filepath],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
+                cwd=work_dir,
             )
             signal.alarm(0)
         except TimeoutError:
-            return 0, "Timeout"
-        return int(result.returncode == 0), result.stderr if result.returncode else result.stdout
+            if original_filename is None:
+                os.remove(filepath)
+            return 1, "Timeout"
+        if original_filename is None:
+            os.remove(filepath)
+        return result.returncode, result.stderr if result.returncode else result.stdout
     # create a docker client
     client = docker.from_env()
     image = "python:3.9"
@@ -134,9 +169,11 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]
     # create a docker container
     container = client.containers.run(
         image,
-        command=["python", "-c", code],
+        command=["sh", "-c", f"python {filename} ; echo $?"],
         working_dir="/workspace",
         detach=True,
+        # get absolute path to the working directory
+        volumes={os.path.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
     )
     try:
         signal.alarm(max_exec_time)
@@ -144,19 +181,22 @@ def execute_code(code: str, max_exec_time: Optional[int] = 3) -> Tuple[int, str]
         container.wait()
         signal.alarm(0)
     except TimeoutError:
-        return 0, "Timeout"
+        if original_filename is None:
+            os.remove(filepath)
+        return 1, "Timeout"
     # get the container logs
     logs = container.logs().decode("utf-8")
     # remove the container
     container.remove()
     # check if the code executed successfully
     exit_code = container.attrs["State"]["ExitCode"]
-    success = 0
-    # TODO: "Error:" in the logs may not always be reliable
-    if exit_code == 0 and "Error:" not in logs:
-        success = 1
-    # return the logs
-    return int(success), logs
+    if exit_code == 0:
+        pos = logs[:-1].rfind("\n")
+        exit_code = int(logs[pos + 1 : -1])
+    if original_filename is None:
+        os.remove(filepath)
+    # return the exit code and logs
+    return exit_code, logs
 
 
 _GENERATE_ASSERTIONS_CONFIG = {
@@ -232,7 +272,7 @@ def eval_function_completions(
                 if response.startswith("def")
                 else f"{definition}{response}\n{test}\ncheck({entry_point})"
             )
-            success, _ = execute_code(code)
+            success = execute_code(code)[0] == 0
             success_list.append(success)
         return {
             "expected_success": 1 - pow(1 - sum(success_list) / n, n),
@@ -249,7 +289,7 @@ def eval_function_completions(
             code = (
                 f"{response}\n{assertions}" if response.startswith("def") else f"{definition}{response}\n{assertions}"
             )
-            succeed_assertions, _ = execute_code(code)
+            succeed_assertions = execute_code(code)[0] == 0
             if succeed_assertions:
                 break
     else:
@@ -269,7 +309,7 @@ def eval_function_completions(
         if response.startswith("def")
         else f"{definition}{response}\n{test}\ncheck({entry_point})"
     )
-    success, _ = execute_code(code_test)
+    success = execute_code(code_test)[0] == 0
     return {
         "index_selected": i,
         "succeed_assertions": succeed_assertions,

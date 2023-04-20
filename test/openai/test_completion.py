@@ -23,8 +23,13 @@ def test_execute_code():
     except ImportError as exc:
         print(exc)
         return
-    print(execute_code("print('hello world')"))
-    print(execute_code("raise"))
+    print(execute_code("print('hello world')", filename="tmp/codetest.py"))
+    # read a file
+    print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
+    # create a file
+    print(execute_code("with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir="test/openai/my_tmp"))
+    # execute code in a file
+    print(execute_code(filename="tmp/codetest.py"))
 
 
 def test_improve():
