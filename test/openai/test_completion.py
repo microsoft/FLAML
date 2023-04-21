@@ -146,54 +146,52 @@ def test_humaneval(num_samples=1):
         print(exc)
         return
     # a minimal tuning example
-    # config, _ = oai.Completion.tune(
-    #     data=tune_data,
-    #     metric="success",
-    #     mode="max",
-    #     eval_func=eval_function_completions,
-    #     n=1,
-    #     prompt="{definition}",
-    # )
-    # responses = oai.Completion.create(context=test_data[0], **config)
+    config, _ = oai.Completion.tune(
+        data=tune_data,
+        metric="success",
+        mode="max",
+        eval_func=eval_function_completions,
+        n=1,
+        prompt="{definition}",
+    )
+    responses = oai.Completion.create(context=test_data[0], **config)
     # a minimal tuning example for tuning chat completion models using the Completion class
-    # config, _ = oai.Completion.tune(
-    #     data=tune_data,
-    #     metric="succeed_assertions",
-    #     mode="max",
-    #     eval_func=eval_with_generated_assertions,
-    #     n=1,
-    #     model="gpt-3.5-turbo",
-    #     prompt="{definition}",
-    # )
-    # responses = oai.Completion.create(context=test_data[0], **config)
+    config, _ = oai.Completion.tune(
+        data=tune_data,
+        metric="succeed_assertions",
+        mode="max",
+        eval_func=eval_with_generated_assertions,
+        n=1,
+        model="gpt-3.5-turbo",
+        prompt="{definition}",
+    )
+    responses = oai.Completion.create(context=test_data[0], **config)
     # a minimal tuning example for tuning chat completion models using the Completion class
-    # config, _ = oai.ChatCompletion.tune(
-    #     data=tune_data,
-    #     metric="expected_success",
-    #     mode="max",
-    #     eval_func=eval_function_completions,
-    #     n=1,
-    #     messages=[{"role": "user", "content": "{definition}"}],
-    # )
-    # responses = oai.ChatCompletion.create(context=test_data[0], **config)
-    # print(responses)
-    # code, cost, _ = implement(tune_data[1], [config])
-    # print(code)
-    # print(cost)
-    # print(eval_function_completions([code], **tune_data[1]))
+    config, _ = oai.ChatCompletion.tune(
+        data=tune_data,
+        metric="expected_success",
+        mode="max",
+        eval_func=eval_function_completions,
+        n=1,
+        messages=[{"role": "user", "content": "{definition}"}],
+    )
+    responses = oai.ChatCompletion.create(context=test_data[0], **config)
+    print(responses)
+    code, cost, _ = implement(tune_data[1], [config])
+    print(code)
+    print(cost)
+    print(eval_function_completions([code], **tune_data[1]))
     # a more comprehensive tuning example
-    import logging
-
     config2, analysis = oai.Completion.tune(
         data=tune_data,
         metric="success",
         mode="max",
         eval_func=eval_with_generated_assertions,
-        # log_file_name="logs/humaneval.log",
+        log_file_name="logs/humaneval.log",
         inference_budget=0.002,
         optimization_budget=2,
         num_samples=num_samples,
-        logging_level=logging.INFO,
+        # logging_level=logging.INFO,
         prompt=[
             "{definition}",
             "# Python 3{definition}",
@@ -211,9 +209,9 @@ def test_humaneval(num_samples=1):
     print("result without pruning", result)
     result = oai.Completion.test(test_data[:num_samples], config=config2)
     print(result)
-    # code, cost, selected = implement(tune_data[1], [config2, config])
-    # print(selected)
-    # print(eval_function_completions([code], **tune_data[1]))
+    code, cost, selected = implement(tune_data[1], [config2, config])
+    print(selected)
+    print(eval_function_completions([code], **tune_data[1]))
 
 
 def test_math(num_samples=-1):
@@ -322,15 +320,12 @@ def test_math(num_samples=-1):
     print("empty responses", eval_math_responses([], None))
 
 
-# check docker version in linux
-# docker --version
-
-# docker run --rm -it --gpus all -v /home/zhengyuan/openai:/openai -w /openai openai-api python test/openai/test.py
 if __name__ == "__main__":
-    # import openai
-    # openai.api_key_path = "test/openai/key.txt"
-    # test_execute_code()
-    # test_improve()
-    # test_nocontext()
+    import openai
+
+    openai.api_key_path = "test/openai/key.txt"
+    test_execute_code()
+    test_improve()
+    test_nocontext()
     test_humaneval(1)
-    # test_math(1)
+    test_math(1)
