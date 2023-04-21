@@ -203,6 +203,7 @@ def execute_code(
     # check if the code executed successfully
     exit_code = container.attrs["State"]["ExitCode"]
     if exit_code == 0:
+        print(logs)
         pos = logs.rfind("\n")
         exit_code = int(logs[pos + 1 :])
         logs = logs[:pos]
