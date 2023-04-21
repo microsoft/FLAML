@@ -155,7 +155,7 @@ def execute_code(
             signal.alarm(max_exec_time)
             # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
-                [sys.executable, filepath],
+                [sys.executable, filename],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 cwd=work_dir,
@@ -205,6 +205,8 @@ def execute_code(
     if exit_code == 0:
         pos = logs.rfind("\n")
         exit_code = int(logs[pos + 1 :])
+        logs = logs[:pos]
+    logs = bytes(logs, "utf-8")
     if original_filename is None:
         os.remove(filepath)
     # return the exit code and logs
