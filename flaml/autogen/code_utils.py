@@ -107,7 +107,7 @@ def execute_code(
     max_exec_time: Optional[int] = 3,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-) -> Tuple[int, str]:
+) -> Tuple[int, bytes]:
     """Execute code in a docker container.
 
     Args:
@@ -126,7 +126,7 @@ def execute_code(
 
     Returns:
         int: 0 if the code executes successfully.
-        str: The error message if the code fails to execute; the stdout otherwise.
+        bytes: The error message if the code fails to execute; the stdout otherwise.
     """
     import docker
 
