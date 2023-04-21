@@ -72,7 +72,7 @@ def test_nocontext():
         return
     response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1, request_timeout=10)
     print(response)
-    code = generate_code(
+    code, _ = generate_code(
         model="gpt-3.5-turbo",
         messages=[
             {

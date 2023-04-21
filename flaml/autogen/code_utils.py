@@ -21,9 +21,10 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
     return text
 
 
-def generate_code(pattern: str = CODE_BLOCK_PATTERN, **args):
-    response = oai.Completion.create(**args)
-    return extract_code(oai.Completion.extract_text(response)[0], pattern)
+def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
+    response = oai.Completion.create(**config)
+    cost = oai.Completion.cost(config["model"], response)
+    return extract_code(oai.Completion.extract_text(response)[0], pattern), cost
 
 
 _IMPROVE_FUNCTION_CONFIG = {
@@ -53,7 +54,7 @@ _IMPROVE_CODE_CONFIG = {
 {code}
 """,
     "model": DEFAULT_MODEL,
-    "request_timeout": 600,
+    "request_timeout": 900,
 }
 
 
