@@ -70,7 +70,9 @@ def test_nocontext():
     except ImportError as exc:
         print(exc)
         return
-    response = oai.Completion.create(model="text-ada-001", prompt="1+1=", max_tokens=1, request_timeout=10)
+    response = oai.Completion.create(
+        model="text-ada-001", prompt="1+1=", max_tokens=1, use_cache=False, request_timeout=10
+    )
     print(response)
     code, _ = generate_code(
         model="gpt-3.5-turbo",
@@ -86,6 +88,17 @@ def test_nocontext():
         ],
     )
     print(code)
+    # test extract_code from markdown
+    code = extract_code(
+        """
+Example:
+```
+print("hello extract code")
+```
+"""
+    )
+    print(code)
+
     code = extract_code(
         """
 Example:
@@ -265,12 +278,10 @@ def test_math(num_samples=-1):
     }
     test_data_sample = test_data[0:3]
     result = oai.ChatCompletion.test(test_data_sample, vanilla_config, eval_math_responses)
-    test_data_sample = test_data[3:6]
     result = oai.ChatCompletion.test(
         test_data_sample,
         vanilla_config,
         eval_math_responses,
-        use_cache=False,
         agg_method="median",
     )
 
@@ -284,14 +295,12 @@ def test_math(num_samples=-1):
         test_data_sample,
         vanilla_config,
         eval_math_responses,
-        use_cache=False,
         agg_method=my_median,
     )
     result = oai.ChatCompletion.test(
         test_data_sample,
         vanilla_config,
         eval_math_responses,
-        use_cache=False,
         agg_method={
             "expected_success": my_median,
             "success": my_average,
