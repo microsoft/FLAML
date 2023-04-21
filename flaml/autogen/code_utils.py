@@ -136,7 +136,7 @@ def execute_code(
     # generate a hash for the code
     code_hash = hash(code)
     # get a randomized name for the exit code of a successful execution
-    exit_code_name = f"-exit_code_{code_hash}"
+    exit_code_name = f"success_exit_code{code_hash}"
     if filename is None:
         # create a file with a automatically generated name
         filename = f"tmp_code_{code_hash}.py"
@@ -185,7 +185,11 @@ def execute_code(
     # create a docker container
     container = client.containers.run(
         image,
-        command=["sh", "-c", f"python {filename} ; if [ $? -eq 0 ]; then echo {exit_code_name}; fi"],
+        command=[
+            "sh",
+            "-c",
+            f"python {filename}; exit_code=$?; if [ $exit_code -eq 0 ]; then echo {exit_code_name}; else echo $exit_code; fi",
+        ],
         working_dir="/workspace",
         detach=True,
         # get absolute path to the working directory
