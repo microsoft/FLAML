@@ -133,9 +133,13 @@ def execute_code(
     assert code is not None or filename is not None, "Either code or filename must be provided."
 
     original_filename = filename
+    # generate a hash for the code
+    code_hash = hash(code)
+    # get a randomized name for the exit code of a successful execution
+    exit_code_name = f"-exit_code_{code_hash}"
     if filename is None:
         # create a file with a automatically generated name
-        filename = f"tmp_code_{hash(code)}.py"
+        filename = f"tmp_code_{code_hash}.py"
     if work_dir is None:
         work_dir = WORKING_DIR
     filepath = os.path.join(work_dir, filename)
@@ -181,7 +185,7 @@ def execute_code(
     # create a docker container
     container = client.containers.run(
         image,
-        command=["sh", "-c", f"python {filename} ; echo $?"],
+        command=["sh", "-c", f"python {filename} ; if [ $? -eq 0 ]; then echo {exit_code_name}; fi"],
         working_dir="/workspace",
         detach=True,
         # get absolute path to the working directory
@@ -203,10 +207,11 @@ def execute_code(
     # check if the code executed successfully
     exit_code = container.attrs["State"]["ExitCode"]
     if exit_code == 0:
-        print(logs)
-        pos = logs.rfind("\n")
-        exit_code = int(logs[pos + 1 :])
-        logs = logs[:pos]
+        # check if the exit code is in the logs
+        if str(exit_code_name) in logs:
+            exit_code = 0
+        else:
+            exit_code = 1
     logs = bytes(logs, "utf-8")
     if original_filename is None:
         os.remove(filepath)
