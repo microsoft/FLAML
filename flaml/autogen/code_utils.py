@@ -185,14 +185,14 @@ def execute_code(
             os.remove(filepath)
         return 1, "Timeout"
     # get the container logs
-    logs = container.logs().decode("utf-8")
+    logs = container.logs().decode("utf-8").rstrip()
     # remove the container
     container.remove()
     # check if the code executed successfully
     exit_code = container.attrs["State"]["ExitCode"]
     if exit_code == 0:
-        pos = logs[:-1].rfind("\n")
-        exit_code = int(logs[pos + 1 : -1])
+        pos = logs.rfind("\n")
+        exit_code = int(logs[pos + 1 :])
     if original_filename is None:
         os.remove(filepath)
     # return the exit code and logs

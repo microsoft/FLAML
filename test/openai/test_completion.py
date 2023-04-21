@@ -30,6 +30,8 @@ def test_execute_code():
     print(execute_code("with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir="test/openai/my_tmp"))
     # execute code in a file
     print(execute_code(filename="tmp/codetest.py"))
+    # execute code for assertion error
+    print(execute_code("assert 1==2"))
 
 
 def test_improve():
