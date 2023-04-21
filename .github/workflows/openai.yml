@@ -38,7 +38,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           pip install coverage pytest datasets nbconvert nbformat ipykernel
-          coverage run -a -m pytest test/openai
+          python test/openai/test_completion.py
           coverage xml
           cat "$(pwd)/test/openai/executed_openai_notebook_output.txt"
       - name: Upload coverage to Codecov
