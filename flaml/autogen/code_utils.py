@@ -22,6 +22,17 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
+    """Generate code.
+
+    Args:
+        pattern (Optional, str): The regular expression pattern for finding the code block.
+            The default pattern is for finding a code block in a markdown file.
+        config (Optional, dict): The configuration for the API call.
+
+    Returns:
+        str: The generated code.
+        float: The cost of the generation.
+    """
     response = oai.Completion.create(**config)
     cost = oai.Completion.cost(config["model"], response)
     return extract_code(oai.Completion.extract_text(response)[0], pattern), cost
