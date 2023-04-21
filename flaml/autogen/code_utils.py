@@ -4,6 +4,7 @@ import sys
 import os
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
+import time
 from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
@@ -133,11 +134,8 @@ def execute_code(
     assert code is not None or filename is not None, "Either code or filename must be provided."
 
     original_filename = filename
-    # generate a hash for the code
-    code_hash = hash(code)
-    # get a randomized name for the exit code of a successful execution
-    exit_code_name = f"success_exit_code{code_hash}"
     if filename is None:
+        code_hash = hash(code)
         # create a file with a automatically generated name
         filename = f"tmp_code_{code_hash}.py"
     if work_dir is None:
@@ -182,13 +180,16 @@ def execute_code(
         # pull the image
         print("Pulling image", image)
         client.images.pull(image)
+    # get a randomized str based on current time to wrap the exit code
+    exit_code_str = f"exitcode{time.time()}"
     # create a docker container
     container = client.containers.run(
         image,
         command=[
             "sh",
             "-c",
-            f"python {filename}; exit_code=$?; if [ $exit_code -eq 0 ]; then echo {exit_code_name}; else echo $exit_code; fi",
+            # f"python {filename}; exit_code=$?; echo {exit_code_str}$exit_code{exit_code_str}"
+            f"python {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
         ],
         working_dir="/workspace",
         detach=True,
@@ -211,11 +212,13 @@ def execute_code(
     # check if the code executed successfully
     exit_code = container.attrs["State"]["ExitCode"]
     if exit_code == 0:
-        # check if the exit code is in the logs
-        if str(exit_code_name) in logs:
-            exit_code = 0
-        else:
-            exit_code = 1
+        # extract the exit code from the logs
+        pattern = re.compile(f"{exit_code_str}(\\d+){exit_code_str}")
+        match = pattern.search(logs)
+        exit_code = int(match.group(1))
+        # remove the exit code from the logs
+        logs = pattern.sub("", logs)
+
     logs = bytes(logs, "utf-8")
     if original_filename is None:
         os.remove(filepath)
