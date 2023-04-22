@@ -339,9 +339,9 @@ def test_math(num_samples=-1):
 
 
 if __name__ == "__main__":
-    import openai
+    # import openai
 
-    openai.api_key_path = "test/openai/key.txt"
+    # openai.api_key_path = "test/openai/key.txt"
     test_execute_code()
     # test_improve()
     # test_nocontext()
