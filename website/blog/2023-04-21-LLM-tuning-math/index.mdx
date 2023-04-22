@@ -4,6 +4,8 @@ authors: sonichi
 tags: [blog, research]
 ---
 
+![level 2 algebra\label{level2}](img/level2algebra.png)
+
 Large language models (LLMs) are powerful tools that can generate natural language texts for various applications, such as chatbots, summarization, translation, and more. GPT-4 is currently the state of the art LLM in the world. Is model selection irrelevant? What about inference parameters?
 
 In this blog post, we will explore how model and inference parameter matter in LLM applications, using a case study for [MATH](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract-round2.html), a benchmark for evaluating LLMs on advanced mathematical problem solving. MATH consists of 12K math competition problems from AMC-10, AMC-12 and AIME. Each problem is accompanied by a step-by-step solution.
@@ -30,23 +32,21 @@ In this experiment, when n > 1, we find the answer with highest votes among all 
 
 ## Experiment Results
 
-The following figure shows the average accuracy and average inference cost of each configuration on the level 2 Algebra test set.
-
-![level 2 algebra](img/level2algebra.png)
+Figure \ref{level2} shows the average accuracy and average inference cost of each configuration on the level 2 Algebra test set.
 
 Surprisingly, the tuned gpt-3.5-turbo model is selected as a better model and it vastly outperforms untuned gpt-4 in accuracy (92% vs. 70%) with equal or 2.5 times higher inference budget.
 The same observation can be obtained on the level 3 Algebra test set.
 
-![level 3 algebra](img/level3algebra.png)
+![level 3 algebra\label{level3}](img/level3algebra.png)
 
 However, the selected model changes on level 4 Algebra.
 
-![level 4 algebra](img/level4algebra.png)
+![level 4 algebra\label{level4}](img/level4algebra.png)
 
 This time gpt-4 is selected as the best model. The tuned gpt-4 achieves much higher accuracy (56% vs. 44%) and lower cost than the untuned gpt-4.
 On level 5 the result is similar.
 
-![level 5 algebra](img/level5algebra.png)
+![level 5 algebra\label{level5}](img/level5algebra.png)
 
 We can see that FLAML has found different optimal model and inference parameters for each subset of a particular level, which shows that these parameters matter in cost-sensitive LLM applications and need to be carefully tuned or adapted.
 
