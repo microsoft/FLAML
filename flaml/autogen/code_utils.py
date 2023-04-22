@@ -208,14 +208,24 @@ def execute_code(
         # get absolute path to the working directory
         volumes={abs_path: {"bind": "/workspace", "mode": "rw"}},
     )
-    try:
-        container.wait(timeout=timeout)
-    except (ReadTimeout, ConnectionError):
+    start_time = time.time()
+    while container.status != "exited" and time.time() - start_time < timeout:
+        # Reload the container object
+        container.reload()
+    if container.status != "exited":
         container.stop()
         container.remove()
         if original_filename is None:
             os.remove(filepath)
         return 1, "Timeout"
+    # try:
+    #     container.wait(timeout=timeout)
+    # except (ReadTimeout, ConnectionError):
+    #     container.stop()
+    #     container.remove()
+    #     if original_filename is None:
+    #         os.remove(filepath)
+    #     return 1, "Timeout"
     # get the container logs
     logs = container.logs().decode("utf-8").rstrip()
     # remove the container
