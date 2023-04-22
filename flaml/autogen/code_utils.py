@@ -170,6 +170,7 @@ def execute_code(
         return result.returncode, result.stderr if result.returncode else result.stdout
 
     import docker
+    from requests.exceptions import ReadTimeout
 
     # create a docker client
     client = docker.from_env()
@@ -197,10 +198,11 @@ def execute_code(
         # get absolute path to the working directory
         volumes={os.path.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
     )
-    start_time = time.time()
-    while container.status == "running" and time.time() - start_time < max_exec_time:
-        pass
-    if container.status == "running":
+    try:
+        container.wait(timeout=max_exec_time)
+    except ReadTimeout:
+        container.stop()
+        container.remove()
         if original_filename is None:
             os.remove(filepath)
         return 1, "Timeout"
