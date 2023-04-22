@@ -58,7 +58,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           pip install -e .
-          pytest test/openai/test_completion.py -k test_execute_code
+          python test/openai/test_completion.py
           python -c "import flaml"
           pip install -e .[test]
           pip list | grep "pyspark"
