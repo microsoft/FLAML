@@ -110,6 +110,7 @@ def execute_code(
     work_dir: Optional[str] = None,
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
+    This function is not tested on MacOS.
 
     Args:
         code (Optional, str): The code to execute.
@@ -174,7 +175,7 @@ def execute_code(
 
     # create a docker client
     client = docker.from_env()
-    image = "python:3.9"
+    image = "python:3-alpine"
     # check if the image exists
     try:
         client.images.get(image)

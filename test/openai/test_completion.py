@@ -17,6 +17,10 @@ from flaml.autogen.code_utils import (
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="do not run on MacOS",
+)
 def test_execute_code():
     try:
         import docker
