@@ -32,6 +32,8 @@ def test_execute_code():
     print(execute_code(filename="tmp/codetest.py"))
     # execute code for assertion error
     print(execute_code("assert 1==2"))
+    # execute code which takes a long time
+    print(execute_code("import time; time.sleep(1)", max_exec_time=0.5))
 
 
 def test_improve():
@@ -334,7 +336,7 @@ if __name__ == "__main__":
 
     openai.api_key_path = "test/openai/key.txt"
     test_execute_code()
-    test_improve()
-    test_nocontext()
-    test_humaneval(1)
-    test_math(1)
+    # test_improve()
+    # test_nocontext()
+    # test_humaneval(1)
+    # test_math(1)

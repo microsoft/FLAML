@@ -8,7 +8,7 @@ import time
 from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
-CODE_BLOCK_PATTERN = r"```python\n(.*?)\n```"
+CODE_BLOCK_PATTERN = r"```\w*\n(.*?)\n```"
 WORKING_DIR = os.path.dirname(os.path.realpath(__file__)) + "/extensions"
 
 

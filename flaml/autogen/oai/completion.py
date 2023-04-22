@@ -184,13 +184,15 @@ class Completion:
                 else:
                     raise
             else:
-                cls._cache.set(key, response)
+                if use_cache:
+                    cls._cache.set(key, response)
                 return response
         logger.warning(
             f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
         )
         response = -1
-        cls._cache.set(key, response)
+        if use_cache:
+            cls._cache.set(key, response)
         return response
 
     @classmethod
