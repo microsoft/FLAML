@@ -194,7 +194,7 @@ def execute_code(
     abs_path = pathlib.Path(work_dir).absolute()
     if sys.platform == "win32":
         abs_path = str(abs_path).replace("\\", "/")
-        abs_path = f"//{abs_path[0].lower()}{abs_path[2:]}"
+        abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
     # create a docker container
     container = client.containers.run(
         image,
