@@ -27,7 +27,8 @@ def test_execute_code():
     except ImportError as exc:
         print(exc)
         return
-    print(execute_code("print('hello world')", filename="tmp/codetest.py"))
+    exitcode, msg = execute_code("print('hello world')", filename="tmp/codetest.py")
+    assert exitcode == 0 and msg == b"hello world\n", msg
     # read a file
     print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
     # create a file
@@ -35,9 +36,11 @@ def test_execute_code():
     # execute code in a file
     print(execute_code(filename="tmp/codetest.py"))
     # execute code for assertion error
-    print(execute_code("assert 1==2"))
+    exit_code, msg = execute_code("assert 1==2")
+    assert exit_code, msg
     # execute code which takes a long time
-    print(execute_code("import time; time.sleep(1)", timeout=0.5))
+    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1)
+    assert exit_code and error == "Timeout"
 
 
 def test_improve():

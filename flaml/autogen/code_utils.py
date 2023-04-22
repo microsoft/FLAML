@@ -106,7 +106,7 @@ def timeout_handler(signum, frame):
 
 def execute_code(
     code: Optional[str] = None,
-    timeout: Optional[float] = 600,
+    timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
 ) -> Tuple[int, bytes]:
@@ -117,7 +117,7 @@ def execute_code(
         code (Optional, str): The code to execute.
             If None, the code from the file specified by filename will be executed.
             Either code or filename must be provided.
-        timeout (Optional, float): The maximum execution time in seconds.
+        timeout (Optional, int): The maximum execution time in seconds.
         filename (Optional, str): The file name to save the code or where the code is stored when `code` is None.
             If None, a file with a randomly generated name will be created.
             The randomly generated file will be deleted after execution.
@@ -158,9 +158,8 @@ def execute_code(
             # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
                 [sys.executable, filename],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
                 cwd=work_dir,
+                capture_output=True,
             )
             signal.alarm(0)
         except TimeoutError:
@@ -201,7 +200,6 @@ def execute_code(
         command=[
             "sh",
             "-c",
-            # f"python {filename}; exit_code=$?; echo {exit_code_str}$exit_code{exit_code_str}"
             f"python {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
         ],
         working_dir="/workspace",
