@@ -129,8 +129,6 @@ def execute_code(
         int: 0 if the code executes successfully.
         bytes: The error message if the code fails to execute; the stdout otherwise.
     """
-    import docker
-
     assert code is not None or filename is not None, "Either code or filename must be provided."
 
     original_filename = filename
@@ -148,11 +146,11 @@ def execute_code(
         code = code.strip()
         with open(filepath, "w") as fout:
             fout.write(code)
-    signal.signal(signal.SIGALRM, timeout_handler)
     # check if already running in a docker container
     in_docker_container = os.path.exists("/.dockerenv")
     if in_docker_container:
         # already running in a docker container
+        signal.signal(signal.SIGALRM, timeout_handler)
         try:
             signal.alarm(max_exec_time)
             # run the code in a subprocess in the current docker container in the working directory
@@ -170,6 +168,10 @@ def execute_code(
         if original_filename is None:
             os.remove(filepath)
         return result.returncode, result.stderr if result.returncode else result.stdout
+
+    import docker
+    from requests.exceptions import ReadTimeout
+
     # create a docker client
     client = docker.from_env()
     image = "python:3.9"
@@ -197,11 +199,10 @@ def execute_code(
         volumes={os.path.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
     )
     try:
-        signal.alarm(max_exec_time)
-        # wait for the container to finish
-        container.wait()
-        signal.alarm(0)
-    except TimeoutError:
+        container.wait(timeout=max_exec_time)
+    except ReadTimeout:
+        container.stop()
+        container.remove()
         if original_filename is None:
             os.remove(filepath)
         return 1, "Timeout"
