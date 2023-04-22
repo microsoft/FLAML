@@ -2,6 +2,7 @@ import signal
 import subprocess
 import sys
 import os
+import posixpath
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
 import time
@@ -9,7 +10,7 @@ from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```\w*\n(.*?)\n```"
-WORKING_DIR = os.path.dirname(os.path.realpath(__file__)) + "/extensions"
+WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
 
 
 def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
@@ -203,7 +204,7 @@ def execute_code(
         working_dir="/workspace",
         detach=True,
         # get absolute path to the working directory
-        volumes={os.path.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
+        volumes={posixpath.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
     )
     try:
         container.wait(timeout=timeout)
