@@ -176,6 +176,9 @@ def execute_code(
     # create a docker client
     client = docker.from_env()
     image = "python:3-alpine"
+    # check if the os is linux or windows, if windows, use the windows image
+    if sys.platform.startswith("win"):
+        image = "python:3-windowsservercore"
     # check if the image exists
     try:
         client.images.get(image)
