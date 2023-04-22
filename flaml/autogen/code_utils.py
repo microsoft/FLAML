@@ -175,17 +175,20 @@ def execute_code(
 
     # create a docker client
     client = docker.from_env()
-    image = "python:3-alpine"
-    # check if the os is linux or windows, if windows, use the windows image
-    if sys.platform.startswith("win"):
-        image = "python:3-windowsservercore"
-    # check if the image exists
-    try:
-        client.images.get(image)
-    except docker.errors.ImageNotFound:
-        # pull the image
-        print("Pulling image", image)
-        client.images.pull(image)
+    image_list = ["python:3-alpine", "python:3", "python:3-windowsservercore"]
+    for image in image_list:
+        # check if the image exists
+        try:
+            client.images.get(image)
+            break
+        except docker.errors.ImageNotFound:
+            # pull the image
+            print("Pulling image", image)
+            try:
+                client.images.pull(image)
+                break
+            except docker.errors.DockerException:
+                print("Failed to pull image", image)
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
     # create a docker container
