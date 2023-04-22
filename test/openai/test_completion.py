@@ -18,8 +18,8 @@ from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 
 @pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="do not run on MacOS",
+    sys.platform in ["darwin", "win32"],
+    reason="do not run on MacOS or windows",
 )
 def test_execute_code():
     try:

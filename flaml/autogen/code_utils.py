@@ -192,9 +192,9 @@ def execute_code(
     # get a randomized str based on current time to wrap the exit code
     exit_code_str = f"exitcode{time.time()}"
     abs_path = pathlib.Path(work_dir).absolute()
-    if sys.platform == "win32":
-        abs_path = str(abs_path).replace("\\", "/")
-        abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
+    # if sys.platform == "win32":
+    #     abs_path = str(abs_path).replace("\\", "/")
+    #     abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
     # create a docker container
     container = client.containers.run(
         image,
