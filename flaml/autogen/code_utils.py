@@ -105,7 +105,7 @@ def timeout_handler(signum, frame):
 
 def execute_code(
     code: Optional[str] = None,
-    max_exec_time: Optional[int] = 3,
+    timeout: Optional[float] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
 ) -> Tuple[int, bytes]:
@@ -115,7 +115,7 @@ def execute_code(
         code (Optional, str): The code to execute.
             If None, the code from the file specified by filename will be executed.
             Either code or filename must be provided.
-        max_exec_time (Optional, int): The maximum execution time in seconds.
+        timeout (Optional, float): The maximum execution time in seconds.
         filename (Optional, str): The file name to save the code or where the code is stored when `code` is None.
             If None, a file with a randomly generated name will be created.
             The randomly generated file will be deleted after execution.
@@ -152,7 +152,7 @@ def execute_code(
         # already running in a docker container
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
-            signal.alarm(max_exec_time)
+            signal.alarm(timeout)
             # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
                 [sys.executable, filename],
@@ -170,7 +170,7 @@ def execute_code(
         return result.returncode, result.stderr if result.returncode else result.stdout
 
     import docker
-    from requests.exceptions import ReadTimeout
+    from requests.exceptions import ReadTimeout, ConnectionError
 
     # create a docker client
     client = docker.from_env()
@@ -199,8 +199,8 @@ def execute_code(
         volumes={os.path.abspath(work_dir): {"bind": "/workspace", "mode": "rw"}},
     )
     try:
-        container.wait(timeout=max_exec_time)
-    except ReadTimeout:
+        container.wait(timeout=timeout)
+    except (ReadTimeout, ConnectionError):
         container.stop()
         container.remove()
         if original_filename is None:
@@ -275,6 +275,7 @@ def eval_function_completions(
     test: Optional[str] = None,
     entry_point: Optional[str] = None,
     assertions: Optional[Union[str, Callable[[str], Tuple[str, float]]]] = None,
+    timeout: Optional[float] = 3,
 ) -> Dict:
     """Select a response from a list of responses for the function completion task (using generated assertions), and/or evaluate if the task is successful using a gold test.
 
@@ -285,6 +286,7 @@ def eval_function_completions(
         entry_point (Optional, str): The name of the function.
         assertions (Optional, str or Callable): The assertion code which serves as a filter of the responses, or an assertion generator.
             When provided, only the responses that pass the assertions will be considered for the actual test (if provided).
+        timeout (Optional, float): The timeout for executing the code.
 
     Returns:
         dict: The success metrics.
@@ -300,7 +302,7 @@ def eval_function_completions(
                 if response.startswith("def")
                 else f"{definition}{response}\n{test}\ncheck({entry_point})"
             )
-            success = execute_code(code)[0] == 0
+            success = execute_code(code, timeout=timeout)[0] == 0
             success_list.append(success)
         return {
             "expected_success": 1 - pow(1 - sum(success_list) / n, n),
@@ -317,7 +319,7 @@ def eval_function_completions(
             code = (
                 f"{response}\n{assertions}" if response.startswith("def") else f"{definition}{response}\n{assertions}"
             )
-            succeed_assertions = execute_code(code)[0] == 0
+            succeed_assertions = execute_code(code, timeout=timeout)[0] == 0
             if succeed_assertions:
                 break
     else:
@@ -337,7 +339,7 @@ def eval_function_completions(
         if response.startswith("def")
         else f"{definition}{response}\n{test}\ncheck({entry_point})"
     )
-    success = execute_code(code_test)[0] == 0
+    success = execute_code(code_test, timeout=timeout)[0] == 0
     return {
         "index_selected": i,
         "succeed_assertions": succeed_assertions,

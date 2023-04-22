@@ -33,7 +33,7 @@ def test_execute_code():
     # execute code for assertion error
     print(execute_code("assert 1==2"))
     # execute code which takes a long time
-    print(execute_code("import time; time.sleep(1)", max_exec_time=0.5))
+    print(execute_code("import time; time.sleep(1)", timeout=0.5))
 
 
 def test_improve():
