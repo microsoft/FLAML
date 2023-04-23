@@ -131,8 +131,10 @@ class QueryHandler():
             output =  "Error: " + output
         elif output == "":
             output = "No output found. Make sure you print the results."
-
-        self.previous_code += '\n' + self.remove_print(code) + '\n'
+            is_success = False
+        
+        if is_success:
+            self.previous_code += '\n' + self.remove_print(query['query']) + '\n'
         return output, is_success
 
     def add_print_to_last_line(self, s):

@@ -78,7 +78,7 @@ class MathSolver:
         
         self.prompt_type = prompt_type
         self.prompt = PROMPTS[prompt_type]
-        print(self.prompt)
+
         self.deafult_config = {
             'model': model,
             'messages' : [
