@@ -8,10 +8,11 @@
 pip install -e .[math] flaml
 ```
 
-2. In `main.py`: set openai_key
+2. In `main.py`: set openai_key and wolfram id
 
 ```
 openai.key = "Your key here"
+os.environ["WOLFRAM_ALPHA_APPID"] = "Your id here"
 ```
 
 3. Test out `main.py` with `--test_run`
