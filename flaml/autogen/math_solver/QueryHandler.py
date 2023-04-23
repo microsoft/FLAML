@@ -13,6 +13,9 @@ class QueryHandler():
 
         self.valid_q_count = 0
         self.total_q_count = 0
+
+        self.last_query = None
+        self.last_return = None
     
     def handle_query(self, response: list):
         """Handle a list of queries and return the output.
@@ -38,11 +41,15 @@ class QueryHandler():
             else:
                 output = "Error: Unknown tool"
                 is_success = False
-            buffer_out += f'Return {i}: ' + output + '\n'
+            buffer_out += output + '\n'
             if not is_success:
                 all_success = False
                 self.valid_q_count -= 1 # invalid query
 
+        if self.last_query == queries[0] or self.last_return == buffer_out:
+            return buffer_out + "\nYour query or result is same from the last, please try a new approach or a different tool.", False
+        self.last_query = queries[0]
+        self.last_return = buffer_out
         return buffer_out.replace('\n\n', '\n'), all_success
 
     def wolfram_query(self, query:json):
@@ -56,7 +63,7 @@ class QueryHandler():
         wolfram = WolframAlphaAPIWrapper()
         output, is_sucess = wolfram.run(query['query'])
         if output == '':
-            output = 'Error: The query is invalid.'
+            output = 'Error: The wolfram query is invalid.'
         return output, is_sucess
 
     def _remove_newlines_outside_quotes(self, s):

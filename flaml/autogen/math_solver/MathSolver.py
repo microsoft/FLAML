@@ -1,114 +1,168 @@
 from QueryHandler import QueryHandler
-from flaml.autogen.math_utils import eval_math_responses, remove_boxed, last_boxed_only_string, nestmkdir, write_json, remove_asy_sections, math_type_mapping
+from flaml.autogen.math_utils import eval_math_responses, remove_boxed, last_boxed_only_string, write_json, remove_asy_sections, math_type_mapping
 from flaml import oai
 import os
 import json
 import re
 import copy
+from openai.error import InvalidRequestError
 
-
-PROMPT = """
-Let's use two tools (python code and Wolfram Alpha) to solve this problem step by step. You should always follow your own reasoning and only query when necessary.
+PROMPTS = {
+    "select":"""
+Let's use two tools (python code and Wolfram alpha) to solve this problem step by step. You should always follow your own reasoning and only query when necessary. 
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
-2. Take out any queries that can be asked through python or Wolfram Alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used. When you are querying python, you should: 1.use tab('\\t') for indentation. 2. use 'print' function for the output. 3. always output fractions instead of decimal.
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used.
 Please format the query in json: 
 { "tool" : "", # "python" or "wolfram"
 "query": "", # your query here, either python code or Wolfram query.
 } 
+Note: when you put python code in the query, you should: 1.make sure the indentation is correct(use '\\t'). 2. use 'print' function for the output. 3. always use fractions instead of decimal.
 4. Wait for me to give the results.
-5. Give a new query if the results are invalid or unexpected.
+5. Correct this step based on the results, or give a new query if the results are invalid.
 6. When you get the answer, put the answer in \\box{}.
 
 Problem: 
-"""
+""",
 
+# use python
+    'python': 
+"""
+Let's use python code to solve this problem step by step. You should always follow your own reasoning and only query when necessary.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Output one step.
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1.use tab('\\t') for indentation. 2. use 'print' function for the output. 3. always output fractions instead of decimal.
+Please format the query in json: 
+{ "tool" : "python", 
+"query": "", # your code here.
+} 
+4. Wait for me to give the results.
+5. Correct this step based on the results, or give a new query if the results are invalid.
+6. When you get the answer, put the answer in \\box{}.
+
+Problem: 
+""",
+
+# use wolfram
+    'wolfram': 
+"""
+Let's use Wolfram Alpha to solve this problem step by step. You should always follow your own reasoning and only query when necessary.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Output one step.
+2. Take out any queries that can be asked through Wolfram Alpha (for example, any calculations or equations that can be calculated). 
+Please format the query in json: 
+{ "tool" : "wolfram", 
+"query": "", # your query here. Please use wolfram language.
+} 
+4. Wait for me to give the results.
+5. Correct this step based on the results, or give a new query if the results are invalid.
+6. When you get the answer, put the answer in \\box{}.
+
+Problem:
+""",
+}
 
 class MathSolver:
-    def __init__(self, model, max_tokens, max_round=10, n=1, use_cache=True, cache_folder='.cache'):
+    def __init__(self, model, 
+                 prompt_type='select', 
+                 max_round=10,
+                 max_invalid_q_per_step = 3, 
+                 n=1, 
+                 use_cache=True):
         self.max_round = max_round
-
+        if prompt_type not in PROMPTS:
+            raise ValueError(f'Tool {prompt_type} not supported, choose from {PROMPTS.keys()}')
+        
+        self.prompt_type = prompt_type
+        self.prompt = PROMPTS[prompt_type]
+        print(self.prompt)
         self.deafult_config = {
             'model': model,
-            "max_tokens": max_tokens,
             'messages' : [
                 {"role": "system", "content": "You are a helpful assistant."},
             ],
             'n' : n, # n should be 1 for now
+            # 'temperature' : 1,
         }
-        # set oai cache
-        self.cache_folder = cache_folder
+        
+        self.max_invalid_q_per_step = max_invalid_q_per_step
         self.use_cache = use_cache
-        oai.ChatCompletion.set_cache(seed=41, cache_path=self.cache_folder)
     
 
-    def make_conversation(self, problem, saving_folder):
-        query_hanlder = QueryHandler()
+    def make_conversation(self, problem, n=1, file_to_be_saved=None):
+        query_handler = QueryHandler()
 
         # initialize the conversation
         config = copy.deepcopy(self.deafult_config)
-        config['messages'].append({"role": "user", "content": PROMPT + remove_asy_sections(problem['problem'])})
-        
+        config['messages'].append({"role": "user", "content": self.prompt + remove_asy_sections(problem['problem'])})
+
         # save a readable conversation in txt file
-        convesation_saver = open(os.path.join(saving_folder, problem['problem_id'] + '.txt'), 'a') 
-        seperate_line = '\n'+ '-'* 40 + '\n'
-        convesation_saver.write(f'Problem: {self.str_splitter(problem["problem"])}\n\n {seperate_line}')
-        
+        def save_message_to_file(message):
+            if conversation_saver is not None:
+                conversation_saver.write(message)
+                conversation_saver.flush()
+        conversation_saver = None
+        if file_to_be_saved is not None:
+            conversation_saver = open(file_to_be_saved, 'a') 
+            seperate_line = '\n'+ '-'* 40 + '\n'
+            save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n\n {seperate_line}')
+    
         # init parameters
         is_valid_reply = False # only valid when detect \box
-        consecutive_fail = False # for query
+        invalid_q = 0 # for query
         token_used, total_cost = 0, 0 
         response_with_ans = "" # save the response with \box to get the answer
-        for _ in range(self.max_round):
+        for rr in range(self.max_round):
             # 1. get the response from the assistant
-            raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
+            try:
+                raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
+            except InvalidRequestError as e:
+                print(problem['type'], problem['problem_id'], e)
+                break
             if raw_responses == -1:
-                break # catch the error when no valid reply
-            responses = [r["message"]["content"].rstrip() for r in raw_responses["choices"]]
-            convesation_saver.write(f'assistant: {self.str_splitter(responses[0])}{seperate_line}')
-            token_used = raw_responses['usage']['total_tokens']
+                break
+            responses = oai.ChatCompletion.extract_text(raw_responses)
+            assert len(responses) == 1, 'More than one response' # right now we only use one response
+            save_message_to_file(f'assistant: {self.str_splitter(responses[0])}{seperate_line}')
+            # token_used = raw_responses['usage']['total_tokens']
             total_cost += oai.ChatCompletion.cost(self.deafult_config['model'], raw_responses)
-            config['messages'].append({"role": "assistant", "content": responses[0]}) # append the response to the conversation
+            config['messages'].append({"role": "assistant", "content": responses[0]}) 
             if '\\box' in responses[0]:
                 # if the assistant gives a valid reply, stop the conversation
                 is_valid_reply = True
                 response_with_ans = responses[0]
                 break
-            elif token_used > 8192 - config['max_tokens']:
-                # if the assistant uses too many tokens, stop the conversation. max prompt token + max response token allowed = 8192
-                break
-            assert len(responses) == 1, 'More than one response' # right now we only use one response
 
             # 2. handle the response and get the query 
-            query_response, is_query_sucess = query_hanlder.handle_query(responses[0]) 
+            query_response, is_query_sucess = query_handler.handle_query(responses[0]) 
             if len(query_response) > 2000:
                 # prevent long response by string length, 2000 chars -> around 500-1000 tokens
                 query_response = 'Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query.'
                 is_query_sucess = False
             config['messages'].append({"role": "user", "content": query_response})
-            if not is_query_sucess:
-                if consecutive_fail:
-                    # if the query is not valid and last query is also failed, replace the last message with a skip query message
-                    assert config['messages'][-1]['role'] == 'user', 'The last message should be from user'
-                    skip_query_str = 'Please solve this step yourself and do not use the tools. Then start the next step and give new queries if needed.'
-                    config['messages'][-1]['content'] = skip_query_str
-                    convesation_saver.write(f'****: Replacing {query_response}****\n')
-                    consecutive_fail = False
-                else:
-                    consecutive_fail = True
-            convesation_saver.write('user: {a}{s}'.format(a=config['messages'][-1]['content'], s=seperate_line))
-            convesation_saver.flush()
-        
-        convesation_saver.write('Solution: ' + problem['solution'])
-        convesation_saver.close()
+            
+            invalid_q = 0 if is_query_sucess else invalid_q + 1
+            if invalid_q  >= self.max_invalid_q_per_step:
+                assert config['messages'][-1]['role'] == 'user', 'The last message should be from user'
+                skip_query_str = 'Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step.'
+                config['messages'][-1]['content'] = skip_query_str
+                save_message_to_file(f'****: Replacing {query_response}****\n')
+                invalid_q = 0
+
+            save_message_to_file('user: {a}{s}'.format(a=config['messages'][-1]['content'], s=seperate_line))
+        save_message_to_file('Solution: ' + problem['solution'])
+
         return {
-            'valid_q_count' : query_hanlder.valid_q_count, # number of valid queries
-            'total_q_count' : query_hanlder.total_q_count,
+            'valid_q_count' : query_handler.valid_q_count, # number of valid queries
+            'total_q_count' : query_handler.total_q_count,
             'is_valid_reply': is_valid_reply, # whether the assistant can give a valid reply
             'response_with_ans': response_with_ans,
+            'ans' : remove_boxed(last_boxed_only_string(response_with_ans)),
             'messages': config['messages'],
-            'round' : len(config['messages'])//2 + 1,
+            'round' : rr+1,
             'cost' : total_cost,
         }
 
@@ -162,11 +216,8 @@ class MathSolver:
 
         # assume all problems are of the same type: TODO: ensure this assumption
         saving_folder = os.path.join(saving_folder, math_type_mapping[problem_set[0]['type']]) 
-        # assign temporary problem_id
-        for i in range(len(problem_set)):
-            problem_set[i]['problem_id'] = str(i)
         # mkdir if not exist
-        nestmkdir(saving_folder, verbose=True) 
+        os.makedirs(saving_folder, exist_ok=True)
 
         # from the saving folder load solved problems
         done_problems = set([int(f.split('.')[0]) for f in os.listdir(saving_folder) if 'json' in f])
@@ -183,7 +234,7 @@ class MathSolver:
                 continue
             
             # 2. solve the problem
-            result = self.make_conversation(problem, saving_folder)
+            result = self.make_conversation(problem, file_to_be_saved=os.path.join(saving_folder, problem['problem_id'] + '.txt'))
             metrics = eval_math_responses([result['response_with_ans']], problem['solution'])
 
             # 3. save the result
@@ -203,7 +254,7 @@ class MathSolver:
 
             # 4. continue to next problem
             correct_counts += problem['is_correct']
-            print(f'{problem["problem_id"]} Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses: {correct_counts}/{count+1}')
+            print(f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses: {correct_counts}/{count+1}')
             
         tp = problem_set[0]['type']
         print(f'{tp} correct rate: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}')

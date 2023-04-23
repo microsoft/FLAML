@@ -30,17 +30,6 @@ def write_json(dict_to_save, file):
         j.write(jstring)
 
 
-def nestmkdir(path: str, verbose: bool = False) -> None:
-    current_path = ''
-    
-    for folder in path.split('/'):
-        current_path = os.path.join(current_path, folder)
-        
-        if not os.path.exists(current_path):
-            os.mkdir(current_path)
-            if verbose:
-                print(f"Created directory: {current_path}")
-
 
 def remove_boxed(string: str) -> Optional[str]:
     """Source: https://github.com/hendrycks/math
