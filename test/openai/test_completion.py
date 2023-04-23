@@ -41,6 +41,8 @@ def test_execute_code():
     # execute code which takes a long time
     exit_code, error = execute_code("import time; time.sleep(2)", timeout=1)
     assert exit_code and error == "Timeout"
+    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
+    assert exit_code and error == "Timeout"
 
 
 def test_improve():
