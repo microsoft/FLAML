@@ -5,7 +5,7 @@
 1. Set up env
 
 ```
-pip install -e .[math] flaml
+pip install -e .[math]
 ```
 
 2. In `main.py`: set openai_key and wolfram id
