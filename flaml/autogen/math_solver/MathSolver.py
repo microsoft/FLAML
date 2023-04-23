@@ -9,7 +9,7 @@ from openai.error import InvalidRequestError
 
 PROMPTS = {
     "select":"""
-Let's use two tools (python code and Wolfram alpha) to solve this problem step by step. You should always follow your own reasoning and only query when necessary. 
+Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. 
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
