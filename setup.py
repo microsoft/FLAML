@@ -63,7 +63,7 @@ setuptools.setup(
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
             "dataclasses",
-            "transformers[torch]",
+            "transformers[torch]==4.26",
             "datasets",
             "nltk",
             "rouge_score",
@@ -120,7 +120,8 @@ setuptools.setup(
             "pytorch-forecasting>=0.9.0",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
-        "openai": ["openai==0.27.4", "diskcache", "optuna==2.8.0"],
+        "openai": ["openai==0.27.4", "diskcache"],
+        "autogen": ["openai==0.27.4", "diskcache", "docker"],
         "math": [
             "openai==0.27.4", 
             "diskcache", 

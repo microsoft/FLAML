@@ -5,9 +5,9 @@ In this example, we will tune several hyperparameters for the OpenAI's completio
 
 ### Prerequisites
 
-Install the [openai] option. The OpenAI integration is in preview.
+Install the [autogen,blendsearch] option. The OpenAI integration is in preview.
 ```bash
-pip install "flaml[openai]==1.2.0"
+pip install "flaml[autogen,blendsearch]==1.2.1 datasets"
 ```
 
 Setup your OpenAI key:
@@ -116,8 +116,8 @@ print("best result on tuning data", analysis.best_result)
 We can apply the tuned config to the request for an instance:
 
 ```python
-responses = oai.Completion.create(context=tune_data[1], **config)
-print(responses)
+response = oai.Completion.create(context=tune_data[1], **config)
+print(response)
 print(eval_with_generated_assertions(oai.Completion.extract_text(response), **tune_data[1]))
 ```
 
