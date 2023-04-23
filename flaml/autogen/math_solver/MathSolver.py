@@ -51,7 +51,7 @@ def write_json(dict_to_save, file):
 
 PROMPTS = {
     "select": """
-Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
+Let's use two tools (python code and Wolfram alpha) to solve a math problem. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
@@ -64,8 +64,6 @@ Note: when you put python code in the query, you should: 1.make sure the indenta
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
 6. When you get the answer, put the answer in \\boxed{}.
-
-Problem:
 """,
     # use python
     "python": """
@@ -81,8 +79,6 @@ Please format the query in json:
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
 6. When you get the answer, put the answer in \\boxed{}.
-
-Problem:
 """,
     # use wolfram
     "wolfram": """
@@ -98,8 +94,6 @@ Please format the query in json:
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
 6. When you get the answer, put the answer in \\boxed{}.
-
-Problem:
 """,
 }
 
@@ -116,7 +110,7 @@ class MathSolver:
         self.deafult_config = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": self.prompt},
             ],
             "n": n,  # n should be 1 for now
             # 'temperature' : 1,
@@ -130,7 +124,7 @@ class MathSolver:
 
         # initialize the conversation
         config = copy.deepcopy(self.deafult_config)
-        config["messages"].append({"role": "user", "content": self.prompt + remove_asy_sections(problem["problem"])})
+        config["messages"].append({"role": "user", "content": "Problem: " + remove_asy_sections(problem["problem"])})
 
         seperate_line = "\n" + "-" * 40 + "\n"
 
@@ -139,6 +133,7 @@ class MathSolver:
             if file_to_be_saved is not None:
                 with open(file_to_be_saved, "a") as f:
                     f.write(message)
+                    f.flush()
 
         save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n {seperate_line}')
 
@@ -195,7 +190,7 @@ class MathSolver:
             "response_with_ans": response_with_ans,
             "ans": get_answer(response_with_ans),
             "messages": config["messages"],
-            "round": max(rr + 1, self.max_round),
+            "round": min(rr + 1, self.max_round),
             "cost": total_cost,
         }
 
