@@ -125,7 +125,6 @@ setuptools.setup(
         "math": [
             "openai==0.27.4", 
             "diskcache", 
-            "optuna==2.8.0",
             "regex==2023.3.23",
             'pydantic',
             'wolframalpha',

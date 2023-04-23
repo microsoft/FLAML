@@ -7,7 +7,6 @@ import sys
 from flaml import tune, BlendSearch
 from flaml.automl.logger import logger_formatter
 
-from urllib3.exceptions import ReadTimeoutError
 try:
     import openai
     from openai.error import (
@@ -154,7 +153,6 @@ class Completion:
                 ServiceUnavailableError,
                 APIError,
                 APIConnectionError,
-                ReadTimeoutError,
             ):
                 # transient error
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)

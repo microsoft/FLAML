@@ -6,6 +6,7 @@ import regex
 import os
 from pydantic import BaseModel, Field, Extra, root_validator
 from typing import Any, Dict, Optional
+from flaml.autogen.code_utils import execute_code
 
 class QueryHandler():
     def __init__(self):
@@ -43,12 +44,13 @@ class QueryHandler():
                 is_success = False
             buffer_out += output + '\n'
             if not is_success:
+                # TODO: handle situation with several queries and one fails
                 all_success = False
                 self.valid_q_count -= 1 # invalid query
 
-        if self.last_query == queries[0] or self.last_return == buffer_out:
+        if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return buffer_out + "\nYour query or result is same from the last, please try a new approach or a different tool.", False
-        self.last_query = queries[0]
+        self.last_query = tuple(queries)
         self.last_return = buffer_out
         return buffer_out.replace('\n\n', '\n'), all_success
 
@@ -61,18 +63,30 @@ class QueryHandler():
         """
         # wolfram query handler
         wolfram = WolframAlphaAPIWrapper()
-        output, is_sucess = wolfram.run(query['query'])
+        output, is_success = wolfram.run(query['query'])
         if output == '':
             output = 'Error: The wolfram query is invalid.'
-        return output, is_sucess
+        return output, is_success
 
     def _remove_newlines_outside_quotes(self, s):
-        """
-        Remove newlines outside of quotes.
+        """Remove newlines outside of quotes.
+        
+        Return from openai:
+            s = "{\n"tool": "python",\n"query": "print('hello')\nprint('world')"\n}"
+            
+        if calling json.loads(s), it will throw an error because of the newline in the query.
+        So this function removes the newline in the query outside of quotes.
+
+        _remove_newlines_outside_quotes(s) -> "{"tool": "python","query": "print('hello')\nprint('world')"}"
+
+        
         params:
             s: string to remove newlines from
         returns:
             string with newlines removed
+
+        Example:
+            
         """
         result = []
         inside_quotes = False
@@ -124,8 +138,14 @@ class QueryHandler():
         """
         code = self.previous_code + self.add_print_to_last_line(query['query'])
 
-        python_repl = PythonREPL()
-        output, is_success = python_repl.run(code)
+        # python_repl = PythonREPL()
+        # output, is_success = python_repl.run(code)
+        return_code, output = execute_code(code, use_docker=False)
+        is_success = return_code==0
+        output = output.decode('ascii') 
+        if not is_success:
+            # remove file name from error message
+            output = output.split('.py",')[1]
         
         if not is_success: 
             output =  "Error: " + output

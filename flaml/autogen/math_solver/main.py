@@ -1,22 +1,12 @@
 import openai
 import os
-from MathSolver import MathSolver
-from flaml.autogen.math_utils  import math_type_mapping
+from MathSolver import MathSolver, math_type_mapping
 import datasets
 from flaml import oai
 from functools import partial
 from MathVoting import SelfConsistency
 import argparse
 
-math_type_mapping = {
-    "Algebra" : 'algebra',
-    "Counting & Probability" : 'counting_and_probability',
-    "Geometry" : 'geometry',
-    "Intermediate Algebra" : 'intermediate_algebra',
-    "Number Theory" : 'number_theory',
-    "Prealgebra" : 'prealgebra',
-    "Precalculus" : 'precalculus',
-    }
 
 def load_level5_math_each_category(samples_per_category=20):
     """
@@ -49,10 +39,11 @@ def vanilla_solving(model, problem, n, max_tokens=None):
     }
     raw_responses = oai.ChatCompletion.create(context, **config, use_cache=True)
     
+    prompt_price = oai.ChatCompletion.price1K[model][0] if type(oai.ChatCompletion.price1K[model]) == tuple else oai.ChatCompletion.price1K[model]
     return {
         'responses': oai.ChatCompletion.extract_text(raw_responses),
         'cost': oai.ChatCompletion.cost(model, raw_responses),
-        'prompt_cost': oai.ChatCompletion.price1K[model] * raw_responses["usage"]["prompt_tokens"] / 1000
+        'prompt_cost':  prompt_price * raw_responses["usage"]["prompt_tokens"] / 1000
     }
 
 def vanilla_voting_one_category(model, problem_set, saving_folder, n=10, n_per_time=3):
@@ -90,7 +81,7 @@ def tool_voting_one_category(model, problem_set, saving_folder, n=2, n_per_time=
 def parse_args():
     parser = argparse.ArgumentParser(description='Math Solver')
     parser.add_argument('--prompt_type', '-p',  dest='prompt_type', help='prompt type', default='select', type=str)
-    parser.add_argument('--max_round', dest='max_round', help='max round', default=10, type=int)
+    parser.add_argument('--max_round', dest='max_round', help='max round', default=15, type=int)
     parser.add_argument('--folder', '-f', dest='folder', help='saving folder', default='./autotools', type=str)
     parser.add_argument('--cache_folder', '-c', dest='cache_folder', default='.cache', help='cache folder')
     parser.add_argument('--test_run', help='test run', action='store_true')
@@ -106,7 +97,7 @@ def main():
     args = parse_args()
     oai.ChatCompletion.request_timeout = 60*10 # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
-    
+
 
     model = 'gpt-4'
     problem_sets = load_level5_math_each_category(samples_per_category=20)
@@ -122,8 +113,8 @@ def main():
             for i in range(len(problem_set)):
                 problem_set[i]['problem_id'] = str(i) # assign problem id 
             
-            
             solver.solve_one_category(problem_set, saving_folder=args.folder)
+            break
 
     else:
         pass

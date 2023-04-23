@@ -41,7 +41,7 @@ python main.py \
   - Function `handle_query`:
     1. Parse all queries given an input string.
     2. Iterate over queries and call python or wolfram
-    3. Return all results and a boolean indicating whether
+    3. Return all results and a boolean indicating whether all the queries are executed without error.
 - `MathSolver.py`: Main solver using tools.
 
   - Setting:
@@ -53,10 +53,9 @@ python main.py \
     - `max_invalid_q_per_step=3`: For one step, if we keep getting invalide results for 3 times, we ask the LLM to solve the query itself.
   - Function `make_conversation`: get response from openai, extract query from response and get results
 
-    - Answer is valid if '\box' is detected.
+    - Answer is valid if '\boxed{}' is detected.
     - Answer is invalid (return empty string) if
-      - response=-1
-      - exceed max_round
+      - exceed max_round  (of conversations)
       - exceed max token (8192 for GPT-4)
       - char count of query reply > 2000
   - Function `solve_one_category`: Solve problems from one category.

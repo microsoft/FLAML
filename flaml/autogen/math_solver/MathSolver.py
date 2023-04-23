@@ -1,11 +1,50 @@
 from QueryHandler import QueryHandler
-from flaml.autogen.math_utils import eval_math_responses, remove_boxed, last_boxed_only_string, write_json, remove_asy_sections, math_type_mapping
+from flaml.autogen.math_utils import eval_math_responses, get_answer
 from flaml import oai
 import os
 import json
 import re
 import copy
-from openai.error import InvalidRequestError
+from openai.error import InvalidRequestError, RateLimitError, Timeout
+
+math_type_mapping = {
+    "Algebra" : 'algebra',
+    "Counting & Probability" : 'counting_and_probability',
+    "Geometry" : 'geometry',
+    "Intermediate Algebra" : 'intermediate_algebra',
+    "Number Theory" : 'number_theory',
+    "Prealgebra" : 'prealgebra',
+    "Precalculus" : 'precalculus',
+    }
+
+def remove_asy_sections(input_string):
+    """ Remove asy sections from the input string.
+
+    Args:
+        input_string (str): The input string.
+    Returns:
+        str: The string without asy sections.
+    """
+    pattern = r'\[asy\](.*?)\[\\asy\]'
+    output_string = re.sub(pattern, '', input_string, flags=re.DOTALL)
+    pattern = r'\[asy\](.*?)\[/asy\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    pattern = r'\[ASY\](.*?)\[\\ASY\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    pattern = r'\[ASY\](.*?)\[/ASY\]'
+    output_string = re.sub(pattern, '', output_string, flags=re.DOTALL)
+    return output_string
+
+def write_json(dict_to_save, file):
+    """ Write a dictionary to a json file.
+    Args:
+
+        dict_to_save (dict): The dictionary to save.
+        file (str): The file to save to.
+    """
+    jstring = json.dumps(dict_to_save, indent=2)
+    with open(file, 'w') as j:
+        j.write(jstring)
 
 PROMPTS = {
     "select":"""
@@ -21,7 +60,7 @@ Please format the query in json:
 Note: when you put python code in the query, you should: 1.make sure the indentation is correct(use '\\t'). 2. use 'print' function for the output. 3. always use fractions instead of decimal.
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
-6. When you get the answer, put the answer in \\box{}.
+6. When you get the answer, put the answer in \\boxed{}.
 
 Problem: 
 """,
@@ -40,7 +79,7 @@ Please format the query in json:
 } 
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
-6. When you get the answer, put the answer in \\box{}.
+6. When you get the answer, put the answer in \\boxed{}.
 
 Problem: 
 """,
@@ -59,7 +98,7 @@ Please format the query in json:
 } 
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
-6. When you get the answer, put the answer in \\box{}.
+6. When you get the answer, put the answer in \\boxed{}.
 
 Problem:
 """,
@@ -99,16 +138,14 @@ class MathSolver:
         config = copy.deepcopy(self.deafult_config)
         config['messages'].append({"role": "user", "content": self.prompt + remove_asy_sections(problem['problem'])})
 
+        seperate_line = '\n'+ '-'* 40 + '\n'
         # save a readable conversation in txt file
         def save_message_to_file(message):
-            if conversation_saver is not None:
-                conversation_saver.write(message)
-                conversation_saver.flush()
-        conversation_saver = None
-        if file_to_be_saved is not None:
-            conversation_saver = open(file_to_be_saved, 'a') 
-            seperate_line = '\n'+ '-'* 40 + '\n'
-            save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n\n {seperate_line}')
+            if file_to_be_saved is not None:
+                with open(file_to_be_saved, 'a') as f:
+                    f.write(message)
+
+        save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n {seperate_line}')
     
         # init parameters
         is_valid_reply = False # only valid when detect \box
@@ -119,18 +156,18 @@ class MathSolver:
             # 1. get the response from the assistant
             try:
                 raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
-            except InvalidRequestError as e:
+            except (InvalidRequestError, RateLimitError, Timeout) as e:
                 print(problem['type'], problem['problem_id'], e)
+                save_message_to_file(e)
                 break
-            if raw_responses == -1:
-                break
+            assert raw_responses != -1, 'Error in getting response'
             responses = oai.ChatCompletion.extract_text(raw_responses)
             assert len(responses) == 1, 'More than one response' # right now we only use one response
             save_message_to_file(f'assistant: {self.str_splitter(responses[0])}{seperate_line}')
             # token_used = raw_responses['usage']['total_tokens']
             total_cost += oai.ChatCompletion.cost(self.deafult_config['model'], raw_responses)
             config['messages'].append({"role": "assistant", "content": responses[0]}) 
-            if '\\box' in responses[0]:
+            if get_answer(responses[0]) is not None:
                 # if the assistant gives a valid reply, stop the conversation
                 is_valid_reply = True
                 response_with_ans = responses[0]
@@ -140,6 +177,7 @@ class MathSolver:
             query_response, is_query_sucess = query_handler.handle_query(responses[0]) 
             if len(query_response) > 2000:
                 # prevent long response by string length, 2000 chars -> around 500-1000 tokens
+                save_message_to_file(f'****: Replacing {query_response} ****\n')
                 query_response = 'Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query.'
                 is_query_sucess = False
             config['messages'].append({"role": "user", "content": query_response})
@@ -160,9 +198,9 @@ class MathSolver:
             'total_q_count' : query_handler.total_q_count,
             'is_valid_reply': is_valid_reply, # whether the assistant can give a valid reply
             'response_with_ans': response_with_ans,
-            'ans' : remove_boxed(last_boxed_only_string(response_with_ans)),
+            'ans' : get_answer(response_with_ans),
             'messages': config['messages'],
-            'round' : rr+1,
+            'round' : max(rr + 1, self.max_round),
             'cost' : total_cost,
         }
 
@@ -238,12 +276,12 @@ class MathSolver:
             metrics = eval_math_responses([result['response_with_ans']], problem['solution'])
 
             # 3. save the result
-            correct_ans = remove_boxed(last_boxed_only_string(problem['solution']))
+            correct_ans = get_answer(problem['solution'])
             problem.update({
                 'is_valid_reply': result['is_valid_reply'],
                 'is_correct': bool(metrics['success_vote']),
                 'correct_ans': correct_ans,
-                'voted_answer': remove_boxed(last_boxed_only_string(metrics['voted_answer'])) ,
+                'voted_answer': get_answer(metrics['voted_answer']),
                 'round': result['round'],
                 'valid_q_count': result['valid_q_count'], # total number of valid queries
                 'total_q_count': result['total_q_count'], # total number of queries
@@ -254,7 +292,7 @@ class MathSolver:
 
             # 4. continue to next problem
             correct_counts += problem['is_correct']
-            print(f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses: {correct_counts}/{count+1}')
+            print(f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}')
             
         tp = problem_set[0]['type']
         print(f'{tp} correct rate: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}')

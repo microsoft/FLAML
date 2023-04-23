@@ -1,5 +1,6 @@
 from QueryHandler import QueryHandler
-from flaml.autogen.math_utils import eval_math_responses, remove_boxed, last_boxed_only_string, write_json, remove_asy_sections, math_type_mapping
+from flaml.autogen.math_utils import eval_math_responses, get_answer
+from MathSolver import write_json, remove_asy_sections, math_type_mapping
 from flaml import oai
 import os
 import json
@@ -74,8 +75,8 @@ class SelfConsistency:
             
             accum_cost += responses['cost']
             write_json({'cost': accum_cost,
-                        'true_ans': remove_boxed(last_boxed_only_string(problem['solution'])), 
-                        'answers': [remove_boxed(last_boxed_only_string(r)) for r in accum_responses],
+                        'true_ans': get_answer(problem['solution']), 
+                        'answers': [get_answer(r) for r in accum_responses],
                         'responses': accum_responses, 
                         },    
                         file) # save the responses each time
