@@ -109,6 +109,7 @@ def execute_code(
     timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
+    use_docker: Optional[bool] = True,
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
@@ -126,6 +127,11 @@ def execute_code(
             If None, a default working directory will be used.
             The default working directory is the "extensions" directory under
             "xxx/flaml/autogen", where "xxx" is the path to the flaml package.
+        use_docker (Optional, bool): Whether to use a docker container for code execution.
+            If True, the code will be executed in a docker container.
+            If False, the code will be executed in the current environment.
+            Default is True. If the code is executed in the current environment,
+            the code must be trusted.
 
     Returns:
         int: 0 if the code executes successfully.
@@ -150,7 +156,7 @@ def execute_code(
             fout.write(code)
     # check if already running in a docker container
     in_docker_container = os.path.exists("/.dockerenv")
-    if in_docker_container:
+    if not use_docker or in_docker_container:
         # already running in a docker container
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
@@ -296,6 +302,7 @@ def eval_function_completions(
     entry_point: Optional[str] = None,
     assertions: Optional[Union[str, Callable[[str], Tuple[str, float]]]] = None,
     timeout: Optional[float] = 3,
+    use_docker: Optional[bool] = True,
 ) -> Dict:
     """Select a response from a list of responses for the function completion task (using generated assertions), and/or evaluate if the task is successful using a gold test.
 
@@ -322,7 +329,7 @@ def eval_function_completions(
                 if response.startswith("def")
                 else f"{definition}{response}\n{test}\ncheck({entry_point})"
             )
-            success = execute_code(code, timeout=timeout)[0] == 0
+            success = execute_code(code, timeout=timeout, use_docker=use_docker)[0] == 0
             success_list.append(success)
         return {
             "expected_success": 1 - pow(1 - sum(success_list) / n, n),
@@ -339,7 +346,7 @@ def eval_function_completions(
             code = (
                 f"{response}\n{assertions}" if response.startswith("def") else f"{definition}{response}\n{assertions}"
             )
-            succeed_assertions = execute_code(code, timeout=timeout)[0] == 0
+            succeed_assertions = execute_code(code, timeout=timeout, use_docker=use_docker)[0] == 0
             if succeed_assertions:
                 break
     else:
@@ -359,7 +366,7 @@ def eval_function_completions(
         if response.startswith("def")
         else f"{definition}{response}\n{test}\ncheck({entry_point})"
     )
-    success = execute_code(code_test, timeout=timeout)[0] == 0
+    success = execute_code(code_test, timeout=timeout, use_docker=use_docker)[0] == 0
     return {
         "index_selected": i,
         "succeed_assertions": succeed_assertions,
