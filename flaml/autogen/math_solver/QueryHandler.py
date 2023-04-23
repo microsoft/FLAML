@@ -1,14 +1,14 @@
 import json
 import sys
 from io import StringIO
-from typing import Dict, Optional
 import regex
 import os
 from pydantic import BaseModel, Field, Extra, root_validator
 from typing import Any, Dict, Optional
 from flaml.autogen.code_utils import execute_code
 
-class QueryHandler():
+
+class QueryHandler:
     def __init__(self):
         self.previous_code = ""
 
@@ -17,7 +17,7 @@ class QueryHandler():
 
         self.last_query = None
         self.last_return = None
-    
+
     def handle_query(self, response: list):
         """Handle a list of queries and return the output.
         Args:
@@ -26,35 +26,39 @@ class QueryHandler():
             output: string with the output of the queries
             is_success: boolean indicating whether the queries were successful
         """
-        queries = self.extractJSON(response) # extract json queries
+        queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
             return "No queries found. Please put your queries in JSON format.", False
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
 
         buffer_out = ""
-        all_success = True # all queries are successful
-        for i, query in enumerate(queries): 
-            if query['tool'] == 'python':
+        all_success = True  # all queries are successful
+        for i, query in enumerate(queries):
+            if query["tool"] == "python":
                 output, is_success = self.run_one_code(query)
-            elif query['tool'] == 'wolfram':
+            elif query["tool"] == "wolfram":
                 output, is_success = self.wolfram_query(query)
             else:
                 output = "Error: Unknown tool"
                 is_success = False
-            buffer_out += output + '\n'
+            buffer_out += output + "\n"
             if not is_success:
                 # TODO: handle situation with several queries and one fails
                 all_success = False
-                self.valid_q_count -= 1 # invalid query
+                self.valid_q_count -= 1  # invalid query
 
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
-            return buffer_out + "\nYour query or result is same from the last, please try a new approach or a different tool.", False
+            return (
+                buffer_out
+                + "\nYour query or result is same from the last, please try a new approach or a different tool.",
+                False,
+            )
         self.last_query = tuple(queries)
         self.last_return = buffer_out
-        return buffer_out.replace('\n\n', '\n'), all_success
+        return buffer_out.replace("\n\n", "\n"), all_success
 
-    def wolfram_query(self, query:json):
+    def wolfram_query(self, query: json):
         """
         Run one wolfram query and return the output.
         return:
@@ -63,44 +67,44 @@ class QueryHandler():
         """
         # wolfram query handler
         wolfram = WolframAlphaAPIWrapper()
-        output, is_success = wolfram.run(query['query'])
-        if output == '':
-            output = 'Error: The wolfram query is invalid.'
+        output, is_success = wolfram.run(query["query"])
+        if output == "":
+            output = "Error: The wolfram query is invalid."
         return output, is_success
 
     def _remove_newlines_outside_quotes(self, s):
         """Remove newlines outside of quotes.
-        
+
         Return from openai:
             s = "{\n"tool": "python",\n"query": "print('hello')\nprint('world')"\n}"
-            
+
         if calling json.loads(s), it will throw an error because of the newline in the query.
         So this function removes the newline in the query outside of quotes.
 
         _remove_newlines_outside_quotes(s) -> "{"tool": "python","query": "print('hello')\nprint('world')"}"
 
-        
+
         params:
             s: string to remove newlines from
         returns:
             string with newlines removed
 
         Example:
-            
+
         """
         result = []
         inside_quotes = False
         for c in s:
             if c == '"':
                 inside_quotes = not inside_quotes
-            if not inside_quotes and c == '\n':
+            if not inside_quotes and c == "\n":
                 continue
-            if inside_quotes and c == '\n':
-                c = '\\n'
-            if inside_quotes and c == '\t':
-                c = '\\t'
+            if inside_quotes and c == "\n":
+                c = "\\n"
+            if inside_quotes and c == "\t":
+                c = "\\t"
             result.append(c)
-        return ''.join(result)
+        return "".join(result)
 
     def extractJSON(self, input_string: str):
         """
@@ -112,7 +116,7 @@ class QueryHandler():
         """
 
         # bracketed_strings = re.findall(r'\{[\s\S]*?\}', input_string)
-        bracketed_strings = regex.findall(r'\{(?:[^{}]|(?R))*\}', input_string)
+        bracketed_strings = regex.findall(r"\{(?:[^{}]|(?R))*\}", input_string)
         # print(bracketed_strings)
         # Extract valid JSON queries
         json_queries = []
@@ -120,48 +124,47 @@ class QueryHandler():
             bracketed_string = self._remove_newlines_outside_quotes(bracketed_string)
             try:
                 data = json.loads(bracketed_string)
-                if 'tool' in data and 'query' in data:
+                if "tool" in data and "query" in data:
                     json_queries.append(data)
             except json.JSONDecodeError:
                 pass
 
         return json_queries
 
-
     # code query handler
-    def run_one_code(self, query:json):
+    def run_one_code(self, query: json):
         """Run one code query and return the output.
         params:
-            query: json object with the following keys: 
+            query: json object with the following keys:
                 tool: 'python'
                 query: string with the code to run
         """
-        code = self.previous_code + self.add_print_to_last_line(query['query'])
+        code = self.previous_code + self.add_print_to_last_line(query["query"])
 
         # python_repl = PythonREPL()
         # output, is_success = python_repl.run(code)
         return_code, output = execute_code(code, use_docker=False)
-        is_success = return_code==0
-        output = output.decode('ascii') 
+        is_success = return_code == 0
+        output = output.decode("ascii")
         if not is_success:
             # remove file name from error message
             output = output.split('.py",')[1]
-        
-        if not is_success: 
-            output =  "Error: " + output
+
+        if not is_success:
+            output = "Error: " + output
         elif output == "":
             output = "No output found. Make sure you print the results."
             is_success = False
-        
+
         if is_success:
-            self.previous_code += '\n' + self.remove_print(query['query']) + '\n'
+            self.previous_code += "\n" + self.remove_print(query["query"]) + "\n"
         return output, is_success
 
     def add_print_to_last_line(self, s):
         # first check if there is already a print statement
         if "print(" in s:
             return s
-        
+
         # Input a string, extract the last line, enclose it in print() and return the new string
         lines = s.splitlines()
         last_line = lines[-1]
@@ -175,7 +178,6 @@ class QueryHandler():
         lines = s.splitlines()
         lines = [line for line in lines if not line.startswith("print(")]
         return "\n".join(lines)
-
 
 
 # Imported from langchain
@@ -194,7 +196,7 @@ class PythonREPL(BaseModel):
         sys.stdout = mystdout = StringIO()
         is_success = True
         try:
-            # TODO: need further testing; original exec(command, self.globals, self.locals), 
+            # TODO: need further testing; original exec(command, self.globals, self.locals),
             # Wrong for '\nfrom math import factorial\nrotations_fixed = [factorial(7 - i) for i in [1, 2, 3, 4, 5]]\nprint(rotations_fixed)'
             combined_globals_and_locals = {**self.globals, **self.locals}
             exec(command, combined_globals_and_locals, combined_globals_and_locals)
@@ -207,11 +209,8 @@ class PythonREPL(BaseModel):
         return output, is_success
 
 
-
 # Imported from langchain
-def get_from_dict_or_env(
-    data: Dict[str, Any], key: str, env_key: str, default: Optional[str] = None
-) -> str:
+def get_from_dict_or_env(data: Dict[str, Any], key: str, env_key: str, default: Optional[str] = None) -> str:
     """Get a value from a dictionary or an environment variable."""
     if key in data and data[key]:
         return data[key]
@@ -225,6 +224,7 @@ def get_from_dict_or_env(
             f" `{env_key}` which contains it, or pass"
             f"  `{key}` as a named parameter."
         )
+
 
 # Imported from langchain
 class WolframAlphaAPIWrapper(BaseModel):
@@ -250,19 +250,14 @@ class WolframAlphaAPIWrapper(BaseModel):
     @root_validator()
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that api key and python package exists in environment."""
-        wolfram_alpha_appid = get_from_dict_or_env(
-            values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID"
-        )
+        wolfram_alpha_appid = get_from_dict_or_env(values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID")
         values["wolfram_alpha_appid"] = wolfram_alpha_appid
 
         try:
             import wolframalpha
 
         except ImportError:
-            raise ImportError(
-                "wolframalpha is not installed. "
-                "Please install it with `pip install wolframalpha`"
-            )
+            raise ImportError("wolframalpha is not installed. " "Please install it with `pip install wolframalpha`")
         client = wolframalpha.Client(wolfram_alpha_appid)
         values["wolfram_client"] = client
 
@@ -271,7 +266,7 @@ class WolframAlphaAPIWrapper(BaseModel):
     def run(self, query: str) -> str:
         """Run query through WolframAlpha and parse result."""
         res = self.wolfram_client.query(query)
-        is_success = False # added 
+        is_success = False  # added
         try:
             assumption = next(res.pods).text
             answer = next(res.results).text
@@ -284,13 +279,6 @@ class WolframAlphaAPIWrapper(BaseModel):
         else:
             is_success = True
             return f"Assumption: {assumption} \nAnswer: {answer}", is_success
-
-
-
-
-
-
-
 
 
 # import re
