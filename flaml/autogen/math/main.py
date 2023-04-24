@@ -1,32 +1,12 @@
 import openai
 import os
-from MathSolver import MathSolver, math_type_mapping
+from flaml.autogen.math.math_solver import MathSolver
 import datasets
 from flaml import oai
 from functools import partial
-from MathVoting import SelfConsistency
+from flaml.autogen.math.math_voting import SelfConsistency
 import argparse
-
-
-def load_level5_math_each_category(samples_per_category=20):
-    """
-    Load level 5 math problems from the competition dataset.
-    Returns:
-        A list of list of problems. Each list of problems is of the same category.
-    """
-    seed = 41
-    data = datasets.load_dataset("competition_math")
-    test_data = data["test"].shuffle(seed=seed)
-    sep_cate = []
-    for category in math_type_mapping.keys():
-        tmp = [
-            test_data[x]
-            for x in range(len(test_data))
-            if test_data[x]["level"] == "Level 5" and test_data[x]["type"] == category
-        ]
-        sep_cate.append(tmp[:samples_per_category])
-
-    return sep_cate
+from utils import load_level5_math_each_category, math_type_mapping
 
 
 def vanilla_solving(model, problem, n, max_tokens=None):
@@ -92,6 +72,7 @@ def parse_args():
     parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
     parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
     parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
+    parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
     parser.add_argument("--test_run", help="test run", action="store_true")
 
     # not used
@@ -104,9 +85,10 @@ def main():
     args = parse_args()
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
+    args.folder = args.folder + "_" + args.prompt_type
 
     model = "gpt-4"
-    problem_sets = load_level5_math_each_category(samples_per_category=20)
+    problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
     if args.test_run:
         problem_sets = load_level5_math_each_category(samples_per_category=1)
         print("Take out 1 problem from each category for test run.")
@@ -119,8 +101,10 @@ def main():
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
+            exit(0)
 
     else:
+        print("Voting is not supported yet.")
         pass
 
     # problem_sets = load_level5_math_each_category()

@@ -1,6 +1,6 @@
-from QueryHandler import QueryHandler
+from flaml.autogen.math.query_handler import QueryHandler
 from flaml.autogen.math_utils import eval_math_responses, get_answer
-from MathSolver import write_json, remove_asy_sections, math_type_mapping
+from flaml.autogen.math.math_solver import write_json, remove_asy_sections, math_type_mapping
 from flaml import oai
 import os
 import json
