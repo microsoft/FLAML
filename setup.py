@@ -15,11 +15,6 @@ __version__ = version["__version__"]
 
 install_requires = [
     "NumPy>=1.17.0rc1",
-    "lightgbm>=2.3.1",
-    "xgboost>=0.90",
-    "scipy>=1.4.1",
-    "pandas>=1.1.4",
-    "scikit-learn>=0.24",
 ]
 
 
@@ -39,6 +34,13 @@ setuptools.setup(
     include_package_data=True,
     install_requires=install_requires,
     extras_require={
+        "automl": [
+            "lightgbm>=2.3.1",
+            "xgboost>=0.90",
+            "scipy>=1.4.1",
+            "pandas>=1.1.4",
+            "scikit-learn>=0.24",
+        ],
         "notebook": [
             "jupyter",
             "matplotlib",
@@ -91,6 +93,7 @@ setuptools.setup(
         ],
         "vw": [
             "vowpalwabbit>=8.10.0, <9.0.0",
+            "scikit-learn",
         ],
         "hf": [
             "transformers[torch]==4.26",
@@ -122,7 +125,17 @@ setuptools.setup(
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
         "openai": ["openai==0.27.4", "diskcache"],
         "autogen": ["openai==0.27.4", "diskcache", "docker"],
-        "synapse": ["joblibspark>=0.5.0", "optuna==2.8.0", "pyspark>=3.2.0"],
+        "synapse": [
+            "lightgbm>=2.3.1",
+            "xgboost>=0.90",
+            "scipy>=1.4.1",
+            "pandas>=1.1.4",
+            "scikit-learn>=0.24",
+            "joblibspark>=0.5.0",
+            "optuna==2.8.0",
+            "pyspark>=3.2.0",
+        ],
+        "autozero": ["scikit-learn", "pandas"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

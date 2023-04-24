@@ -1,43 +1,17 @@
 import inspect
 import time
-import os
 from typing import Any, Optional
-
 import numpy as np
-import pandas as pd
-
 from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.task.task import TS_FORECAST
+from flaml.automl.spark import psDataFrame, psSeries
 
 try:
-    from flaml.automl.spark.utils import (
-        train_test_split_pyspark,
-        unique_pandas_on_spark,
-        len_labels,
-        unique_value_first_index,
-    )
+    import pandas as pd
 except ImportError:
-    train_test_split_pyspark = None
-    unique_pandas_on_spark = None
-    from flaml.automl.utils import (
-        len_labels,
-        unique_value_first_index,
-    )
-try:
-    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    import pyspark.pandas as ps
-    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
-    from pyspark.pandas.config import set_option, reset_option
-except ImportError:
-    ps = None
-
-    class psDataFrame:
-        pass
-
-    class psSeries:
-        pass
+    pass
 
 
 class SearchState:

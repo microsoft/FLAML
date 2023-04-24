@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import logging
@@ -13,19 +12,6 @@ try:
     from flaml.automl.spark.utils import len_labels
 except ImportError:
     from flaml.automl.utils import len_labels
-try:
-    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    import pyspark.pandas as ps
-    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
-except ImportError:
-    ps = None
-
-    class psDataFrame:
-        pass
-
-    class psSeries:
-        pass
-
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
 logger = logging.getLogger(__name__)

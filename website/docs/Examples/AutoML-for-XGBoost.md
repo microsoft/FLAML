@@ -2,12 +2,10 @@
 
 ### Prerequisites for this example
 
-Install the [notebook] option.
+Install the [automl] option.
 ```bash
-pip install "flaml[notebook]"
+pip install "flaml[automl] matplotlib openml==0.10.2"
 ```
-
-This option is not necessary in general.
 
 ### Use built-in XGBoostSklearnEstimator
 
