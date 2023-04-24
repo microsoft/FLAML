@@ -12,13 +12,13 @@ PROMPTS = {
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
-1. Output one step.
-2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used.
+1. Continue the solving steps until you need to query.
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used. Please always use exact representation of numbers instead of decimal approximation.
 Please format the query in json:
 { "tool" : "", # "python" or "wolfram"
 "query": "", # your query here, either python code or Wolfram query.
 }
-Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+Note: when you put python code in the query, you should: 1.make sure the indentation is correct(use '\\t'). 2. use 'print' function for the output.
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
 6. When you get the answer, put the answer in \\boxed{}.
@@ -27,8 +27,8 @@ Note: when you put python code in the query, you should: 1.always use fractions 
     "python": """Let's use python code to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
-1. Output one step.
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+1. Continue the solving steps until you need to query.
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1. always use exact representation of numbers instead of decimal approximation 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
 Please format the query in json:
 { "tool" : "python",
 "query": "", # your code here.
@@ -41,7 +41,7 @@ Please format the query in json:
     "wolfram": """Let's use Wolfram Alpha to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
-1. Output one step.
+1. Continue the solving steps until you need to query.
 2. Take out any queries that can be asked through Wolfram Alpha (for example, any calculations or equations that can be calculated).
 Please format the query in json:
 { "tool" : "wolfram",

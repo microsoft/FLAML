@@ -28,10 +28,10 @@ class QueryHandler:
         """
         queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
-            if 'tool' in response and 'query' in response:
+            if "tool" in response and "query" in response:
                 return "No query found. Please make sure your query is in correct JSON format.", False
             else:
-                return "Continue", True
+                return "Continue. Stop only when you need to query.", True
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
 
@@ -142,6 +142,7 @@ class QueryHandler:
                 tool: 'python'
                 query: string with the code to run
         """
+        query["query"] = query["query"].replace("; ", "\n").replace(";", "\n")
         code = self.previous_code + self.add_print_to_last_line(query["query"])
 
         # python_repl = PythonREPL()
@@ -160,7 +161,6 @@ class QueryHandler:
             is_success = False
 
         if is_success:
-            query["query"] = query["query"].replace("; ", "\n").replace(";", "\n")
             self.previous_code += "\n" + self.remove_print(query["query"]) + "\n"
         return output, is_success
 
