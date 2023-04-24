@@ -1,17 +1,17 @@
 import numpy as np
-from sklearn.neighbors import NearestNeighbors
 import logging
 import pathlib
 import json
 from flaml.automl.data import DataTransformer
 from flaml.automl.task.task import CLASSIFICATION, get_classification_objective
+from flaml.automl.task.generic_task import len_labels
 from flaml.automl.ml import get_estimator_class
 from flaml.version import __version__
 
 try:
-    from flaml.automl.spark.utils import len_labels
+    from sklearn.neighbors import NearestNeighbors
 except ImportError:
-    from flaml.automl.utils import len_labels
+    pass
 
 LOCATION = pathlib.Path(__file__).parent.resolve()
 logger = logging.getLogger(__name__)

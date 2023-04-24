@@ -11,6 +11,7 @@ from flaml.automl.spark import (
     _spark_major_minor_version,
     DataFrame,
     Series,
+    set_option,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ def to_pandas_on_spark(
     print(pss)
     ```
     """
-    ps.set_option("compute.default_index_type", default_index_type)
+    set_option("compute.default_index_type", default_index_type)
     if isinstance(df, (DataFrame, Series)):
         return ps.from_pandas(df)
     elif isinstance(df, sparkDataFrame):

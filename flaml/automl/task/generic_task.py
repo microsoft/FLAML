@@ -25,6 +25,16 @@ from flaml.automl.task.task import (
     TS_FORECASTPANEL,
 )
 from flaml.config import RANDOM_SEED
+from flaml.automl.spark import ps, psDataFrame, psSeries, pd
+from flaml.automl.spark.utils import (
+    iloc_pandas_on_spark,
+    spark_kFold,
+    train_test_split_pyspark,
+    unique_pandas_on_spark,
+    unique_value_first_index,
+    len_labels,
+    set_option,
+)
 
 try:
     from scipy.sparse import issparse
@@ -43,22 +53,6 @@ try:
     )
 except ImportError:
     pass
-try:
-    from flaml.automl.spark import ps, psDataFrame, psSeries, pd
-    from pyspark.pandas.config import set_option
-    from flaml.automl.spark.utils import (
-        iloc_pandas_on_spark,
-        spark_kFold,
-        train_test_split_pyspark,
-        unique_pandas_on_spark,
-        unique_value_first_index,
-        len_labels,
-    )
-except ImportError:
-    from flaml.automl.utils import (
-        len_labels,
-        unique_value_first_index,
-    )
 
 logger = logging.getLogger(__name__)
 
