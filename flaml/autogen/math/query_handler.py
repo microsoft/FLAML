@@ -28,7 +28,10 @@ class QueryHandler:
         """
         queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
-            return "No queries found. Please put your queries in JSON format.", False
+            if 'tool' in response and 'query' in response:
+                return "No query found. Please make sure your query is in correct JSON format.", False
+            else:
+                return "Continue", True
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
 
@@ -157,6 +160,7 @@ class QueryHandler:
             is_success = False
 
         if is_success:
+            query["query"] = query["query"].replace("; ", "\n").replace(";", "\n")
             self.previous_code += "\n" + self.remove_print(query["query"]) + "\n"
         return output, is_success
 

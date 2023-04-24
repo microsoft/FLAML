@@ -1,3 +1,4 @@
+# adapted from https://github.com/wenhuchen/Program-of-Thoughts/blob/main/run_gsm8k_zs.py
 import openai
 from time import sleep
 from tool import *
