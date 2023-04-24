@@ -13,7 +13,7 @@ PROMPTS = {
 
 First state the key idea to solve the problem. Then follow the process:
 1. Continue the solving steps until you need to query.
-2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used. Please always use exact representation of numbers instead of decimal approximation.
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used. Please always express the numbers in fractions or radical form instead of decimal approximation.
 Please format the query in json:
 { "tool" : "", # "python" or "wolfram"
 "query": "", # your query here, either python code or Wolfram query.
@@ -28,7 +28,7 @@ Note: when you put python code in the query, you should: 1.make sure the indenta
 
 First state the key idea to solve the problem. Then follow the process:
 1. Continue the solving steps until you need to query.
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1. always use exact representation of numbers instead of decimal approximation 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1. always express the numbers in fractions or radical form instead of decimal approximation 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
 Please format the query in json:
 { "tool" : "python",
 "query": "", # your code here.
