@@ -7,17 +7,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Union
 import os
 from flaml.automl.training_log import training_log_reader
-from flaml.automl.spark import ps, psDataFrame, psSeries
+from flaml.automl.spark import ps, psDataFrame, psSeries, DataFrame, Series, pd
 
 try:
     from scipy.sparse import vstack, issparse
 except ImportError:
     pass
-try:
-    import pandas as pd
-    from pandas import DataFrame, Series
-except ImportError:
-    DataFrame = None
 
 if TYPE_CHECKING:
     from flaml.automl.task import Task

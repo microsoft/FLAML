@@ -36,20 +36,17 @@ from flaml.automl.logger import logger, logger_formatter
 from flaml.automl.training_log import training_log_reader, training_log_writer
 from flaml.default import suggest_learner
 from flaml.version import __version__ as flaml_version
-from flaml.automl.spark import psDataFrame, psSeries
+from flaml.automl.spark import psDataFrame, psSeries, DataFrame, Series
 from flaml.tune.spark.utils import check_spark, get_broadcast_data
 
-ERROR = None
+ERROR = (
+    DataFrame is None and ImportError("please install flaml[automl] option to use the flaml.automl package.") or None
+)
 
 try:
     from sklearn.base import BaseEstimator
 except ImportError:
     BaseEstimator = object
-    ERROR = ImportError("please install flaml[automl] option to use the flaml.automl package.")
-try:
-    from pandas import DataFrame, Series
-except ImportError:
-    DataFrame = Series = None
     ERROR = ERROR or ImportError("please install flaml[automl] option to use the flaml.automl package.")
 
 try:

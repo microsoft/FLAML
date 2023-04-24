@@ -2,11 +2,7 @@ from typing import Optional, Union
 import numpy as np
 from flaml.automl.task.generic_task import GenericTask
 from flaml.automl.task.task import Task
-
-try:
-    from pandas import DataFrame, Series
-except ImportError:
-    DataFrame = Series = None
+from flaml.automl.data import DataFrame, Series
 
 
 def task_factory(

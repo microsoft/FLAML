@@ -8,11 +8,7 @@ from flaml.automl.task.task import (
     TOKENCLASSIFICATION,
     NLG_TASKS,
 )
-
-try:
-    import pandas as pd
-except ImportError:
-    pass
+from flaml.automl.data import pd
 
 
 def todf(X, Y, column_name):

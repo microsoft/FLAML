@@ -27,10 +27,6 @@ from flaml.automl.task.task import (
 from flaml.config import RANDOM_SEED
 
 try:
-    import pandas as pd
-except ImportError:
-    pass
-try:
     from scipy.sparse import issparse
 except ImportError:
     pass
@@ -48,7 +44,7 @@ try:
 except ImportError:
     pass
 try:
-    from flaml.automl.spark import ps, psDataFrame, psSeries
+    from flaml.automl.spark import ps, psDataFrame, psSeries, pd
     from pyspark.pandas.config import set_option
     from flaml.automl.spark.utils import (
         iloc_pandas_on_spark,

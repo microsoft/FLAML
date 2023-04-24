@@ -43,18 +43,16 @@ try:
 except ImportError:
     pass
 
-try:
-    from pandas import DataFrame, Series, to_datetime
-except ImportError:
-    DataFrame = Series = None
-
-from flaml.automl.spark import psDataFrame, sparkDataFrame, psSeries, ERROR as SPARK_ERROR
+from flaml.automl.spark import psDataFrame, sparkDataFrame, psSeries, ERROR as SPARK_ERROR, DataFrame, Series
 from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
 from flaml.automl.spark.configs import (
     ParamList_LightGBM_Classifier,
     ParamList_LightGBM_Regressor,
     ParamList_LightGBM_Ranker,
 )
+
+if DataFrame is not None:
+    from pandas import to_datetime
 
 try:
     import psutil

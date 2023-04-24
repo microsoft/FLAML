@@ -32,12 +32,7 @@ from flaml.automl.model import (
 from flaml.automl.data import group_counts
 from flaml.automl.task.task import TS_FORECAST, Task
 from flaml.automl.model import BaseEstimator
-from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR
-
-try:
-    from pandas import Series
-except ImportError:
-    Series = None
+from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR, Series
 
 try:
     from sklearn.metrics import (

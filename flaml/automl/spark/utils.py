@@ -1,8 +1,17 @@
 import logging
 from typing import Union, List, Optional, Tuple
-import pandas as pd
 import numpy as np
-from flaml.automl.spark import sparkDataFrame, ps, F, T, psDataFrame, psSeries, _spark_major_minor_version
+from flaml.automl.spark import (
+    sparkDataFrame,
+    ps,
+    F,
+    T,
+    psDataFrame,
+    psSeries,
+    _spark_major_minor_version,
+    DataFrame,
+    Series,
+)
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -12,7 +21,7 @@ logger.propagate = False
 
 
 def to_pandas_on_spark(
-    df: Union[pd.DataFrame, sparkDataFrame, pd.Series, psDataFrame, psSeries],
+    df: Union[DataFrame, sparkDataFrame, Series, psDataFrame, psSeries],
     index_col: Optional[str] = None,
     default_index_type: Optional[str] = "distributed-sequence",
 ) -> Union[psDataFrame, psSeries]:
@@ -30,7 +39,7 @@ def to_pandas_on_spark(
     import pandas as pd
     from flaml.automl.spark.utils import to_pandas_on_spark
 
-    pdf = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    pdf = DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
     psdf = to_pandas_on_spark(pdf)
     print(psdf)
 
@@ -41,13 +50,13 @@ def to_pandas_on_spark(
     psdf = to_pandas_on_spark(sdf)
     print(psdf)
 
-    pds = pd.Series([1, 2, 3])
+    pds = Series([1, 2, 3])
     pss = to_pandas_on_spark(pds)
     print(pss)
     ```
     """
     ps.set_option("compute.default_index_type", default_index_type)
-    if isinstance(df, (pd.DataFrame, pd.Series)):
+    if isinstance(df, (DataFrame, Series)):
         return ps.from_pandas(df)
     elif isinstance(df, sparkDataFrame):
         if _spark_major_minor_version[0] == 3 and _spark_major_minor_version[1] < 3:
@@ -128,7 +137,7 @@ def len_labels(y: Union[psSeries, np.ndarray], return_labels=False) -> Union[int
     return len(labels)
 
 
-def unique_value_first_index(y: Union[pd.Series, psSeries, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def unique_value_first_index(y: Union[Series, psSeries, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
     """Get the unique values and indices of a pandas series,
     pandas_on_spark series or numpy array."""
     if isinstance(y, psSeries):
@@ -141,12 +150,12 @@ def unique_value_first_index(y: Union[pd.Series, psSeries, np.ndarray]) -> Tuple
 
 
 def iloc_pandas_on_spark(
-    psdf: Union[psDataFrame, psSeries, pd.DataFrame, pd.Series],
+    psdf: Union[psDataFrame, psSeries, DataFrame, Series],
     index: Union[int, slice, list],
     index_col: Optional[str] = "tmp_index_col",
 ) -> Union[psDataFrame, psSeries]:
     """Get the rows of a pandas_on_spark dataframe/series by index."""
-    if isinstance(psdf, (pd.DataFrame, pd.Series)):
+    if isinstance(psdf, (DataFrame, Series)):
         return psdf.iloc[index]
     if isinstance(index, (int, slice)):
         if isinstance(psdf, psSeries):

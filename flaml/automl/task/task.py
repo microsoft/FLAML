@@ -1,11 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 import numpy as np
-
-try:
-    from pandas import DataFrame, Series
-except ImportError:
-    DataFrame = Series = None
+from flaml.automl.data import DataFrame, Series
 
 if TYPE_CHECKING:
     import flaml

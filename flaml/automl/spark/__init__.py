@@ -7,7 +7,7 @@ try:
     import pyspark.sql.functions as F
     import pyspark.sql.types as T
     from pyspark.sql import DataFrame as sparkDataFrame
-    from ps import DataFrame as psDataFrame, Series as psSeries
+    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
     from pyspark.util import VersionUtils
 except ImportError:
 
@@ -24,3 +24,9 @@ except ImportError:
 else:
     ERROR = None
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
+
+try:
+    import pandas as pd
+    from pandas import DataFrame, Series
+except ImportError:
+    DataFrame = Series = pd = None
