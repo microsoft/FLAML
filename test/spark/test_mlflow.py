@@ -49,7 +49,6 @@ def test_tune_nonspark_autolog():
             mode="max",
             num_samples=n_child_runs,
             verbose=5,
-            mlflow_exp_name=mlflow_exp_name,
         )
 
     best_conf = analysis.best_config
@@ -91,7 +90,6 @@ def test_tune_spark_autolog():
             verbose=5,
             use_spark=True,
             n_concurrent_trials=2,
-            mlflow_exp_name=mlflow_exp_name,
         )
     best_conf = analysis.best_config
     sklearn_r2 = analysis.best_result["r2"]
@@ -123,7 +121,6 @@ def test_automl_sparktrial_autolog():
         "task": "regression",
         "n_concurrent_trials": 2,
         "use_spark": True,
-        "mlflow_exp_name": mlflow_exp_name,
         "estimator_list": [
             "lgbm",
             "rf",
@@ -172,7 +169,6 @@ def test_automl_synapseml_autolog():
         "task": "regression",  # task type
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
-        "mlflow_exp_name": exp_name,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
     with mlflow.start_run(nested=True, run_name=f"automl_synapseml_{int(time.time())}"):
