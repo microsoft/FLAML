@@ -9,7 +9,7 @@ from openai.error import InvalidRequestError, RateLimitError, Timeout
 from utils import write_json, remove_asy_sections, math_type_mapping
 
 PROMPTS = {
-    "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. 
+    "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
@@ -143,8 +143,7 @@ class MathSolver:
             "valid_q_count": query_handler.valid_q_count,  # number of valid queries
             "total_q_count": query_handler.total_q_count,
             "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
-            "response_with_ans": response_with_ans,
-            "ans": get_answer(response_with_ans),
+            "response_with_ans": response_with_ans,  # string instead of list
             "messages": config["messages"],
             "round": min(rr + 1, self.max_round),
             "cost": total_cost,

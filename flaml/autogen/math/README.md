@@ -22,17 +22,38 @@ cd flaml/autogen/math_solver
 python main.py --prompt_type select --test_run
 ```
 
+Arguments:
+
 ```
 python main.py \
   --prompt_type ['select', 'python', 'wolfram']  \
   --max_round [default=15] \
-  --use_cache [default=True] \
   --folder [default='./autotools'] \
   --cache_folder [default='./cache'] \
+  --samples_per_category [default=20] \
   [--test_run] # test run
 ```
 
 4. Check results from path `saving_folder` (default is './autotools).
+
+### Baselines
+
+1. Program of Thoughts (PoT)
+
+```
+cd flaml/autogen/math_solver
+python baselines/PoT.py
+```
+
+Arguments:
+
+```
+python baselines/PoT.py \
+  --folder [default='./PoT'] \
+  --cache_folder [default='./cache/PoT'] \
+  --samples_per_category [default=20] \
+  [--dry_run] # output prompt with one problem from each category and do not query openai
+```
 
 ## Implementation
 
