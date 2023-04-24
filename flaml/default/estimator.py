@@ -145,7 +145,9 @@ def flamlize_estimator(super_class, name: str, task: str, alternatives=None):
 try:
     import sklearn.ensemble as ensemble
 except ImportError:
-    pass
+    RandomForestClassifier = RandomForestRegressor = ExtraTreesClassifier = ExtraTreesRegressor = ImportError(
+        "Using flaml.default.* requires scikit-learn."
+    )
 else:
     RandomForestRegressor = flamlize_estimator(ensemble.RandomForestRegressor, "rf", "regression")
     RandomForestClassifier = flamlize_estimator(ensemble.RandomForestClassifier, "rf", "classification")
@@ -155,7 +157,7 @@ else:
 try:
     import lightgbm
 except ImportError:
-    pass
+    LGBMRegressor = LGBMClassifier = ImportError("Using flaml.default.LGBM* requires lightgbm.")
 else:
     LGBMRegressor = flamlize_estimator(lightgbm.LGBMRegressor, "lgbm", "regression")
     LGBMClassifier = flamlize_estimator(lightgbm.LGBMClassifier, "lgbm", "classification")
@@ -163,7 +165,7 @@ else:
 try:
     import xgboost
 except ImportError:
-    pass
+    XGBClassifier = XGBRegressor = ImportError("Using flaml.default.XGB* requires xgboost.")
 else:
     XGBRegressor = flamlize_estimator(
         xgboost.XGBRegressor,
