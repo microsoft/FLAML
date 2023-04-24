@@ -321,7 +321,13 @@ class AutoMLState:
             else (state.time_budget - state.time_from_start) / 2 * sample_size / state.data_size[0]
         )
 
-        (trained_estimator, val_loss, metric_for_logging, _, pred_time,) = compute_estimator(
+        (
+            trained_estimator,
+            val_loss,
+            metric_for_logging,
+            _,
+            pred_time,
+        ) = compute_estimator(
             sampled_X_train,
             sampled_y_train,
             state.X_val,

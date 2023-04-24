@@ -69,7 +69,9 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             time_varying_known_reals=kwargs.get("time_varying_known_reals", []),
             time_varying_unknown_categoricals=kwargs.get("time_varying_unknown_categoricals", []),
             time_varying_unknown_reals=kwargs.get("time_varying_unknown_reals", []),
-            variable_groups=kwargs.get("variable_groups", {}),  # group of categorical variables can be treated as one variable
+            variable_groups=kwargs.get(
+                "variable_groups", {}
+            ),  # group of categorical variables can be treated as one variable
             lags=kwargs.get("lags", {}),
             target_normalizer=GroupNormalizer(
                 groups=kwargs["group_ids"], transformation="softplus"

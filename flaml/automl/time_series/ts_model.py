@@ -121,7 +121,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def _join(self, X_train, y_train):
         assert TS_TIMESTAMP_COL in X_train, (
-            "Dataframe for training ts_forecast model must have column" f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
+            "Dataframe for training ts_forecast model must have column"
+            f' "{TS_TIMESTAMP_COL}" with the dates in X_train.'
         )
         y_train = DataFrame(y_train, columns=[TS_VALUE_COL])
         train_df = X_train.join(y_train)
@@ -337,8 +338,10 @@ class StatsModelsEstimator(TimeSeriesEstimator):
         forecast.name = self.target_names[0]
         return forecast
 
+
 class ARIMA(StatsModelsEstimator):
     """The class for tuning ARIMA."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if not all([p in self.params for p in ["p", "d", "q"]]):
@@ -348,8 +351,10 @@ class ARIMA(StatsModelsEstimator):
                 raise ValueError("ARIMA initialized without required params p, d, q")
             except Exception as e:
                 import traceback
+
                 print(traceback.format_exc())
                 raise e
+
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         scale, _ = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
@@ -428,8 +433,6 @@ class ARIMA(StatsModelsEstimator):
         return train_time
 
 
-
-
 class SARIMAX(StatsModelsEstimator):
     """The class for tuning SARIMA."""
 
@@ -438,7 +441,9 @@ class SARIMAX(StatsModelsEstimator):
         scale, max_lags = cls.adjust_scale(data.next_scale(), len(data.train_data), pred_horizon)
 
         # TODO: instead, downscale the dataset and take next_scale from that for P and Q
-        scales = [s for s in [scale, 2 * scale, 3 * scale, 4 * scale] if s * max_lags <= len(data.train_data) - pred_horizon]
+        scales = [
+            s for s in [scale, 2 * scale, 3 * scale, 4 * scale] if s * max_lags <= len(data.train_data) - pred_horizon
+        ]
 
         space = {
             "p": {

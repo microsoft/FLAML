@@ -188,7 +188,9 @@ class TimeSeriesDataset:
 
         return out
 
-    def cv_train_val_sets(self, n_splits: int, val_length: int, step_size: int) -> Generator["TimeSeriesDataset", None, None]:
+    def cv_train_val_sets(
+        self, n_splits: int, val_length: int, step_size: int
+    ) -> Generator["TimeSeriesDataset", None, None]:
         max_index = len(self.train_data) - 1
         for i in range(n_splits):
             out = copy.copy(self)
@@ -276,7 +278,9 @@ def enrich_dataset(
     fourier_time: bool = True,
 ) -> TimeSeriesDataset:
     new_train = enrich_dataframe(X.train_data, fourier_degree, remove_constants, fourier_time)
-    new_test = None if X.test_data is None else enrich_dataframe(X.test_data, fourier_degree, remove_constants, fourier_time)
+    new_test = (
+        None if X.test_data is None else enrich_dataframe(X.test_data, fourier_degree, remove_constants, fourier_time)
+    )
     return TimeSeriesDataset(
         train_data=new_train,
         time_col=X.time_col,
@@ -520,7 +524,9 @@ def validate_data_basic(X_train_all, y_train_all):
     )
 
     assert (
-        isinstance(y_train_all, np.ndarray) or isinstance(y_train_all, pd.Series) or isinstance(y_train_all, pd.DataFrame)
+        isinstance(y_train_all, np.ndarray)
+        or isinstance(y_train_all, pd.Series)
+        or isinstance(y_train_all, pd.DataFrame)
     ), "y_train_all must be a numpy array or a pandas series or DataFrame."
 
     assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty, use None if no data"

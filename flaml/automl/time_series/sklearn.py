@@ -72,12 +72,8 @@ class SklearnWrapper:
         if self.pca_features:
             X_trans = self.norm.fit_transform(X_feat)
 
-            cum_expl_var = np.cumsum(
-                PCA(svd_solver="full").fit(X_trans).explained_variance_ratio_
-            )
-            self.pca = PCA(
-                svd_solver="full", n_components=np.argmax(1 - cum_expl_var < 1e-6)
-            )
+            cum_expl_var = np.cumsum(PCA(svd_solver="full").fit(X_trans).explained_variance_ratio_)
+            self.pca = PCA(svd_solver="full", n_components=np.argmax(1 - cum_expl_var < 1e-6))
             X_trans = self.pca.fit_transform(X_trans)
         else:
             X_trans = X_feat
@@ -98,9 +94,7 @@ class SklearnWrapper:
         Xall = pd.concat([X_train, X], axis=0).reset_index(drop=True)
         y = Xall.pop(self._y.name)
 
-        X_feat = make_lag_features(
-            Xall[: len(X_train) + 1], y[: len(X_train) + 1], self.lags
-        )
+        X_feat = make_lag_features(Xall[: len(X_train) + 1], y[: len(X_train) + 1], self.lags)
         if self.pca_features:
             X_trans = self.pca.transform(self.norm.transform(X_feat))
         else:

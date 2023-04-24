@@ -164,7 +164,9 @@ class TimeSeriesTask(Task):
         # make a property instead? Or just fix the call?
         automl._label_transformer = automl._transformer.label_transformer
 
-        automl._feature_names_in_ = automl._X_train_all.columns.to_list() if hasattr(automl._X_train_all, "columns") else None
+        automl._feature_names_in_ = (
+            automl._X_train_all.columns.to_list() if hasattr(automl._X_train_all, "columns") else None
+        )
 
         self.time_col = data.time_col
         self.target_names = data.target_names
@@ -303,7 +305,9 @@ class TimeSeriesTask(Task):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"
             ), "split_type must be a string or a splitter object with split and get_n_splits methods."
-            assert not isinstance(split_type, GroupKFold) or groups is not None, "GroupKFold requires groups to be provided."
+            assert (
+                not isinstance(split_type, GroupKFold) or groups is not None
+            ), "GroupKFold requires groups to be provided."
             return split_type
 
         else:
@@ -497,6 +501,8 @@ def remove_ts_duplicates(
         logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, X][time_col]}")
         X = X.drop_duplicates()
         logger.warning("Removed duplicate rows based on all columns")
-        assert X[[X.columns[0]]].duplicated() is None, "Duplicate timestamp values with different values for other columns."
+        assert (
+            X[[X.columns[0]]].duplicated() is None
+        ), "Duplicate timestamp values with different values for other columns."
 
     return X

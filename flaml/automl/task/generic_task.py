@@ -252,7 +252,9 @@ class GenericTask(Task):
             # groups is given as group counts
             state.groups = np.concatenate([[i] * c for i, c in enumerate(groups)])
             assert len(state.groups) == automl._nrow, "the sum of group counts must match the number of examples"
-            state.groups_val = np.concatenate([[i] * c for i, c in enumerate(groups_val)]) if groups_val is not None else None
+            state.groups_val = (
+                np.concatenate([[i] * c for i, c in enumerate(groups_val)]) if groups_val is not None else None
+            )
         else:
             state.groups_val = groups_val
             state.groups = groups
@@ -268,7 +270,9 @@ class GenericTask(Task):
         df_all_in_one = X_train_all.join(y_train_all)
         stratify_column = y_train_all.name if isinstance(y_train_all, psSeries) else y_train_all.columns[0]
         ret_sample_weight = False
-        if "sample_weight" in state.fit_kwargs:  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+        if (
+            "sample_weight" in state.fit_kwargs
+        ):  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             # fit_kwargs["sample_weight"] is an numpy array
             ps_sample_weight = ps.DataFrame(
                 state.fit_kwargs["sample_weight"],
@@ -305,8 +309,17 @@ class GenericTask(Task):
         # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
         condition_param = "sample_weight" in state.fit_kwargs
         if not condition_type and condition_param:
-            sample_weight = state.fit_kwargs["sample_weight"] if rest is None else state.fit_kwargs["sample_weight"][rest]
-            (X_train, X_val, y_train, y_val, weight_train, weight_val,) = train_test_split(
+            sample_weight = (
+                state.fit_kwargs["sample_weight"] if rest is None else state.fit_kwargs["sample_weight"][rest]
+            )
+            (
+                X_train,
+                X_val,
+                y_train,
+                y_val,
+                weight_train,
+                weight_val,
+            ) = train_test_split(
                 X,
                 y,
                 sample_weight,
@@ -419,7 +432,9 @@ class GenericTask(Task):
                 )
                 state.fit_kwargs[
                     "sample_weight"
-                ] = state.sample_weight_all  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
+                ] = (
+                    state.sample_weight_all
+                )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                 if isinstance(state.sample_weight_all, pd.Series):
                     state.sample_weight_all.reset_index(drop=True, inplace=True)
             else:
@@ -532,7 +547,9 @@ class GenericTask(Task):
         if split_type == "group":
             # logger.info("Using GroupKFold")
             assert len(state.groups_all) == y_train_all_size, "the length of groups must match the number of examples"
-            assert len_labels(state.groups_all) >= n_splits, "the number of groups must be equal or larger than n_splits"
+            assert (
+                len_labels(state.groups_all) >= n_splits
+            ), "the number of groups must be equal or larger than n_splits"
             state.kf = GroupKFold(n_splits)
         elif split_type == "stratified":
             # logger.info("Using StratifiedKFold")
@@ -540,7 +557,8 @@ class GenericTask(Task):
                 f"{n_splits}-fold cross validation" f" requires input data with at least {n_splits} examples."
             )
             assert y_train_all_size >= 2 * n_splits, (
-                f"{n_splits}-fold cross validation with metric=r2 " f"requires input data with at least {n_splits*2} examples."
+                f"{n_splits}-fold cross validation with metric=r2 "
+                f"requires input data with at least {n_splits*2} examples."
             )
             state.kf = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=1, random_state=RANDOM_SEED)
         elif split_type == "time":
@@ -587,7 +605,9 @@ class GenericTask(Task):
             assert hasattr(split_type, "split") and hasattr(
                 split_type, "get_n_splits"
             ), "split_type must be a string or a splitter object with split and get_n_splits methods."
-            assert not isinstance(split_type, GroupKFold) or groups is not None, "GroupKFold requires groups to be provided."
+            assert (
+                not isinstance(split_type, GroupKFold) or groups is not None
+            ), "GroupKFold requires groups to be provided."
             return split_type
 
         # elif self.is_ts_forecast():
@@ -739,7 +759,9 @@ class GenericTask(Task):
                         weight[val_index],
                     )
                 if groups is not None:
-                    fit_kwargs["groups"] = groups[train_index] if isinstance(groups, np.ndarray) else groups.iloc[train_index]
+                    fit_kwargs["groups"] = (
+                        groups[train_index] if isinstance(groups, np.ndarray) else groups.iloc[train_index]
+                    )
                     groups_val = groups[val_index] if isinstance(groups, np.ndarray) else groups.iloc[val_index]
                 else:
                     groups_val = None
@@ -859,7 +881,9 @@ class GenericTask(Task):
                 estimator_list += ["lrl1"]
 
         estimator_list = [
-            est for est in estimator_list if (est.endswith("_spark") if is_spark_dataframe else not est.endswith("_spark"))
+            est
+            for est in estimator_list
+            if (est.endswith("_spark") if is_spark_dataframe else not est.endswith("_spark"))
         ]
         return estimator_list
 

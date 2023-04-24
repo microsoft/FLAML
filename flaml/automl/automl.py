@@ -2610,7 +2610,10 @@ class AutoML(BaseEstimator):
                     and self._selected.best_config_sample_size == self._state.data_size[0]
                 ):
                     state = self._search_states[self._best_estimator]
-                    (self._trained_estimator, retrain_time,) = self._state._train_with_config(
+                    (
+                        self._trained_estimator,
+                        retrain_time,
+                    ) = self._state._train_with_config(
                         self._best_estimator,
                         state.best_config,
                         self.data_size_full,
