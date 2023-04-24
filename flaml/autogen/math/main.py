@@ -73,6 +73,7 @@ def parse_args():
     parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
     parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
     parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
+    parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
     parser.add_argument("--test_run", help="test run", action="store_true")
 
     # not used
@@ -85,7 +86,7 @@ def main():
     args = parse_args()
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
-    args.folder = args.folder + "_" + args.prompt_type
+    args.folder = args.folder + "_" + args.prompt_type + '_t' + args.temperature
 
     model = "gpt-4"
     problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
@@ -94,7 +95,7 @@ def main():
         print("Take out 1 problem from each category for test run.")
 
     if not args.voting:
-        solver = MathSolver(model=model, prompt_type=args.prompt_type, max_round=args.max_round)
+        solver = MathSolver(model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature)
 
         for problem_set in problem_sets:
             for i in range(len(problem_set)):

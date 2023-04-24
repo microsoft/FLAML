@@ -9,7 +9,7 @@ from openai.error import InvalidRequestError, RateLimitError, Timeout
 from utils import write_json, remove_asy_sections, math_type_mapping
 
 PROMPTS = {
-    "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. You should always use fractions or radical form instead of decimal when writing python code (use sympy). 
+    "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. You should always use fractions or radical form instead of decimal when writing python code (use sympy).
 
 First state the key idea to solve the problem. Then follow the process:
 1. Continue the solving steps until you need to query.
@@ -55,7 +55,7 @@ Please format the query in json:
 
 
 class MathSolver:
-    def __init__(self, model, prompt_type="select", max_round=10, max_invalid_q_per_step=3, n=1, use_cache=True):
+    def __init__(self, model, prompt_type="select", max_round=10, max_invalid_q_per_step=3, n=1, temperature=1, use_cache=True):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
             raise ValueError(f"Tool {prompt_type} not supported, choose from {PROMPTS.keys()}")
@@ -69,6 +69,7 @@ class MathSolver:
                 {"role": "system", "content": self.prompt},
             ],
             "n": n,  # n should be 1 for now
+            "temperature": temperature,
             # 'temperature' : 1,
         }
 
