@@ -86,7 +86,7 @@ def main():
     args = parse_args()
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
-    args.folder = args.folder + "_" + args.prompt_type + '_t' + args.temperature
+    args.folder = args.folder + "_" + args.prompt_type + "_t" + str(args.temperature)
 
     model = "gpt-4"
     problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
@@ -95,7 +95,9 @@ def main():
         print("Take out 1 problem from each category for test run.")
 
     if not args.voting:
-        solver = MathSolver(model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature)
+        solver = MathSolver(
+            model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature
+        )
 
         for problem_set in problem_sets:
             for i in range(len(problem_set)):

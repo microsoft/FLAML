@@ -31,6 +31,7 @@ python main.py \
   --folder [default='./autotools'] \
   --cache_folder [default='./cache'] \
   --samples_per_category [default=20] \
+  --temperature [default=1, range[0,2]] \
   [--test_run] # test run
 ```
 

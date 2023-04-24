@@ -55,7 +55,9 @@ Please format the query in json:
 
 
 class MathSolver:
-    def __init__(self, model, prompt_type="select", max_round=10, max_invalid_q_per_step=3, n=1, temperature=1, use_cache=True):
+    def __init__(
+        self, model, prompt_type="select", max_round=10, max_invalid_q_per_step=3, n=1, temperature=1, use_cache=True
+    ):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
             raise ValueError(f"Tool {prompt_type} not supported, choose from {PROMPTS.keys()}")
