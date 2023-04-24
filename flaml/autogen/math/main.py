@@ -101,7 +101,6 @@ def main():
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
-            exit(0)
 
     else:
         print("Voting is not supported yet.")

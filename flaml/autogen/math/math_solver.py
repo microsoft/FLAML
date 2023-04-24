@@ -9,8 +9,7 @@ from openai.error import InvalidRequestError, RateLimitError, Timeout
 from utils import write_json, remove_asy_sections, math_type_mapping
 
 PROMPTS = {
-    "select": """
-Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. If you don't have query in one step, proceed to the next step and only stop when you need query.
+    "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. 
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
@@ -25,8 +24,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 6. When you get the answer, put the answer in \\boxed{}.
 """,
     # use python
-    "python": """
-Let's use python code to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. If you don't have query in one step, proceed to the next step and only stop when you need query.
+    "python": """Let's use python code to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
@@ -40,8 +38,7 @@ Please format the query in json:
 6. When you get the answer, put the answer in \\boxed{}.
 """,
     # use wolfram
-    "wolfram": """
-Let's use Wolfram Alpha to solve a math problem step by step. You should always follow your own reasoning and only query when necessary. If you don't have query in one step, proceed to the next step and only stop when you need query.
+    "wolfram": """Let's use Wolfram Alpha to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step.
