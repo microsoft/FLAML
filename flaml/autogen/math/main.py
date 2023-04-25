@@ -95,7 +95,7 @@ def main():
     if args.test_run:
         problem_sets = load_level5_math_each_category(samples_per_category=1)
         logger.log("Take out 1 problem from each category for test run.")
-
+    
     if not args.voting:
         solver = MathSolver(
             model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature, logger=logger
@@ -108,8 +108,9 @@ def main():
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
+            os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
         
-        logger.log("\n\n\n\n\n", verbose=False)
+        logger.log("****************************\n\n\n\n\n", verbose=False)
         os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 
     else:

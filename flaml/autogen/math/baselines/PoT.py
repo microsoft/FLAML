@@ -90,16 +90,17 @@ if __name__ == "__main__":
     
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
-    logger.log("ans $ correct_ans $ accum_acc", verbose=True)
     
     engine = "gpt-4"
     aggre_correct = 0
     problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
+    logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
+
     for problem_set in problem_sets:  # one problem_set is one category
         for i in range(len(problem_set)):
             problem_set[i]["problem_id"] = str(i)  # assign problem id
 
-        logger.log('Solving' + problem_set[0]["type"], verbose=True)
+        logger.log('Solving ' + problem_set[0]["type"], verbose=True)
         saving_folder = os.path.join(args.folder, math_type_mapping[problem_set[0]["type"]])
         os.makedirs(saving_folder, exist_ok=True)
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
@@ -111,12 +112,12 @@ if __name__ == "__main__":
             # 1. if problem already solved, continue
             if int(problem["problem_id"]) in done_problems:
                 problem = json.load(open(problem_path, "r"))
-                logger.log(
-                    f"{problem['voted_answer']} $ {problem['correct_ans']} $ {round(correct_counts / (count + 1), 4)} (This problem is loaded from previous run)",
-                    verbose=True,
-                )
                 aggre_correct += problem["is_correct"]
                 correct_counts += problem["is_correct"]
+                logger.log(
+                    f"{count}: {problem['is_correct']} $ {problem['voted_answer']} $ {problem['correct_ans']} $ {round(correct_counts / (count + 1), 4)} (loaded from previous run)",
+                    verbose=True,
+                )
                 continue
 
             results = PoT_solve(engine, problem)
@@ -135,17 +136,21 @@ if __name__ == "__main__":
             )
             write_json(problem, problem_path)
             logger.log(
-                f"{problem['voted_answer']} $ {problem['correct_ans']} $ {round(correct_counts / (count + 1), 4)}",
+                f"{count}: {problem['is_correct']} $ {problem['voted_answer']} $ {problem['correct_ans']}",
                 verbose=True,
             )
             if args.dry_run:
                 break
-        print('-----------------------------------')
-        break
+        logger.log(
+            f"{problem_set[0]['type']} acc: {correct_counts}/{len(problem_set)}= {round(correct_counts / len(problem_set), 4)}",
+        )
+        logger.log('-----------------------------------')
+        os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
+
 
     logger.log(
-        f"Total accuracy: {round(aggre_correct / (len(problem_sets) * len(problem_sets[0])), 4)}",
-        verbose=True,
+        f"Total accuracy: {aggre_correct}/{(len(problem_sets) * len(problem_sets[0]))}={round(aggre_correct / (len(problem_sets) * len(problem_sets[0])), 4)}",
     ) 
+    logger.log('****************************\n\n\n\n')
     os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 

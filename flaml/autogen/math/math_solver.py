@@ -217,6 +217,7 @@ class MathSolver:
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
 
         correct_counts = 0
+        self.logger.log("id : is_correct $ ans $ correct_ans | is_valid $ round $ accum acc")
         for count, problem in enumerate(problem_set):
             problem_path = os.path.join(saving_folder, problem["problem_id"] + ".json")
 
@@ -225,7 +226,7 @@ class MathSolver:
                 problem = json.load(open(problem_path, "r"))
                 correct_counts += problem["is_correct"]
                 self.logger.log(
-                    f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}'
+                    f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["is_valid_reply"]} $ {problem["round"]} $ {correct_counts}/{count+1} (from previous run)'
                 )
                 continue
 
@@ -255,9 +256,9 @@ class MathSolver:
             # 4. continue to next problem
             correct_counts += problem["is_correct"]
             self.logger.log(
-                f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}'
+                f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["is_valid_reply"]} $ {problem["round"]} $ {correct_counts}/{count+1}'
             )
-            self.logger.log('------------------------------------------------------------\n')
-
+        
         tp = problem_set[0]["type"]
-        self.logger.log(f"{tp} correct rate: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}")
+        self.logger.log(f"{tp} Accuracy: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}")
+        self.logger.log(f'------------------------------------------------------------\n', verbose=True)
