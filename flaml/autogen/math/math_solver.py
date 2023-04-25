@@ -105,8 +105,8 @@ class MathSolver:
             try:
                 raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
             except (InvalidRequestError, RateLimitError, Timeout) as e:
-                print(problem["type"], problem["problem_id"], e)
-                save_message_to_file(e)
+                print(problem["type"], problem["problem_id"], str(e))
+                save_message_to_file(str(e))
                 break
             assert raw_responses != -1, "Error in getting response"
             responses = oai.ChatCompletion.extract_text(raw_responses)
