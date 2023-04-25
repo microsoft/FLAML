@@ -12,6 +12,20 @@ math_type_mapping = {
     "Precalculus": "precalculus",
 }
 
+class mylogger:
+    def __init__(self, file) -> None:
+        self.file = file
+
+    def log(self, message, verbose=True):
+        """Print the message.
+        Args:
+            message (str): The message to print.
+        """
+        with open(self.file, "a") as f:
+            f.write(message + "\n")
+        if verbose:
+            print(message)
+
 
 def load_level5_math_each_category(samples_per_category=20):
     """

@@ -6,7 +6,7 @@ import json
 import re
 import copy
 from openai.error import InvalidRequestError, RateLimitError, Timeout
-from utils import write_json, remove_asy_sections, math_type_mapping
+from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 PROMPTS = {
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
@@ -56,7 +56,15 @@ Please format the query in json:
 
 class MathSolver:
     def __init__(
-        self, model, prompt_type="select", max_round=10, max_invalid_q_per_step=3, n=1, temperature=1, use_cache=True
+        self, 
+        model, 
+        prompt_type="select", 
+        max_round=10, 
+        max_invalid_q_per_step=3, 
+        n=1, 
+        temperature=1, 
+        logger=None, 
+        use_cache=True
     ):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
@@ -76,6 +84,7 @@ class MathSolver:
 
         self.max_invalid_q_per_step = max_invalid_q_per_step
         self.use_cache = use_cache
+        self.logger = logger
 
     def make_conversation(self, problem, n=1, file_to_be_saved=None):
         query_handler = QueryHandler()
@@ -196,6 +205,8 @@ class MathSolver:
         Returns:
             None
         """
+        if not self.logger:
+            self.logger = mylogger(os.path.join(saving_folder, "log.txt"))
 
         # assume all problems are of the same type: TODO: ensure this assumption
         saving_folder = os.path.join(saving_folder, math_type_mapping[problem_set[0]["type"]])
@@ -213,7 +224,7 @@ class MathSolver:
             if int(problem["problem_id"]) in done_problems:
                 problem = json.load(open(problem_path, "r"))
                 correct_counts += problem["is_correct"]
-                print(
+                self.logger.log(
                     f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}'
                 )
                 continue
@@ -243,9 +254,10 @@ class MathSolver:
 
             # 4. continue to next problem
             correct_counts += problem["is_correct"]
-            print(
+            self.logger.log(
                 f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}'
             )
+            self.logger.log('------------------------------------------------------------\n')
 
         tp = problem_set[0]["type"]
-        print(f"{tp} correct rate: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}")
+        self.logger.log(f"{tp} correct rate: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}")

@@ -6,7 +6,7 @@ from flaml import oai
 from functools import partial
 from flaml.autogen.math.math_voting import SelfConsistency
 import argparse
-from utils import load_level5_math_each_category, math_type_mapping
+from utils import load_level5_math_each_category, math_type_mapping, mylogger
 
 
 def vanilla_solving(model, problem, n, max_tokens=None):
@@ -87,26 +87,33 @@ def main():
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
     args.folder = args.folder + "_" + args.prompt_type + "_t" + str(args.temperature)
+    os.makedirs(args.folder, exist_ok=True)
+    logger = mylogger(os.path.join(args.folder, "log.txt"))
 
     model = "gpt-4"
     problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
     if args.test_run:
         problem_sets = load_level5_math_each_category(samples_per_category=1)
-        print("Take out 1 problem from each category for test run.")
+        logger.log("Take out 1 problem from each category for test run.")
 
     if not args.voting:
         solver = MathSolver(
-            model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature
+            model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature, logger=logger
         )
+        with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
+            f.write(solver.prompt)
 
         for problem_set in problem_sets:
             for i in range(len(problem_set)):
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
+        
+        logger.log("\n\n\n\n\n", verbose=False)
+        os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 
     else:
-        print("Voting is not supported yet.")
+        logger.log("Voting is not supported yet.")
         pass
 
     # problem_sets = load_level5_math_each_category()
