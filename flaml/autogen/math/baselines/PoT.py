@@ -114,6 +114,8 @@ if __name__ == "__main__":
                     round(correct_counts / (count + 1), 4),
                     "(This problem is loaded from previous run)",
                 )
+                aggre_correct += problem["is_correct"]
+                correct_counts += problem["is_correct"]
                 continue
 
             results = PoT_solve(engine, problem)

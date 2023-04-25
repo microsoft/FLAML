@@ -214,7 +214,7 @@ class MathSolver:
                 problem = json.load(open(problem_path, "r"))
                 correct_counts += problem["is_correct"]
                 print(
-                    f'Problem {problem["problem_id"]}. {correct_counts}/{count+1} successes. valid response: {problem["is_valid_reply"]}, Correct: {problem["is_correct"]}, {problem["round"]} rounds. (This problem is loaded from previous run)'
+                    f'Problem {problem["problem_id"]}. Is Valid: {problem["is_valid_reply"]}, Is Correct: {bool(problem["is_correct"])}, Conversation Round: {problem["round"]}, Accum Sucesses Rate: {correct_counts}/{count+1}= {round(correct_counts/(count+1), 4)}'
                 )
                 continue
 
