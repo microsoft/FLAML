@@ -129,6 +129,8 @@ setuptools.setup(
             "pydantic",
             "wolframalpha",
             "sympy",
+            "func_timeout",
+            "cvxpy",
         ],
         "synapse": ["joblibspark>=0.5.0", "optuna==2.8.0", "pyspark>=3.2.0"],
     },

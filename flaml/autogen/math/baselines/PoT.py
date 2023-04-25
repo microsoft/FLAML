@@ -88,11 +88,13 @@ if __name__ == "__main__":
     engine = "gpt-4"
 
     aggre_correct = 0
-    problem_sets = load_level5_math_each_category(samples_per_category=1)
+    problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
+    print("ans $ correct_ans $ accum_acc")
     for problem_set in problem_sets:  # one problem_set is one category
         for i in range(len(problem_set)):
             problem_set[i]["problem_id"] = str(i)  # assign problem id
 
+        print('Solving', problem_set[0]["type"])
         saving_folder = os.path.join(args.folder, math_type_mapping[problem_set[0]["type"]])
         os.makedirs(saving_folder, exist_ok=True)
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
@@ -133,5 +135,6 @@ if __name__ == "__main__":
 
             if args.dry_run:
                 break
+        print('-----------------------------------')
 
     print(round(aggre_correct / (len(problem_sets) * len(problem_sets[0])), 4))
