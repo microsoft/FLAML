@@ -6,6 +6,65 @@ import os
 import json
 import re
 import copy
+from flaml.autogen.math.math_solver import MathSolver
+from functools import partial
+
+
+def vanilla_solving(model, problem, n, max_tokens=None):
+    """Solving a problem directly."""
+    config = {
+        "model": model,
+        "n": n,
+        "prompt": "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}.",
+    }
+    if max_tokens is not None:
+        config["max_tokens"] = max_tokens
+    context = {
+        "problem": problem["problem"],
+    }
+    raw_responses = oai.ChatCompletion.create(context, **config, use_cache=True)
+
+    prompt_price = (
+        oai.ChatCompletion.price1K[model][0]
+        if type(oai.ChatCompletion.price1K[model]) == tuple
+        else oai.ChatCompletion.price1K[model]
+    )
+    return {
+        "responses": oai.ChatCompletion.extract_text(raw_responses),
+        "cost": oai.ChatCompletion.cost(model, raw_responses),
+        "prompt_cost": prompt_price * raw_responses["usage"]["prompt_tokens"] / 1000,
+    }
+
+
+def vanilla_voting_one_category(model, problem_set, saving_folder, n=10, n_per_time=3):
+    """Solve one category of problems directly."""
+    selfconsistency = SelfConsistency(n=n, n_per_time=n_per_time)
+    saving_folder = os.path.join(saving_folder, math_type_mapping[problem_set[0]["type"]])
+    os.makedirs(saving_folder, exist_ok=True)
+    for problem in problem_set:
+        responses = selfconsistency.sequential_reasoning_path_sampling(
+            problem=problem,
+            saving_folder=saving_folder,
+            solving=partial(vanilla_solving, model=model, max_tokens=None),
+        )
+        results = selfconsistency.vanilla_voting(responses["responses"], problem["solution"])
+        print(results["success_vote"], results["votes"])
+
+
+def tool_voting_one_category(model, problem_set, saving_folder, n=2, n_per_time=1):
+    selfconsistency = SelfConsistency(n=n, n_per_time=n_per_time)
+    toolsolver = MathSolver(model="gpt-4", tool="both", max_round=10)
+
+    saving_folder = os.path.join(saving_folder, math_type_mapping[problem_set[0]["type"]])
+    os.makedirs(saving_folder, exist_ok=True)
+    for problem in problem_set:
+        responses = selfconsistency.sequential_reasoning_path_sampling(
+            problem=problem,
+            saving_folder=saving_folder,
+            solving=toolsolver.make_conversation,
+        )
+        results = selfconsistency.vanilla_voting(responses["responses"], problem["solution"])
+        print(results["success_vote"], results["votes"])
 
 
 class SelfConsistency:

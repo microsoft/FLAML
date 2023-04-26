@@ -1,6 +1,8 @@
 import datasets
 import re
+import os
 import json
+import argparse
 
 math_type_mapping = {
     "Algebra": "algebra",
@@ -11,6 +13,28 @@ math_type_mapping = {
     "Prealgebra": "prealgebra",
     "Precalculus": "precalculus",
 }
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Math Solver")
+    parser.add_argument("--prompt_type", dest="prompt_type", help="prompt type", default="select", type=str)
+    parser.add_argument("--prompt_location", dest="prompt_location", help="prompt location", default="user", type=str)
+    parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
+    parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
+    parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
+    parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
+    parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
+    parser.add_argument("--test_run", help="test run", action="store_true")
+    parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
+
+    # not used
+
+    parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
+    parser.add_argument("--voting", action="store_true")
+    args = parser.parse_args()
+    args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
+    os.makedirs(args.folder, exist_ok=True)
+    return args
 
 
 class mylogger:
