@@ -35,9 +35,9 @@ def _test_tsp():
         "Can we add a new point to the graph? It's distance should be randomly between 0 - 5 to each of the existing points.",
     ]
 
-    agent = PythonAgent("coding_agent", temperature=0)
+    agent = PythonAgent("coding_agent", work_dir="test/autogen", temperature=0)
     user = Agent("user")
-    with open("test/openai/tsp_prompt.txt", "r") as f:
+    with open("test/autogen/tsp_prompt.txt", "r") as f:
         prompt = f.read()
     # agent.receive(prompt.format(question=hard_questions[0]), user)
     # agent.receive(prompt.format(question=hard_questions[1]), user)

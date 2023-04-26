@@ -16,8 +16,9 @@ class PythonAgent(Agent):
     EXECUTION_AGENT_PREFIX = "execution_agent4"
     SUCCESS_EXIT_CODE = "exitcode: 0\n"
 
-    def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, **config):
+    def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, work_dir=None, **config):
         super().__init__(name, system_message)
+        self._work_dir = work_dir
         self._config = self.DEFAULT_CONFIG.copy()
         self._config.update(config)
         self._sender_dict = {}
@@ -44,7 +45,7 @@ class PythonAgent(Agent):
             execution_agent = sender
         else:
             # create an execution agent
-            execution_agent = ExecutionAgent(f"{self.EXECUTION_AGENT_PREFIX}{sender.name}")
+            execution_agent = ExecutionAgent(f"{self.EXECUTION_AGENT_PREFIX}{sender.name}", work_dir=self._work_dir)
             # initialize the conversation
             self._conversations[execution_agent.name] = self._conversations[sender.name].copy()
             self._sender_dict[execution_agent.name] = execution_agent
