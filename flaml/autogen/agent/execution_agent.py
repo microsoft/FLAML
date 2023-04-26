@@ -11,6 +11,7 @@ class ExecutionAgent(Agent):
         super().__init__(name, system_message)
 
     def receive(self, message, sender):
+        super().receive(message, sender)
         # extract code
         code, lang = extract_code(message)
         if lang == "bash":

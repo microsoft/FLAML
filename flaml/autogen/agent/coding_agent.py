@@ -16,12 +16,17 @@ class PythonAgent(Agent):
     EXECUTION_AGENT_PREFIX = "execution_agent4"
     SUCCESS_EXIT_CODE = "exitcode: 0\n"
 
-    def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, config=DEFAULT_CONFIG):
+    def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, **config):
         super().__init__(name, system_message)
-        self._config = config
+        self._config = self.DEFAULT_CONFIG.copy()
+        self._config.update(config)
         self._sender_dict = {}
 
     def receive(self, message, sender):
+        if sender.name not in self._sender_dict:
+            self._sender_dict[sender.name] = sender
+            self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
+        super().receive(message, sender)
         if sender.name.startswith(self.EXECUTION_AGENT_PREFIX) and message.startswith(self.SUCCESS_EXIT_CODE):
             # the code is correct, respond to the original sender
             name = sender.name[len(self.EXECUTION_AGENT_PREFIX) :]
@@ -32,16 +37,16 @@ class PythonAgent(Agent):
             else:
                 self._send("Done. No output.", original_sender)
             return
-        if sender.name not in self._conversations:
-            self._sender_dict[sender.name] = sender
-            self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
-        super().receive(message, sender)
         responses = oai.ChatCompletion.create(messages=self._conversations[sender.name], **self._config)
         # cost = oai.ChatCompletion.cost(config["model"], responses)
         response = oai.ChatCompletion.extract_text(responses)[0]
-        # create an execution agent
-        execution_agent = ExecutionAgent(f"{self.EXECUTION_AGENT_PREFIX}{sender.name}")
-        # initialize the conversation
-        self._conversations[execution_agent.name] = self._conversations[sender.name].copy()
+        if sender.name.startswith(self.EXECUTION_AGENT_PREFIX):
+            execution_agent = sender
+        else:
+            # create an execution agent
+            execution_agent = ExecutionAgent(f"{self.EXECUTION_AGENT_PREFIX}{sender.name}")
+            # initialize the conversation
+            self._conversations[execution_agent.name] = self._conversations[sender.name].copy()
+            self._sender_dict[execution_agent.name] = execution_agent
         # send the response to the execution agent
         self._send(response, execution_agent)

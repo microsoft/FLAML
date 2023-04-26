@@ -26,7 +26,6 @@ class Agent:
 
     def _send(self, message, recipient):
         """Send a message to another agent."""
-        print(self.name, "sent message to", recipient.name, ":", message)
         self._conversations[recipient.name].append({"content": message, "role": "assistant"})
         recipient.receive(message, self)
 
