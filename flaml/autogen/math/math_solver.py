@@ -10,6 +10,59 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
 PROMPTS = {
+    "plain":"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+During the solving process, you would take out any queries that can be asked through python or Wolfram alpha. 
+Make sure the query is self-contained and can be answered by the tool. I will take the query and give you the results.
+{ "query": "", # your self-contained query}
+Correct your reasoning based on the results, or give a new query if the results are invalid or unexpected.
+Keep solving the problem. When you get the answer, put the answer in \\boxed{}.
+""",
+
+    "nostop":"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. You should always follow your own reasoning and only query when necessary.
+1. Continue your solving process until you need to query the tools. Then you will put the query in json:
+{ "tool" : "", # Choose the most suitable tool: "python" or "wolfram"
+"query": "", # your query here, either python code or Wolfram query.
+} 
+Note: hen you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+2. The user will wait for the json and give you the results. You can correct this step based on the results, or give a new query if the results are invalid.
+3. Keep solving the problem until you get the answer. Put the answer in \\boxed{}.
+""",
+
+    "nostop1" : """
+Let's use two tools (python code and Wolfram alpha) to solve a math problem. You should always follow your own reasoning and only query when necessary.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Keep solving the problem until you need to query the tools.
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used.
+Please format the query in json:
+{ "tool" : "", # "python" or "wolfram"
+"query": "", # your query here, either python code or Wolfram query.
+}
+Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+4. Wait for me to give the results.
+5. Correct this step based on the results, or give a new query if the results are invalid.
+6. When you get the answer, put the answer in \\boxed{}.
+""" ,
+
+    "pseudocode" : """You are a math solver that can use two tools (python code and Wolfram alpha) to solve math problem. 
+
+Query requirements:
+1. Always follow your own reasoning and only query when necessary.
+2. Choose the most suitable tool for the query to help you with calculations, solving equations, etc. You do not need to query very simple calculations.
+3. When you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
+    
+Please follow the process to solve the problem:
+State the key idea to solve the problem.
+While you haven't got the answer:
+    1. Keep solving the problem and put the query in json:
+    { "tool" : "", # "python" or "wolfram"
+    "query": "", # your query here, either python code or Wolfram query.
+    }
+    2. After you output the query, wait for me to give the results.
+    4. Correct this step based on the results, or give a new query if the results are invalid.
+When you get the answer, put the answer in \\boxed{}.
+""",
+
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
@@ -120,14 +173,18 @@ class MathSolver:
         invalid_q = 0  # for query
         total_cost = 0
         response_with_ans = ""  # save the response with \box to get the answer
-        for rr in range(self.max_round):
+        rr = 0  # round
+        while rr < self.max_round:
             # 1. get the response from the assistant
             try:
                 raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
-            except (InvalidRequestError, RateLimitError, Timeout) as e:
+            except (InvalidRequestError) as e:
                 print(problem["type"], problem["problem_id"], str(e))
                 save_message_to_file(str(e))
                 break
+            except (RateLimitError, Timeout) as e:
+                print('Ratelimit or timeout, retrying...')
+                continue
             assert raw_responses != -1, "Error in getting response"
             responses = oai.ChatCompletion.extract_text(raw_responses)
             assert len(responses) == 1, "More than one response"  # right now we only use one response
@@ -159,6 +216,7 @@ class MathSolver:
                 invalid_q = 0
 
             save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
+            rr += 1
         save_message_to_file("Solution: " + problem["solution"])
 
         return {
