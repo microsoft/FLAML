@@ -19,7 +19,7 @@ os.environ["WOLFRAM_ALPHA_APPID"] = "Your id here"
 
 ```
 cd flaml/autogen/math_solver
-python main.py --prompt_type select --test_run
+python main.py --prompt_type select --test_run --categories all
 ```
 
 Arguments:
@@ -32,10 +32,22 @@ python main.py \
   --cache_folder [default='./cache'] \
   --samples_per_category [default=20] \
   --temperature [default=1, range[0,2]] \
+  --prompt_location [default='user', choose from ['user', 'system']]
+  --categories [default=[0,1], list of category ids below or 'all' (meaning all 7 categories)]
   [--test_run] # test run
 ```
 
-4. Check results from path `saving_folder` (default is './autotools).
+
+
+0 Algebra
+1 Counting & Probability
+2 Geometry
+3 Intermediate Algebra
+4 Number Theory
+5 Prealgebra
+6 Precalculus
+
+5. Check results from path `saving_folder` (default is './autotools).
 
 ### Baselines
 

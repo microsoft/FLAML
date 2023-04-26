@@ -12,6 +12,7 @@ math_type_mapping = {
     "Precalculus": "precalculus",
 }
 
+
 class mylogger:
     def __init__(self, file) -> None:
         self.file = file
@@ -27,17 +28,22 @@ class mylogger:
             print(message)
 
 
-def load_level5_math_each_category(samples_per_category=20):
+def load_level5_math_each_category(samples_per_category=20, category_to_load=None):
     """
     Load level 5 math problems from the competition dataset.
     Returns:
         A list of list of problems. Each list of problems is of the same category.
     """
+    category_to_load = [i for i in range(7)] if not category_to_load or "all" in category_to_load else category_to_load
     seed = 41
     data = datasets.load_dataset("competition_math")
     test_data = data["test"].shuffle(seed=seed)
     sep_cate = []
-    for category in math_type_mapping.keys():
+    for i, category in enumerate(math_type_mapping.keys()):
+        if i not in category_to_load:
+            print(i, category, "(skipped)")
+            continue
+        print(i, category)
         tmp = [
             test_data[x]
             for x in range(len(test_data))
@@ -47,6 +53,8 @@ def load_level5_math_each_category(samples_per_category=20):
             print(f"Warning: {category} has less than {samples_per_category} problems.")
         sep_cate.append(tmp[:samples_per_category])
 
+    if len(sep_cate) == 0:
+        raise ValueError("No category is loaded.")
     return sep_cate
 
 

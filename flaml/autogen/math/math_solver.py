@@ -56,28 +56,32 @@ Please format the query in json:
 
 class MathSolver:
     def __init__(
-        self, 
-        model, 
-        prompt_type="select", 
-        max_round=10, 
-        max_invalid_q_per_step=3, 
-        n=1, 
-        temperature=1, 
-        logger=None, 
-        use_cache=True
+        self,
+        model,
+        prompt_type="select",
+        prompt_location="user",
+        max_round=10,
+        max_invalid_q_per_step=3,
+        n=1,
+        temperature=1,
+        logger=None,
+        use_cache=True,
     ):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
             raise ValueError(f"Tool {prompt_type} not supported, choose from {PROMPTS.keys()}")
 
         self.prompt_type = prompt_type
+        self.prompt_loaction = prompt_location
         self.prompt = PROMPTS[prompt_type]
-
+        messages = (
+            [{"role": "system", "content": self.prompt}]
+            if prompt_location == "system"
+            else [{"role": "system", "content": "You are a helpful assistant."}]
+        )
         self.deafult_config = {
             "model": model,
-            "messages": [
-                {"role": "system", "content": self.prompt},
-            ],
+            "messages": messages,
             "n": n,  # n should be 1 for now
             # 'temperature' : 1,
         }
@@ -87,13 +91,18 @@ class MathSolver:
         self.logger = logger
 
     def make_conversation(self, problem, n=1, file_to_be_saved=None):
+        # initialize the query handler
         query_handler = QueryHandler()
 
         # initialize the conversation
         config = copy.deepcopy(self.deafult_config)
-        config["messages"].append({"role": "user", "content": "Problem: " + remove_asy_sections(problem["problem"])})
-
-        seperate_line = "\n" + "-" * 40 + "\n"
+        problem_prompt = {
+            "role": "user",
+            "content": self.prompt + "\nProblem: " + remove_asy_sections(problem["problem"]),
+        }  # put prompt in user message
+        if self.prompt_loaction == "system":
+            problem_prompt = {"role": "user", "content": remove_asy_sections(problem["problem"])}
+        config["messages"].append(problem_prompt)
 
         # save a readable conversation in txt file
         def save_message_to_file(message):
@@ -102,6 +111,7 @@ class MathSolver:
                     f.write(message)
                     f.flush()
 
+        seperate_line = "\n" + "-" * 40 + "\n"
         save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n {seperate_line}')
 
         # init parameters
@@ -258,7 +268,7 @@ class MathSolver:
             self.logger.log(
                 f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["is_valid_reply"]} $ {problem["round"]} $ {correct_counts}/{count+1}'
             )
-        
+
         tp = problem_set[0]["type"]
         self.logger.log(f"{tp} Accuracy: {correct_counts}/{len(problem_set)} = {correct_counts/len(problem_set)}")
-        self.logger.log(f'------------------------------------------------------------\n', verbose=True)
+        self.logger.log("------------------------------------------------------------\n", verbose=True)

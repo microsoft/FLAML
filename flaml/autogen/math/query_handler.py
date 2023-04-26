@@ -28,7 +28,7 @@ class QueryHandler:
         """
         queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
-            if 'tool' in response and 'query' in response:
+            if "tool" in response and "query" in response:
                 return "No query found. Please make sure your query is in correct JSON format.", False
             else:
                 return "Continue", True

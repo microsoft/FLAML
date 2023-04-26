@@ -68,13 +68,15 @@ def tool_voting_one_category(model, problem_set, saving_folder, n=2, n_per_time=
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Math Solver")
-    parser.add_argument("--prompt_type", "-p", dest="prompt_type", help="prompt type", default="select", type=str)
+    parser.add_argument("--prompt_type", dest="prompt_type", help="prompt type", default="select", type=str)
+    parser.add_argument("--prompt_location", dest="prompt_location", help="prompt location", default="user", type=str)
     parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
     parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
     parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
     parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
     parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
     parser.add_argument("--test_run", help="test run", action="store_true")
+    parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
@@ -86,19 +88,26 @@ def main():
     args = parse_args()
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
-    args.folder = args.folder + "_" + args.prompt_type + "_t" + str(args.temperature)
+    args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
 
     model = "gpt-4"
-    problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
+    problem_sets = load_level5_math_each_category(
+        samples_per_category=args.samples_per_category, category_to_load=args.categories
+    )
     if args.test_run:
-        problem_sets = load_level5_math_each_category(samples_per_category=1)
+        problem_sets = load_level5_math_each_category(samples_per_category=1, category_to_load=args.categories)
         logger.log("Take out 1 problem from each category for test run.")
-    
+
     if not args.voting:
         solver = MathSolver(
-            model=model, prompt_type=args.prompt_type, max_round=args.max_round, temperature=args.temperature, logger=logger
+            model=model,
+            prompt_type=args.prompt_type,
+            max_round=args.max_round,
+            temperature=args.temperature,
+            prompt_location=args.prompt_location,
+            logger=logger,
         )
         with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
             f.write(solver.prompt)
@@ -109,7 +118,7 @@ def main():
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
             os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
-        
+
         logger.log("****************************\n\n\n\n\n", verbose=False)
         os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 

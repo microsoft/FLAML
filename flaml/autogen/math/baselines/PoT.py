@@ -13,7 +13,13 @@ import datasets
 
 # Caution: distinguish between the two types imports
 from flaml.autogen.math_utils import eval_math_responses, get_answer
-from flaml.autogen.math.utils import load_level5_math_each_category, math_type_mapping, write_json, remove_asy_sections, mylogger
+from flaml.autogen.math.utils import (
+    load_level5_math_each_category,
+    math_type_mapping,
+    write_json,
+    remove_asy_sections,
+    mylogger,
+)
 from flaml.autogen.code_utils import execute_code
 
 
@@ -44,7 +50,7 @@ def solver():
     # Firstly, we need define the following variable:
 """
     with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
-                f.write(full_prompt)
+        f.write(full_prompt)
     if args.dry_run:
         print(full_prompt)
         print("=======================")
@@ -87,10 +93,10 @@ def solver():
 if __name__ == "__main__":
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
-    
+
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
-    
+
     engine = "gpt-4"
     aggre_correct = 0
     problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
@@ -100,7 +106,7 @@ if __name__ == "__main__":
         for i in range(len(problem_set)):
             problem_set[i]["problem_id"] = str(i)  # assign problem id
 
-        logger.log('Solving ' + problem_set[0]["type"], verbose=True)
+        logger.log("Solving " + problem_set[0]["type"], verbose=True)
         saving_folder = os.path.join(args.folder, math_type_mapping[problem_set[0]["type"]])
         os.makedirs(saving_folder, exist_ok=True)
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
@@ -144,13 +150,11 @@ if __name__ == "__main__":
         logger.log(
             f"{problem_set[0]['type']} acc: {correct_counts}/{len(problem_set)}= {round(correct_counts / len(problem_set), 4)}",
         )
-        logger.log('-----------------------------------')
+        logger.log("-----------------------------------")
         os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
-
 
     logger.log(
         f"Total accuracy: {aggre_correct}/{(len(problem_sets) * len(problem_sets[0]))}={round(aggre_correct / (len(problem_sets) * len(problem_sets[0])), 4)}",
-    ) 
-    logger.log('****************************\n\n\n\n')
+    )
+    logger.log("****************************\n\n\n\n")
     os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
-
