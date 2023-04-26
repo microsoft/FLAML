@@ -37,6 +37,7 @@ def load_level5_math_each_category(samples_per_category=20, category_to_load=Non
         A list of list of problems. Each list of problems is of the same category.
     """
     category_to_load = [i for i in range(7)] if not category_to_load or "all" in category_to_load else category_to_load
+    category_to_load = [int(x) for x in category_to_load]
     seed = 41
     data = datasets.load_dataset("competition_math")
     test_data = data["test"].shuffle(seed=seed)
