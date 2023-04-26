@@ -59,7 +59,7 @@ class QueryHandler:
             )
         self.last_query = tuple(queries)
         self.last_return = buffer_out
-        return buffer_out.replace("\n\n", "\n"), all_success
+        return buffer_out.strip().replace("\n\n", "\n"), all_success
 
     def wolfram_query(self, query: json):
         """
