@@ -1,6 +1,6 @@
 # Auto Generation
 
-`flaml.autogen` is a subpackage for automating generation tasks. It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
+`flaml.autogen` is a package for automating generation tasks (in preview). It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
 Such optimization has several benefits:
 * Maximize the utility out of using expensive foundation models.
 * Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
@@ -100,10 +100,9 @@ The returned `config` contains the optimized configuration and `analysis` contai
 
 ## Perform inference with the tuned config
 
-One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to performance inference.
+One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference.
 There are a number of benefits of using `flaml.oai.Completion.create` to perform inference.
 
-A template is either a format str, or a function which produces a str from several input fields.
 
 ### API unification
 
@@ -124,6 +123,8 @@ If the provided prompt or message is a template, it will be automatically materi
 ```python
 response = oai.Completion.create(problme=problem, prompt="{problem} Solve the problem carefully.", **config)
 ```
+
+A template is either a format str, or a function which produces a str from several input fields.
 
 ## Other utilities
 
