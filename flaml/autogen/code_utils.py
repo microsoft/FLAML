@@ -9,7 +9,7 @@ import time
 from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
-CODE_BLOCK_PATTERN = r"```\w*\n(.*?)\n```"
+CODE_BLOCK_PATTERN = r"```(\w*)\n(.*?)\n```"
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
 
 
@@ -18,9 +18,9 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
     match = re.search(pattern, text, flags=re.DOTALL)
     # If a match is found, return the code
     if match:
-        return match.group(1)
+        return match.group(2), match.group(1)
     # If no code block is found, return the whole text
-    return text
+    return text, "unknown"
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
@@ -151,7 +151,6 @@ def execute_code(
     os.makedirs(file_dir, exist_ok=True)
 
     if code is not None:
-        code = code.strip()
         with open(filepath, "w") as fout:
             fout.write(code)
     # check if already running in a docker container
