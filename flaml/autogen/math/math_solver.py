@@ -9,29 +9,6 @@ from openai.error import InvalidRequestError, RateLimitError, Timeout
 from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
-def main_solve_with_tools(args, logger, problem_sets):
-    solver = MathSolver(
-        model=args.model,
-        prompt_type=args.prompt_type,
-        max_round=args.max_round,
-        temperature=args.temperature,
-        prompt_location=args.prompt_location,
-        logger=logger,
-    )
-    with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
-        f.write(solver.prompt)
-
-    for problem_set in problem_sets:
-        for i in range(len(problem_set)):
-            problem_set[i]["problem_id"] = str(i)  # assign problem id
-
-        solver.solve_one_category(problem_set, saving_folder=args.folder)
-        os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
-
-    logger.log("****************************\n\n\n\n\n", verbose=False)
-    os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
-
-
 PROMPTS = {
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
