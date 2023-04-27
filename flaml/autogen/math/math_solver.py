@@ -23,7 +23,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 6. When you get the answer, put the answer in \\boxed{}.
 """,
 
-    "step" :
+    "v1select" :
 """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Put the query in json:
