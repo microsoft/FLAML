@@ -3,6 +3,7 @@ import sys
 from io import StringIO
 import regex
 import os
+import re
 from pydantic import BaseModel, Field, Extra, root_validator
 from typing import Any, Dict, Optional
 from flaml.autogen.code_utils import execute_code
@@ -28,23 +29,39 @@ class QueryHandler:
         """
         queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
-            if "tool" in response and "query" in response:
-                return "No query found. Please make sure your query is in correct JSON format.", False
-            else:
-                return "Continue", True
+            queries = self.extractCode(response)  # extract code queries
+            if len(queries) == 0:
+                if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response):
+                    return "No query found. Please make sure your query follows the instruction.", False
+                else:
+                    return "Continue. Please keep solving the problem until you need to use tools.", True
+
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
 
         buffer_out = ""
         all_success = True  # all queries are successful
         for i, query in enumerate(queries):
-            if query["tool"] == "python":
-                output, is_success = self.run_one_code(query)
-            elif query["tool"] == "wolfram":
-                output, is_success = self.wolfram_query(query)
+            if "tool" in query:
+                if query["tool"] == "python":
+                    output, is_success = self.run_one_code(query['query'])
+                elif query["tool"] == "wolfram":
+                    output, is_success = self.wolfram_query(query['query'])
+                else: 
+                    output = "Error: Unknown tool"
+                    is_success = False
             else:
-                output = "Error: Unknown tool"
+                output = ""
                 is_success = False
+                if "python" in query and query['python'] != "":
+                    pyout, pysucess = self.run_one_code(query['python'])
+                    output += "python: " + pyout + "\n"
+                    is_success = is_success or pysucess
+                if "wolfram" in query and query['wolfram'] != "":
+                    wolframout, wolframsuccess = self.wolfram_query(query['wolfram'])
+                    output += "wolfram: " + wolframout + "\n"
+                    is_success = is_success or wolframsuccess
+
             buffer_out += output + "\n"
             if not is_success:
                 # TODO: handle situation with several queries and one fails
@@ -61,7 +78,7 @@ class QueryHandler:
         self.last_return = buffer_out
         return buffer_out.strip().replace("\n\n", "\n"), all_success
 
-    def wolfram_query(self, query: json):
+    def wolfram_query(self, query: str):
         """
         Run one wolfram query and return the output.
         return:
@@ -70,7 +87,7 @@ class QueryHandler:
         """
         # wolfram query handler
         wolfram = WolframAlphaAPIWrapper()
-        output, is_success = wolfram.run(query["query"])
+        output, is_success = wolfram.run(query)
         if output == "":
             output = "Error: The wolfram query is invalid."
         return output, is_success
@@ -109,6 +126,18 @@ class QueryHandler:
             result.append(c)
         return "".join(result)
 
+    def extractCode(self, input_string: str):
+        pattern = r"```(.*?)\n```"
+        match = re.findall(pattern, input_string, flags=re.DOTALL)
+
+        queries = []
+        for m in match:
+            if 'python' in m:
+                queries.append({'tool': 'python', 'query': m.replace('python', '').strip()})
+            elif 'wolfram' in m:
+                queries.append({'tool': 'wolfram', 'query': m.replace('wolfram', '').strip()})
+        return queries
+
     def extractJSON(self, input_string: str):
         """
         Extract JSON queries from a string.
@@ -127,7 +156,7 @@ class QueryHandler:
             bracketed_string = self._remove_newlines_outside_quotes(bracketed_string)
             try:
                 data = json.loads(bracketed_string)
-                if "tool" in data and "query" in data:
+                if ("tool" in data and "query" in data) or "python" in data or "wolfram" in data:
                     json_queries.append(data)
             except json.JSONDecodeError:
                 pass
@@ -135,15 +164,13 @@ class QueryHandler:
         return json_queries
 
     # code query handler
-    def run_one_code(self, query: json):
+    def run_one_code(self, query: str):
         """Run one code query and return the output.
         params:
-            query: json object with the following keys:
-                tool: 'python'
-                query: string with the code to run
+            query: string with the code query
         """
-        query["query"] = query["query"].replace("; ", "\n").replace(";", "\n")
-        code = self.previous_code + self.add_print_to_last_line(query["query"])
+        query = query.replace("; ", "\n").replace(";", "\n")
+        code = self.previous_code + self.add_print_to_last_line(query)
 
         # python_repl = PythonREPL()
         # output, is_success = python_repl.run(code)
@@ -161,7 +188,7 @@ class QueryHandler:
             is_success = False
 
         if is_success:
-            self.previous_code += "\n" + self.remove_print(query["query"]) + "\n"
+            self.previous_code += "\n" + self.remove_print(query) + "\n"
         return output, is_success
 
     def add_print_to_last_line(self, s):

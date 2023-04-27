@@ -7,7 +7,7 @@ from utils import mylogger, load_level5_math_each_category
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Math Solver")
-    parser.add_argument("--prompt_type", dest="prompt_type", help="prompt type", default="select", type=str)
+    parser.add_argument("--prompt_type", "-ptype", dest="prompt_type", help="prompt type", default="select", type=str)
     parser.add_argument("--prompt_location", dest="prompt_location", help="prompt location", default="user", type=str)
     parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
     parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)

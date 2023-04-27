@@ -10,6 +10,74 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
 PROMPTS = {
+        "v2refine" :
+"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Choose the best tool to be used.
+Follow this format:
+    - When query python, put code in ```python ... ```. Always use fractions instead of decimal and use the 'print' function for the output.
+    - When query wolfram, put query ``wolfram ... ```
+4. Wait for me to give the results.
+5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+6. When you get to the answer, please check the problem conditions to validate your answer. Correct yourself if necessary.
+7. Finally, when you believe your answer is correct, put the answer in \\boxed{}.
+""",
+
+
+"v1refine" :
+"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Put the query in json:
+{ "tool" : "", # select the best tool from "python" or "wolfram", 
+"query": "", # your query here, either python code or Wolfram query.
+}
+Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
+4. Wait for me to give the results.
+5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+6. When you get to the answer, please check the problem conditions to validate your answer. Correct yourself if necessary.
+7. Finally, when you believe your answer is correct, put the answer in \\boxed{}.
+""",
+
+
+    "v1nostep": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+
+First state the key idea to solve the problem. Then follow the process:
+1. Keep solving the problem and take out any queries that can be asked through python or Wolfram alpha.
+Select the best tool and follow this format:
+    - When query python. put code in ```python ... ```. Always use fractions instead of decimal and use the 'print' function for the output.
+    - When query wolfram, put query ``wolfram ... ```
+4. Wait for me to give the results.
+5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+6. When you get the answer, put the answer in \\boxed{}.
+""",
+
+    # v2select  Try to use python or wolfram to help you with as many steps as possible. Choose the best tool for each task.
+    "v2select" :
+"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Choose the best tool to be used.
+Follow this format:
+    - When query python. put code in ```python ... ```. Always use fractions instead of decimal and use the 'print' function for the output.
+    - When query wolfram, put query ``wolfram ... ```
+4. Wait for me to give the results.
+5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+6. When you get the answer, put the answer in \\boxed{}.
+""",
+    # both
+    "both": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Try to query both tools for each task.
+Put the query in json:
+{ "python" : "", # your python code
+"wolfram": "", # Wolfram query.
+}
+Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
+4. Wait for me to give the results.
+5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+6. When you get the answer, put the answer in \\boxed{}.
+""",
+
+    # nostep
     "nostep": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 
 First state the key idea to solve the problem. Then follow the process:
@@ -22,7 +90,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 6. When you get the answer, put the answer in \\boxed{}.
 """,
-
+    # v1select
     "v1select" :
 """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 First state the key idea to solve the problem. Then follow the process:
@@ -35,7 +103,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 6. When you get the answer, put the answer in \\boxed{}.
 """,
-
+    # select
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
