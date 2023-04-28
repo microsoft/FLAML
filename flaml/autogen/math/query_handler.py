@@ -7,6 +7,7 @@ import re
 from pydantic import BaseModel, Field, Extra, root_validator
 from typing import Any, Dict, Optional
 from flaml.autogen.code_utils import execute_code
+from time import sleep
 
 
 class QueryHandler:
@@ -296,8 +297,18 @@ class WolframAlphaAPIWrapper(BaseModel):
 
     def run(self, query: str) -> str:
         """Run query through WolframAlpha and parse result."""
-        res = self.wolfram_client.query(query)
+        from urllib.error import HTTPError
         is_success = False  # added
+        res = None
+        for _ in range(20):
+            try:
+                res = self.wolfram_client.query(query)
+                break
+            except HTTPError:
+                sleep(1)
+        if res is None:
+            return "Wolfram Alpha wasn't able to answer it (may due to web error), you can try again or use python.", is_success
+       
         try:
             assumption = next(res.pods).text
             answer = next(res.results).text
