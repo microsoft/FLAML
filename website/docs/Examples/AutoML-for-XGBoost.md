@@ -4,7 +4,7 @@
 
 Install the [automl] option.
 ```bash
-pip install "flaml[automl] matplotlib openml==0.10.2"
+pip install "flaml[automl] matplotlib openml"
 ```
 
 ### Use built-in XGBoostSklearnEstimator

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 import numpy as np
-from flaml.automl.data import DataFrame, Series
+from flaml.automl.data import DataFrame, Series, psDataFrame, psSeries
 
 if TYPE_CHECKING:
     import flaml
@@ -74,8 +74,8 @@ class Task(ABC):
     def __init__(
         self,
         task_name: str,
-        X_train: Optional[Union[np.ndarray, DataFrame]] = None,
-        y_train: Optional[Union[np.ndarray, DataFrame, Series]] = None,
+        X_train: Optional[Union[np.ndarray, DataFrame, psDataFrame]] = None,
+        y_train: Optional[Union[np.ndarray, DataFrame, Series, psSeries]] = None,
     ):
         """Constructor.
 
@@ -98,8 +98,8 @@ class Task(ABC):
         self,
         config: dict,
         estimator: "flaml.automl.ml.BaseEstimator",
-        X_train_all: Union[np.ndarray, DataFrame],
-        y_train_all: Union[np.ndarray, DataFrame, Series],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries],
         budget: int,
         kf,
         eval_metric: str,
@@ -130,12 +130,12 @@ class Task(ABC):
         self,
         automl: "flaml.automl.automl.AutoML",
         state: "flaml.automl.state.AutoMLState",
-        X_train_all: Union[np.ndarray, DataFrame, None],
-        y_train_all: Union[np.ndarray, DataFrame, Series, None],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame, None],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
         dataframe: Union[DataFrame, None],
         label: str,
-        X_val: Optional[Union[np.ndarray, DataFrame]] = None,
-        y_val: Optional[Union[np.ndarray, DataFrame, Series]] = None,
+        X_val: Optional[Union[np.ndarray, DataFrame, psDataFrame]] = None,
+        y_val: Optional[Union[np.ndarray, DataFrame, Series, psSeries]] = None,
         groups_val: Optional[List[str]] = None,
         groups: Optional[List[str]] = None,
     ):
@@ -163,8 +163,8 @@ class Task(ABC):
     def prepare_data(
         self,
         state: "flaml.automl.state.AutoMLState",
-        X_train_all: Union[np.ndarray, DataFrame],
-        y_train_all: Union[np.ndarray, DataFrame, Series, None],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
         auto_augment: bool,
         eval_method: str,
         split_type: str,
@@ -208,7 +208,7 @@ class Task(ABC):
     def decide_split_type(
         self,
         split_type: str,
-        y_train_all: Union[np.ndarray, DataFrame, Series, None],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
         fit_kwargs: dict,
         groups: Optional[List[str]] = None,
     ) -> str:
@@ -234,7 +234,7 @@ class Task(ABC):
     @abstractmethod
     def preprocess(
         self,
-        X: Union[np.ndarray, DataFrame],
+        X: Union[np.ndarray, DataFrame, psDataFrame],
         transformer: Optional["flaml.automl.data.DataTransformer"] = None,
     ) -> Union[np.ndarray, DataFrame]:
         """Preprocess the data ready for fitting or inference with this task type.

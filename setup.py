@@ -44,7 +44,7 @@ setuptools.setup(
         "notebook": [
             "jupyter",
             "matplotlib",
-            "openml==0.10.2",
+            "openml",
         ],
         "spark": [
             "pyspark>=3.2.0",
@@ -66,7 +66,7 @@ setuptools.setup(
             "catboost>=0.26",
             "rgf-python",
             "optuna==2.8.0",
-            "openml==0.10.2",
+            "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
             "dataclasses",

@@ -6,7 +6,7 @@ Flamlized estimators automatically use data-dependent default hyperparameter con
 
 ### Prerequisites
 
-This example requires lightgbm, sklearn, openml==0.10.2.
+This example requires lightgbm, sklearn, openml.
 
 ### Zero-shot AutoML
 
