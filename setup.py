@@ -130,11 +130,6 @@ setuptools.setup(
         "openai": ["openai==0.27.4", "diskcache"],
         "autogen": ["openai==0.27.4", "diskcache", "docker"],
         "synapse": [
-            "lightgbm>=2.3.1",
-            "xgboost>=0.90",
-            "scipy>=1.4.1",
-            "pandas>=1.1.4",
-            "scikit-learn>=0.24",
             "joblibspark>=0.5.0",
             "optuna==2.8.0",
             "pyspark>=3.2.0",
