@@ -56,7 +56,6 @@ setuptools.setup(
             "scipy>=1.4.1",
             "pandas>=1.1.4",
             "scikit-learn>=0.24",
-            "flake8>=3.8.4",
             "thop",
             "pytest>=6.1.1",
             "coverage>=5.3",
