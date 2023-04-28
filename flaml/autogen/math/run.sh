@@ -24,3 +24,16 @@ python main.py -ptype v1.2select --prompt_location system --folder ./5 --categor
 
 # trial 6 v2.1select system
 python main.py -ptype v2.1select --prompt_location system --folder ./6 --categories 0 1
+
+# ------------------------------
+# trial 7 v2.1select user continued
+python main.py -ptype v2.1select --prompt_location user --folder ./7 --categories 0 1 4 5
+
+# trial 8 v1.1select system
+python main.py -ptype v1.2select --prompt_location system --folder ./8 --categories 0 1 4 5
+
+# trial 9 v3select experimental user
+python main.py -ptype v3select --prompt_location user --folder ./9 --categories 0 1
+
+# trial 10 v3select experimental system
+python main.py -ptype v3select --prompt_location system --folder ./10 --categories 0 1

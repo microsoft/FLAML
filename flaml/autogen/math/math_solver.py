@@ -10,6 +10,28 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
 PROMPTS = {
+    "v3select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitale tool for each task.
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "", # select the best tool from "python" or "wolfram", 
+"query": "", # your query here, either python code or Wolfram query.
+}
+Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+Note: Wolfram is suitable for symbolic manipulations (such as simplifying expressions).
+
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem is mostly reasoning and doesn't involve many calculations or symbol manipulations, you can solve it by yourself directly. If you suspect the result might be wrong, or you can use tools to check it.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above. and I will help you execute it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step and do not overdivide the steps. Try to use python or wolfram to help you and aggregate as many steps as possible in one query.
+2. I will take the queries and give the results.
+3. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+""",
     "v2.1select" :
 """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 First state the key idea to solve the problem. Then follow the process:
