@@ -177,7 +177,8 @@ class QueryHandler:
         # output, is_success = python_repl.run(code)
         return_code, output = execute_code(code, use_docker=False)
         is_success = return_code == 0
-        output = output.decode("ascii")
+        if isinstance(output, bytes):
+            output = output.decode("ascii")
         if not is_success:
             # remove file name from error message
             output = output.split('.py",')[1]
