@@ -61,7 +61,7 @@ def pseudo_main():
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
 
             solver.solve_one_category(problem_set, saving_folder=args.folder)
-            os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
+            # os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 
         logger.log("****************************\n\n\n\n\n", verbose=False)
         os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
