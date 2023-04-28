@@ -31,10 +31,10 @@ class QueryHandler:
         if len(queries) == 0:
             queries = self.extractCode(response)  # extract code queries
             if len(queries) == 0:
-                if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response):
+                if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response) or "```" in response:
                     return "No query found. Please make sure your query follows the instruction.", False
                 else:
-                    return "Continue. Please keep solving the problem until you need to use tools.", True
+                    return "Continue. Please keep solving the problem until you need to query.", True
 
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
@@ -127,7 +127,7 @@ class QueryHandler:
         return "".join(result)
 
     def extractCode(self, input_string: str):
-        pattern = r"```(.*?)\n```"
+        pattern = r"```(.*?)```"
         match = re.findall(pattern, input_string, flags=re.DOTALL)
 
         queries = []

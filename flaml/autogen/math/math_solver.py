@@ -10,6 +10,52 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
 PROMPTS = {
+    "v2.1select" :
+"""Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step and do not overdivide the steps. Try to use python or wolfram to help you and aggregate as many steps as possible in one query. In particular, if you think you can use one query to aggregate all steps to solve the problem, please do so.
+Please follow the query requirements below, otherwise it will not be recognized:
+    - Select the most suitable tool for the query.
+    - Query python: put python code in ```python ... ```. You must 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+    - Query wolfram: put query ``wolfram ... ```. Note: Wolfram might be more suitable for symbolic manipulation and mathematical operations (such as simplifying expressions).
+3. There should be one or more queries waiting to be executed. I will take the queries and give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+""",
+
+    "v1.2select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step and do not overdivide the steps. Try to use python or wolfram to help you and aggregate as many steps as possible in one query. In particular, if you think you can use one query to aggregate all steps to solve the problem, please do so.
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "", # select the best tool from "python" or "wolfram", 
+"query": "", # your query here, either python code or Wolfram query.
+}
+Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+Note: Wolfram is suitable for symbolic manipulation and mathematical operations (such as simplifying expressions).
+2. There should be one or more queries waiting to be executed. I will take the queries and give the results.
+3. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+""",
+
+    "v1.1select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
+
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step. Do not overdivide the steps, and try to use python or wolfram to help you with one or more steps. If you think the problem can be solved with one query, please do so.
+You must put the python code or wolfram query in json format (otherwise it will not be recognized):
+{ "tool" : "", # select the most suitable tool from "python" or "wolfram", 
+"query": "", # your query here, either python code or Wolfram query.
+}
+Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+Note: Wolfram is suitable for symbolic manipulation and mathematical operations (such as simplifying expressions).
+2. There should be one or more queries waiting to be executed. I will take the queries and give the results.
+3. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+""",
+
         "v2refine" :
 """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 First state the key idea to solve the problem. Then follow the process:
@@ -90,7 +136,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 6. When you get the answer, put the answer in \\boxed{}.
 """,
-    # v1select
+    # v1select *** select *** good for user
     "v1select" :
 """Let's use two tools (python code and Wolfram alpha) to solve a math problem. 
 First state the key idea to solve the problem. Then follow the process:
@@ -103,7 +149,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 5. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 6. When you get the answer, put the answer in \\boxed{}.
 """,
-    # select
+    # *** select *** good for both system and user
     "select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
@@ -233,7 +279,7 @@ class MathSolver:
             # token_used = raw_responses['usage']['total_tokens']
             total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
-            if get_answer(responses[0]) is not None:
+            if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
                 # if the assistant gives a valid reply, stop the conversation
                 is_valid_reply = True
                 response_with_ans = responses[0]
@@ -257,6 +303,8 @@ class MathSolver:
                 invalid_q = 0
 
             save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
+            if "Continue" in query_response:
+                rr -= 0.5 
             rr += 1
         save_message_to_file("Solution: " + problem["solution"])
 
