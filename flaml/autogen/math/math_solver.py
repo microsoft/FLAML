@@ -9,17 +9,38 @@ from openai.error import InvalidRequestError, RateLimitError, Timeout
 from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
-PROMPTS = {
+PROMPTS = { 
+"v3.1select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitale tool for each task.
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "", # select the best tool from "python" or "wolfram", 
+"query": "" # your query here, either python code or Wolfram query.
+}
+Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+
+First state the key idea to solve the problem and which way you would choose to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem is mostly reasoning and doesn't involve many calculations or symbol manipulations, you can solve it by yourself directly. You can use tools to check your answer if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above. and I will help you execute it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Output one step. (do not over divide the steps)
+2. Take out any queries that can be asked with the tools (for example, any calculations or equations that can be calculated) and format your query following the query requirements above. 
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning or choose a different tool.
+
+After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+""",
     "v3select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
 You are provided with python code and Wolfram alpha to help you, please choose the most suitale tool for each task.
 You must put the query in json format (otherwise it will not be recognized):
 { "tool" : "", # select the best tool from "python" or "wolfram", 
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
-Note: Wolfram is suitable for symbolic manipulations (such as simplifying expressions).
+Note: Wolfram is suitable for symbolic manipulations (such as simplifying expressions). # 1
 
 
 First state the key idea to solve the problem. You may choose from three ways to solve the problem:
@@ -52,7 +73,7 @@ First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step and do not overdivide the steps. Try to use python or wolfram to help you and aggregate as many steps as possible in one query. In particular, if you think you can use one query to aggregate all steps to solve the problem, please do so.
 You must put the query in json format (otherwise it will not be recognized):
 { "tool" : "", # select the best tool from "python" or "wolfram", 
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
 Note: Wolfram is suitable for symbolic manipulation and mathematical operations (such as simplifying expressions).
@@ -68,7 +89,7 @@ First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step. Do not overdivide the steps, and try to use python or wolfram to help you with one or more steps. If you think the problem can be solved with one query, please do so.
 You must put the python code or wolfram query in json format (otherwise it will not be recognized):
 { "tool" : "", # select the most suitable tool from "python" or "wolfram", 
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
 Note: Wolfram is suitable for symbolic manipulation and mathematical operations (such as simplifying expressions).
@@ -97,7 +118,7 @@ Follow this format:
 First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Put the query in json:
 { "tool" : "", # select the best tool from "python" or "wolfram", 
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
 4. Wait for me to give the results.
@@ -137,7 +158,7 @@ First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Try to query both tools for each task.
 Put the query in json:
 { "python" : "", # your python code
-"wolfram": "", # Wolfram query.
+"wolfram": "" # Wolfram query.
 }
 Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
 4. Wait for me to give the results.
@@ -151,7 +172,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 First state the key idea to solve the problem. Then follow the process:
 1. Try to use the tools to help you solve the problem. In particular, you can write a python program or wolfram query to solve the problem in one step if possible. Please use json format:
 { "tool" : "", #  select the best tool from "python" or "wolfram".
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
 4. Wait for me to give the results.
@@ -164,7 +185,7 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 First state the key idea to solve the problem. Then follow the process:
 1. Solve the problem step by step. Try to use python or wolfram to help you with one or more steps. Put the query in json:
 { "tool" : "", # select the best tool from "python" or "wolfram", 
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use the 'print' function for the output.
 4. Wait for me to give the results.
@@ -179,7 +200,7 @@ First state the key idea to solve the problem. Then follow the process:
 2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used.
 Please format the query in json:
 { "tool" : "", # "python" or "wolfram"
-"query": "", # your query here, either python code or Wolfram query.
+"query": "" # your query here, either python code or Wolfram query.
 }
 Note: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
 4. Wait for me to give the results.
@@ -194,7 +215,7 @@ First state the key idea to solve the problem. Then follow the process:
 2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). When you are querying python, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct(use '\\t'). 3. use 'print' function for the output.
 Please format the query in json:
 { "tool" : "python",
-"query": "", # your code here.
+"query": "" # your code here.
 }
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
@@ -208,7 +229,7 @@ First state the key idea to solve the problem. Then follow the process:
 2. Take out any queries that can be asked through Wolfram Alpha (for example, any calculations or equations that can be calculated).
 Please format the query in json:
 { "tool" : "wolfram",
-"query": "", # your query here. Please use wolfram language.
+"query": "" # your query here. Please use wolfram language.
 }
 4. Wait for me to give the results.
 5. Correct this step based on the results, or give a new query if the results are invalid.
