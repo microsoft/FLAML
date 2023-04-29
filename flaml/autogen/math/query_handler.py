@@ -33,9 +33,9 @@ class QueryHandler:
             queries = self.extractCode(response)  # extract code queries
             if len(queries) == 0:
                 if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response) or "```" in response:
-                    return "No query found. Please make sure your query follows the instruction.", False
+                    return "Your query is invalid and cannot be parsed. Please check your format.", False
                 else:
-                    return "Continue. Please keep solving the problem until you need to query.", True
+                    return "Continue. There should be a query for me to execute when you stop.", True
 
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
@@ -147,7 +147,7 @@ class QueryHandler:
         returns:
             list of JSON queries
         """
-
+        input_string = input_string.replace(",\n}", "}")
         # bracketed_strings = re.findall(r'\{[\s\S]*?\}', input_string)
         bracketed_strings = regex.findall(r"\{(?:[^{}]|(?R))*\}", input_string)
         # print(bracketed_strings)
