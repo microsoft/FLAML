@@ -39,13 +39,13 @@ Caution: when you put python code in the query, you should: 1.always use fractio
 
 First state the key idea to solve the problem. You may choose from three modes to solve the problem:
 Mode 1: If the problem is mostly reasoning or only involve simple calculations, you can solve it by yourself directly. After you get the answer, you can use tools to check your answer if necessary.
-Mode 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements. and I will help you execute it.
+Mode 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements. and I will help you run it.
 Mode 3: If the problem cannot be handled with the above two modes, please follow this process:
-1. Output one step (do not over divide the steps). Take out any queries that can be asked with the tools (for example, any calculations or equations that can be calculated) and format your query following the query requirements above. 
+1. Output one step (do not over divide the steps). Take out any queries that can be asked with the tools (for example, any calculations or equations that can be calculated) and follow the query requirements above. 
 2. Wait for me to give the results.
 3. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning, or choose a different tool.
 
-After all the queries are executed and you get the answer, put the answer in \\boxed{}.
+After all the queries are completed and you get the answer, put the answer in \\boxed{}.
 """,
     # v3.1select
     "v3.1select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.

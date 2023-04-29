@@ -33,7 +33,7 @@ class QueryHandler:
             queries = self.extractCode(response)  # extract code queries
             if len(queries) == 0:
                 if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response) or "```" in response:
-                    return "Your query is invalid and cannot be parsed. Please check your format.", False
+                    return "Your query is invalid and cannot be parsed. Please revise your query format.", False
                 else:
                     return "Continue. There should be a query for me to execute when you stop.", True
 
