@@ -1070,7 +1070,6 @@ class TransformersEstimator(BaseEstimator):
                 task=self._task,
                 y_pred=predictions,
                 tokenizer=self.tokenizer,
-                X_len=len(y_true),
                 hf_args=self._training_args,
                 y_true=y_true,
             )
@@ -1177,7 +1176,6 @@ class TransformersEstimator(BaseEstimator):
             task=self._task,
             y_pred=predictions,
             tokenizer=self.tokenizer,
-            X_len=len(X),
             hf_args=self._training_args,
             X=X,
         )
