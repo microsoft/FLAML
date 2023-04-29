@@ -17,11 +17,13 @@ try:
         APIConnectionError,
         Timeout,
     )
+    from openai import Completion as openai_Completion
     import diskcache
 
     ERROR = None
 except ImportError:
     ERROR = ImportError("please install flaml[openai] option to use the flaml.oai subpackage.")
+    openai_Completion = object
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     # Add the console handler.
@@ -46,7 +48,7 @@ def get_key(config):
     return config
 
 
-class Completion(openai.Completion):
+class Completion(openai_Completion):
     """A class for OpenAI completion API.
 
     It also supports: ChatCompletion, Azure OpenAI API.
