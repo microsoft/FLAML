@@ -117,7 +117,7 @@ class Completion:
     _total_cost = 0
     optimization_budget = None
 
-    _book_dict = _count_create = None
+    _book_keeping_dict = _count_create = None
 
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
@@ -135,23 +135,30 @@ class Completion:
     @classmethod
     def _book_keeping(cls, config: Dict, response):
         """Book keeping for the created completions."""
-        if cls._book_dict is None:
+        if cls._book_keeping_dict is None:
             return
-        value = {
-            "created_at": [],
-            "cost": [],
+        if cls._book_keeping_compact:
+            value = {
+                "created_at": [],
+                "cost": [],
+            }
+            if "messages" in config:
+                messages = config["messages"]
+                if len(messages) > 1 and messages[-1]["role"] != "assistant":
+                    existing_key = get_key(messages[:-1])
+                    value = cls._book_keeping_dict.pop(existing_key, value)
+                key = get_key(messages + [choice["message"] for choice in response["choices"]])
+            else:
+                key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
+            value["created_at"].append(cls._count_create)
+            value["cost"].append(cls.cost(config["model"], response))
+            cls._book_keeping_dict[key] = value
+            cls._count_create += 1
+            return
+        cls._book_keeping_dict[cls._count_create] = {
+            "request": config,
+            "response": response.to_dict_recursive(),
         }
-        if "messages" in config:
-            messages = config["messages"]
-            if len(messages) > 1 and messages[-1]["role"] != "assistant":
-                existing_key = get_key(messages[:-1])
-                value = cls._book_dict.pop(existing_key, value)
-            key = get_key(messages + [choice["message"] for choice in response["choices"]])
-        else:
-            key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
-        value["created_at"].append(cls._count_create)
-        value["cost"].append(cls.cost(config["model"], response))
-        cls._book_dict[key] = value
         cls._count_create += 1
 
     @classmethod
@@ -901,25 +908,28 @@ class Completion:
         return [choice["message"].get("content", "") for choice in choices]
 
     @classmethod
+    @property
     def logged_messages(cls) -> Dict:
         """Return the book keeping dictionary."""
-        return cls._book_dict
+        return cls._book_keeping_dict
 
     @classmethod
-    def book_keeping_start(cls, book_dict: Optional[Dict] = None):
+    def book_keeping_start(cls, book_dict: Optional[Dict] = None, compact: Optional[bool] = True):
         """Start book keeping.
 
         Args:
             book_dict (Dict): A dictionary for book keeping.
                 If no provided, a new one will be created.
+            compact (bool): Whether to keep the book keeping dictionary compact.
         """
-        cls._book_dict = {} if book_dict is None else book_dict
+        cls._book_keeping_dict = {} if book_dict is None else book_dict
+        cls._book_keeping_compact = compact
         cls._count_create = 0
 
     @classmethod
     def book_keeping_end(cls):
         """End book keeping."""
-        cls._book_dict = cls._count_create = None
+        cls._book_keeping_dict = cls._count_create = None
 
 
 class ChatCompletion(Completion):
