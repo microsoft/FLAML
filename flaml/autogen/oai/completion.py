@@ -119,7 +119,7 @@ class Completion(openai_Completion):
     _total_cost = 0
     optimization_budget = None
 
-    _book_keeping_dict = _count_create = None
+    _history_dict = _count_create = None
 
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
@@ -137,9 +137,9 @@ class Completion(openai_Completion):
     @classmethod
     def _book_keeping(cls, config: Dict, response):
         """Book keeping for the created completions."""
-        if cls._book_keeping_dict is None:
+        if cls._history_dict is None:
             return
-        if cls._book_keeping_compact:
+        if cls._history_compact:
             value = {
                 "created_at": [],
                 "cost": [],
@@ -148,16 +148,16 @@ class Completion(openai_Completion):
                 messages = config["messages"]
                 if len(messages) > 1 and messages[-1]["role"] != "assistant":
                     existing_key = get_key(messages[:-1])
-                    value = cls._book_keeping_dict.pop(existing_key, value)
+                    value = cls._history_dict.pop(existing_key, value)
                 key = get_key(messages + [choice["message"] for choice in response["choices"]])
             else:
                 key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
             value["created_at"].append(cls._count_create)
             value["cost"].append(cls.cost(response))
-            cls._book_keeping_dict[key] = value
+            cls._history_dict[key] = value
             cls._count_create += 1
             return
-        cls._book_keeping_dict[cls._count_create] = {
+        cls._history_dict[cls._count_create] = {
             "request": config,
             "response": response.to_dict_recursive(),
         }
@@ -917,27 +917,64 @@ class Completion(openai_Completion):
 
     @classmethod
     @property
-    def logged_messages(cls) -> Dict:
+    def logged_history(cls) -> Dict:
         """Return the book keeping dictionary."""
-        return cls._book_keeping_dict
+        return cls._history_dict
 
     @classmethod
-    def book_keeping_start(cls, book_dict: Optional[Dict] = None, compact: Optional[bool] = True):
+    def start_logging(
+        cls, history_dict: Optional[Dict] = None, compact: Optional[bool] = True, reset_counter: Optional[bool] = True
+    ):
         """Start book keeping.
 
         Args:
-            book_dict (Dict): A dictionary for book keeping.
+            history_dict (Dict): A dictionary for book keeping.
                 If no provided, a new one will be created.
-            compact (bool): Whether to keep the book keeping dictionary compact.
+            compact (bool): Whether to keep the history dictionary compact.
+                Compact history contains one key per conversation, and the value is a dictionary
+                like:
+        ```python
+        {
+            "create_at": [0, 1],
+            "cost": [0.1, 0.2],
+        }
+        ```
+                where "created_at" is the index of API calls indicating the order of all the calls,
+                and "cost" is the cost of each call. This example shows that the conversation is based
+                on two API calls. The compact format is useful for condensing the history of a conversation.
+                If compact is False, the history dictionary will contain all the API calls: the key
+                is the index of the API call, and the value is a dictionary like:
+        ```python
+        {
+            "request": request_dict,
+            "response": response_dict,
+        }
+        ```
+                where request_dict is the request sent to OpenAI API, and response_dict is the response.
+                For a conversation containing two API calls, the non-compact history dictionary will be like:
+        ```python
+        {
+            0: {
+                "request": request_dict_0,
+                "response": response_dict_0,
+            },
+            1: {
+                "request": request_dict_1,
+                "response": response_dict_1,
+            },
+        ```
+                The first request's messages plus the response is equal to the second request's messages.
+                For a conversation with many turns, the non-compact history dictionary has a quadratic size
+                while the compact history dict has a linear size.
         """
-        cls._book_keeping_dict = {} if book_dict is None else book_dict
-        cls._book_keeping_compact = compact
-        cls._count_create = 0
+        cls._history_dict = {} if history_dict is None else history_dict
+        cls._history_compact = compact
+        cls._count_create = 0 if reset_counter or cls._count_create is None else cls._count_create
 
     @classmethod
-    def book_keeping_end(cls):
+    def stop_logging(cls):
         """End book keeping."""
-        cls._book_keeping_dict = cls._count_create = None
+        cls._history_dict = cls._count_create = None
 
 
 class ChatCompletion(Completion):
