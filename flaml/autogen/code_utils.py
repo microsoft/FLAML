@@ -6,6 +6,7 @@ import pathlib
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
 import time
+from hashlib import md5
 from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 
 # Regular expression for finding a code block
@@ -141,7 +142,7 @@ def execute_code(
 
     original_filename = filename
     if filename is None:
-        code_hash = hash(code)
+        code_hash = md5(code.encode()).hexdigest()
         # create a file with a automatically generated name
         filename = f"tmp_code_{code_hash}.py"
     if work_dir is None:

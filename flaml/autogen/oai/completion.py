@@ -4,6 +4,7 @@ import numpy as np
 import time
 from typing import List, Optional, Dict
 import sys
+import json
 from flaml import tune, BlendSearch
 from flaml.automl.logger import logger_formatter
 
@@ -39,11 +40,12 @@ def get_key(config):
     Returns:
         tuple: A unique identifier which can be used as a key for a dict.
     """
-    if isinstance(config, dict):
-        return tuple(get_key(x) for x in sorted(config.items()))
-    if isinstance(config, list):
-        return tuple(get_key(x) for x in config)
-    return config
+    # if isinstance(config, dict):
+    #     return tuple(get_key(x) for x in sorted(config.items()))
+    # if isinstance(config, list):
+    #     return tuple(get_key(x) for x in config)
+    # return config
+    return json.dumps(config, sort_keys=True)
 
 
 class Completion:
@@ -115,6 +117,8 @@ class Completion:
     _total_cost = 0
     optimization_budget = None
 
+    _book_dict = _count_create = None
+
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
         """Set cache path.
@@ -129,6 +133,28 @@ class Completion:
         cls.cache_path = f"{cache_path}/{seed}"
 
     @classmethod
+    def _book_keeping(cls, config: Dict, response):
+        """Book keeping for the created completions."""
+        if cls._book_dict is None:
+            return
+        value = {
+            "created_at": [],
+            "cost": [],
+        }
+        if "messages" in config:
+            messages = config["messages"]
+            if len(messages) > 1 and messages[-1]["role"] != "assistant":
+                existing_key = get_key(messages[:-1])
+                value = cls._book_dict.pop(existing_key, value)
+            key = get_key(messages + [choice["message"] for choice in response["choices"]])
+        else:
+            key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
+        value["created_at"].append(cls._count_create)
+        value["cost"].append(cls.cost(config["model"], response))
+        cls._book_dict[key] = value
+        cls._count_create += 1
+
+    @classmethod
     def _get_response(cls, config: dict, eval_only=False, use_cache=True):
         """Get the response from the openai api call.
 
@@ -139,6 +165,7 @@ class Completion:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
                 # print("using cached response")
+                cls._book_keeping(config, response)
                 return response
         openai_completion = openai.ChatCompletion if config["model"] in cls.chat_models else openai.Completion
         start_time = time.time()
@@ -186,6 +213,7 @@ class Completion:
             else:
                 if use_cache:
                     cls._cache.set(key, response)
+                cls._book_keeping(config, response)
                 return response
         logger.warning(
             f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
@@ -871,6 +899,27 @@ class Completion:
         if "text" in choices[0]:
             return [choice["text"] for choice in choices]
         return [choice["message"].get("content", "") for choice in choices]
+
+    @classmethod
+    def logged_messages(cls) -> Dict:
+        """Return the book keeping dictionary."""
+        return cls._book_dict
+
+    @classmethod
+    def book_keeping_start(cls, book_dict: Optional[Dict] = None):
+        """Start book keeping.
+
+        Args:
+            book_dict (Dict): A dictionary for book keeping.
+                If no provided, a new one will be created.
+        """
+        cls._book_dict = {} if book_dict is None else book_dict
+        cls._count_create = 0
+
+    @classmethod
+    def book_keeping_end(cls):
+        """End book keeping."""
+        cls._book_dict = cls._count_create = None
 
 
 class ChatCompletion(Completion):
