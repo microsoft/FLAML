@@ -153,7 +153,7 @@ class Completion(openai_Completion):
             else:
                 key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
             value["created_at"].append(cls._count_create)
-            value["cost"].append(cls.cost(config["model"], response))
+            value["cost"].append(cls.cost(response))
             cls._book_keeping_dict[key] = value
             cls._count_create += 1
             return
@@ -816,13 +816,12 @@ class Completion(openai_Completion):
         result_agg, responses_list, result_list = {}, [], []
         metric_keys = None
         cost = 0
-        model = config["model"]
         old_level = logger.getEffectiveLevel()
         logger.setLevel(logging_level)
         for i, data_i in enumerate(data):
             logger.info(f"evaluating data instance {i}")
             response = cls.create(data_i, use_cache, **config)
-            cost += cls.cost(model, response)
+            cost += cls.cost(response)
             # evaluate the quality of the responses
             responses = cls.extract_text(response)
             if eval_func is not None:
@@ -881,16 +880,16 @@ class Completion(openai_Completion):
             return result_agg
 
     @classmethod
-    def cost(cls, model: str, response: dict):
+    def cost(cls, response: dict):
         """Compute the cost of an API call.
 
         Args:
-            model (str): The model name.
             response (dict): The response from OpenAI API.
 
         Returns:
             The cost in USD.
         """
+        model = response["model"]
         if model not in cls.price1K:
             raise ValueError(f"Unknown model: {model}")
         usage = response["usage"]
