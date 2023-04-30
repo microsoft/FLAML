@@ -33,6 +33,10 @@ print('Hello world!')
 
 
 def test_tsp():
+    try:
+        import openai
+    except ImportError:
+        return
     from flaml.autogen.agent.coding_agent import PythonAgent
     from flaml.autogen.agent.agent import Agent
 
