@@ -10,8 +10,31 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 
 PROMPTS = { 
+    # v3.3 select 
+    "v3.3select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "", # select the best tool from "python" or "wolfram", 
+"query": "" # your query here, either python code or Wolfram query.
+}
+Caution: when you put python code in the query, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output.
+Note: Wolfram is suitable for symbolic manipulations (such as simplifying expressions).
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use tools to check your calculations when necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps). 
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
     # v1both
-    "v1both" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
+    "v1both" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step. You should always follow your own reasoning and only query when necessary.
 
 First state the key idea to solve the problem. Then follow the process:
 1. Output one step. (do not overdivide the steps)
@@ -26,8 +49,8 @@ Note: when you put python code in the query, you should: 1.always use fractions 
 5. Continue to next step if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 Finally, when you get the answer, put the answer in \\boxed{}.
 """,
-    # v3.2select
-    "v3.2select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three modes to solve the problem, choose the best mode to solve the problem and be flexible to switch between modes if necessary.
+    # v3.2select 1. change case to mode, change mode 1, change mode 3
+    "v3.2select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three modes to solve the problem, choose the best mode to solve the problem and be flexible to switch between modes if necessary.
 
 Query requirements:
 You are provided with python code and Wolfram alpha, please choose the most suitable tool for each query.
@@ -48,7 +71,7 @@ Mode 3: If the problem cannot be handled with the above two modes, please follow
 After all the queries are completed and you get the answer, put the answer in \\boxed{}.
 """,
     # v3.1select
-    "v3.1select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+    "v3.1select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
 You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
@@ -70,7 +93,7 @@ Case 3: If the problem cannot be handled with the above two ways, please follow 
 After all the queries are executed and you get the answer, put the answer in \\boxed{}.
 """,
     # v3select
-    "v3select" : """"Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+    "v3select" : """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
 You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
@@ -292,7 +315,7 @@ class MathSolver:
             "model": model,
             "messages": messages,
             "n": n,  # n should be 1 for now
-            # 'temperature' : 1,
+            'temperature' : temperature,
         }
 
         self.max_invalid_q_per_step = max_invalid_q_per_step

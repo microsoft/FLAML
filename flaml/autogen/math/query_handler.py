@@ -20,10 +20,10 @@ class QueryHandler:
         self.last_query = None
         self.last_return = None
 
-    def handle_query(self, response: list):
+    def handle_query(self, response: str):
         """Handle a list of queries and return the output.
         Args:
-            response: list of queries
+            response: string with a list of queries
         returns:
             output: string with the output of the queries
             is_success: boolean indicating whether the queries were successful
@@ -35,7 +35,7 @@ class QueryHandler:
                 if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response) or "```" in response:
                     return "Your query is invalid and cannot be parsed. Please revise your query format.", False
                 else:
-                    return "Continue. There should be a query for me to execute when you stop.", True
+                    return "Continue. Please keep solving the problem until you need to query.", True
 
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
@@ -77,7 +77,7 @@ class QueryHandler:
             )
         self.last_query = tuple(queries)
         self.last_return = buffer_out
-        return buffer_out.strip().replace("\n\n", "\n"), all_success
+        return buffer_out.strip(), all_success
 
     def wolfram_query(self, query: str):
         """
@@ -181,7 +181,9 @@ class QueryHandler:
             output = output.decode("ascii")
         if not is_success:
             # remove file name from error message
-            output = output.split('.py",')[1]
+            tmp_out = output.split('.py",')
+            if len(tmp_out) > 1:
+                output = tmp_out[1]
 
         if not is_success:
             output = "Error: " + output
@@ -190,7 +192,11 @@ class QueryHandler:
             is_success = False
 
         if is_success:
-            self.previous_code += "\n" + self.remove_print(query) + "\n"
+            # remove print and check if it still works
+            tmp = self.previous_code + "\n" + self.remove_print(query) + "\n"
+            rcode, _ = execute_code(tmp, use_docker=False)
+            if rcode == 0:
+                self.previous_code = tmp
         return output, is_success
 
     def add_print_to_last_line(self, s):
@@ -201,7 +207,11 @@ class QueryHandler:
         # Input a string, extract the last line, enclose it in print() and return the new string
         lines = s.splitlines()
         last_line = lines[-1]
-        lines[-1] = "print(" + last_line + ")"
+        if " = " in last_line:
+            last_line = "print(" + last_line.split(" = ")[0] + ")" 
+            lines.append(last_line)
+        else:
+            lines[-1] = "print(" + last_line + ")"
 
         # Join the lines back together
         return "\n".join(lines)
@@ -209,7 +219,7 @@ class QueryHandler:
     def remove_print(self, s):
         # remove all print statements from a string
         lines = s.splitlines()
-        lines = [line for line in lines if not line.startswith("print(")]
+        lines = [line for line in lines if not "print(" in line]
         return "\n".join(lines)
 
 
@@ -312,9 +322,17 @@ class WolframAlphaAPIWrapper(BaseModel):
        
         try:
             assumption = next(res.pods).text
-            answer = next(res.results).text
+            answer = ""
+            for r in res['pod']:
+                if r["@title"] == "Results":
+                    for i, sub in enumerate(r['subpod']):
+                        answer += f"ans {i}:" + sub['plaintext'] + "; "
+                    break
+            if answer == "":
+                answer = next(res.results).text
+            
         except StopIteration:
-            return "Wolfram Alpha wasn't able to answer it", is_success
+            return "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.", is_success
 
         if answer is None or answer == "":
             # We don't want to return the assumption alone if answer is empty

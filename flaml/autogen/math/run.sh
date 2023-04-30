@@ -33,7 +33,7 @@
 # python main.py -ptype v1.2select --prompt_location system --folder ./8 --categories 0 1 4 5
 
 # trial 9 v3select user
-python main.py -ptype v3select --prompt_location user --folder ./9 --categories 0 1 4 5
+# python main.py -ptype v3select --prompt_location user --folder ./9 --categories 0 1 4 5
 
 # trial 10 v3select experimental system
 # python main.py -ptype v3select --prompt_location system --folder ./10 --categories 0 1
@@ -45,10 +45,20 @@ python main.py -ptype v3select --prompt_location user --folder ./9 --categories 
 # python main.py -ptype v3.1select --prompt_location system --folder ./12 --categories 0 1
 
 # trial 15 v1both user
-python main.py -ptype v1both --prompt_location user --folder ./15 --categories 0 1 5
+# python main.py -ptype v1both --prompt_location user --folder ./15 --categories 0 1 5
 
-# trial 13 v3.2select user
-python main.py -ptype v3.2select --prompt_location user --folder ./13 --categories 0 1 4 5
+# # trial 13 v3.2select user
+# python main.py -ptype v3.2select --prompt_location user --folder ./13 --categories 0 1 4 5
 
-# trial 14 v3.2select system
-python main.py -ptype v3.2select --prompt_location system --folder ./14 --categories 0 1 4 5
+# # trial 14 v3.2select system
+# python main.py -ptype v3.2select --prompt_location system --folder ./14 --categories 0 1 4 5
+
+
+# trial 16 v3select user
+python main.py -ptype v3select --prompt_location user --folder ./16 --categories 0 1 4 5
+
+# trial 17 v3select user temp=0
+python main.py -ptype v3select --prompt_location user --temperature 0 --folder ./17 --categories 0 1 4 5
+
+# trial 18 v3.3select user
+python main.py -ptype v3.3select --prompt_location user --folder ./18 --categories 0 1 4 5
