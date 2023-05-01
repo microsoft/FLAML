@@ -39,7 +39,7 @@ class PythonAgent(Agent):
                 self._send("Done. No output.", original_sender)
             return
         responses = oai.ChatCompletion.create(messages=self._conversations[sender.name], **self._config)
-        # cost = oai.ChatCompletion.cost(config["model"], responses)
+        # cost = oai.ChatCompletion.cost(responses)
         response = oai.ChatCompletion.extract_text(responses)[0]
         if sender.name.startswith(self.EXECUTION_AGENT_PREFIX):
             execution_agent = sender

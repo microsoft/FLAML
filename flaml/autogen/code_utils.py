@@ -37,7 +37,7 @@ def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, flo
         float: The cost of the generation.
     """
     response = oai.Completion.create(**config)
-    cost = oai.Completion.cost(config["model"], response)
+    cost = oai.Completion.cost(response)
     return extract_code(oai.Completion.extract_text(response)[0], pattern), cost
 
 
@@ -59,7 +59,7 @@ def improve_function(file_name, func_name, objective, **config):
     response = oai.Completion.create(
         {"func_name": func_name, "objective": objective, "file_string": file_string}, **params
     )
-    cost = oai.Completion.cost(params["model"], response)
+    cost = oai.Completion.cost(response)
     return oai.Completion.extract_text(response)[0], cost
 
 
@@ -97,7 +97,7 @@ def improve_code(files, objective, suggest_only=True, **config):
     params = {**_IMPROVE_CODE_CONFIG, **config}
     followup = "" if suggest_only else " followed by the improved code"
     response = oai.Completion.create({"objective": objective, "code": code, "followup": followup}, **params)
-    cost = oai.Completion.cost(params["model"], response)
+    cost = oai.Completion.cost(response)
     return oai.Completion.extract_text(response)[0], cost
 
 
@@ -281,7 +281,7 @@ def generate_assertions(definition: str, **config) -> Tuple[str, float]:
         {"definition": definition},
         **params,
     )
-    cost = oai.Completion.cost(params["model"], response)
+    cost = oai.Completion.cost(response)
     assertions = oai.Completion.extract_text(response)[0]
     return assertions, cost
 
@@ -410,7 +410,7 @@ def implement(
         assertions, cost = assertions(definition)
     for i, config in enumerate(configs):
         response = oai.Completion.create({"definition": definition}, **config)
-        cost += oai.Completion.cost(config["model"], response)
+        cost += oai.Completion.cost(response)
         responses = oai.Completion.extract_text(response)
         metrics = eval_function_completions(responses, definition, assertions=assertions)
         assertions = metrics["assertions"]

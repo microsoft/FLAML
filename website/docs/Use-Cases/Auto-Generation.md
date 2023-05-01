@@ -126,6 +126,125 @@ response = oai.Completion.create(problme=problem, prompt="{problem} Solve the pr
 
 A template is either a format str, or a function which produces a str from several input fields.
 
+### Logging (Experimental)
+
+When debugging or diagnosing an LLM-based system, it is often convenient to log the API calls and analyze them. `flaml.oai.Completion` and `flaml.oai.ChatCompletion` offer an easy way to collect the API call histories. For example, to log the chat histories, simply run:
+```python
+flaml.oai.ChatCompletion.start_logging()
+```
+The API calls made after this will be automatically logged. They can be retrieved at any time by:
+```python
+flaml.oai.ChatCompletion.logged_history
+```
+To stop logging, use
+```python
+flaml.oai.ChatCompletion.stop_logging()
+```
+If one would like to append the history to an existing dict, pass the dict like:
+```python
+flaml.oai.ChatCompletion.start_logging(history_dict=existing_history_dict)
+```
+By default, the counter of API calls will be reset at `start_logging()`. If no reset is desired, set `reset_counter=False`.
+
+There are two types of logging formats: compact logging and individual API call logging. The default format is compact.
+Set `compact=False` in `start_logging()` to switch.
+
+* Example of a history dict with compact logging.
+```python
+{
+    """
+    [
+        {
+            'role': 'system',
+            'content': system_message,
+        },
+        {
+            'role': 'user',
+            'content': user_message_1,
+        },
+        {
+            'role': 'assistant',
+            'content': assistant_message_1,
+        },
+        {
+            'role': 'user',
+            'content': user_message_2,
+        },
+        {
+            'role': 'assistant',
+            'content': assistant_message_2,
+        },
+    ]""": {
+        "created_at": [0, 1],
+        "cost": [0.1, 0.2],
+    }
+}
+```
+
+* Example of a history dict with individual API call logging.
+```python
+{
+    0: {
+        "request": {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_1,
+                }
+            ],
+            ... # other parameters in the request
+        },
+        "response": {
+            "choices": [
+                "messages": {
+                    "role": "assistant",
+                    "content": assistant_message_1,
+                },
+            ],
+            ... # other fields in the response
+        }
+    },
+    0: {
+        "request": {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_1,
+                },
+                {
+                    "role": "assistant",
+                    "content": assistant_message_1,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_2,
+                },
+            ],
+            ... # other parameters in the request
+        },
+        "response": {
+            "choices": [
+                "messages": {
+                    "role": "assistant",
+                    "content": assistant_message_2,
+                },
+            ],
+            ... # other fields in the response
+        }
+    },
+}
+```
+It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
+The compact history is more efficient and the individual API call history contains more details.
+
 ## Other utilities
 
 ### Completion
