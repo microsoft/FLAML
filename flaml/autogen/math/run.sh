@@ -70,8 +70,8 @@ python baselines/zeroshot.py --folder ./19
 # trial 20 v3python user
 python main.py -ptype v3python --prompt_location user --folder ./20 --categories 0 1 4 5
 
-# trial 22 select user
-python main.py -ptype select --prompt_location user --folder ./22 --categories 0 1 4 5
+# trial 21 select user
+python main.py -ptype select --prompt_location user --folder ./21 --categories 0 1 4 5
 
 
 # # trial 21 twostage user
