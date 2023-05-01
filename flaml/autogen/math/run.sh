@@ -76,7 +76,7 @@
 
 
 # trial 22 v3select user
-python main.py -ptype v3select --prompt_location user --folder ./23 --categories all
+python main.py -ptype v3select --prompt_location user --folder ./22 --categories all
 
 # trial 23 PoT
-python baselines/PoT.py --folder ./22
+python baselines/PoT.py --folder ./23
