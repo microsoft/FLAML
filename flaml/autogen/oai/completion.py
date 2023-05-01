@@ -966,6 +966,7 @@ class Completion(openai_Completion):
                 The first request's messages plus the response is equal to the second request's messages.
                 For a conversation with many turns, the non-compact history dictionary has a quadratic size
                 while the compact history dict has a linear size.
+            reset_counter (bool): whether to reset the counter of the number of API calls.
         """
         cls._history_dict = {} if history_dict is None else history_dict
         cls._history_compact = compact
