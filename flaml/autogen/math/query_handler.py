@@ -188,8 +188,12 @@ class QueryHandler:
         if not is_success:
             output = "Error: " + output
         elif output == "":
-            output = "No output found. Make sure you print the results."
-            is_success = False
+            if 'print' not in query:
+                output = "No output found. Make sure you print the results."
+                is_success = False
+            else:
+                output = "No output found."
+                is_success = True
 
         if is_success:
             # remove print and check if it still works
@@ -328,7 +332,7 @@ class WolframAlphaAPIWrapper(BaseModel):
             for r in res['pod']:
                 if r["@title"] == "Results":
                     for i, sub in enumerate(r['subpod']):
-                        answer += f"ans {i}:" + sub['plaintext'] + "; "
+                        answer += f"ans {i}: " + sub['plaintext'] + "\n"
                     break
             if answer == "":
                 answer = next(res.results).text

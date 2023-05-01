@@ -54,11 +54,25 @@
 # python main.py -ptype v3.2select --prompt_location system --folder ./14 --categories 0 1 4 5
 
 
-# trial 16 v3select user
-python main.py -ptype v3select --prompt_location user --folder ./16 --categories 0 1 4 5
+# # trial 16 v3select user
+# python main.py -ptype v3select --prompt_location user --folder ./16 --categories 0 1 4 5
 
-# trial 17 v3select user temp=0
-python main.py -ptype v3select --prompt_location user --temperature 0 --folder ./17 --categories 0 1 4 5
+# # trial 17 v3select user temp=0
+# python main.py -ptype v3select --prompt_location user --temperature 0 --folder ./17 --categories 0 1 4 5
 
-# trial 18 v3.3select user
-python main.py -ptype v3.3select --prompt_location user --folder ./18 --categories 0 1 4 5
+# # trial 18 v3.3select user
+# python main.py -ptype v3.3select --prompt_location user --folder ./18 --categories 0 1 4 5
+
+
+# trial 19 baseline zeroshot
+python baselines/zeroshot.py --folder ./19
+
+# trial 20 v3python user
+python main.py -ptype v3python --prompt_location user --folder ./20 --categories 0 1 4 5
+
+# trial 22 select user
+python main.py -ptype select --prompt_location user --folder ./22 --categories 0 1 4 5
+
+
+# # trial 21 twostage user
+# python main.py -ptype v0twostage --prompt_location user --folder ./21 --categories 0 1 4 5
