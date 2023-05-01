@@ -1,5 +1,6 @@
 from typing import Optional
 from flaml.autogen import oai, DEFAULT_MODEL
+import re
 
 _MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
 _MATH_CONFIG = {
@@ -342,3 +343,21 @@ def eval_math_responses(responses, solution=None, **args):
         "voted_answer": responses[answer],
         "votes": votes,
     }
+
+
+def remove_asy_sections(input_string):
+    """Remove asy sections from the input string.
+    Args:
+        input_string (str): The input string.
+    Returns:
+        str: The string without asy sections.
+    """
+    pattern = r"\[asy\](.*?)\[\\asy\]"
+    output_string = re.sub(pattern, "", input_string, flags=re.DOTALL)
+    pattern = r"\[asy\](.*?)\[/asy\]"
+    output_string = re.sub(pattern, "", output_string, flags=re.DOTALL)
+    pattern = r"\[ASY\](.*?)\[\\ASY\]"
+    output_string = re.sub(pattern, "", output_string, flags=re.DOTALL)
+    pattern = r"\[ASY\](.*?)\[/ASY\]"
+    output_string = re.sub(pattern, "", output_string, flags=re.DOTALL)
+    return output_string
