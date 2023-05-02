@@ -307,7 +307,7 @@ Select the best tool and follow this format:
 
         # TODO: add key word args for the convenience of experiments
         # the following code is adopted from Yiran's PR
-        self.max_round = 20
+        self.max_round = 2
         self.prompt_loaction = "user"  # "system" or "user"
         self.max_invalid_q_per_step = 3
         self.use_cache = True
@@ -324,13 +324,14 @@ Select the best tool and follow this format:
                 "messages": messages,
             }
         )
-        self.prompt = MathAgent.PROMPTS[self.prompt_type]
+        self.prompt = self._system_message = MathAgent.PROMPTS[self.prompt_type]
 
         self._file_to_be_saved = "test_math.txt"
-        self._query_handler = QueryHandler()
+
         self._seperate_line = "\n" + "-" * 40 + "\n"
 
-    def _respond_w_query_handler(self, config):
+    def _respond_w_query_handler(self, messages, config):
+        config["messages"] = messages
         # init parameters
         is_valid_reply = False  # only valid when detect \box
         invalid_q = 0  # for query
@@ -338,55 +339,61 @@ Select the best tool and follow this format:
         response_with_ans = ""  # save the response with \box to get the answer
         rr = 0
         total_cost = 0
-        while rr < self.max_round:
-            # 1. get the response from the assistant
-            try:
-                raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
-            except InvalidRequestError as e:
-                # TODO: logging
-                self._save_message_to_file(str(e))
-                break
-            except (RateLimitError, Timeout):
-                print("Rate limit or timeout, retrying...")
-                continue
-            assert raw_responses != -1, "Error in getting response"
-            responses = oai.ChatCompletion.extract_text(raw_responses)
-            assert len(responses) == 1, "More than one response"  # right now we only use one response
+        # while rr < self.max_round:
+        # 1. get the response from the assistant
+        raw_responses = -1
+        try:
+            raw_responses = oai.ChatCompletion.create(**config, use_cache=self.use_cache)
+        except InvalidRequestError as e:
             # TODO: logging
-            self._save_message_to_file(f"assistant: {self._str_splitter(responses[0])}{self._seperate_line}")
-            total_cost += oai.ChatCompletion.cost(raw_responses)
-            config["messages"].append({"role": "assistant", "content": responses[0]})
-            print("------------reson", responses[0])
-            if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-                # if the assistant gives a valid reply, stop the conversation
-                is_valid_reply = True
-                response_with_ans = responses[0]
-                break
+            print("str(e)", str(e))
+            self._save_message_to_file(str(e))
+            # break
+        except (RateLimitError, Timeout):
+            print("Rate limit or timeout, retrying...")
+            # continue
+        assert raw_responses != -1, "Error in getting response"
+        responses = oai.ChatCompletion.extract_text(raw_responses)
+        assert len(responses) == 1, "More than one response"  # right now we only use one response
+        # TODO: logging
+        self._save_message_to_file(f"assistant: {self._str_splitter(responses[0])}{self._seperate_line}")
+        total_cost += oai.ChatCompletion.cost(raw_responses)
+        config["messages"].append({"role": "assistant", "content": responses[0]})
+        print("------------reson", responses[0])
+        if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
+            # if the assistant gives a valid reply, stop the conversation
+            is_valid_reply = True
+            response_with_ans = responses[0]
+            # break
 
-            # 2. handle the response and get the query
-            query_response, is_query_sucess = self.query_handler.handle_query(responses[0])
-            if len(query_response) > 2000:
-                # prevent long response by string length, 2000 chars -> around 500-1000 tokens
-                self._save_message_to_file(f"****: Replacing {query_response} ****\n")
-                query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
-                is_query_sucess = False
-            config["messages"].append({"role": "user", "content": query_response})
+        # 2. handle the response and get the query
+        query_response, is_query_sucess = self._query_handler.handle_query(responses[0])
+        if len(query_response) > 2000:
+            # prevent long response by string length, 2000 chars -> around 500-1000 tokens
+            self._save_message_to_file(f"****: Replacing {query_response} ****\n")
+            query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
+            is_query_sucess = False
+        config["messages"].append({"role": "user", "content": query_response})
 
-            invalid_q = 0 if is_query_sucess else invalid_q + 1
-            if invalid_q >= self.max_invalid_q_per_step:
-                assert config["messages"][-1]["role"] == "user", "The last message should be from user"
-                skip_query_str = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
-                config["messages"][-1]["content"] = skip_query_str
-                self._save_message_to_file(f"****: Replacing {query_response}****\n")
-                invalid_q = 0
+        invalid_q = 0 if is_query_sucess else invalid_q + 1
+        if invalid_q >= self.max_invalid_q_per_step:
+            assert config["messages"][-1]["role"] == "user", "The last message should be from user"
+            skip_query_str = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
+            config["messages"][-1]["content"] = skip_query_str
+            self._save_message_to_file(f"****: Replacing {query_response}****\n")
+            invalid_q = 0
 
-            self._save_message_to_file(
-                "user: {a}{s}".format(a=config["messages"][-1]["content"], s=self._seperate_line)
-            )
-            if "Continue" in query_response:
-                rr -= 0.5
-            rr += 1
+        self._save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=self._seperate_line))
+        if "Continue" in query_response:
+            rr -= 0.5
+        rr += 1
         return is_valid_reply, response_with_ans, total_cost, rr
+
+    def _respond_naive(self, messages, config):
+        del config["messages"]
+        raw_responses = oai.ChatCompletion.create(messages=messages, **config, use_cache=self.use_cache)
+        response = oai.ChatCompletion.extract_text(raw_responses)[0]
+        return response
 
     def _save_message_to_file(self, message):
         if self._file_to_be_saved is not None:
@@ -395,36 +402,33 @@ Select the best tool and follow this format:
                 f.flush()
 
     def receive(self, message, sender):
-        problem = {"problem": message}
+        self._query_handler = QueryHandler()
+        if sender.name not in self._sender_dict:
+            self._sender_dict[sender.name] = sender
+            self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
+        # conversation is saved in self._conversations[sender.name]
+        super().receive(message, sender)
+
         # initialize the conversation
         config = copy.deepcopy(self._config)
-        problem_prompt = {
-            "role": "user",
-            "content": self.prompt + "\nProblem: " + remove_asy_sections(problem["problem"]),
-        }  # put prompt in user message
-
-        # if the prompt_location is set to system, then the prompt is already put in the system message in __init__,
-        # then we only need to put the problem in the user message
-        if self.prompt_loaction == "system":
-            problem_prompt = {"role": "user", "content": remove_asy_sections(problem["problem"])}
-        config["messages"].append(problem_prompt)
-
         # save a readable conversation in txt file
-
-        self._save_message_to_file(f'Problem: {self._str_splitter(problem["problem"])}\n {self._seperate_line}')
-
-        is_valid_reply, response_with_ans, total_cost, rr = self._respond_w_query_handler(config)
-
-        result = {
-            "valid_q_count": self._query_handler.valid_q_count,  # number of valid queries
-            "total_q_count": self._query_handler.total_q_count,
-            "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
-            "response_with_ans": response_with_ans,  # string instead of list
-            "messages": config["messages"],
-            "round": min(rr + 1, self.max_round),
-            "cost": total_cost,
-        }
-
+        self._save_message_to_file(f"Problem: {self._str_splitter(message)}\n {self._seperate_line}")
+        messages = copy.deepcopy(self._conversations[sender.name])
+        use_query_handler = False
+        if use_query_handler:
+            is_valid_reply, response_with_ans, total_cost, rr = self._respond_w_query_handler(messages, config)
+            result = {
+                "valid_q_count": self._query_handler.valid_q_count,  # number of valid queries
+                "total_q_count": self._query_handler.total_q_count,
+                "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
+                "response_with_ans": response_with_ans,  # string instead of list
+                "messages": config["messages"],
+                "round": min(rr + 1, self.max_round),
+                "cost": total_cost,
+            }
+        else:
+            result = self._respond_naive(self._conversations[sender.name], config)
+            # result = {"response_with_ans": str(res)}
         self._send(message=result, recipient=sender)
 
     @staticmethod

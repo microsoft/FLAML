@@ -26,9 +26,10 @@ if __name__ == "__main__":
         # get the answer from the math agent
         result = user_agent.retrieve_conversation("math_agent")
         # evaluate how good the answer is
-        metrics = eval_math_responses([result["response_with_ans"]], problem["solution"])
+        result_with_ans = result if isinstance(result, str) else result["response_with_ans"]
+        metrics = eval_math_responses([result_with_ans], problem["solution"])
         # get the result
         correct_ans = get_answer(problem["solution"])
-        print("answer:", result["response_with_ans"])
+        print("answer:", result_with_ans)
         print("\n correct answer is:", correct_ans)
         print("metrics:", metrics)
