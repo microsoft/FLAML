@@ -19,7 +19,7 @@ class MathAgent(Agent):
     """
 
     DEFAULT_CONFIG = {
-        "model": DEFAULT_MODEL,  # default model is gpt-4
+        "model": FAST_MODEL,  # default model is gpt-4
     }
 
     PROMPTS = {
@@ -326,11 +326,76 @@ Select the best tool and follow this format:
         )
         self.prompt = MathAgent.PROMPTS[self.prompt_type]
 
+        self._file_to_be_saved = "test_math.txt"
+        self._query_handler = QueryHandler()
+        self._seperate_line = "\n" + "-" * 40 + "\n"
+
+    def _respond_w_query_handler(self, config):
+        # init parameters
+        is_valid_reply = False  # only valid when detect \box
+        invalid_q = 0  # for query
+        total_cost = 0
+        response_with_ans = ""  # save the response with \box to get the answer
+        rr = 0
+        total_cost = 0
+        while rr < self.max_round:
+            # 1. get the response from the assistant
+            try:
+                raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
+            except InvalidRequestError as e:
+                # TODO: logging
+                self._save_message_to_file(str(e))
+                break
+            except (RateLimitError, Timeout):
+                print("Rate limit or timeout, retrying...")
+                continue
+            assert raw_responses != -1, "Error in getting response"
+            responses = oai.ChatCompletion.extract_text(raw_responses)
+            assert len(responses) == 1, "More than one response"  # right now we only use one response
+            # TODO: logging
+            self._save_message_to_file(f"assistant: {self._str_splitter(responses[0])}{self._seperate_line}")
+            total_cost += oai.ChatCompletion.cost(raw_responses)
+            config["messages"].append({"role": "assistant", "content": responses[0]})
+            print("------------reson", responses[0])
+            if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
+                # if the assistant gives a valid reply, stop the conversation
+                is_valid_reply = True
+                response_with_ans = responses[0]
+                break
+
+            # 2. handle the response and get the query
+            query_response, is_query_sucess = self.query_handler.handle_query(responses[0])
+            if len(query_response) > 2000:
+                # prevent long response by string length, 2000 chars -> around 500-1000 tokens
+                self._save_message_to_file(f"****: Replacing {query_response} ****\n")
+                query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
+                is_query_sucess = False
+            config["messages"].append({"role": "user", "content": query_response})
+
+            invalid_q = 0 if is_query_sucess else invalid_q + 1
+            if invalid_q >= self.max_invalid_q_per_step:
+                assert config["messages"][-1]["role"] == "user", "The last message should be from user"
+                skip_query_str = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
+                config["messages"][-1]["content"] = skip_query_str
+                self._save_message_to_file(f"****: Replacing {query_response}****\n")
+                invalid_q = 0
+
+            self._save_message_to_file(
+                "user: {a}{s}".format(a=config["messages"][-1]["content"], s=self._seperate_line)
+            )
+            if "Continue" in query_response:
+                rr -= 0.5
+            rr += 1
+        return is_valid_reply, response_with_ans, total_cost, rr
+
+    def _save_message_to_file(self, message):
+        if self._file_to_be_saved is not None:
+            with open(self._file_to_be_saved, "a") as f:
+                f.write(message)
+                f.flush()
+
     def receive(self, message, sender):
         problem = {"problem": message}
-
-        file_to_be_saved = "test_math.txt"
-        query_handler = QueryHandler()
         # initialize the conversation
         config = copy.deepcopy(self._config)
         problem_prompt = {
@@ -345,77 +410,21 @@ Select the best tool and follow this format:
         config["messages"].append(problem_prompt)
 
         # save a readable conversation in txt file
-        def save_message_to_file(message):
-            if file_to_be_saved is not None:
-                with open(file_to_be_saved, "a") as f:
-                    f.write(message)
-                    f.flush()
 
-        seperate_line = "\n" + "-" * 40 + "\n"
-        save_message_to_file(f'Problem: {self._str_splitter(problem["problem"])}\n {seperate_line}')
+        self._save_message_to_file(f'Problem: {self._str_splitter(problem["problem"])}\n {self._seperate_line}')
 
-        # init parameters
-        is_valid_reply = False  # only valid when detect \box
-        invalid_q = 0  # for query
-        total_cost = 0
-        response_with_ans = ""  # save the response with \box to get the answer
-        rr = 0  # round
-        while rr < self.max_round:
-            # 1. get the response from the assistant
-            try:
-                raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
-            except InvalidRequestError as e:
-                # TODO: logging
-                save_message_to_file(str(e))
-                break
-            except (RateLimitError, Timeout):
-                print("Rate limit or timeout, retrying...")
-                continue
-            assert raw_responses != -1, "Error in getting response"
-            responses = oai.ChatCompletion.extract_text(raw_responses)
-            assert len(responses) == 1, "More than one response"  # right now we only use one response
-            # TODO: logging
-            save_message_to_file(f"assistant: {self._str_splitter(responses[0])}{seperate_line}")
-            total_cost += oai.ChatCompletion.cost(raw_responses)
-            config["messages"].append({"role": "assistant", "content": responses[0]})
-            if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-                # if the assistant gives a valid reply, stop the conversation
-                is_valid_reply = True
-                response_with_ans = responses[0]
-                break
-
-            # 2. handle the response and get the query
-            query_response, is_query_sucess = query_handler.handle_query(responses[0])
-            if len(query_response) > 2000:
-                # prevent long response by string length, 2000 chars -> around 500-1000 tokens
-                save_message_to_file(f"****: Replacing {query_response} ****\n")
-                query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
-                is_query_sucess = False
-            config["messages"].append({"role": "user", "content": query_response})
-
-            invalid_q = 0 if is_query_sucess else invalid_q + 1
-            if invalid_q >= self.max_invalid_q_per_step:
-                assert config["messages"][-1]["role"] == "user", "The last message should be from user"
-                skip_query_str = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
-                config["messages"][-1]["content"] = skip_query_str
-                save_message_to_file(f"****: Replacing {query_response}****\n")
-                invalid_q = 0
-
-            save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
-            if "Continue" in query_response:
-                rr -= 0.5
-            rr += 1
-        # save_message_to_file("Solution: " + problem["solution"])
+        is_valid_reply, response_with_ans, total_cost, rr = self._respond_w_query_handler(config)
 
         result = {
-            "valid_q_count": query_handler.valid_q_count,  # number of valid queries
-            "total_q_count": query_handler.total_q_count,
+            "valid_q_count": self._query_handler.valid_q_count,  # number of valid queries
+            "total_q_count": self._query_handler.total_q_count,
             "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
             "response_with_ans": response_with_ans,  # string instead of list
             "messages": config["messages"],
             "round": min(rr + 1, self.max_round),
             "cost": total_cost,
         }
+
         self._send(message=result, recipient=sender)
 
     @staticmethod
