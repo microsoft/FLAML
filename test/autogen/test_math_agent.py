@@ -1,4 +1,5 @@
-from flaml.autogen.agent import HumanAgent, MathAgent
+from flaml.autogen.agent.math_agent import MathAgent
+from flaml.autogen.agent.human_agent import HumanAgent
 from flaml.autogen.math_utils import eval_math_responses, get_answer
 
 
