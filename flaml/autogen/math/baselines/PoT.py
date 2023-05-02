@@ -30,8 +30,9 @@ parser.add_argument("--folder", "-f", dest="folder", help="saving folder", defau
 parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache/PoT", help="cache folder")
 parser.add_argument("--samples_per_category", "-s", help="samples per category", default=20, type=int)
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
+parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 args = parser.parse_args()
-args.folder = args.folder + "_baseline_PoT" "_t" + str(args.temperature)
+args.folder = args.folder + "_baseline_PoT" "_t" + str(args.temperature) + "_seed" + str(args.seed)
 
 # key = os.getenv(args.key)
 # print(key)
@@ -94,7 +95,7 @@ def solver():
 
 if __name__ == "__main__":
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
 
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))

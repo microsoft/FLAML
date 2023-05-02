@@ -29,16 +29,18 @@ parser.add_argument("--folder", "-f", dest="folder", help="saving folder", defau
 parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache/zeroshot", help="cache folder")
 parser.add_argument("--samples_per_category", "-s", help="samples per category", default=20, type=int)
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
+parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 args = parser.parse_args()
-args.folder = args.folder + "_baseline_zeroshot" "_t" + str(args.temperature)
+args.folder = args.folder + "_baseline_zeroshot" "_t" + str(args.temperature) + "_seed" + str(args.seed)
 
 # key = os.getenv(args.key)
 # print(key)
 
+
 def zeroshot_solve(model, problem, max_tokens=None):
     full_prompt = """Solve a math problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{}.\n\nProblem: """
     full_prompt += remove_asy_sections(problem["problem"])
-    
+
     with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
         f.write(full_prompt)
     if args.dry_run:
@@ -69,7 +71,7 @@ def zeroshot_solve(model, problem, max_tokens=None):
 
 if __name__ == "__main__":
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
 
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))

@@ -5,6 +5,7 @@ from flaml.autogen.math.math_solver import MathSolver
 import argparse
 from utils import mylogger, load_level5_math_each_category
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Math Solver")
     parser.add_argument("--prompt_type", "-ptype", dest="prompt_type", help="prompt type", default="select", type=str)
@@ -16,23 +17,33 @@ def parse_args():
     parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
     parser.add_argument("--test_run", help="test run", action="store_true")
     parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
+    parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 
     # not used
-
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
     parser.add_argument("--voting", action="store_true")
     args = parser.parse_args()
-    args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
+    args.folder = (
+        args.folder
+        + "_"
+        + args.prompt_location
+        + "_"
+        + args.prompt_type
+        + "_t"
+        + str(args.temperature)
+        + "_seed"
+        + str(args.seed)
+    )
     os.makedirs(args.folder, exist_ok=True)
     return args
 
-def pseudo_main():
 
+def pseudo_main():
     # 2. args, settings and logger
     args = parse_args()
     args.model = "gpt-4"
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=41, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
 
     # 3. load math dataset

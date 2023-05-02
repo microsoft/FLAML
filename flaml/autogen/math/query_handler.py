@@ -32,7 +32,11 @@ class QueryHandler:
         if len(queries) == 0:
             queries = self.extractCode(response)  # extract code queries
             if len(queries) == 0:
-                if ("tool" in response and "query" in response) or ("python" in response and "wolfram" in response) or "```" in response:
+                if (
+                    ("tool" in response and "query" in response)
+                    or ("python" in response and "wolfram" in response)
+                    or "```" in response
+                ):
                     return "Your query is invalid and cannot be parsed. Please revise your query format.", False
                 else:
                     return "Continue. Please keep solving the problem until you need to query.", True
@@ -45,21 +49,21 @@ class QueryHandler:
         for i, query in enumerate(queries):
             if "tool" in query:
                 if query["tool"] == "python":
-                    output, is_success = self.run_one_code(query['query'])
+                    output, is_success = self.run_one_code(query["query"])
                 elif query["tool"] == "wolfram":
-                    output, is_success = self.wolfram_query(query['query'])
-                else: 
+                    output, is_success = self.wolfram_query(query["query"])
+                else:
                     output = "Error: Unknown tool"
                     is_success = False
             else:
                 output = ""
                 is_success = False
-                if "python" in query and query['python'] != "":
-                    pyout, pysucess = self.run_one_code(query['python'])
+                if "python" in query and query["python"] != "":
+                    pyout, pysucess = self.run_one_code(query["python"])
                     output += "python: " + pyout + "\n"
                     is_success = is_success or pysucess
-                if "wolfram" in query and query['wolfram'] != "":
-                    wolframout, wolframsuccess = self.wolfram_query(query['wolfram'])
+                if "wolfram" in query and query["wolfram"] != "":
+                    wolframout, wolframsuccess = self.wolfram_query(query["wolfram"])
                     output += "wolfram: " + wolframout + "\n"
                     is_success = is_success or wolframsuccess
 
@@ -133,10 +137,10 @@ class QueryHandler:
 
         queries = []
         for m in match:
-            if 'python' in m:
-                queries.append({'tool': 'python', 'query': m.replace('python', '').strip()})
-            elif 'wolfram' in m:
-                queries.append({'tool': 'wolfram', 'query': m.replace('wolfram', '').strip()})
+            if "python" in m:
+                queries.append({"tool": "python", "query": m.replace("python", "").strip()})
+            elif "wolfram" in m:
+                queries.append({"tool": "wolfram", "query": m.replace("wolfram", "").strip()})
         return queries
 
     def extractJSON(self, input_string: str):
@@ -188,7 +192,7 @@ class QueryHandler:
         if not is_success:
             output = "Error: " + output
         elif output == "":
-            if 'print' not in query:
+            if "print" not in query:
                 output = "No output found. Make sure you print the results."
                 is_success = False
             else:
@@ -212,7 +216,7 @@ class QueryHandler:
         lines = s.splitlines()
         last_line = lines[-1]
         if " = " in last_line:
-            last_line = "print(" + last_line.split(" = ")[0] + ")" 
+            last_line = "print(" + last_line.split(" = ")[0] + ")"
             lines.append(last_line)
         else:
             lines[-1] = "print(" + last_line + ")"
@@ -223,7 +227,7 @@ class QueryHandler:
     def remove_print(self, s):
         # remove all print statements from a string
         lines = s.splitlines()
-        lines = [line for line in lines if not "print(" in line]
+        lines = [line for line in lines if "print(" not in line]
         return "\n".join(lines)
 
 
@@ -313,6 +317,7 @@ class WolframAlphaAPIWrapper(BaseModel):
     def run(self, query: str) -> str:
         """Run query through WolframAlpha and parse result."""
         from urllib.error import HTTPError
+
         is_success = False  # added
         res = None
         for _ in range(20):
@@ -322,23 +327,32 @@ class WolframAlphaAPIWrapper(BaseModel):
             except HTTPError:
                 sleep(1)
             except Exception as e:
-                return "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.", is_success 
+                return (
+                    "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.",
+                    is_success,
+                )
         if res is None:
-            return "Wolfram Alpha wasn't able to answer it (may due to web error), you can try again or use python.", is_success
-       
+            return (
+                "Wolfram Alpha wasn't able to answer it (may due to web error), you can try again or use python.",
+                is_success,
+            )
+
         try:
             assumption = next(res.pods).text
             answer = ""
-            for r in res['pod']:
+            for r in res["pod"]:
                 if r["@title"] == "Results":
-                    for i, sub in enumerate(r['subpod']):
-                        answer += f"ans {i}: " + sub['plaintext'] + "\n"
+                    for i, sub in enumerate(r["subpod"]):
+                        answer += f"ans {i}: " + sub["plaintext"] + "\n"
                     break
             if answer == "":
                 answer = next(res.results).text
-            
+
         except StopIteration:
-            return "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.", is_success
+            return (
+                "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.",
+                is_success,
+            )
 
         if answer is None or answer == "":
             # We don't want to return the assumption alone if answer is empty
