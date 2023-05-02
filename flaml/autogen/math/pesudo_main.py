@@ -31,9 +31,9 @@ def parse_args():
         + args.prompt_type
         + "_t"
         + str(args.temperature)
-        + "_seed"
-        + str(args.seed)
     )
+    if args.seed != 41:
+        args.seed = args.seed + "_seed" + str(args.seed)
     os.makedirs(args.folder, exist_ok=True)
     return args
 
