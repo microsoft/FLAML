@@ -677,8 +677,7 @@ class Completion(openai_Completion):
         Args:
             context (dict, Optional): The context to instantiate the prompt.
                 It needs to contain keys that are used by the prompt template.
-                E.g., `prompt="Complete the following sentence: {prefix}"`.
-                `context={"prefix": "Today I feel"}`.
+                E.g., `prompt="Complete the following sentence: {prefix}, context={"prefix": "Today I feel"}`.
                 The actual prompt sent to OpenAI will be:
                 "Complete the following sentence: Today I feel".
             use_cache (bool, Optional): Whether to use cached responses.

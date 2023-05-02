@@ -55,6 +55,7 @@ setuptools.setup(
             "pre-commit",
             "torch",
             "torchvision",
+            "catboost==0.26",
             "rgf-python",
             "optuna==2.8.0",
             "openml==0.10.2",
