@@ -12,13 +12,14 @@ from time import sleep
 
 class QueryHandler:
     def __init__(self):
-        self.previous_code = ""
+        self.previous_code = "import sympy\nfrom sympy import symbols, Eq, solve\nfrom fractions import Fraction\n"
 
         self.valid_q_count = 0
         self.total_q_count = 0
 
         self.last_query = None
         self.last_return = None
+        self.consecutive_continue = 0
 
     def handle_query(self, response: str):
         """Handle a list of queries and return the output.
@@ -39,8 +40,13 @@ class QueryHandler:
                 ):
                     return "Your query is invalid and cannot be parsed. Please revise your query format.", False
                 else:
-                    return "Continue. Please keep solving the problem until you need to query.", True
+                    # self.consecutive_continue += 1
+                    # if self.consecutive_continue >= 3:
+                    #     self.consecutive_continue = 0
+                    #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
+                    return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
 
+        self.consecutive_continue = 0
         self.total_q_count += len(queries)
         self.valid_q_count += len(queries)
 

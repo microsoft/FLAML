@@ -14,6 +14,32 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 # and try to use fractions to express your answer,
 PROMPTS = {
+
+# Note: Wolfram might be more suitable for symbolic manipulations (such as simplifying expressions). If you query wolfram, you need to put different queries in different code blocks.
+    "v1.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+You must following the formats below to write your queries (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+Note: When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: If you have several wolfram queries, please put different wolfram queries in different code blocks.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Output one step (Do not overdivide the steps). Follow your own reasoning and query when necessary.
+2.
+Case 1: If you have queries to wolfram or python, please parse the queries and wait for me to give the results.
+Case 2: If there are no queries, go back to step 1 and continue.
+3. Correct this step based on the results, or give a new query if the results are invalid.
+When you get the answer, put the answer in \\boxed{}.
+""",
     # v1.4select: new query format, add (Do not overdivide the steps)
     "v1.4select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
 
@@ -464,11 +490,11 @@ class MathSolver:
             try:
                 raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
             except InvalidRequestError as e:
-                print(problem["type"], problem["problem_id"], str(e))
+                print(problem["type"], problem["problem_id"], str(e), flush=True)
                 save_message_to_file(str(e))
                 break
             except (RateLimitError, Timeout) as e:
-                print("Ratelimit or timeout, retrying...")
+                print("Ratelimit or timeout, retrying...", flush=True)
                 continue
             assert raw_responses != -1, "Error in getting response"
             responses = oai.ChatCompletion.extract_text(raw_responses)

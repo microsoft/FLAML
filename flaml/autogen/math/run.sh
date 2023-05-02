@@ -102,4 +102,4 @@
 
 # trial 28 v1.5 
 # from v1.4
-# python main.py -ptype v1.5select --prompt_location user --folder ./27 --categories 0 1 4 --select
+python main.py -ptype v1.5select --prompt_location user --folder ./27 --categories 0 1 4 5 --select
