@@ -5,18 +5,11 @@ from datetime import datetime
 import math
 from typing import List, Optional, Union
 
-
 import pandas as pd
 from pandas import DataFrame, Series, to_datetime
-
-from flaml import tune
-
-# This may be needed to get PyStan to run, needed for Orbit
-os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
-
 import numpy as np
 
-
+from flaml import tune
 from flaml.model import (
     suppress_stdout_stderr,
     SKLearnEstimator,
@@ -152,6 +145,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
 class Orbit(TimeSeriesEstimator):
     def fit(self, X_train: TimeSeriesDataset, y_train=None, budget=None, **kwargs):
+        # This may be needed to get PyStan to run, needed for Orbit
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
         from orbit.models import DLT
 
         # y_train is ignored, just need it for signature compatibility with other classes
@@ -609,10 +604,7 @@ class HoltWinters(StatsModelsEstimator):
         if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
             self.params["trend"] = "add"
 
-        if not self.params["seasonal"] or not self.params["trend"] in [
-            "mul",
-            "add",
-        ]:
+        if not self.params["seasonal"] or not self.params["trend"] in ["mul","add"]:
             self.params["damped_trend"] = False
 
         model = HWExponentialSmoothing(
