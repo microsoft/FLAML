@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument("--test_run", help="test run", action="store_true")
     parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
     parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
+    parser.add_argument("--select", action="store_true")
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
@@ -53,6 +54,17 @@ def pseudo_main():
     if args.test_run:
         problem_sets = load_level5_math_each_category(samples_per_category=1, category_to_load=args.categories)
         logger.log("Take out 1 problem from each category for test run.")
+    
+
+    selected_samples ={
+        "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
+        "Counting & Probability": [],
+        "Geometry": [],
+        "Intermediate Algebra": [],
+        "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
+        "Prealgebra": [],
+        "Precalculus": [],
+    }
 
     # 4. solve
     if not args.voting:
@@ -70,7 +82,8 @@ def pseudo_main():
         for problem_set in problem_sets:
             for i in range(len(problem_set)):
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
-
+            if args.select and len(selected_samples[problem_set[0]["type"]]) > 0:
+                problem_set = [problem_set[i] for i in selected_samples[problem_set[0]["type"]]]
             solver.solve_one_category(problem_set, saving_folder=args.folder)
             # os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 

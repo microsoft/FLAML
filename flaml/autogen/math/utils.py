@@ -27,7 +27,7 @@ class mylogger:
         with open(self.file, "a") as f:
             f.write(message + "\n")
         if verbose:
-            print(message)
+            print(message, flush=True)
 
 
 def load_level5_math_each_category(samples_per_category=20, category_to_load=None):
@@ -44,16 +44,16 @@ def load_level5_math_each_category(samples_per_category=20, category_to_load=Non
     sep_cate = []
     for i, category in enumerate(math_type_mapping.keys()):
         if i not in category_to_load:
-            print(i, category, "(skipped)")
+            print(i, category, "(skipped)", flush=True)
             continue
-        print(i, category)
+        print(i, category, flush=True)
         tmp = [
             test_data[x]
             for x in range(len(test_data))
             if test_data[x]["level"] == "Level 5" and test_data[x]["type"] == category
         ]
         if len(tmp) < samples_per_category:
-            print(f"Warning: {category} has less than {samples_per_category} problems.")
+            print(f"Warning: {category} has less than {samples_per_category} problems.", flush=True)
         sep_cate.append(tmp[:samples_per_category])
 
     if len(sep_cate) == 0:

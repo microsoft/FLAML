@@ -75,26 +75,31 @@
 # python main.py -ptype select --prompt_location user --folder ./21 --categories all
 
 # trial 22 v3select user
-python main.py -ptype v3select --prompt_location user --folder ./22 --categories all
+# python main.py -ptype v3select --prompt_location user --folder ./22 --categories all
 
 # trial 23 PoT
 # python baselines/PoT.py --folder ./23
 
 
 # trial 24 PoT baseline another seed for cache
-python baselines/PoT.py --folder ./24 --seed 42
+# python baselines/PoT.py --folder ./24 --seed 42
 
 # trial 25 v1.3select user
 # difference from original select: 1: new query format
 # desired observation: 1. less errors 3. similar or better performance
-python main.py -ptype v1.3select --prompt_location user --folder ./25 --categories 0 4
+# python main.py -ptype v1.3select --prompt_location user --folder ./25 --categories 0 4
 
 # trial 26 v3.4select user
 # analyse runs from v3.1 and v3.2 and aggregate prompts that are related to desired behaviour
-python main.py -ptype v3.4select --prompt_location user --folder ./26 --categories 0 1 4 5
+# python main.py -ptype v3.4select --prompt_location user --folder ./26 --categories 0 1 4 5
 
 # trial 27 v1.4select user
 # difference from original select: 1: new query format. 2: add "do not overdivide step"
 # desired observation: 1. less errors, 2. less rounds 3. similar or better performance
-python main.py -ptype v1.4select --prompt_location user --folder ./27 --categories 0 1 4
+# python main.py -ptype v1.4select --prompt_location user --folder ./27 --categories 0 1 4
 # todo: add note for wolfram to compare if trial 24 has desired effect
+
+
+# trial 28 v1.5 
+# from v1.4
+# python main.py -ptype v1.5select --prompt_location user --folder ./27 --categories 0 1 4 --select
