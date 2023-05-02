@@ -348,7 +348,7 @@ class WolframAlphaAPIWrapper(BaseModel):
             if answer == "":
                 answer = next(res.results).text
 
-        except StopIteration:
+        except Exception as e:
             return (
                 "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.",
                 is_success,
