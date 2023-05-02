@@ -58,6 +58,22 @@ Use the following guides to get started with FLAML in .NET:
 
 ## Quickstart
 
+* (New) You can optimize [generations](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
+
+```python
+from flaml import oai
+
+config, analysis = oai.Completion.tune(
+    data=tune_data,
+    metric="success",
+    mode="max",
+    eval_func=eval_func,
+    inference_budget=0.05,
+    optimization_budget=3,
+    num_samples=-1,
+)
+```
+
 * With three lines of code, you can start using this economical and fast
 AutoML engine as a [scikit-learn style estimator](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML).
 
@@ -90,22 +106,6 @@ from flaml.default import LGBMRegressor
 estimator = LGBMRegressor()
 # The hyperparameters are automatically set according to the training data.
 estimator.fit(X_train, y_train)
-```
-
-* (New) You can optimize [generations](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
-
-```python
-from flaml import oai
-
-config, analysis = oai.Completion.tune(
-    data=tune_data,
-    metric="success",
-    mode="max",
-    eval_func=eval_func,
-    inference_budget=0.05,
-    optimization_budget=3,
-    num_samples=-1,
-)
 ```
 
 ## Documentation

@@ -19,6 +19,26 @@ Install FLAML from pip: `pip install flaml`. Find more options in [Installation]
 
 There are several ways of using flaml:
 
+#### (New) [Auto Generation](Use-Cases/Auto-Generation)
+
+You can optimize generations by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
+
+```python
+from flaml import oai
+
+config, analysis = oai.Completion.tune(
+    data=tune_data,
+    metric="success",
+    mode="max",
+    eval_func=eval_func,
+    inference_budget=0.05,
+    optimization_budget=3,
+    num_samples=-1,
+)
+```
+
+The optimization can help you maximize the utility out of these expensive models.
+
 #### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
 
 For example, with three lines of code, you can start using this economical and fast AutoML engine as a scikit-learn style estimator.
@@ -85,26 +105,6 @@ from flaml.default import LGBMClassifier
 ```
 
 Then, you can use it just like you use the original `LGMBClassifier`. Your other code can remain unchanged. When you call the `fit()` function from `flaml.default.LGBMClassifier`, it will automatically instantiate a good data-dependent hyperparameter configuration for your dataset, which is expected to work better than the default configuration.
-
-#### (New) [Auto Generation](Use-Cases/Auto-Generation)
-
-You can optimize generations by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
-
-```python
-from flaml import oai
-
-config, analysis = oai.Completion.tune(
-    data=tune_data,
-    metric="success",
-    mode="max",
-    eval_func=eval_func,
-    inference_budget=0.05,
-    optimization_budget=3,
-    num_samples=-1,
-)
-```
-
-The optimization can help you maximize the utility out of these expensive models.
 
 ### Where to Go Next?
 
