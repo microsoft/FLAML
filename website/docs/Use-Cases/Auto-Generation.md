@@ -124,7 +124,53 @@ If the provided prompt or message is a template, it will be automatically materi
 response = oai.Completion.create(problme=problem, prompt="{problem} Solve the problem carefully.", **config)
 ```
 
-A template is either a format str, or a function which produces a str from several input fields.
+A template is either a format str, like the example above, or a function which produces a str from several input fields, like the example below.
+
+```python
+def content(turn, **context):
+    return "\n".join(
+        [
+            context[f"user_message_{turn}"],
+            context[f"external_info_{turn}"]
+        ]
+    )
+
+messages = [
+    {
+        "role": "system",
+        "content": "You are a teaching assistant of math.",
+    },
+    {
+        "role": "user",
+        "content": partial(content, turn=0),
+    },
+]
+context = {
+    "user_message_0": "Could you explain the solution to Problem 1?",
+    "external_info_0": "Problem 1: ...",
+}
+
+response = oai.ChatCompletion.create(context, messages=messages, **config)
+messages.append(
+    {
+        "role": "assistant",
+        "content": oai.ChatCompletion.extract_text(response)[0]
+    }
+)
+messages.append(
+    {
+        "role": "user",
+        "content": partial(content, turn=1),
+    },
+)
+context.append(
+    {
+        "user_message_1": "Why can't we apply Theorem 1 to Equation (2)?",
+        "external_info_1": "Theorem 1: ...",
+    }
+)
+response = oai.ChatCompletion.create(context, messages=messages, **config)
+```
 
 ### Logging (Experimental)
 
@@ -208,7 +254,7 @@ Set `compact=False` in `start_logging()` to switch.
             ... # other fields in the response
         }
     },
-    0: {
+    1: {
         "request": {
             "messages": [
                 {

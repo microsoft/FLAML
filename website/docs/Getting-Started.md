@@ -2,14 +2,16 @@
 
 <!-- ### Welcome to FLAML, a Fast Library for Automated Machine Learning & Tuning! -->
 
-FLAML is a lightweight Python library that finds accurate machine
-learning models automatically, efficiently and economically. It frees users from selecting models and hyperparameters for each model.
+FLAML is a lightweight Python library for efficient automation of machine
+learning, including selection of
+models, hyperparameters, and other tunable choices of an application.
 
 ### Main Features
 
-1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including foundation models such as the GPT series.
-2. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code). Users can customize only when and what they need to, and leave the rest to the library.
-3. It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
+* For foundation models like the GPT series, it automates the experimentation and optimization of their inference performance to maximize the effectiveness for downstream applications and minimize the inference cost.
+* For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources.
+* It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training/inference/evaluation code). Users can customize only when and what they need to, and leave the rest to the library.
+* It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a [cost-effective
 hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
 and model selection method invented by Microsoft Research, and many followup [research studies](Research).
 
@@ -21,7 +23,7 @@ There are several ways of using flaml:
 
 #### (New) [Auto Generation](Use-Cases/Auto-Generation)
 
-You can optimize generations by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
+For example, you can optimize generations by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
 
 ```python
 from flaml import oai
@@ -37,7 +39,8 @@ config, analysis = oai.Completion.tune(
 )
 ```
 
-The optimization can help you maximize the utility out of these expensive models.
+The automated experimentation and optimization can help you maximize the utility out of these expensive models.
+A suite of utilities such as caching and templating are offered to accelerate the experimentation and application development.
 
 #### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
 
