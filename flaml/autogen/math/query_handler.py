@@ -22,8 +22,7 @@ class QueryHandler:
         self.consecutive_continue = 0
 
     def check_queries(self, response: str):
-        """check if there is a query in the response
-        """
+        """check if there is a query in the response"""
         queries = self.extractJSON(response)  # extract json queries
         if len(queries) == 0:
             queries = self.extractCode(response)  # extract code queries
@@ -33,11 +32,17 @@ class QueryHandler:
                     or ("python" in response and "wolfram" in response)
                     or "```" in response
                 ):
-                    return "Your query is invalid and cannot be parsed. (There are still queries but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.)", True
+                    return (
+                        "Your query is invalid and cannot be parsed. (There are still queries but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.)",
+                        True,
+                    )
                 else:
                     return "", False
-                    
-        return "There are still queries to be executed but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.", True
+
+        return (
+            "There are still queries to be executed but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.",
+            True,
+        )
 
     def handle_query(self, response: str):
         """Handle a list of queries and return the output.
@@ -209,7 +214,14 @@ class QueryHandler:
         return_code, output = execute_code(code, use_docker=False, timeout=5)
         is_success = return_code == 0
         if isinstance(output, bytes):
-            output = output.decode("ascii")
+            try:
+                output = output.decode("ascii")
+            except Exception:
+                try:
+                    output = output.decode("utf-8")
+                except Exception:
+                    pass
+
         # if not is_success:
         #     # remove file name from error message
         #     tmp_out = output.split('.py",')
