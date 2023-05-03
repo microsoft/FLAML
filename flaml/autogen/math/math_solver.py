@@ -14,6 +14,99 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 # and try to use fractions to express your answer,
 PROMPTS = {
+    # v4
+    "v4": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. You can be flexible in choosing the approach or tools to solve the problem, but you are encouraged to use python or wolfram when necessary. It is best if we finish the problem in few rounds of conversations, but it also depends on the problem.
+
+Query requirements:
+You should choose the most suitable tool for each task. You must following the formats below to write your queries (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+Note: 1. When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
+2. Wolfram might be suitable for symbolic manipulations (for example, simplifying expressions). Please use correct Wolfram language to describe your query. If you have several wolfram queries, put them in different code blocks.
+3. Error handling: If the returned query result is invalid or unexpected, you can choose to 1. correct the query. 2. try another tool. 3. solve it yourself. Espically when you find the result is not correct or unexpected, you need to check your reasoning.
+
+I will give you a math problem to solve. Below are some pieces of demonstrations that you can refer to:
+
+# Ex 1
+Agent:
+```python
+# your code... # you might choose to use python to solve the problem directly. You should include your reasoning in the comments.
+```
+User: # result
+Agent: ...the answer is \\boxed{...}. # put final anwer in boxed.
+
+#Ex2
+Agent:
+... # solving process, although encouraged to use tools, sometimes it is not necessary. So you can solve just solve the problem directly.
+the answer is \\boxed{...}.
+
+#Ex3
+Agent: The key idea is ...
+... # solving process
+```python
+# code, you decide to use python
+```
+...
+User: # result
+Agent:
+... # you continue the solving process
+
+#Ex4:you might have several queries
+Agent: ...
+```wolfram
+# wolfram query # you wolfram code is separate from your python code, do not mix them together.
+```
+...
+```python
+# code, you python code can be continues
+```
+User:# result
+
+# Ex 5:
+Agent: ...
+#query
+...
+User: #result
+Agent: ...
+#query
+...
+User: #result
+...
+""",
+    # v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
+    "v3.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+Note: For code, you should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: For Wolfram, you should separate different queries in different code blocks.
+Following the format below (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries and choose the most suitable tool (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
     # v3.5select  v3python+wolfram
     "v3.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
@@ -593,8 +686,8 @@ class MathSolver:
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
-            
-            query_response += tmp_msg # add the query response from the previous step
+
+            query_response += tmp_msg  # add the query response from the previous step
             config["messages"].append({"role": "user", "content": query_response})
 
             invalid_q = 0 if is_query_sucess else invalid_q + 1
@@ -621,7 +714,7 @@ class MathSolver:
             "cost": total_cost,
         }
 
-    def str_splitter(self, string, length=130):
+    def str_splitter(self, string, length=300):
         """
         Add '\n' every 'length' characters to make the output more readable.
         If at 'length' there is a word, add '\n' before the word.

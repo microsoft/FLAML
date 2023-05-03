@@ -108,9 +108,13 @@
 # switch to code block format for queries
 # trial 29 v3.1python: on top of v3python, explicitly adding "using loops to enumerate all possible cases"
 # tested correct on counting 0, 1, 9 which was wrong in v3python
-python main.py -ptype v3.1python --folder ./29 --categories 0 1 4 5
+# python main.py -ptype v3.1python --folder ./29 --categories 0 1 4 5
 
 # switch to code block format for queries
 # trial 30 v3.5select: on top of v3python, adding wolfram and nothing else
 # can easily solve algebra 6, 9 that v3python cannot hardly get correct
-python main.py -ptype v3.5select --folder ./30 --categories 0 1 4 5
+# python main.py -ptype v3.5select --folder ./30 --categories 0 1 4 5
+
+
+# v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
+python main.py -ptype v3.6select --folder ./31 --categories 0

@@ -220,7 +220,7 @@ class QueryHandler:
                 try:
                     output = output.decode("utf-8")
                 except Exception:
-                    is_success=False
+                    is_success = False
                     output = "The return cannot be decoded."
 
         # if not is_success:
