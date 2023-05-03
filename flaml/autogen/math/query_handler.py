@@ -210,11 +210,11 @@ class QueryHandler:
         is_success = return_code == 0
         if isinstance(output, bytes):
             output = output.decode("ascii")
-        if not is_success:
-            # remove file name from error message
-            tmp_out = output.split('.py",')
-            if len(tmp_out) > 1:
-                output = tmp_out[1]
+        # if not is_success:
+        #     # remove file name from error message
+        #     tmp_out = output.split('.py",')
+        #     if len(tmp_out) > 1:
+        #         output = tmp_out[1]
 
         if not is_success:
             output = "Error: " + output
