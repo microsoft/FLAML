@@ -3,7 +3,7 @@ from flaml import oai
 from flaml.autogen.math.math_voting import SelfConsistency
 from flaml.autogen.math.math_solver import MathSolver
 import argparse
-from utils import mylogger, load_level5_math_each_category
+from utils import mylogger, load_level5_math_each_category, load_fixed
 
 
 def parse_args():
@@ -24,15 +24,7 @@ def parse_args():
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
     parser.add_argument("--voting", action="store_true")
     args = parser.parse_args()
-    args.folder = (
-        args.folder
-        + "_"
-        + args.prompt_location
-        + "_"
-        + args.prompt_type
-        + "_t"
-        + str(args.temperature)
-    )
+    args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
     if args.seed != 41:
         args.seed = args.seed + "_seed" + str(args.seed)
     os.makedirs(args.folder, exist_ok=True)
@@ -54,14 +46,28 @@ def pseudo_main():
     if args.test_run:
         problem_sets = load_level5_math_each_category(samples_per_category=1, category_to_load=args.categories)
         logger.log("Take out 1 problem from each category for test run.")
-    
 
-    selected_samples ={
-        "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
-        "Counting & Probability": [],
+    if args.select:
+        problem_sets = load_fixed()
+
+    # v1
+    # selected_samples ={
+    #     "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
+    #     "Counting & Probability": [],
+    #     "Geometry": [],
+    #     "Intermediate Algebra": [],
+    #     "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
+    #     "Prealgebra": [],
+    #     "Precalculus": [],
+    # }
+
+    # v3
+    selected_samples = {
+        # "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
+        "Counting & Probability": [0, 1, 8, 9, 12, 17],
         "Geometry": [],
         "Intermediate Algebra": [],
-        "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
+        # "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
         "Prealgebra": [],
         "Precalculus": [],
     }
@@ -82,8 +88,12 @@ def pseudo_main():
         for problem_set in problem_sets:
             for i in range(len(problem_set)):
                 problem_set[i]["problem_id"] = str(i)  # assign problem id
-            if args.select and len(selected_samples[problem_set[0]["type"]]) > 0:
-                problem_set = [problem_set[i] for i in selected_samples[problem_set[0]["type"]]]
+            if args.select:
+                if problem_set[0]["type"] in selected_samples and len(selected_samples[problem_set[0]["type"]]) > 0:
+                    problem_set = [problem_set[i] for i in selected_samples[problem_set[0]["type"]]]
+                    print(problem_set[0]["type"], selected_samples[problem_set[0]["type"]])
+                else:
+                    continue
             solver.solve_one_category(problem_set, saving_folder=args.folder)
             # os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 

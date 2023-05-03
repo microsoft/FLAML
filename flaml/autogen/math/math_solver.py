@@ -14,8 +14,103 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 
 # and try to use fractions to express your answer,
 PROMPTS = {
+    # v3.5select  v3python+wolfram
+    "v3.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
-# Note: Wolfram might be more suitable for symbolic manipulations (such as simplifying expressions). If you query wolfram, you need to put different queries in different code blocks.
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+You must following the formats below to write your queries (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+Note: When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: Wolfram might be suitable for symbolic manipulations (for example, simplifying expressions). Please use correct Wolfram language to describe your query. If you have several wolfram queries, put them in different code blocks.
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python or Wolfram (for example, any calculations or equations that can be calculated) and select the most suitable tool
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # Case 1: If possible, write a program to directly solve it. You should try this espically when it involves enumerations and you can write a loop to iterate over all situations.   Put your reasoning as comments in the code.
+    "v3.1python": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must following the formats below to write your code (otherwise it will not be recognized):
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # v3python only
+    "v3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "python",
+"query": "Your code here."
+}
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # change query format, change case 2
+    # v1.6, come from v1.4, add wolfram note, add "follow your own reasoning"
+    "v1.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+You must following the formats below to write your queries (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+Note: When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: If you have several wolfram queries, please put different wolfram queries in different code blocks.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Output one step (Do not overdivide the steps). Follow your own reasoning and query when necessary.
+2. Take out any queries that can be asked through python or Wolfram alpha (for example, any calculations or equations that can be calculated) and choose the best tool to be used.
+3. Wait for me to give the results.
+4. Correct this step based on the results, or give a new query if the results are invalid.
+When you get the answer, put the answer in \\boxed{}.
+""",
+    # too many rounds
+    # Note: Wolfram might be more suitable for symbolic manipulations (such as simplifying expressions). If you query wolfram, you need to put different queries in different code blocks.
     "v1.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
 
 Query requirements:
@@ -85,27 +180,6 @@ First state the key idea to solve the problem. Then follow the process:
 3. Wait for me to give the results.
 4. Correct this step based on the results, or give a new query if the results are invalid.
 When you get the answer, put the answer in \\boxed{}.
-""",
-    # v3python only
-    "v3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
-
-Query requirements:
-When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
-You must put the query in json format (otherwise it will not be recognized):
-{ "tool" : "python",
-"query": "Your code here."
-}
-
-First state the key idea to solve the problem. You may choose from three ways to solve the problem:
-Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
-Case 3: If the problem cannot be handled with the above two ways, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
     # best from v3.1 and 3.3
     "v3.4select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
@@ -503,11 +577,14 @@ class MathSolver:
             # token_used = raw_responses['usage']['total_tokens']
             total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
+            tmp_msg = ""
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-                # if the assistant gives a valid reply, stop the conversation
-                is_valid_reply = True
-                response_with_ans = responses[0]
-                break
+                tmp_msg, is_query_exist = query_handler.check_queries(responses[0])
+                if not is_query_exist:
+                    # if the assistant gives a valid reply and no more queries, stop the conversation
+                    is_valid_reply = True
+                    response_with_ans = responses[0]
+                    break
 
             # 2. handle the response and get the query
             query_response, is_query_sucess = query_handler.handle_query(responses[0])
@@ -516,6 +593,8 @@ class MathSolver:
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
+            
+            query_response += tmp_msg # add the query response from the previous step
             config["messages"].append({"role": "user", "content": query_response})
 
             invalid_q = 0 if is_query_sucess else invalid_q + 1

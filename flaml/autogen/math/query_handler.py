@@ -21,6 +21,24 @@ class QueryHandler:
         self.last_return = None
         self.consecutive_continue = 0
 
+    def check_queries(self, response: str):
+        """check if there is a query in the response
+        """
+        queries = self.extractJSON(response)  # extract json queries
+        if len(queries) == 0:
+            queries = self.extractCode(response)  # extract code queries
+            if len(queries) == 0:
+                if (
+                    ("tool" in response and "query" in response)
+                    or ("python" in response and "wolfram" in response)
+                    or "```" in response
+                ):
+                    return "Your query is invalid and cannot be parsed. (There are still queries but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.)", True
+                else:
+                    return "", False
+                    
+        return "There are still queries to be executed but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.", True
+
     def handle_query(self, response: str):
         """Handle a list of queries and return the output.
         Args:
@@ -44,7 +62,10 @@ class QueryHandler:
                     # if self.consecutive_continue >= 3:
                     #     self.consecutive_continue = 0
                     #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
-                    return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
+                    return (
+                        "Continue. Please keep solving the problem until you need to query. (If you get to the answer, put it in \\boxed{}.)",
+                        True,
+                    )
 
         self.consecutive_continue = 0
         self.total_q_count += len(queries)
@@ -185,7 +206,7 @@ class QueryHandler:
 
         # python_repl = PythonREPL()
         # output, is_success = python_repl.run(code)
-        return_code, output = execute_code(code, use_docker=False)
+        return_code, output = execute_code(code, use_docker=False, timeout=5)
         is_success = return_code == 0
         if isinstance(output, bytes):
             output = output.decode("ascii")
@@ -344,10 +365,17 @@ class WolframAlphaAPIWrapper(BaseModel):
             )
 
         try:
+            if not res["@success"]:
+                return (
+                    "Your Wolfram query is invalid. Please try a new query for wolfram or use python.",
+                    is_success,
+                )
             assumption = next(res.pods).text
             answer = ""
             for r in res["pod"]:
-                if r["@title"] == "Results":
+                if r["@title"] == "Solution":
+                    answer = r["subpod"]["plaintext"]
+                if r["@title"] == "Results" or r["@title"] == "Solutions":
                     for i, sub in enumerate(r["subpod"]):
                         answer += f"ans {i}: " + sub["plaintext"] + "\n"
                     break

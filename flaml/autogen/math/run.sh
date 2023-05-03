@@ -99,7 +99,18 @@
 # python main.py -ptype v1.4select --prompt_location user --folder ./27 --categories 0 1 4
 # todo: add note for wolfram to compare if trial 24 has desired effect
 
-
-# trial 28 v1.5 
+# trial 28 v1.5
 # from v1.4
-python main.py -ptype v1.5select --prompt_location user --folder ./27 --categories 0 1 4 5 --select
+# suppose to be 28 but the name is 27
+# python main.py -ptype v1.5select --prompt_location user --folder ./27 --categories 0 1 4 5 --select
+
+
+# switch to code block format for queries
+# trial 29 v3.1python: on top of v3python, explicitly adding "using loops to enumerate all possible cases"
+# tested correct on counting 0, 1, 9 which was wrong in v3python
+python main.py -ptype v3.1python --folder ./29 --categories 0 1 4 5
+
+# switch to code block format for queries
+# trial 30 v3.5select: on top of v3python, adding wolfram and nothing else
+# can easily solve algebra 6, 9 that v3python cannot hardly get correct
+python main.py -ptype v3.5select --folder ./30 --categories 0 1 4 5
