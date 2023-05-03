@@ -220,7 +220,8 @@ class QueryHandler:
                 try:
                     output = output.decode("utf-8")
                 except Exception:
-                    pass
+                    is_success=False
+                    output = "The return cannot be decoded."
 
         # if not is_success:
         #     # remove file name from error message
