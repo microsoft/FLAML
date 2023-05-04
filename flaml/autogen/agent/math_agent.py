@@ -70,7 +70,7 @@ class MathAgent(Agent):
         """Set the prompt for the agent.
         #TODO: Not using for now. May need to use it in the future.
         """
-        self._prompt = prompt
+        self.prompt = prompt
 
     def _save_message_to_file(self, message):
         if self._file_to_be_saved is not None:
@@ -88,6 +88,7 @@ class MathAgent(Agent):
             return True
 
     def receive(self, question, sender, clear_conversation=False, archive_conversation=False):
+        # TODO: add a clear conversation function
         if archive_conversation:
             self._remember(self._conversations[sender.name])
         if clear_conversation:
