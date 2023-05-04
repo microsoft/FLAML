@@ -7,6 +7,10 @@ class ExecutionAgent(Agent):
     An execution agent can only communicate with other agents, and perform actions such as executing a command or code.
     """
 
+    DEFAULT_SYSTEM_MESSAGE = """You are an execution agent. You can only communicate with other agents, and perform actions such as executing a command or code.
+    """
+    AGENT_PREFIX = "execution_agent"
+
     def __init__(self, name, system_message="", work_dir=None):
         super().__init__(name, system_message)
         self._word_dir = work_dir

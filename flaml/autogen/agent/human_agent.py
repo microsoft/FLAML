@@ -6,6 +6,7 @@ class HumanAgent(Agent):
 
     DEFAULT_SYSTEM_MESSAGE = """You are human agent. You can give feedback to the sender.
     """
+    AGENT_PREFIX = "human_agent"
 
     def receive(self, message, sender):
         """Receive a message from the sender agent.
