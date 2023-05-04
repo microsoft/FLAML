@@ -24,13 +24,13 @@ def test_multi_model():
     except ImportError as exc:
         print(exc)
         return
-    oai.Completion.create(
+    response = oai.Completion.create(
         config_list=[
             {
                 "model": "gpt-4",
                 "api_key": os.environ.get("OPENAI_API_KEY"),
-                "api_type": None,
-                "api_base": None,
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
                 "api_version": None,
             },
             {
@@ -43,8 +43,8 @@ def test_multi_model():
             {
                 "model": "gpt-3.5-turbo",
                 "api_key": os.environ.get("OPENAI_API_KEY"),
-                "api_type": None,
-                "api_base": None,
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
                 "api_version": None,
             },
             {
@@ -55,8 +55,9 @@ def test_multi_model():
                 "api_version": "2023-03-15-preview",
             },
         ],
-        prompt="Hello, my name is ",
+        prompt="Hi",
     )
+    print(response)
 
 
 @pytest.mark.skipif(
@@ -385,6 +386,7 @@ def test_math(num_samples=-1):
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
     os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
+    os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
     test_multi_model()
     # test_execute_code()
     # test_improve()
