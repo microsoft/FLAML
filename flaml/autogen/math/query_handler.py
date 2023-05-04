@@ -33,14 +33,14 @@ class QueryHandler:
                     or "```" in response
                 ):
                     return (
-                        "\nYour query is invalid and cannot be parsed. (Both invalid queries and \\boxed{} are detected. Use \\boxed{} when you get to the answer and do not have any queries.)",
+                        "\nYour query is invalid and cannot be parsed. (If you already get the answer, put it in \\boxed{}.)",
                         True,
                     )
                 else:
                     return "", False
 
         return (
-            "\nThere are still queries to be executed but \\boxed{} is detected. Use \\boxed{} when you get to the answer and do not have any queries.",
+            "\nAbove is the result to the queries. If you get to the final answer, put it in \\boxed{}",
             True,
         )
 
@@ -108,7 +108,7 @@ class QueryHandler:
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
                 buffer_out
-                + "\nYour query or result is same from the last, please try a new approach or a different tool.",
+                + "\nYour query or result is same from the last, please try a new approach or a different tool. (Put answer in \\boxed{} if you are done)",
                 False,
             )
         self.last_query = tuple(queries)
@@ -223,11 +223,11 @@ class QueryHandler:
                     is_success = False
                     output = "The return cannot be decoded."
 
-        # if not is_success:
-        #     # remove file name from error message
-        #     tmp_out = output.split('.py",')
-        #     if len(tmp_out) > 1:
-        #         output = tmp_out[1]
+        if not is_success:
+            # Remove the file information from the error string
+            pattern = r'File "/[^"]+\.py", line \d+, in .+\n'
+            if type(output) == str:
+                output = re.sub(pattern, "", output)
 
         if not is_success:
             output = "Error: " + output

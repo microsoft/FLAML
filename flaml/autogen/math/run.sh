@@ -132,10 +132,14 @@
 
 
 # v3.7select. Hard to say adding wolfram is good or bad. So test on other categories
-python main.py -ptype v3.7select --folder ./32 --categories 0 1 4 5
+# python main.py -ptype v3.7select --folder ./32 --categories 0 1 4 5
 
 # v3.1python again with refine
-python main.py -ptype v3.1python --folder ./33 --categories 0 1 4 5 --refine
+# python main.py -ptype v3.1python --folder ./33 --categories 0 1 4 5 --refine
 
-# # v3.2python only change the query format
-# python main.py -ptype v3.2python --folder ./34 --categories 0 1
+# v3.2python, slightly refine v3.1python and some refinements in query handling
+# should have very similar performance to v3.1python
+python main.py -ptype v3.2python --folder ./34 --categories 0 1 4 5 --refine
+
+# v3.3python, based on previous best v1select, this is a test
+python main.py -ptype v3.3python --folder ./35 --categories 0 1
