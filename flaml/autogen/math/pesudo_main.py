@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
     parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
     parser.add_argument("--select", action="store_true")
+    parser.add_argument("--refine", action="store_true")
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
@@ -27,6 +28,8 @@ def parse_args():
     args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
     if args.seed != 41:
         args.seed = args.seed + "_seed" + str(args.seed)
+    if args.refine:
+        args.folder = args.folder.replace("_t" + str(args.temperature), "_refine_t" + str(args.temperature))
     os.makedirs(args.folder, exist_ok=True)
     return args
 
@@ -63,8 +66,9 @@ def pseudo_main():
 
     # v3
     selected_samples = {
-        # "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
-        "Counting & Probability": [0, 1, 8, 9, 12, 17],
+        # "Algebra": [2, 5, 6, 9, 10, 13, 14, 17], # [1, 8] wrong, 9-10 out of 10 correct
+        "Algebra": [17],
+        # "Counting & Probability": [0, 1, 8, 9, 12, 17],
         "Geometry": [],
         "Intermediate Algebra": [],
         # "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
@@ -81,6 +85,7 @@ def pseudo_main():
             temperature=args.temperature,
             prompt_location=args.prompt_location,
             logger=logger,
+            refine=args.refine,
         )
         with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
             f.write(solver.prompt)

@@ -33,14 +33,14 @@ class QueryHandler:
                     or "```" in response
                 ):
                     return (
-                        "Your query is invalid and cannot be parsed. (There are still queries but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.)",
+                        "\nYour query is invalid and cannot be parsed. (Both invalid queries and \\boxed{} are detected. Use \\boxed{} when you get to the answer and do not have any queries.)",
                         True,
                     )
                 else:
                     return "", False
 
         return (
-            "There are still queries to be executed but \\boxed{} is detected. Only use \\boxed{} when you get to the answer.",
+            "\nThere are still queries to be executed but \\boxed{} is detected. Use \\boxed{} when you get to the answer and do not have any queries.",
             True,
         )
 
@@ -68,7 +68,7 @@ class QueryHandler:
                     #     self.consecutive_continue = 0
                     #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
                     return (
-                        "Continue. Please keep solving the problem until you need to query. (If you get to the answer, put it in \\boxed{}.)",
+                        "Continue. (Follow the query format if you have queries. If you already get the answer, put it in \\boxed{}.)",
                         True,
                     )
 

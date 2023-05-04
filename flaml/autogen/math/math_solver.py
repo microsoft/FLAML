@@ -79,6 +79,52 @@ Agent: ...
 User: #result
 ...
 """,
+    # You should solve the problem and get to the answer directly if the problem only involve simple calculations or is mostly reasoning,
+    # You should always use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy).
+    "v3.2python": """Let's use python to solve a math problem. You must use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy). Follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # v3.7select from v3.6, set python to default
+    "v3.7select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you. By default you should use python but you can use Wolfram when it is more suitable.
+Note: For code, you should always use 'print' function for the output, and use exact numbers (like radical forms) instead of decimal.
+Note: For Wolfram, you should only have one query per code block, each query should be independent.
+Following the format below (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be solved using python or Wolfram (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
     # v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
     "v3.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
 
@@ -593,6 +639,7 @@ class MathSolver:
         temperature=1,
         logger=None,
         use_cache=True,
+        refine=False,
     ):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
@@ -601,6 +648,7 @@ class MathSolver:
         self.prompt_type = prompt_type
         self.prompt_loaction = prompt_location
         self.prompt = PROMPTS[prompt_type]
+        self.refine = refine
 
         # if the prompt_location is set to system, then the prompt is put in the system message
         messages = (
@@ -646,6 +694,10 @@ class MathSolver:
         seperate_line = "\n" + "-" * 40 + "\n"
         save_message_to_file(f'Problem: {self.str_splitter(problem["problem"])}\n {seperate_line}')
 
+        # for additional refine process
+        is_refine_process = False
+        response_with_new_ans = ""  # save the corrected answer
+
         # init parameters
         is_valid_reply = False  # only valid when detect \box
         invalid_q = 0  # for query
@@ -653,7 +705,7 @@ class MathSolver:
         response_with_ans = ""  # save the response with \box to get the answer
         rr = 0  # round
         while rr < self.max_round:
-            # 1. get the response from the assistant
+            # 1. get the response from the assistant, handle exceptions
             try:
                 raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
             except InvalidRequestError as e:
@@ -666,6 +718,8 @@ class MathSolver:
             assert raw_responses != -1, "Error in getting response"
             responses = oai.ChatCompletion.extract_text(raw_responses)
             assert len(responses) == 1, "More than one response"  # right now we only use one response
+
+            # 2. process response
             save_message_to_file(f"assistant: {self.str_splitter(responses[0])}{seperate_line}")
             # token_used = raw_responses['usage']['total_tokens']
             total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
@@ -676,10 +730,24 @@ class MathSolver:
                 if not is_query_exist:
                     # if the assistant gives a valid reply and no more queries, stop the conversation
                     is_valid_reply = True
-                    response_with_ans = responses[0]
-                    break
+                    if not self.refine:  # if not refine, stop the conversation
+                        response_with_ans = responses[0]
+                        response_with_new_ans = responses[0]
+                        break
+                    elif not is_refine_process:  # if refine, start the refine process
+                        response_with_ans = responses[0]
+                        is_refine_process = True
+                        refine_message = "Please critially examine your answer and check the answer meets conditions in the problem. If you find any mistake, please correct it and continue the conversation. If you find no mistake, put previous answer in the box."
+                        config["messages"].append({"role": "user", "content": refine_message})
+                        save_message_to_file(
+                            "user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line)
+                        )
+                        continue
+                    else:  # if already in the refine process, then stop the conversation
+                        response_with_new_ans = responses[0]
+                        break
 
-            # 2. handle the response and get the query
+            # 3. handle the response and get the query
             query_response, is_query_sucess = query_handler.handle_query(responses[0])
             if len(query_response) > 2000:
                 # prevent long response by string length, 2000 chars -> around 500-1000 tokens
@@ -709,6 +777,7 @@ class MathSolver:
             "total_q_count": query_handler.total_q_count,
             "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
             "response_with_ans": response_with_ans,  # string instead of list
+            "response_with_new_ans": response_with_new_ans,  # string instead of list
             "messages": config["messages"],
             "round": min(rr + 1, self.max_round),
             "cost": total_cost,
@@ -771,7 +840,7 @@ class MathSolver:
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
 
         correct_counts = 0
-        self.logger.log("id : is_correct $ ans $ correct_ans | is_valid $ round $ accum acc")
+        self.logger.log("id : is_correct $ ans $ correct_ans | corrected_ans $ round")
         for count, problem in enumerate(problem_set):
             problem_path = os.path.join(saving_folder, problem["problem_id"] + ".json")
 
@@ -779,8 +848,9 @@ class MathSolver:
             if int(problem["problem_id"]) in done_problems:
                 problem = json.load(open(problem_path, "r"))
                 correct_counts += problem["is_correct"]
+                new_ans = problem["new_ans"] if "new_ans" in problem else ""
                 self.logger.log(
-                    f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["is_valid_reply"]} $ {problem["round"]} $ {correct_counts}/{count+1} (from previous run)'
+                    f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {new_ans} $ {problem["round"]} $ (from previous run)'
                 )
                 continue
 
@@ -798,6 +868,7 @@ class MathSolver:
                     "is_correct": bool(metrics["success_vote"]),
                     "correct_ans": correct_ans,
                     "voted_answer": get_answer(metrics["voted_answer"]),
+                    "new_ans": get_answer(result["response_with_new_ans"]),
                     "round": result["round"],
                     "valid_q_count": result["valid_q_count"],  # total number of valid queries
                     "total_q_count": result["total_q_count"],  # total number of queries
@@ -810,7 +881,7 @@ class MathSolver:
             # 4. continue to next problem
             correct_counts += problem["is_correct"]
             self.logger.log(
-                f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["is_valid_reply"]} $ {problem["round"]} $ {correct_counts}/{count+1}'
+                f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {problem["new_ans"]} $ {problem["round"]} $'
             )
 
         tp = problem_set[0]["type"]
