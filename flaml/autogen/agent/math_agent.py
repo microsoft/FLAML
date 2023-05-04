@@ -17,7 +17,7 @@ class MathAgent(Agent):
     AGENT_PREFIX = "math_agent"
 
     DEFAULT_CONFIG = {
-        "model": FAST_MODEL,  # default model is gpt-4
+        "model": DEFAULT_MODEL,  # default model is gpt-4
     }
     EXECUTION_AGENT_PREFIX = "execution_agent4"
     SUCCESS_EXIT_CODE = "exitcode: 0\n"
@@ -64,7 +64,7 @@ class MathAgent(Agent):
 
         self._seperate_line = "\n" + "-" * 40 + "\n"
         # to save the list of original senders and problems over time
-        self._original_senders_and_questions = []
+        self._original_senders_and_message = []
 
     def _set_prompt(self, prompt):
         """Set the prompt for the agent.
@@ -87,36 +87,40 @@ class MathAgent(Agent):
         else:
             return True
 
-    def receive(self, question, sender, clear_conversation=False, archive_conversation=False):
-        # TODO: add a clear conversation function
+    def clear_conversation(self, archive_conversation=False):
+        """Clear the conversation history."""
+        # TODO: do we need to clear self._sender_dict and self._conversations?
+
         if archive_conversation:
-            self._remember(self._conversations[sender.name])
-        if clear_conversation:
-            self._conversations = {}
+            self._remember(self._conversations)
+        self._conversations = {}
+
+    def receive(self, message, sender):
         if sender.name not in self._conversations or len(self._conversations[sender.name]) == 0:
             self._sender_dict[sender.name] = sender
             self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
-            # TODO: do we need to clear self._sender_dict and self._conversations?
-            prompted_question = self.prompt + "\n Problem: " + question  # TODO: pay attention to the executation agent
+            # TODO: better not change user's message. Change to a different approach.
+            # E.g., talk to a different agent. "User said: ..."
+            prompted_message = self.prompt + "\n Problem: " + message  # TODO: pay attention to the executation agent
         else:
-            prompted_question = question
-        # if the sender is the master agent, then we need to save the original sender and problem
+            prompted_message = message
+        # if the sender is the execution agent, then we need to save the original sender and problem
         # there could be multiple turns of conversation between the master agent and the math agent,
         # we only need to save the original sender and problem once
         is_session_starts = len(self._conversations[sender.name]) == 1
         if not sender.name.startswith(self.EXECUTION_AGENT_PREFIX) and is_session_starts:
-            # assuming the master agent is the first agent to send the message to the math agent
-            self._original_senders_and_questions.append((sender, question))
-        super().receive(prompted_question, sender)
+            # assuming the execution agent does not initiate a conversation with the math agent
+            self._original_senders_and_message.append((sender, message))
+        super().receive(prompted_message, sender)
         # save a readable conversation in txt file
         # self._save_message_to_file(f"Problem: {self._str_splitter(prompted_question)}\n {self._seperate_line}")
         messages = copy.deepcopy(self._conversations[sender.name])
         raw_responses = oai.ChatCompletion.create(messages=messages, **self._config, use_cache=self.use_cache)
         response = oai.ChatCompletion.extract_text(raw_responses)[0]
-        print(f"\n Sender {sender.name}: {question}")
+        print(f"\n Sender {sender.name}: {message}")
         print(f"\n MATH AGENT: {response}")
 
-        original_sender, _ = self._original_senders_and_questions[-1]
+        original_sender, _ = self._original_senders_and_message[-1]
         if self._execution_agent_needed(response):
             if sender.name.startswith(self.EXECUTION_AGENT_PREFIX):
                 excution_agent = sender
@@ -131,33 +135,12 @@ class MathAgent(Agent):
             self._send(response, excution_agent)
         else:
             print(f"Execution agent not needed. Sending to original sender {original_sender.name}")
-            # look into the conversation history to finalize the answer
-            if sender.name.startswith(self.EXECUTION_AGENT_PREFIX):
-                execution_agent_name = sender.name
-            elif f"{self.EXECUTION_AGENT_PREFIX}{sender.name}" in self._conversations.keys():
-                execution_agent_name = f"{self.EXECUTION_AGENT_PREFIX}{sender.name}"
-            else:
-                execution_agent_name = None
-            if execution_agent_name is not None:
-                answer = self._get_answer_from_conversation(execution_agent_name, original_sender.name)
-            else:
-                answer = response
+            answer = self._validate_response(response)
             self._send(answer, original_sender)
 
-    def _get_answer_from_conversation(self, excution_agent_name, user_name):
-        """Extract the answer from the conversation history."""
-        excution_conv = self._conversations[excution_agent_name]
-        # user_conv = self._conversations[user_name]
-        # TODO: currently only check the last msg with the execution agent. may need to change later.
-        prompt = (
-            "check the conversation history and extract the final answer. Put the answer in \\boxed{}. DO NOT include anything else."
-            + "\n Conversation history with execution agent:"
-            + str(excution_conv[-1:])
-        )
-        messages = [{"content": prompt, "role": "user"}]
-        res = oai.ChatCompletion.create(messages=messages, **self._config, use_cache=self.use_cache)
-        answer = oai.ChatCompletion.extract_text(res)[0]
-        return answer
+    def _validate_response(self, response):
+        # TODO: before sending the answer, we need to check if the answer is correct.
+        return response
 
     @staticmethod
     def _str_splitter(string, length=130):

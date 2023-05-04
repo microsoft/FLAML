@@ -40,9 +40,8 @@ if __name__ == "__main__":
     for i, problem in enumerate(problems):
         print("hello")
         # send the problem to the math agent add the option to clear past conversation
-        math_agent.receive(
-            question=problem["problem"], sender=user_agent, clear_conversation=True, archive_conversation=True
-        )
+        math_agent.clear_conversation()
+        math_agent.receive(message=problem["problem"], sender=user_agent)
         # get the answer from the math agent
         result = user_agent.retrieve_conversation("math_agent")
         # evaluate how good the answer is
