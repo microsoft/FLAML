@@ -1,5 +1,6 @@
 from .agent import Agent
 from .execution_agent import ExecutionAgent
+from .reflection_agent import ReflectionAgent
 from flaml.autogen.code_utils import DEFAULT_MODEL, FAST_MODEL
 from flaml import oai
 import copy
@@ -21,6 +22,7 @@ class MathAgent(Agent):
     }
     EXECUTION_AGENT_PREFIX = "execution_agent4"
     SUCCESS_EXIT_CODE = "exitcode: 0\n"
+    REFLECTION_AGENT_PREFIX = "reflection_agent4"
 
     PROMPTS = {
         "v3.1python": """Let's use python to solve a math problem.
@@ -40,6 +42,23 @@ class MathAgent(Agent):
             4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
             After all the queries are run and you get the answer, put the answer in \\boxed{}.
             """,
+        "system_python": """You are a helpful assistant who can help users solve math problems.
+            First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+            Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+            Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+            Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+
+            1. Solve the problem step by step (do not over divide the steps).
+            2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+            You must follow the formats below to write your code (otherwise it will not be recognized):
+            ```python
+            # your code
+            ```
+            You should always use 'print' function for the output.
+            3. Wait for the user to execute the python code and return results. Note the user can only execute python code.
+            4. Continue your problem solving if you think the returned result is valid. If the returned result from user is invalid or unexpected, please correct your code or reasoning.
+            After all the steps with code are executed and you get the answer, put the answer in \\boxed{}.
+            """,
     }
 
     def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, work_dir=None, **config):
@@ -56,10 +75,10 @@ class MathAgent(Agent):
         self.max_invalid_q_per_step = 3
         self.use_cache = True
         self.logger = None  # TODO: add logger
-        self.prompt_type = "v3.1python"
+        self.prompt_type = "system_python"
         self.prompt = MathAgent.PROMPTS[self.prompt_type]
-        self._system_message = MathAgent.DEFAULT_SYSTEM_MESSAGE
-        # self._system_message = self.prompt
+        # self._system_message = MathAgent.DEFAULT_SYSTEM_MESSAGE
+        self._system_message = self.prompt
         self._file_to_be_saved = "test_math.txt"
 
         self._seperate_line = "\n" + "-" * 40 + "\n"
@@ -95,23 +114,51 @@ class MathAgent(Agent):
             self._remember(self._conversations)
         self._conversations = {}
 
+    def _send_conversation(self, conversation, recipient):
+        """Send a conversation to the recipient."""
+        recipient.receive_conversation(conversation, self)
+
+    def _is_confirmative(self, message):
+        """Check if the message is confirmative."""
+        msg = f"Is the message an confirmative message? Answer YES if it is {message}"
+        res = oai.ChatCompletion.create(
+            messages=[{"content": msg, "role": "user"}], **self._config, use_cache=self.use_cache
+        )
+        response = oai.ChatCompletion.extract_text(res)[0]
+        if "YES" in response:
+            return True
+        else:
+            return False
+
     def receive(self, message, sender):
         if sender.name not in self._conversations or len(self._conversations[sender.name]) == 0:
             self._sender_dict[sender.name] = sender
             self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
             # TODO: better not change user's message. Change to a different approach.
             # E.g., talk to a different agent. "User said: ..."
-            prompted_message = self.prompt + "\n Problem: " + message  # TODO: pay attention to the executation agent
+            # prompted_message = self.prompt + "\n Problem: " + message  # TODO: pay attention to the executation agent
+            prompted_message = message
         else:
             prompted_message = message
         # if the sender is the execution agent, then we need to save the original sender and problem
         # there could be multiple turns of conversation between the master agent and the math agent,
         # we only need to save the original sender and problem once
-        is_session_starts = len(self._conversations[sender.name]) == 1
-        if not sender.name.startswith(self.EXECUTION_AGENT_PREFIX) and is_session_starts:
+        # is_session_starts = len(self._conversations[sender.name]) == 1
+        # TODO: may need to exclude all employed agent
+        if not sender.name.startswith(self.EXECUTION_AGENT_PREFIX) and not sender.name.startswith(
+            self.REFLECTION_AGENT_PREFIX
+        ):
             # assuming the execution agent does not initiate a conversation with the math agent
             self._original_senders_and_message.append((sender, message))
         super().receive(prompted_message, sender)
+
+        if sender.name.startswith(self.REFLECTION_AGENT_PREFIX) and self._is_confirmative(message):
+            original_sender = self._original_senders_and_message[-1][0]
+            self._send(message, original_sender)
+            return
+        #     # if the sender is the reflection agent, then we need to send the response to the original sender
+        # else:
+        #     self._send(response, reflection_agent)
         # save a readable conversation in txt file
         # self._save_message_to_file(f"Problem: {self._str_splitter(prompted_question)}\n {self._seperate_line}")
         messages = copy.deepcopy(self._conversations[sender.name])
@@ -134,13 +181,23 @@ class MathAgent(Agent):
             # send the response to the execution agent
             self._send(response, excution_agent)
         else:
-            print(f"Execution agent not needed. Sending to original sender {original_sender.name}")
-            answer = self._validate_response(response)
-            self._send(answer, original_sender)
+            if sender.name.startswith(self.REFLECTION_AGENT_PREFIX):
+                reflection_agent = sender
+            else:
+                reflection_agent = ReflectionAgent(
+                    f"{self.REFLECTION_AGENT_PREFIX}{sender.name}", work_dir=self._work_dir
+                )
+                # initialize the conversation
+                self._conversations[reflection_agent.name] = self._conversations[sender.name].copy()
+                self._sender_dict[reflection_agent.name] = reflection_agent
+            merged_list = [item for sublist in self._conversations.values() for item in sublist]
+            merged_list.append({"content": response, "role": "assistant"})
+            self._send_conversation(merged_list, reflection_agent)
+            self._send(response, reflection_agent)
 
-    def _validate_response(self, response):
-        # TODO: before sending the answer, we need to check if the answer is correct.
-        return response
+            # print(f"Execution agent not needed. Sending to original sender {original_sender.name}")
+            # answer = self._validate_response(response)
+            # self._send(answer, original_sender)
 
     @staticmethod
     def _str_splitter(string, length=130):
