@@ -698,33 +698,33 @@ class Completion(openai_Completion):
                 Only the differences from the default config need to be provided.
                 E.g.,
 
-            ```python
-            response = oai.Completion.create(
-                config_list=[
-                    {
-                        "model": "gpt-4",
-                        "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-                        "api_type": "azure",
-                        "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
-                        "api_version": "2023-03-15-preview",
-                    },
-                    {
-                        "model": "gpt-3.5-turbo",
-                        "api_key": os.environ.get("OPENAI_API_KEY"),
-                        "api_type": "open_ai",
-                        "api_base": "https://api.openai.com/v1",
-                        "api_version": None,
-                    },
-                    {
-                        "model": "llama-7B",
-                        "api_base": "http://127.0.0.1:8080",
-                        "api_type": "open_ai",
-                        "api_version": None,
-                    }
-                ],
-                prompt="Hi",
-            )
-            ```
+        ```python
+        response = oai.Completion.create(
+            config_list=[
+                {
+                    "model": "gpt-4",
+                    "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+                    "api_type": "azure",
+                    "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+                    "api_version": "2023-03-15-preview",
+                },
+                {
+                    "model": "gpt-3.5-turbo",
+                    "api_key": os.environ.get("OPENAI_API_KEY"),
+                    "api_type": "open_ai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_version": None,
+                },
+                {
+                    "model": "llama-7B",
+                    "api_base": "http://127.0.0.1:8080",
+                    "api_type": "open_ai",
+                    "api_version": None,
+                }
+            ],
+            prompt="Hi",
+        )
+        ```
 
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.

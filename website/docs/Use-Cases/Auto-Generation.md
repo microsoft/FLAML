@@ -98,7 +98,9 @@ config, analysis = oai.Completion.tune(
 `num_samples` is the number of configurations to sample. -1 means unlimited (until optimization budget is exhausted).
 The returned `config` contains the optimized configuration and `analysis` contains an [ExperimentAnalysis](../reference/tune/analysis#experimentanalysis-objects) object for all the tried configurations and results.
 
-## Perform inference with the tuned config
+The tuend config can be used to perform inference.
+
+## Perform Inference
 
 One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference.
 There are a number of benefits of using `flaml.oai.Completion.create` to perform inference.
@@ -328,7 +330,7 @@ Set `compact=False` in `start_logging()` to switch.
 It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
 The compact history is more efficient and the individual API call history contains more details.
 
-## Other utilities
+## Other Utilities
 
 ### Completion
 
