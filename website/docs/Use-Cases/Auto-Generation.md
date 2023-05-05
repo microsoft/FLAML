@@ -124,13 +124,6 @@ response = oai.Completion.create(
     config_list=[
         {
             "model": "gpt-4",
-            "api_key": os.environ.get("OPENAI_API_KEY"),
-            "api_type": "open_ai",
-            "api_base": "https://api.openai.com/v1",
-            "api_version": None,
-        },
-        {
-            "model": "gpt-4",
             "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
             "api_type": "azure",
             "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
@@ -142,13 +135,6 @@ response = oai.Completion.create(
             "api_type": "open_ai",
             "api_base": "https://api.openai.com/v1",
             "api_version": None,
-        },
-        {
-            "model": "gpt-3.5-turbo",
-            "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-            "api_type": "azure",
-            "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
-            "api_version": "2023-03-15-preview",
         },
         {
             "model": "llama-7B",
@@ -161,7 +147,7 @@ response = oai.Completion.create(
 )
 ```
 
-It will try querying OpenAI gpt-4 first, followed by Azure OpenAI gpt-4, OpenAI gpt-3.5-turbo, Azure OpenAI gpt-3.5-turbo, and llama-7B, one by one, until a valid result is returned. This can speed up the development process where the rate limit is a bottleneck.
+It will try querying Azure OpenAI gpt-4, OpenAI gpt-3.5-turbo, and llama-7B one by one, until a valid result is returned. This can speed up the development process where the rate limit is a bottleneck.
 
 ### Templating
 
