@@ -162,10 +162,12 @@ python baselines/PoT.py --folder ./39 --categories 0 1 3 4 5 6 --samples_per_cat
 # trial 40: zeroshot on 50 level 5 problems per category
 python baselines/zeroshot.py --folder ./40 --categories 0 1 3 4 5 6 --samples_per_category 50
 
-# -------------------test on all level 5 problems for 4 categories-------------------
-# trial 41: PoT on 50 level 5 problems per category
-python baselines/PoT.py --folder ./41 --categories 0 1 4 5  --samples_per_category 400
+# -------------------test on all level-5 problems from 6 categories-------------------
+# trial 41: PoT on all level-5 problems from 6 categories
+python baselines/PoT.py --folder ./41 --categories 0 1 3 4 5 6  --samples_per_category 400
 
-# keep running on all level 5 problems
-# trial 42: v3.1 test on 50 level 5 problems per category
-python main.py -ptype v3.1python --folder ./42 --categories 0 1 4 5 --samples_per_category 400
+# trial 42: zeroshot on all level-5 problems from 6 categories
+python baselines/zeroshot.py --folder ./42 --categories 0 1 3 4 5 6 --samples_per_category 400
+
+# trial 43: v3.1 test on all level-5 problems from 6 categories
+python main.py -ptype v3.1python --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 400
