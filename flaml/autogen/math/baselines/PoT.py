@@ -31,6 +31,7 @@ parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache
 parser.add_argument("--samples_per_category", "-s", help="samples per category", default=20, type=int)
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
 parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
+parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
 args = parser.parse_args()
 args.folder = args.folder + "_baseline_PoT" "_t" + str(args.temperature) + "_seed" + str(args.seed)
 
@@ -102,7 +103,9 @@ if __name__ == "__main__":
 
     engine = "gpt-4"
     aggre_correct = 0
-    problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
+    problem_sets = load_level5_math_each_category(
+        samples_per_category=args.samples_per_category, category_to_load=args.categories
+    )
     logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
 
     for problem_set in problem_sets:  # one problem_set is one category
