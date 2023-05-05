@@ -384,12 +384,14 @@ def test_math(num_samples=-1):
 
 
 if __name__ == "__main__":
-    os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
+    import openai
+
+    openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
     os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
     os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
-    test_multi_model()
+    # test_multi_model()
     # test_execute_code()
-    # test_improve()
+    test_improve()
     # test_nocontext()
     # test_humaneval(1)
     # test_math(1)
