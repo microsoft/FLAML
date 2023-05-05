@@ -693,7 +693,9 @@ class Completion(openai_Completion):
                 "Complete the following sentence: Today I feel".
                 More examples can be found at [templating](/docs/Use-Cases/Auto-Generation#templating).
             use_cache (bool, Optional): Whether to use cached responses.
-            config_list (List, Optional): List of configurations for the completion to try. The first one that does not raise an error will be used.
+            config_list (List, Optional): List of configurations for the completion to try.
+                The first one that does not raise an error will be used.
+                Only the differences from the default config need to be provided.
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
                 This is useful when implementing "controlled randomness" for the completion.
