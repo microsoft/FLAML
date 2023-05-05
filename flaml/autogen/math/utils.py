@@ -82,9 +82,31 @@ def load_level5_math_each_category(samples_per_category=20, category_to_load=Non
         ]
         # if len(tmp) < samples_per_category:
         #     print(f"Warning: {category} has {len(tmp)} problems.", flush=True)
-        
+
         sep_cate.append(tmp[:samples_per_category])
         print(i, category, f"{len(sep_cate[-1])} problems loaded", flush=True)
+
+    if len(sep_cate) == 0:
+        raise ValueError("No category is loaded.")
+    return sep_cate
+
+
+def random_sample_MATH(num_samples=100):
+    """
+    Load level 5 math problems from the competition dataset.
+    Returns:
+        A list of list of problems. Each list of problems is of the same category.
+    """
+    seed = 41
+    data = datasets.load_dataset("competition_math")
+    test_data = data["test"].shuffle(seed=seed)
+
+    test_data = [test_data[x] for x in range(min(num_samples, len(test_data)))]
+
+    sep_cate = []
+    for i, category in enumerate(math_type_mapping.keys()):
+        sep_cate.append([test_data[x] for x in range(len(test_data)) if test_data[x]["type"] == category])
+        print(i, category, f"{len(sep_cate[-1])} problems sampled ", flush=True)
 
     if len(sep_cate) == 0:
         raise ValueError("No category is loaded.")

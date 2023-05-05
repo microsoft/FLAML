@@ -232,6 +232,8 @@ class MathSolver:
                 problem = json.load(open(problem_path, "r"))
                 correct_counts += problem["is_correct"]
                 new_ans = problem["new_ans"] if "new_ans" in problem else ""
+                if problem["new_ans"] == problem["voted_answer"]:
+                    problem["new_ans"] = "same"
                 self.logger.log(
                     f'{problem["problem_id"]} : {bool(problem["is_correct"])} $ {problem["voted_answer"]} $ {problem["correct_ans"]} | {new_ans} $ {problem["round"]} $ (from previous run)'
                 )
@@ -260,6 +262,8 @@ class MathSolver:
                 }
             )
             write_json(problem, problem_path)
+            if problem["new_ans"] == problem["voted_answer"]:
+                problem["new_ans"] = "same"
 
             # 4. continue to next problem
             correct_counts += problem["is_correct"]

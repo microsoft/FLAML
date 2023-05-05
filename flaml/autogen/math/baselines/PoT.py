@@ -19,6 +19,7 @@ from flaml.autogen.math.utils import (
     write_json,
     remove_asy_sections,
     mylogger,
+    random_sample_MATH,
 )
 from flaml.autogen.code_utils import execute_code
 
@@ -32,9 +33,11 @@ parser.add_argument("--samples_per_category", "-s", help="samples per category",
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
 parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
+parser.add_argument("--sample_all", help="samples per category", default=0, type=int)
 args = parser.parse_args()
 args.folder = args.folder + "_baseline_PoT" "_t" + str(args.temperature) + "_seed" + str(args.seed)
-
+if args.sample_all != 0:
+    args.folder += "_random_sample"
 # key = os.getenv(args.key)
 # print(key)
 
@@ -106,9 +109,13 @@ if __name__ == "__main__":
     problem_sets = load_level5_math_each_category(
         samples_per_category=args.samples_per_category, category_to_load=args.categories
     )
+    if args.sample_all != 0:
+        problem_sets = random_sample_MATH(args.sample_all)
     logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
 
     for problem_set in problem_sets:  # one problem_set is one category
+        if len(problem_set) == 0:
+            continue
         for i in range(len(problem_set)):
             problem_set[i]["problem_id"] = str(i)  # assign problem id
 

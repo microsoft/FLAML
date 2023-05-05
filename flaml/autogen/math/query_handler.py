@@ -68,7 +68,7 @@ class QueryHandler:
                     #     self.consecutive_continue = 0
                     #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
                     return (
-                        "Continue. (Follow the query format if you have queries. If you already get the answer, put it in \\boxed{}.)",
+                        "Continue. Please keep solving the problem until you need to query.  (If you already have the answer, put it in \\boxed{}.)",
                         True,
                     )
 
@@ -108,7 +108,7 @@ class QueryHandler:
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
                 buffer_out
-                + "\nYour query or result is same from the last, please try a new approach or a different tool. (Put answer in \\boxed{} if you are done)",
+                + "\nYour query or result is same from the last, please try a new approach or a different tool.",
                 False,
             )
         self.last_query = tuple(queries)

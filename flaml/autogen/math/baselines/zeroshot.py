@@ -28,6 +28,7 @@ parser.add_argument("--dry_run", default=False, action="store_true")
 parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./zeroshot", type=str)
 parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache/zeroshot", help="cache folder")
 parser.add_argument("--samples_per_category", "-s", help="samples per category", default=20, type=int)
+parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
 parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 args = parser.parse_args()
@@ -38,7 +39,7 @@ args.folder = args.folder + "_baseline_zeroshot" "_t" + str(args.temperature) + 
 
 
 def zeroshot_solve(model, problem, max_tokens=None):
-    full_prompt = """Solve a math problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{}.\n\nProblem: """
+    full_prompt = """Solve a math problem carefully. Put the final answer in \\boxed{}.\n\nProblem: """
     full_prompt += remove_asy_sections(problem["problem"])
 
     with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
@@ -78,7 +79,9 @@ if __name__ == "__main__":
 
     engine = "gpt-4"
     aggre_correct = 0
-    problem_sets = load_level5_math_each_category(samples_per_category=args.samples_per_category)
+    problem_sets = load_level5_math_each_category(
+        samples_per_category=args.samples_per_category, category_to_load=args.categories
+    )
     logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
 
     for problem_set in problem_sets:  # one problem_set is one category

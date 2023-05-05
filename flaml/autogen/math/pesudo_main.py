@@ -3,7 +3,7 @@ from flaml import oai
 from flaml.autogen.math.math_voting import SelfConsistency
 from flaml.autogen.math.math_solver import MathSolver
 import argparse
-from utils import mylogger, load_level5_math_each_category, load_fixed
+from utils import mylogger, load_level5_math_each_category, load_fixed, random_sample_MATH
 
 
 def parse_args():
@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
     parser.add_argument("--select", action="store_true")
     parser.add_argument("--refine", action="store_true")
+    parser.add_argument("--sample_all", help="samples per category", default=0, type=int)
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
@@ -30,6 +31,8 @@ def parse_args():
         args.seed = args.seed + "_seed" + str(args.seed)
     if args.refine:
         args.folder = args.folder.replace("_t" + str(args.temperature), "_refine_t" + str(args.temperature))
+    if args.sample_all != 0:
+        args.folder += "_random_sample"
     os.makedirs(args.folder, exist_ok=True)
     return args
 
@@ -53,6 +56,9 @@ def pseudo_main():
     if args.select:
         problem_sets = load_fixed()
 
+    if args.sample_all != 0:
+        problem_sets = random_sample_MATH(args.sample_all)
+
     # v1
     # selected_samples ={
     #     "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
@@ -67,12 +73,12 @@ def pseudo_main():
     # v3
     selected_samples = {
         # "Algebra": [2, 5, 6, 9, 10, 13, 14, 17], # [1, 8] wrong, 9-10 out of 10 correct
-        "Algebra": [17],
-        # "Counting & Probability": [0, 1, 8, 9, 12, 17],
+        # "Algebra": [2, 5, 13],
+        "Counting & Probability": [0, 1, 7, 11, 12, 15],
         "Geometry": [],
-        "Intermediate Algebra": [],
-        # "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
-        "Prealgebra": [],
+        # "Intermediate Algebra": [7, 11],
+        "Number Theory": [4, 6, 7, 9, 10, 11, 16, 17],  # number, assume 11 correct 6,
+        "Prealgebra": [4, 8, 10, 15],
         "Precalculus": [],
     }
 

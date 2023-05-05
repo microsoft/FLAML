@@ -116,10 +116,10 @@
 # python main.py -ptype v3.5select --folder ./30 --categories 0 1 4 5
 
 
-# v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
+# trial 31 v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
 # python main.py -ptype v3.6select --folder ./31 --categories 0
 
-# v3.7select  v3.6select refine
+# trial 32 v3.7select  v3.6select refine
 # 1. Change to “# your single wolfram query”
 # 2. Add:  I will help you execute queries.
 # 3. Add: (the solving process can be written with code)
@@ -134,12 +134,38 @@
 # v3.7select. Hard to say adding wolfram is good or bad. So test on other categories
 # python main.py -ptype v3.7select --folder ./32 --categories 0 1 4 5
 
-# v3.1python again with refine
+# trial 33: v3.1python again with refine
 # python main.py -ptype v3.1python --folder ./33 --categories 0 1 4 5 --refine
 
-# v3.2python, slightly refine v3.1python and some refinements in query handling
+# trial 34: v3.2python, slightly refine v3.1python and some refinements in query handling
 # should have very similar performance to v3.1python
-python main.py -ptype v3.2python --folder ./34 --categories 0 1 4 5 --refine
+# python main.py -ptype v3.2python --folder ./34 --categories 0 1 4 5 --refine
 
-# v3.3python, based on previous best v1select, this is a test
-python main.py -ptype v3.3python --folder ./35 --categories 0 1
+# trial 35: v3.3python, based on previous best v1select, this is a test
+# python main.py -ptype v3.3python --folder ./35 --categories 0 1
+
+# -------------------test on random sampled problems from the whole dataset-------------------
+# trial 36: PoT on random sampled problems
+python baselines/PoT.py --folder ./36 --sample_all 100
+
+# trial 37: v3.1python on random sampled problems
+python main.py -ptype v3.1python --folder ./37 --sample_all 100
+
+
+# -------------------test on 50 level 5 problems per category for 6 categories-------------------
+# trial 38: v3.1 test on 50 level 5 problems per category
+python main.py -ptype v3.1python --folder ./38 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# trial 39: PoT on 50 level 5 problems per category
+python baselines/PoT.py --folder ./39 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# trial 40: zeroshot on 50 level 5 problems per category
+python baselines/zeroshot.py --folder ./40 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# -------------------test on all level 5 problems for 4 categories-------------------
+# trial 41: PoT on 50 level 5 problems per category
+python baselines/PoT.py --folder ./41 --categories 0 1 4 5  --samples_per_category 400
+
+# keep running on all level 5 problems
+# trial 42: v3.1 test on 50 level 5 problems per category
+python main.py -ptype v3.1python --folder ./42 --categories 0 1 4 5 --samples_per_category 400
