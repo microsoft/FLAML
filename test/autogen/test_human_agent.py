@@ -1,12 +1,7 @@
-from flaml.autogen.code_utils import extract_code
 from flaml import oai
 
 
 def test_human_agent():
-    try:
-        import openai
-    except ImportError:
-        return
     from flaml.autogen.agent.chat_agent import ChatAgent
     from flaml.autogen.agent.human_agent import HumanAgent
 
