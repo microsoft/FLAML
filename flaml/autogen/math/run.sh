@@ -146,7 +146,7 @@
 
 # -------------------test on random sampled problems from the whole dataset-------------------
 # trial 36: PoT on random sampled problems
-python baselines/PoT.py --folder ./36 --sample_all 100
+python PoT.py --folder ./36 --sample_all 100
 
 # trial 37: v3.1python on random sampled problems
 python main.py -ptype v3.1python --folder ./37 --sample_all 100
@@ -157,17 +157,17 @@ python main.py -ptype v3.1python --folder ./37 --sample_all 100
 python main.py -ptype v3.1python --folder ./38 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 39: PoT on 50 level 5 problems per category
-python baselines/PoT.py --folder ./39 --categories 0 1 3 4 5 6 --samples_per_category 50
+python PoT.py --folder ./39 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 40: zeroshot on 50 level 5 problems per category
-python baselines/zeroshot.py --folder ./40 --categories 0 1 3 4 5 6 --samples_per_category 50
+python zeroshot.py --folder ./40 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # -------------------test on all level-5 problems from 6 categories-------------------
 # trial 41: PoT on all level-5 problems from 6 categories
-python baselines/PoT.py --folder ./41 --categories 0 1 3 4 5 6  --samples_per_category 400
+python PoT.py --folder ./41 --categories 0 1 3 4 5 6  --samples_per_category 400
 
 # trial 42: zeroshot on all level-5 problems from 6 categories
-python baselines/zeroshot.py --folder ./42 --categories 0 1 3 4 5 6 --samples_per_category 400
+python zeroshot.py --folder ./42 --categories 0 1 3 4 5 6 --samples_per_category 400
 
 # trial 43: v3.1 test on all level-5 problems from 6 categories
 python main.py -ptype v3.1python --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 400

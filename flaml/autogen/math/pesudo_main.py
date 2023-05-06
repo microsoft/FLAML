@@ -1,7 +1,7 @@
 import os
 from flaml import oai
-from flaml.autogen.math.math_voting import SelfConsistency
-from flaml.autogen.math.math_solver import MathSolver
+from math_voting import SelfConsistency
+from math_solver import MathSolver
 import argparse
 from utils import mylogger, load_level5_math_each_category, load_fixed, random_sample_MATH
 
@@ -37,7 +37,7 @@ def parse_args():
     return args
 
 
-def pseudo_main():
+def pseudo_main(config_list):
     # 2. args, settings and logger
     args = parse_args()
     args.model = "gpt-4"
@@ -85,6 +85,7 @@ def pseudo_main():
     # 4. solve
     if not args.voting:
         solver = MathSolver(
+            config_list=config_list,
             model=args.model,
             prompt_type=args.prompt_type,
             max_round=args.max_round,

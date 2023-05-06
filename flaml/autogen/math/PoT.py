@@ -13,7 +13,7 @@ import datasets
 
 # Caution: distinguish between the two types imports
 from flaml.autogen.math_utils import eval_math_responses, get_answer
-from flaml.autogen.math.utils import (
+from utils import (
     load_level5_math_each_category,
     math_type_mapping,
     write_json,
@@ -66,7 +66,7 @@ def solver():
     config = {
         "model": model,
         "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
+            # {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": full_prompt},
         ],
         "n": 1,
@@ -74,7 +74,7 @@ def solver():
     if max_tokens is not None:
         config["max_tokens"] = max_tokens
 
-    raw_responses = oai.ChatCompletion.create(None, **config, use_cache=True)
+    raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
     responses = oai.ChatCompletion.extract_text(raw_responses)
 
     # TODO: adapt for voting
@@ -90,7 +90,7 @@ def solver():
         else oai.ChatCompletion.price1K[model]
     )
     return {
-        "cost": oai.ChatCompletion.cost(model, raw_responses),
+        "cost": oai.ChatCompletion.cost(raw_responses),
         "prompt_cost": prompt_price * raw_responses["usage"]["prompt_tokens"] / 1000,
         "response_with_ans": response_with_ans,
         "program": program,
@@ -98,6 +98,40 @@ def solver():
 
 
 if __name__ == "__main__":
+    from azure.identity import DefaultAzureCredential
+
+    SCOPE = "https://ml.azure.com"
+    credential = DefaultAzureCredential()
+    token = credential.get_token(SCOPE).token
+    headers = {
+        "azureml-model-deployment": "gpt4",
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        **json.load(open("headers.json")),
+    }
+    config_list=[
+        {
+            "api_key": open("key.txt").read().strip(),
+            "api_type": "open_ai",
+            "api_base": "https://api.openai.com/v1",
+        },
+        {
+            "api_key": open("key_flaml.txt").read().strip(),
+            "api_type": "azure",
+            "api_base": open("base_flaml.txt").read().strip(),
+            "api_version": "2023-03-15-preview",
+        },
+        {
+            "api_key": open("key_gcr.txt").read().strip(),
+            "api_type": "azure",
+            "api_base": open("base_gcr.txt").read().strip(),
+            "api_version": "2023-03-15-preview",
+        },
+        {
+            "headers": headers,
+            "api_base": open("base_azure.txt").read().strip(),
+        },
+    ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
 
