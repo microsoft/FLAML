@@ -17,7 +17,7 @@ try:
         InvalidRequestError,
         APIConnectionError,
         Timeout,
-        AuthenticationError
+        AuthenticationError,
     )
     from openai import Completion as openai_Completion
     import diskcache
