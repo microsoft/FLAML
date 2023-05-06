@@ -27,7 +27,6 @@ class HumanAgent(Agent):
         # try to execute the code
         code, lang = extract_code(message)
         # no code block is found, lang should be "unknown"
-        print("lang: ", lang)
         if lang == "unknown":
             # to determine if the message is a termination message using a function
             terminate = self._is_termination_msg(message)
