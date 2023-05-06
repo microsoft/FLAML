@@ -31,6 +31,7 @@ class HumanAgent(Agent):
         if lang == "unknown":
             # to determine if the message is a termination message using a function
             terminate = self._is_termination_msg(message)
+            print("Please give feedback to the sender (press enter to skip): ")
             feedback = input()
             if feedback:
                 self._send(feedback, sender)
@@ -38,13 +39,14 @@ class HumanAgent(Agent):
                 return
             else:
                 self._send("Continue", sender)
-        elif lang == "bash":
-            assert code.startswith("python ")
-            file_name = code[len("python ") :]
-            exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
-            self._send(f"exitcode: {exitcode}\n{logs.decode('utf-8')}", sender)
-        elif lang == "python":
-            # TODO: is there such a case?
-            exitcode, logs = execute_code(code, work_dir=self._work_dir)
-            print(exitcode, logs)
+        else:
+            if lang == "bash":
+                assert code.startswith("python ")
+                file_name = code[len("python ") :]
+                exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
+            elif lang == "python":
+                exitcode, logs = execute_code(code, work_dir=self._work_dir)
+            else:
+                # TODO: could this happen?
+                raise NotImplementedError
             self._send(f"exitcode: {exitcode}\n{logs.decode('utf-8')}", sender)
