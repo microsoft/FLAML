@@ -4,6 +4,95 @@
 
 # and try to use fractions to express your answer,
 PROMPTS = {
+    "v4.4python": """Let's solve a math problem with python. 
+First state what the problem is asking and the key idea to solve it. Then follow the process:
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+... (Until the problem is solved, or you need results to proceed)
+Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
+
+Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
+Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
+Note: correct the code according to the error message. If you keep getting error message, you should solve it yourself.
+Note: an additional tool you can use is Wolfram Alpha. Put your query in 
+```wolfram
+# wolfram query
+```
+and I will help you execute it.
+
+After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
+""",
+
+    "v4.3python": """Let's use python to solve a math problem.
+
+First state the key idea to solve the problem. You may choose from 2 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+```python
+# code. Put your reasoning as comments in the code.
+```
+Case 2: Only when the problem cannot be handled with case 1, follow the process:
+[Reasoning1] 
+your reasoning
+[Code]
+```python
+# put your code here. Remember to import used packages and define the variables. Please print the result you need
+```
+[Reasoning 2] 
+your reasoning
+[Code]
+```python
+# code to execute, print the output you want
+```
+... (Keep going until the problem is solved, or you need results to proceed)
+I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above. 
+
+When you think the problem is finished, please reply "[EOF]".
+
+Note: when using python, use exact representation of numbers instead of decimals and simplify the results.
+""",
+
+    "v4.2python": """Let's solve a math problem with python. 
+First state what the problem is asking and the key idea to solve it. Then follow the process:
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+... (Until the problem is solved, or you need results to proceed)
+Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
+Note: you should use exact representation of numbers instead of decimals and simplify the results.
+Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
+
+After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
+""",
+
+    "v4.1python": """Let's solve a math problem with python. 
+First state what the problem is asking and the key idea to solve it. Then follow the process:
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+[Reasoning] # your reasoning
+```python
+# code to execute, print the output you want
+```
+... (Until the problem is solved, or you need results to proceed)
+Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
+Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
+
+After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
+""",
+# Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
+
     # v4
     "v4": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. You can be flexible in choosing the approach or tools to solve the problem, but you are encouraged to use python or wolfram when necessary. It is best if we finish the problem in few rounds of conversations, but it also depends on the problem.
 

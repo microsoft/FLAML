@@ -166,8 +166,9 @@ if __name__ == "__main__":
         logger.log("-----------------------------------")
         os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)
 
+    total_num_problem = sum([len(problem_set) for problem_set in problem_sets])
     logger.log(
-        f"Total accuracy: {aggre_correct}/{(len(problem_sets) * len(problem_sets[0]))}={round(aggre_correct / (len(problem_sets) * len(problem_sets[0])), 4)}",
+        f"Total accuracy: {aggre_correct}/{total_num_problem}={round(aggre_correct / total_num_problem, 4)}",
     )
     logger.log("****************************\n\n\n\n")
     os.system("tar -czf " + args.folder + ".tar.gz " + args.folder)

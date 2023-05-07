@@ -28,7 +28,7 @@ def parse_args():
     args = parser.parse_args()
     args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
     if args.seed != 41:
-        args.seed = args.seed + "_seed" + str(args.seed)
+        args.folder = args.folder + "_seed" + str(args.seed)
     if args.refine:
         args.folder = args.folder.replace("_t" + str(args.temperature), "_refine_t" + str(args.temperature))
     if args.sample_all != 0:
@@ -72,13 +72,16 @@ def pseudo_main():
 
     # v3
     selected_samples = {
-        # "Algebra": [2, 5, 6, 9, 10, 13, 14, 17], # [1, 8] wrong, 9-10 out of 10 correct
+        "Algebra": [0, 1, 2, 4, 5, 6, 9, 10, 13, 16, 17], # [8] wrong,  # 8 correct
+        # "Algebra": [1,2,4,13],
+        # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
+
         # "Algebra": [2, 5, 13],
-        "Counting & Probability": [0, 1, 7, 11, 12, 15],
-        "Geometry": [],
-        # "Intermediate Algebra": [7, 11],
-        "Number Theory": [4, 6, 7, 9, 10, 11, 16, 17],  # number, assume 11 correct 6,
-        "Prealgebra": [4, 8, 10, 15],
+        # "Counting & Probability": [0, 1, 7, 11, 12, 15],
+        # "Geometry": [],
+        # # "Intermediate Algebra": [7, 11],
+        "Number Theory": [4, 6, 7, 11, 12],  # assume 3,9,18wrong,  12 correct
+        # "Prealgebra": [4, 8, 10, 15],
         "Precalculus": [],
     }
 

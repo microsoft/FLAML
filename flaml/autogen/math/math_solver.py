@@ -108,6 +108,17 @@ class MathSolver:
             total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
             tmp_msg = ""
+            if "[EOF]" in responses[0] or "EOF" in responses[0]:
+                _, is_query_exist = query_handler.check_queries(responses[0])
+                if not is_query_exist:
+                    end_message = "Now that we have solved the problem, please conclude with this sentence: \"Since the problem is asking for ..., the answer is \\boxed{...}.\" Be cautious what the problem is asking and in what format the answer should be, and put that answer in box."
+                    config["messages"].append({"role": "user", "content": end_message})
+                    save_message_to_file(
+                        "user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line)
+                    )
+                    continue
+                tmp_msg = "\nAbove is the returned results. If the problem is solved, conclude with this sentence: \"Since the problem is asking for ..., the answer is \\boxed{...}.\" Be cautious what the problem is asking and in what format the answer should be, and put that answer in box."
+
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
                 tmp_msg, is_query_exist = query_handler.check_queries(responses[0])
                 if not is_query_exist:
@@ -137,7 +148,8 @@ class MathSolver:
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
-
+            if "v4." in self.prompt_type and "Continue" in query_response: # to avoid changing queryhandler for python v4, change response here
+                query_response = "Continue. (If you think the problem is finished, please reply \"[EOF]\")"
             query_response += tmp_msg  # add the query response from the previous step
             config["messages"].append({"role": "user", "content": query_response})
 
