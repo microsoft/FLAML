@@ -1,4 +1,4 @@
-from flaml.autogen.math.query_handler import QueryHandler
+from query_handler import QueryHandler
 from flaml.autogen.math_utils import eval_math_responses, get_answer
 from flaml import oai
 import os
@@ -23,6 +23,7 @@ class MathSolver:
         logger=None,
         use_cache=True,
         refine=False,
+        config_list=None,
     ):
         self.max_round = max_round
         if prompt_type not in PROMPTS:
@@ -37,7 +38,9 @@ class MathSolver:
         messages = (
             [{"role": "system", "content": self.prompt}]
             if prompt_location == "system"
-            else [{"role": "system", "content": "You are a helpful assistant."}]
+            else [
+                # {"role": "system", "content": "You are a helpful assistant."}
+            ]
         )
         self.deafult_config = {
             "model": model,
@@ -49,6 +52,7 @@ class MathSolver:
         self.max_invalid_q_per_step = max_invalid_q_per_step
         self.use_cache = use_cache
         self.logger = logger
+        self.config_list=config_list
 
     def make_conversation(self, problem, n=1, file_to_be_saved=None):
         # initialize the query handler
@@ -90,7 +94,7 @@ class MathSolver:
         while rr < self.max_round:
             # 1. get the response from the assistant, handle exceptions
             try:
-                raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
+                raw_responses = oai.ChatCompletion.create(config_list=self.config_list, **config, use_cache=self.use_cache)
             except InvalidRequestError as e:
                 print(problem["type"], problem["problem_id"], str(e), flush=True)
                 save_message_to_file(str(e))
@@ -105,7 +109,7 @@ class MathSolver:
             # 2. process response
             save_message_to_file(f"assistant: {self.str_splitter(responses[0])}{seperate_line}")
             # token_used = raw_responses['usage']['total_tokens']
-            total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
+            total_cost += oai.ChatCompletion.cost(raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
             tmp_msg = ""
             if "[EOF]" in responses[0] or "EOF" in responses[0]:
