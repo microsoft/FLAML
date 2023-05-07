@@ -8,9 +8,10 @@ class HumanAgent(Agent):
     DEFAULT_SYSTEM_MESSAGE = """You are human agent. You can execute_code or give feedback to the sender.
     """
 
-    def __init__(self, name, system_message="", work_dir=None, **context):
+    def __init__(self, name, system_message="", work_dir=None, interactive_mode=True, **context):
         super().__init__(name, system_message)
         self._work_dir = work_dir
+        self._interactive_mode = interactive_mode
         self._context = context
 
     def _is_termination_msg(self, message):
@@ -29,15 +30,13 @@ class HumanAgent(Agent):
         # no code block is found, lang should be "unknown"
         if lang == "unknown":
             # to determine if the message is a termination message using a function
-            terminate = self._is_termination_msg(message)
-            print("Please give feedback to the sender (press enter to skip): ")
-            feedback = input()
+            feedback = (
+                input("Please give feedback to the sender (press enter to skip): ") if self._interactive_mode else ""
+            )
             if feedback:
                 self._send(feedback, sender)
-            elif terminate:
+            elif self._is_termination_msg(message):
                 return
-            else:
-                self._send("Continue", sender)
         else:
             if lang == "bash":
                 assert code.startswith("python ")

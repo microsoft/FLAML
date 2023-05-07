@@ -6,18 +6,18 @@ def test_extract_code():
     print(extract_code("```bash\npython temp.py\n```"))
 
 
-def test_coding_agent():
+def test_coding_agent(interactive_mode=False):
     try:
         import openai
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.agent import Agent
+    from flaml.autogen.agent.human_agent import HumanAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     agent = PythonAgent("coding_agent")
-    user = Agent("user")
+    user = HumanAgent("user", interactive_mode=interactive_mode)
     agent.receive(
         """Create a temp.py file with the following content:
 ```
@@ -32,13 +32,13 @@ print('Hello world!')
     oai.ChatCompletion.stop_logging()
 
 
-def test_tsp():
+def test_tsp(interactive_mode=False):
     try:
         import openai
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.agent import Agent
+    from flaml.autogen.agent.human_agent import HumanAgent
 
     hard_questions = [
         "What if we must go from node 1 to node 2?",
@@ -47,8 +47,8 @@ def test_tsp():
     ]
 
     oai.ChatCompletion.start_logging()
-    agent = PythonAgent("coding_agent", work_dir="test/autogen", temperature=0)
-    user = Agent("user")
+    agent = PythonAgent("coding_agent", temperature=0)
+    user = HumanAgent("user", work_dir="test/autogen", interactive_mode=interactive_mode)
     with open("test/autogen/tsp_prompt.txt", "r") as f:
         prompt = f.read()
     # agent.receive(prompt.format(question=hard_questions[0]), user)
@@ -68,5 +68,5 @@ if __name__ == "__main__":
     # openai.api_version = "2023-03-15-preview"  # change if necessary
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
-    test_coding_agent()
-    test_tsp()
+    test_coding_agent(interactive_mode=True)
+    test_tsp(interactive_mode=True)
