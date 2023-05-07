@@ -68,7 +68,7 @@ class QueryHandler:
                     #     self.consecutive_continue = 0
                     #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
                     return (
-                        "Continue. Please keep solving the problem until you need to query.  (If you already have the answer, put it in \\boxed{}.)",
+                        "Continue. Remember you can use python to help you. (If you already have the answer, put it in \\boxed{}.)",
                         True,
                     )
 

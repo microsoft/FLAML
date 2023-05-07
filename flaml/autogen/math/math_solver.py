@@ -39,7 +39,11 @@ class MathSolver:
             [{"role": "system", "content": self.prompt}]
             if prompt_location == "system"
             else [
-                # {"role": "system", "content": "You are a helpful assistant."}
+                # {"role": "system", "content": "You are a helpful assistant."} # vanilla system message
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that help user solve math problems. You will follow the user's instruction to solve the problem.",
+                }
             ]
         )
         self.deafult_config = {
@@ -52,7 +56,7 @@ class MathSolver:
         self.max_invalid_q_per_step = max_invalid_q_per_step
         self.use_cache = use_cache
         self.logger = logger
-        self.config_list=config_list
+        self.config_list = config_list
 
     def make_conversation(self, problem, n=1, file_to_be_saved=None):
         # initialize the query handler
@@ -94,7 +98,12 @@ class MathSolver:
         while rr < self.max_round:
             # 1. get the response from the assistant, handle exceptions
             try:
-                raw_responses = oai.ChatCompletion.create(config_list=self.config_list, **config, use_cache=self.use_cache)
+                if self.config_list is not None:
+                    raw_responses = oai.ChatCompletion.create(
+                        config_list=self.config_list, **config, use_cache=self.use_cache
+                    )
+                else:
+                    raw_responses = oai.ChatCompletion.create(None, **config, use_cache=self.use_cache)
             except InvalidRequestError as e:
                 print(problem["type"], problem["problem_id"], str(e), flush=True)
                 save_message_to_file(str(e))
@@ -109,19 +118,24 @@ class MathSolver:
             # 2. process response
             save_message_to_file(f"assistant: {self.str_splitter(responses[0])}{seperate_line}")
             # token_used = raw_responses['usage']['total_tokens']
-            total_cost += oai.ChatCompletion.cost(raw_responses)
+            try:
+                total_cost += oai.ChatCompletion.cost(raw_responses)
+            except TypeError:
+                total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
             tmp_msg = ""
             if "[EOF]" in responses[0] or "EOF" in responses[0]:
                 _, is_query_exist = query_handler.check_queries(responses[0])
                 if not is_query_exist:
-                    end_message = "Now that we have solved the problem, please conclude with this sentence: \"Since the problem is asking for ..., the answer is \\boxed{...}.\" Be cautious what the problem is asking and in what format the answer should be, and put that answer in box."
+                    if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
+                        response_with_ans = responses[0]
+                        response_with_new_ans = responses[0]
+                        break
+                    end_message = 'Now that we have solved the problem, please revisit the problem to make sure you didn\'t miss anything from the problem. If you think you have solved it, please conclude with "The answer is \\boxed{...}."'
                     config["messages"].append({"role": "user", "content": end_message})
-                    save_message_to_file(
-                        "user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line)
-                    )
+                    save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
                     continue
-                tmp_msg = "\nAbove is the returned results. If the problem is solved, conclude with this sentence: \"Since the problem is asking for ..., the answer is \\boxed{...}.\" Be cautious what the problem is asking and in what format the answer should be, and put that answer in box."
+                tmp_msg = '\nAbove is the returned results. If the problem is solved, please revisit the problem to make sure you didn\'t miss anything from the problem. If you think you have solved it, please conclude with "The answer is \\boxed{...}."'
 
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
                 tmp_msg, is_query_exist = query_handler.check_queries(responses[0])
@@ -152,8 +166,10 @@ class MathSolver:
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
-            if "v4." in self.prompt_type and "Continue" in query_response: # to avoid changing queryhandler for python v4, change response here
-                query_response = "Continue. (If you think the problem is finished, please reply \"[EOF]\")"
+            if (
+                "v4." in self.prompt_type and "Continue" in query_response
+            ):  # to avoid changing queryhandler for python v4, change response here
+                query_response = 'Continue. (If you think the problem is finished, please reply "[EOF]")'
             query_response += tmp_msg  # add the query response from the previous step
             config["messages"].append({"role": "user", "content": query_response})
 

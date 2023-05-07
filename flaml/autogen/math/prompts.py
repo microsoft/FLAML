@@ -4,7 +4,27 @@
 
 # and try to use fractions to express your answer,
 PROMPTS = {
-    "v4.4python": """Let's solve a math problem with python. 
+    "v4.5python": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow the formats below to write your code (otherwise it will not be recognized):
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    "v4.4python": """Let's solve a math problem with python.
 First state what the problem is asking and the key idea to solve it. Then follow the process:
 [Reasoning] # your reasoning
 ```python
@@ -20,7 +40,7 @@ Then I will help you execute the code and give you the results. If you need to k
 Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
 Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
 Note: correct the code according to the error message. If you keep getting error message, you should solve it yourself.
-Note: an additional tool you can use is Wolfram Alpha. Put your query in 
+Note: an additional tool you can use is Wolfram Alpha. Put your query in
 ```wolfram
 # wolfram query
 ```
@@ -28,7 +48,6 @@ and I will help you execute it.
 
 After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
 """,
-
     "v4.3python": """Let's use python to solve a math problem.
 
 First state the key idea to solve the problem. You may choose from 2 ways to solve the problem:
@@ -36,28 +55,27 @@ Case 1: If possible, write a program to directly solve it. If the problem involv
 ```python
 # code. Put your reasoning as comments in the code.
 ```
-Case 2: Only when the problem cannot be handled with case 1, follow the process:
-[Reasoning1] 
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+[Reasoning1]
 your reasoning
 [Code]
 ```python
 # put your code here. Remember to import used packages and define the variables. Please print the result you need
 ```
-[Reasoning 2] 
+[Reasoning 2]
 your reasoning
 [Code]
 ```python
 # code to execute, print the output you want
 ```
 ... (Keep going until the problem is solved, or you need results to proceed)
-I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above. 
-
+I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
 When you think the problem is finished, please reply "[EOF]".
 
 Note: when using python, use exact representation of numbers instead of decimals and simplify the results.
 """,
-
-    "v4.2python": """Let's solve a math problem with python. 
+    "v4.2python": """Let's solve a math problem with python.
 First state what the problem is asking and the key idea to solve it. Then follow the process:
 [Reasoning] # your reasoning
 ```python
@@ -74,8 +92,7 @@ Note: python is optional but recommended. You can directly solve the problem wit
 
 After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
 """,
-
-    "v4.1python": """Let's solve a math problem with python. 
+    "v4.1python": """Let's solve a math problem with python.
 First state what the problem is asking and the key idea to solve it. Then follow the process:
 [Reasoning] # your reasoning
 ```python
@@ -91,8 +108,7 @@ Note: you should use exact representation of numbers instead of decimals and sim
 
 After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
 """,
-# Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
-
+    # Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
     # v4
     "v4": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. You can be flexible in choosing the approach or tools to solve the problem, but you are encouraged to use python or wolfram when necessary. It is best if we finish the problem in few rounds of conversations, but it also depends on the problem.
 
@@ -184,24 +200,29 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
 ```
 
 First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 1: If possible, write one program to directly solve it (include your reasoning as comments). If the problem involves enumerations, try to write a loop to iterate over all situations.
 Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 3: If the problem cannot be handled with the two ways above, please solve the problem step by step. **Keep solving the problem. Only stop when you have queries and need to be executed.**
-1. Output one step or several steps. (Do not overdivide the steps)
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). Follow your own reasoning and query when necessary.
-3. Wait for me to run the queries and return the results.
-4. Correct this step based on the results, or give a new query if the results are invalid.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
     # You should solve the problem and get to the answer directly if the problem only involve simple calculations or is mostly reasoning,
     # You should always use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy).
-    "v3.2python": """Let's use python to solve a math problem. You must use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy). Follow this format to write your code:
+    "v3.2python": """Let's use python to solve a math problem.
+
+Query requirements for python:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow the formats below to write your code:
 ```python
 # your code
 ```
+When writing code, include your reasoning in the comments.
 
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+First state the key idea to solve the problem then choose from 3 ways to solve the problem:
 Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
 Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
 Case 3: If the problem cannot be handled with the two ways above, please follow this process:

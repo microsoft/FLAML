@@ -109,7 +109,7 @@ if __name__ == "__main__":
         "Content-Type": "application/json",
         **json.load(open("headers.json")),
     }
-    config_list=[
+    config_list = [
         {
             "api_key": open("key.txt").read().strip(),
             "api_type": "open_ai",
