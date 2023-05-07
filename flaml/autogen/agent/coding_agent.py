@@ -1,16 +1,16 @@
 from .agent import Agent
-from .execution_agent import ExecutionAgent
-from flaml.autogen.code_utils import generate_code, DEFAULT_MODEL
+from flaml.autogen.code_utils import DEFAULT_MODEL
 from flaml import oai
 
 
 class PythonAgent(Agent):
     """(Experimental) Suggest code blocks."""
 
-    DEFAULT_SYSTEM_MESSAGE = """You are a coding agent. You suggest python code for a user to execute for a given task. Don't suggest shell command. Output the code in a coding block. Check the execution result. The execution result is in the following format:
+    DEFAULT_SYSTEM_MESSAGE = """You suggest python code (in a python coding block) for a user to execute for a given task. Don't suggest shell command. Use 'print' function for the output when relevant. Check the execution result. The execution result is in the following format:
 exitcode: <exitcode>
 <output>
-    If the result indicates there is an error, fix the error and output the code again. If you don't intend for the user to execute the code, do not use a coding block.
+    If the result indicates there is an error, fix the error and output the code again.
+    Reply "TERMINATE" in the end when the task is done.
     """
 
     DEFAULT_CONFIG = {
@@ -55,3 +55,7 @@ exitcode: <exitcode>
         # # send the response to the execution agent
         # self._send(response, execution_agent)
         self._send(response, sender)
+
+    def reset(self):
+        self._sender_dict.clear()
+        self._conversations.clear()

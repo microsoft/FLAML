@@ -16,8 +16,21 @@ def test_coding_agent(interactive_mode=False):
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
-    agent = PythonAgent("coding_agent")
-    user = HumanAgent("user", interactive_mode=interactive_mode)
+    agent = PythonAgent("coding_agent", request_timeout=600, seed=42)
+    user = HumanAgent(
+        "user", interactive_mode=interactive_mode, is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE")
+    )
+    #     agent.receive("""Find $a+b+c$, given that $x+y\\neq -1$ and  \\begin{align*}
+    # ax+by+c&=x+7,\\\\
+    # a+bx+cy&=2x+6y,\\\\
+    # ay+b+cx&=4x+y.
+    # \end{align*}
+    # Solve the problem smartly.""", user)
+    #     agent.reset()
+    #     agent.receive("""Let $a_1,a_2,a_3,\\dots$ be an arithmetic sequence. If $\\frac{a_4}{a_2} = 3$, what is $\\frac{a_5}{a_3}$? Solve the problem smartly.""", user)
+    #     agent.reset()
+    #     agent.receive("""The product of the first and the third terms of an arithmetic sequence is $5$. If all terms of the sequence are positive integers, what is the fourth term? Solve the problem smartly.""", user)
+    agent.reset()
     agent.receive(
         """Create a temp.py file with the following content:
 ```
@@ -68,5 +81,5 @@ if __name__ == "__main__":
     # openai.api_version = "2023-03-15-preview"  # change if necessary
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
-    test_coding_agent(interactive_mode=True)
-    test_tsp(interactive_mode=True)
+    test_coding_agent(interactive_mode="TERMINATE")
+    # test_tsp(interactive_mode=True)
