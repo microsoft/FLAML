@@ -63,5 +63,7 @@ class HumanProxyAgent(Agent):
                 exitcode, logs = execute_code(code, work_dir=self._work_dir)
             else:
                 # TODO: could this happen?
+                exitcode = 1
                 raise NotImplementedError
-            self._send(f"exitcode: {exitcode}\n{logs.decode('utf-8')}", sender)
+            exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
+            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs.decode('utf-8')}", sender)
