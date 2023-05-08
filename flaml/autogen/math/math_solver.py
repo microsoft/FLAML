@@ -16,6 +16,7 @@ class MathSolver:
         model,
         prompt_type="select",
         prompt_location="user",
+        sys_type="s1",
         max_round=10,
         max_invalid_q_per_step=3,
         n=1,
@@ -35,6 +36,12 @@ class MathSolver:
         self.refine = refine
 
         # if the prompt_location is set to system, then the prompt is put in the system message
+        self.sys_type = sys_type
+        sys_choices = {
+            "s0": "You are a helpful assistant.",
+            "s1": "You are a helpful assistant that help user solve math problems. You will follow the user's instruction to solve the problem.",
+            "s2": "You are a helpful assistant that help user solve math problems. You are good at using the most effective and accurate way to solve math problems. You will follow the user's instruction to solve the problem.",
+        }
         messages = (
             [{"role": "system", "content": self.prompt}]
             if prompt_location == "system"
@@ -42,7 +49,7 @@ class MathSolver:
                 # {"role": "system", "content": "You are a helpful assistant."} # vanilla system message
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant that help user solve math problems. You will follow the user's instruction to solve the problem.",
+                    "content": sys_choices[sys_type],
                 }
             ]
         )
@@ -170,7 +177,8 @@ class MathSolver:
                 "v4." in self.prompt_type and "Continue" in query_response
             ):  # to avoid changing queryhandler for python v4, change response here
                 query_response = 'Continue. (If you think the problem is finished, please reply "[EOF]")'
-            query_response += tmp_msg  # add the query response from the previous step
+            if is_query_sucess:
+                query_response += tmp_msg  # add the query response from the previous step
             config["messages"].append({"role": "user", "content": query_response})
 
             invalid_q = 0 if is_query_sucess else invalid_q + 1

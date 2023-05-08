@@ -156,28 +156,39 @@
 # python main.py -ptype v3.1python --folder ./38 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 39: v3.1 with a different system message
-python main.py -ptype v3.1python --folder ./39s1 --sample_all 100
+# python main.py -ptype v3.1python --folder ./39s1 --sample_all 100
 
-# trial 40: v3.2
-python main.py -ptype v3.2python --folder ./40s1 --sample_all 100
+# # trial 40: v3.2
+# python main.py -ptype v3.2python --folder ./40s1 --sample_all 100
 
-# trial 41: v4.2
-python main.py -ptype v4.2python --folder ./41s1 --sample_all 100
+# # trial 41: v4.2
+# python main.py -ptype v4.2python --folder ./41s1 --sample_all 100
 
-# trial 42: v3.1 with a different system message on 20 level5 problems
-python main.py -ptype v3.1python --folder ./42s1 --categories 0 1 4 5
-
+# # trial 42: v3.1 with a different system message on 20 level5 problems
+# python main.py -ptype v3.1python --folder ./42s1 --categories 0 1 4 5
 
 
 
 # -------------------test on 50 level 5 problems per category for 6 categories-------------------
 # trial 43: PoT on 50 level 5 problems per category
-python PoT.py --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 50
+# python PoT.py --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# trial 47: v4.2 with a different system message on 20 level5 problems
+python pnas.py --folder ./47 --sample_all 100
+
+# trial 48: v4.2 with a different system message on 20 level5 problems
+python main.py -ptype v4.2python --folder ./48 --categories 0 1 4 5
+
+# trial 49: v4.2 with s2 system
+python main.py -ptype v4.2python -systype s2 --folder ./49 --categories 0 1 4 5
+
+# trial 50: v4.2 with s2 system
+python main.py -ptype v4.2python -systype s2 --folder ./50 --categories 0 1 4 5
+
 
 # trial 44: zeroshot on 50 level 5 problems per category
 python zeroshot.py --folder ./44 --categories 0 1 3 4 5 6 --samples_per_category 50
 
-# -------------------test on all level-5 problems from 6 categories-------------------
 # trial 45: PoT on all level-5 problems from 6 categories
 python PoT.py --folder ./45 --categories 0 1 3 4 5 6  --samples_per_category 400
 

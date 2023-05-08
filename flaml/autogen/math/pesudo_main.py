@@ -21,12 +21,15 @@ def parse_args():
     parser.add_argument("--select", action="store_true")
     parser.add_argument("--refine", action="store_true")
     parser.add_argument("--sample_all", help="samples per category", default=0, type=int)
+    parser.add_argument("-systype", dest="systype", help="system type", default="s1", type=str)
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)
     parser.add_argument("--voting", action="store_true")
     args = parser.parse_args()
-    args.folder = args.folder + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
+    args.folder = (
+        args.folder + args.systype + "_" + args.prompt_location + "_" + args.prompt_type + "_t" + str(args.temperature)
+    )
     if args.seed != 41:
         args.folder = args.folder + "_seed" + str(args.seed)
     if args.refine:
@@ -72,15 +75,14 @@ def pseudo_main(config_list):
 
     # v3
     selected_samples = {
-        "Algebra": [0, 1, 2, 4, 5, 6, 9, 10, 13, 16, 17], # [8] wrong,  # 8 correct
+        "Algebra": [0, 2, 5, 13],  # [8] wrong,  # 8 correct
         # "Algebra": [1,2,4,13],
         # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
-
         # "Algebra": [2, 5, 13],
         # "Counting & Probability": [0, 1, 7, 11, 12, 15],
         # "Geometry": [],
         # # "Intermediate Algebra": [7, 11],
-        "Number Theory": [4, 6, 7, 11, 12],  # assume 3,9,18wrong,  12 correct
+        # "Number Theory": [4, 6, 7, 11, 12],  # assume 3,9,18wrong,  12 correct
         # "Prealgebra": [4, 8, 10, 15],
         "Precalculus": [],
     }
@@ -91,6 +93,7 @@ def pseudo_main(config_list):
             config_list=config_list,
             model=args.model,
             prompt_type=args.prompt_type,
+            sys_type=args.systype,
             max_round=args.max_round,
             temperature=args.temperature,
             prompt_location=args.prompt_location,
