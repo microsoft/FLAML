@@ -7,12 +7,12 @@ def test_human_agent():
     except ImportError:
         return
     from flaml.autogen.agent.chat_agent import ChatAgent
-    from flaml.autogen.agent.human_agent import HumanAgent
+    from flaml.autogen.agent.human_proxy_agent import HumanProxyAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     agent = ChatAgent("chat_agent")
-    user = HumanAgent("human_user")
+    user = HumanProxyAgent("human_user")
     agent.receive(
         """Write python code to solve the equation x^3=125. You must write code in the following format. You must always print the result.
         Wait for me to return the result.

@@ -8,6 +8,11 @@ class Agent:
     """
 
     def __init__(self, name, system_message=""):
+        """
+        Args:
+            name (str): name of the agent
+            system_message (str): system message to be sent to the agent
+        """
         # empty memory
         self._memory = []
         # a dictionary of conversations, default value is list
