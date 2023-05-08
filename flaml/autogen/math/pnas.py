@@ -52,7 +52,7 @@ def pnas_solve(model, problem, max_tokens=None):
     context_array = ['write a python program', 'using sympy', 'using simulations']
     prompt_prefix = 'that answers the following question:'
     codex_input = docstring_front + context_array[0] + ' ' + prompt_prefix + ' ' + problem + docstring_back
-    print(codex_input)
+    # print(codex_input)
     config = {
         "model": model,
         "messages": [
@@ -69,7 +69,7 @@ def pnas_solve(model, problem, max_tokens=None):
     else:
         raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
     responses = oai.ChatCompletion.extract_text(raw_responses)
-    print(responses[0])
+    # print(responses[0])
 
     handler = QueryHandler()
     query_response, is_query_sucess = handler.handle_query(responses[0])
