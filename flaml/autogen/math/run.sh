@@ -168,7 +168,6 @@
 # python main.py -ptype v3.1python --folder ./42s1 --categories 0 1 4 5
 
 
-
 # -------------------test on 50 level 5 problems per category for 6 categories-------------------
 # trial 43: PoT on 50 level 5 problems per category
 # python PoT.py --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 50
@@ -180,7 +179,7 @@ python pnas.py --folder ./47 --sample_all 100
 python main.py -ptype v4.2python --folder ./48 --categories 0 1 4 5
 
 # trial 49: v4.2 with s2 system
-python main.py -ptype v4.2python -systype s2 --folder ./49 --categories 0 1 4 5
+python main.py -ptype v3.1python -systype s2 --folder ./49 --categories 0 1 4 5
 
 # trial 50: v4.2 with s2 system
 python main.py -ptype v4.2python -systype s2 --folder ./50 --categories 0 1 4 5
