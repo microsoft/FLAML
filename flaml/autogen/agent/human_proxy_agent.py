@@ -41,14 +41,19 @@ class HumanProxyAgent(Agent):
         # to determine if the message is a termination message using a function
         terminate = self._is_termination_msg(message)
         feedback = (
-            input("Please give feedback to the sender (press enter to skip): ")
+            input("Please give feedback to the sender (press enter to skip and type exit to exit): ")
             if self._human_input_mode == "ALWAYS" or terminate and self._human_input_mode == "TERMINATE"
             else ""
         )
-        if feedback:
-            self._send(feedback, sender)
-        elif terminate:
+        print("feedback: ", feedback, "\n")
+        if terminate or feedback == "exit":
             return
+        elif feedback:
+            self._send(feedback, sender)
+        # if feedback:
+        #     self._send(feedback, sender)
+        # elif terminate:
+        #     return
         # try to execute the code
         code, lang = extract_code(message)
         if lang == "unknown":
