@@ -6,9 +6,7 @@ from flaml import oai
 class PythonAgent(Agent):
     """(Experimental) Suggest code blocks."""
 
-    DEFAULT_SYSTEM_MESSAGE = """You suggest python code (in a python coding block) for a user to execute for a given task. Don't suggest shell command. Use 'print' function for the output when relevant. Check the execution result. The execution result is in the following format:
-exitcode: <exitcode>
-<output>
+    DEFAULT_SYSTEM_MESSAGE = """You suggest python code (in a python coding block) for a user to execute for a given task. Finish the task smartly. Don't suggest shell command. Use 'print' function for the output when relevant. Check the execution result returned by the user.
     If the result indicates there is an error, fix the error and output the code again.
     Reply "TERMINATE" in the end when the task is done.
     """
