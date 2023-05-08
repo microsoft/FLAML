@@ -7,7 +7,7 @@ def test_human_agent():
     except ImportError:
         return
     from flaml.autogen.agent.chat_agent import ChatAgent
-    from flaml.autogen.agent.human_agent import HumanProxyAgent
+    from flaml.autogen.agent.human_proxy_agent import HumanProxyAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)

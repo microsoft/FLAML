@@ -9,11 +9,25 @@ class HumanProxyAgent(Agent):
     """
 
     def __init__(
-        self, name, system_message="", work_dir=None, interactive_mode=True, is_termination_msg=None, **config
+        self, name, system_message="", work_dir=None, human_input_mode="ALWAYS", is_termination_msg=None, **config
     ):
+        """
+        Args:
+            name (str): name of the agent
+            system_message (str): system message to be sent to the agent
+            work_dir (str): working directory for the agent to execute code
+            human_input_mode (bool): whether to ask for human inputs every time a message is received.
+                Possible values are "ALWAYS", "TERMINATE", "NEVER".
+                When "ALWAYS", the agent will ask for human input every time a message is received.
+                When "TERMINATE", the agent will ask for human input only when a termination message is received.
+                When "NEVER", the agent will never ask for human input.
+            is_termination_msg (function): a function that takes a message and returns a boolean value.
+                This function is used to determine if a received message is a termination message.
+            config (dict): other configurations.
+        """
         super().__init__(name, system_message)
         self._work_dir = work_dir
-        self._interactive_mode = interactive_mode
+        self._human_input_mode = human_input_mode
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x == "TERMINATE")
         )
@@ -28,7 +42,7 @@ class HumanProxyAgent(Agent):
         terminate = self._is_termination_msg(message)
         feedback = (
             input("Please give feedback to the sender (press enter to skip): ")
-            if self._interactive_mode == "ALWAYS" or terminate and self._interactive_mode == "TERMINATE"
+            if self._human_input_mode == "ALWAYS" or terminate and self._human_input_mode == "TERMINATE"
             else ""
         )
         if feedback:

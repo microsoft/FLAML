@@ -14,6 +14,13 @@ class ChatAgent(Agent):
     }
 
     def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, work_dir=None, **config):
+        """
+        Args:
+            name (str): agent name
+            system_message (str): system message to be sent to the agent
+            work_dir (str): working directory for the agent to execute code
+            config (dict): other configurations.
+        """
         super().__init__(name, system_message)
         self._work_dir = work_dir
         self._config = self.DEFAULT_CONFIG.copy()
