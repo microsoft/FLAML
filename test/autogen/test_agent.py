@@ -12,12 +12,12 @@ def test_coding_agent(interactive_mode=False):
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.human_agent import HumanAgent
+    from flaml.autogen.agent.human_agent import HumanProxyAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     agent = PythonAgent("coding_agent", request_timeout=600, seed=42)
-    user = HumanAgent(
+    user = HumanProxyAgent(
         "user", interactive_mode=interactive_mode, is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE")
     )
     #     agent.receive("""Find $a+b+c$, given that $x+y\\neq -1$ and  \\begin{align*}
@@ -51,7 +51,7 @@ def test_tsp(interactive_mode=False):
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.human_agent import HumanAgent
+    from flaml.autogen.agent.human_agent import HumanProxyAgent
 
     hard_questions = [
         "What if we must go from node 1 to node 2?",
@@ -61,7 +61,7 @@ def test_tsp(interactive_mode=False):
 
     oai.ChatCompletion.start_logging()
     agent = PythonAgent("coding_agent", temperature=0)
-    user = HumanAgent("user", work_dir="test/autogen", interactive_mode=interactive_mode)
+    user = HumanProxyAgent("user", work_dir="test/autogen", interactive_mode=interactive_mode)
     with open("test/autogen/tsp_prompt.txt", "r") as f:
         prompt = f.read()
     # agent.receive(prompt.format(question=hard_questions[0]), user)

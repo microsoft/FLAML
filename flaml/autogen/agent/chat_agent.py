@@ -4,7 +4,7 @@ from flaml import oai
 
 
 class ChatAgent(Agent):
-    """Chat."""
+    """(Experimental) Chat."""
 
     DEFAULT_SYSTEM_MESSAGE = """You are a chat agent.
     """

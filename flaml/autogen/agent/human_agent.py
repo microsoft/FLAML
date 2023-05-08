@@ -2,8 +2,8 @@ from .agent import Agent
 from flaml.autogen.code_utils import extract_code, execute_code
 
 
-class HumanAgent(Agent):
-    """A proxy agent for human, that can execute code and provide feedback to the other agents."""
+class HumanProxyAgent(Agent):
+    """(Experimental) A proxy agent for human, that can execute code and provide feedback to the other agents."""
 
     DEFAULT_SYSTEM_MESSAGE = """You are human agent. You can execute_code or give feedback to the sender.
     """
