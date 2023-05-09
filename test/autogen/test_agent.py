@@ -91,4 +91,4 @@ if __name__ == "__main__":
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
     test_coding_agent(human_input_mode="TERMINATE")
-    test_tsp(human_input_mode="NEVER", max_turn_num=3)
+    test_tsp(human_input_mode="NEVER", max_turn_num=2)
