@@ -37,10 +37,10 @@ if __name__ == "__main__":
             "api_base": open("base_gcr.txt").read().strip(),
             "api_version": "2023-03-15-preview",
         },
-        {
-            "headers": headers,
-            "api_base": open("base_azure.txt").read().strip(),
-        },
+        # {
+        #     "headers": headers,
+        #     "api_base": open("base_azure.txt").read().strip(),
+        # },
     ]
     os.environ["WOLFRAM_ALPHA_APPID"] = open("wolfram.txt").read().strip()
     oai.retry_timeout = 3600
