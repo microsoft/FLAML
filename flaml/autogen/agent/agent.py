@@ -3,8 +3,8 @@ from collections import defaultdict
 
 class Agent:
     """(Experimental) An abstract class for AI agent.
-    An agent can communicate with other agents, human and perform actions.
-    Different agents can differ in how and who they communicate with, and what actions they can perform. For example, an autonomous agent can communicate with human and other agents, and perform actions by creating agents and sending messages to other agents. A planning agent can communicate with other agents to make a plan and keep track of tasks. An execution agent can only communicate with other agents, and perform actions such as executing a command or code.
+    An agent can communicate with other agents and perform actions.
+    Different agents can differ in what actions they perform in the receive method.
     """
 
     def __init__(self, name, system_message=""):
@@ -36,7 +36,7 @@ class Agent:
 
     def _receive(self, message, sender):
         """Receive a message from another agent."""
-        print(self.name, "received message from", sender.name, ":")
+        print("****", self.name, "received message from", sender.name, "****")
         print(message)
         self._conversations[sender.name].append({"content": message, "role": "user"})
 

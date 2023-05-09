@@ -12,7 +12,7 @@ def test_human_agent():
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     agent = ChatAgent("chat_agent")
-    user = HumanProxyAgent("human_user")
+    user = HumanProxyAgent("human_user", human_input_mode="NEVER", max_consecutive_auto_reply=2)
     agent.receive(
         """Write python code to solve the equation x^3=125. You must write code in the following format. You must always print the result.
         Wait for me to return the result.

@@ -6,7 +6,7 @@ def test_extract_code():
     print(extract_code("```bash\npython temp.py\n```"))
 
 
-def test_coding_agent(human_input_mode="NEVER"):
+def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:
@@ -18,7 +18,10 @@ def test_coding_agent(human_input_mode="NEVER"):
     oai.ChatCompletion.start_logging(conversations)
     agent = PythonAgent("coding_agent", request_timeout=600, seed=42)
     user = HumanProxyAgent(
-        "user", human_input_mode=human_input_mode, is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE")
+        "user",
+        human_input_mode=human_input_mode,
+        max_consecutive_auto_reply=max_consecutive_auto_reply,
+        is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE"),
     )
     #     agent.receive("""Find $a+b+c$, given that $x+y\\neq -1$ and  \\begin{align*}
     # ax+by+c&=x+7,\\\\
@@ -30,6 +33,10 @@ def test_coding_agent(human_input_mode="NEVER"):
     #     agent.receive("""Let $a_1,a_2,a_3,\\dots$ be an arithmetic sequence. If $\\frac{a_4}{a_2} = 3$, what is $\\frac{a_5}{a_3}$? Solve the problem smartly.""", user)
     #     agent.reset()
     #     agent.receive("""The product of the first and the third terms of an arithmetic sequence is $5$. If all terms of the sequence are positive integers, what is the fourth term? Solve the problem smartly.""", user)
+    agent.receive(
+        """Create and execute a script to plot a rocket""",
+        user,
+    )
     agent.reset()
     agent.receive(
         """Create a temp.py file with the following content:
@@ -45,7 +52,7 @@ print('Hello world!')
     oai.ChatCompletion.stop_logging()
 
 
-def test_tsp(human_input_mode="NEVER"):
+def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:
@@ -61,7 +68,12 @@ def test_tsp(human_input_mode="NEVER"):
 
     oai.ChatCompletion.start_logging()
     agent = PythonAgent("coding_agent", temperature=0)
-    user = HumanProxyAgent("user", work_dir="test/autogen", human_input_mode=human_input_mode)
+    user = HumanProxyAgent(
+        "user",
+        work_dir="test/autogen",
+        human_input_mode=human_input_mode,
+        max_consecutive_auto_reply=max_consecutive_auto_reply,
+    )
     with open("test/autogen/tsp_prompt.txt", "r") as f:
         prompt = f.read()
     # agent.receive(prompt.format(question=hard_questions[0]), user)
@@ -82,4 +94,4 @@ if __name__ == "__main__":
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
     test_coding_agent(human_input_mode="TERMINATE")
-    # test_tsp(human_input_mode="ALWAYS")
+    test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=2)
