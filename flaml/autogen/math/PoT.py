@@ -128,6 +128,7 @@ if __name__ == "__main__":
             "api_version": "2023-03-15-preview",
         },
         {
+            "api_key": "nokey",
             "headers": headers,
             "api_base": open("base_azure.txt").read().strip(),
         },
