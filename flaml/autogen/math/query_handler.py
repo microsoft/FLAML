@@ -247,7 +247,7 @@ class QueryHandler:
             tmp = self.previous_code + "\n" + self.remove_print(query) + "\n"
             rcode, _ = execute_code(tmp, use_docker=False)
         else:
-            tmp = ""
+            tmp = self.previous_code + "\n"
             for line in query.split('\n'):
                 if 'import' in line:
                     tmp += line + '\n'
