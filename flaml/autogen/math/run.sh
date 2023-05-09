@@ -189,7 +189,7 @@
 python main.py -ptype v3.2python --folder ./51 --categories 0 1 3 4 5 6
 
 # # trial 52: v4.2  original system message
-python main.py -ptype v4.2python --folder ./52 --categories 0 1 3 4 5 6
+# python main.py -ptype v4.2python --folder ./52 --categories 0 1 3 4 5 6
 
 # # trial 53: v1.4  original system message
 python main.py -ptype v1.6select --folder ./53 --categories 0 1 4 5
