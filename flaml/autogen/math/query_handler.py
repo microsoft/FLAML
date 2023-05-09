@@ -107,8 +107,7 @@ class QueryHandler:
 
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
-                buffer_out
-                + "\nYour query or result is same from the last, please try a new approach or a different tool.",
+                buffer_out + "\nYour query or result is same from the last, please try a new approach.",
                 False,
             )
         self.last_query = tuple(queries)
@@ -242,13 +241,18 @@ class QueryHandler:
         if len(output) > 2000:
             output = "You required too much output. Please print only the necessary output."
             is_success = False
-
+        
         if is_success:
             # remove print and check if it still works
             tmp = self.previous_code + "\n" + self.remove_print(query) + "\n"
             rcode, _ = execute_code(tmp, use_docker=False)
-            if rcode == 0:
-                self.previous_code = tmp
+        else:
+            tmp = ""
+            for line in query.split('\n'):
+                if 'import' in line:
+                    tmp += line + '\n'
+        if rcode == 0:
+            self.previous_code = tmp
         return output, is_success
 
     def add_print_to_last_line(self, s):
