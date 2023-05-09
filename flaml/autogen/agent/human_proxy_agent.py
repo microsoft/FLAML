@@ -52,6 +52,24 @@ class HumanProxyAgent(Agent):
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
 
+    def _execute_code(self, code, lang):
+        """Execute the code and return the result."""
+        if lang == "bash":
+            assert code.startswith("python "), code
+            file_name = code[len("python ") :]
+            exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
+        elif lang == "python":
+            if code.startswith("# filename: "):
+                filename = code[11 : code.find("\n")].strip()
+            else:
+                filename = None
+            exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename)
+        else:
+            # TODO: could this happen?
+            exitcode, logs = 1, "unknown language"
+            # raise NotImplementedError
+        return exitcode, logs
+
     def receive(self, message, sender):
         """Receive a message from the sender agent.
         Every time a message is received, the human agent will give feedback.
@@ -60,47 +78,50 @@ class HumanProxyAgent(Agent):
         or the number of consecutive auto reply is larger than the provided max_consecutive_auto_reply (when human_input_mode is not "ALWAYS").
         """
         super().receive(message, sender)
-        # to determine if the message is a termination message using a function
-        terminate = self._is_termination_msg(message)
-        feedback = (
-            input("Please give feedback to the sender (press enter to skip, type exit to stop the conversation): ")
-            if self._human_input_mode == "ALWAYS" or terminate and self._human_input_mode == "TERMINATE"
-            else ""
-        )
-        # reset the consecutive_auto_reply_counter
-        if self._human_input_mode != "ALWAYS" and feedback:
-            self._consecutive_auto_reply_counter[sender.name] = 0
-        if feedback and feedback != "exit":
-            self._send(feedback, sender)
-        elif (
-            terminate
-            or feedback == "exit"
-            or (
-                self._human_input_mode != "ALWAYS"
-                and self._consecutive_auto_reply_counter[sender.name] >= self._max_consecutive_auto_reply
+        # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
+        reply = ""
+        if self._human_input_mode == "ALWAYS":
+            # TODO: if skip and use auto reply, should we also display the auto reply?
+            code, lang = extract_code(message)
+            msg2display = (
+                f"Code block detected: \n{code}\nUse auto-reply to execute the code and return the result."
+                if lang != "unknown"
+                else ""
             )
+            reply = input(
+                "*" * 40
+                + f"\n{msg2display} \nProvide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
+            )
+        elif self._human_input_mode == "TERMINATE":
+            if self._consecutive_auto_reply_counter[
+                sender.name
+            ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
+                reply = input(
+                    "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
+                )
+                reply = reply if reply else "exit"
+        elif (
+            self._human_input_mode == "NEVER"
+            and self._consecutive_auto_reply_counter[sender.name] >= self._max_consecutive_auto_reply
         ):
+            reply = "exit"
+
+        if reply == "exit":
             return
+        elif reply:
+            # reset the consecutive_auto_reply_counter
+            self._consecutive_auto_reply_counter[sender.name] = 0
+            self._send(reply, sender)
+            return
+
         self._consecutive_auto_reply_counter[sender.name] += 1
-        # try to execute the code
-        code, lang = extract_code(message)
+        if self._human_input_mode != "ALWAYS":
+            code, lang = extract_code(message)
         if lang == "unknown":
             # no code block is found, lang should be "unknown"
-            self._send(feedback, sender)
+            self._send(reply, sender)
         else:
-            if lang == "bash":
-                assert code.startswith("python "), code
-                file_name = code[len("python ") :]
-                exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
-            elif lang == "python":
-                if code.startswith("# filename: "):
-                    filename = code[11 : code.find("\n")].strip()
-                else:
-                    filename = None
-                exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename)
-            else:
-                # TODO: could this happen?
-                exitcode, logs = 1, "unknown language"
-                raise NotImplementedError
+            # try to execute the code
+            exitcode, logs = self._execute_code(code, lang)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
             self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs.decode('utf-8')}", sender)
