@@ -86,7 +86,11 @@ class HumanProxyAgent(Agent):
                 file_name = code[len("python ") :]
                 exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
             elif lang == "python":
-                exitcode, logs = execute_code(code, work_dir=self._work_dir)
+                if code.startswith("# filename: "):
+                    filename = code[11 : code.find("\n")].strip()
+                else:
+                    filename = None
+                exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename)
             else:
                 # TODO: could this happen?
                 exitcode = 1
