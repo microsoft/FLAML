@@ -46,12 +46,12 @@ if args.sample_all != 0:
 
 
 def pnas_solve(model, problem, max_tokens=None):
-    problem = remove_asy_sections(problem['problem'])
-    docstring_front = '''"""\n''' 
+    problem = remove_asy_sections(problem["problem"])
+    docstring_front = '''"""\n'''
     docstring_back = '''\n"""\n'''
-    context_array = ['write a python program', 'using sympy', 'using simulations']
-    prompt_prefix = 'that answers the following question:'
-    codex_input = docstring_front + context_array[0] + ' ' + prompt_prefix + ' ' + problem + docstring_back
+    context_array = ["write a python program", "using sympy", "using simulations"]
+    prompt_prefix = "that answers the following question:"
+    codex_input = docstring_front + context_array[0] + " " + prompt_prefix + " " + problem + docstring_back
     # print(codex_input)
     config = {
         "model": model,
@@ -76,19 +76,21 @@ def pnas_solve(model, problem, max_tokens=None):
 
     config["messages"].append({"role": "assistant", "content": responses[0]})
     if is_query_sucess:
-        config["messages"].append({"role": "user", "content": "Return: " +  query_response + "\nPlease put the final answer in \\boxed{}."})
+        config["messages"].append(
+            {"role": "user", "content": "Return: " + query_response + "\nPlease put the final answer in \\boxed{}."}
+        )
         if config_list is None:
             raw_responses = oai.ChatCompletion.create(None, **config, use_cache=True)
         else:
             raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
         answer_response = oai.ChatCompletion.extract_text(raw_responses)
-        response_with_ans =answer_response[0]
+        response_with_ans = answer_response[0]
         if get_answer(answer_response[0]) is None:
             response_with_ans = "\\boxed{N/A}"
     else:
         response_with_ans = "\\boxed{Error}"
-    
-    try: 
+
+    try:
         cost = oai.ChatCompletion.cost(raw_responses)
     except TypeError:
         cost = oai.ChatCompletion.cost(model, raw_responses)
@@ -149,7 +151,7 @@ if __name__ == "__main__":
     )
     if args.sample_all != 0:
         problem_sets = random_sample_MATH(args.sample_all)
-    
+
     if args.select:
         problem_sets = load_fixed()
 

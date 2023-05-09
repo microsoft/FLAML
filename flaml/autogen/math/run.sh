@@ -172,21 +172,31 @@
 # trial 43: PoT on 50 level 5 problems per category
 # python PoT.py --folder ./43 --categories 0 1 3 4 5 6 --samples_per_category 50
 
-# trial 47: v4.2 with a different system message on 20 level5 problems
-python pnas.py --folder ./47 --sample_all 100
+# # trial 47: v4.2 with a different system message on 20 level5 problems
+# python pnas.py --folder ./47 --sample_all 100
 
-# trial 48: v4.2 with a different system message on 20 level5 problems
-python main.py -ptype v4.2python --folder ./48 --categories 0 1 4 5
+# # trial 48: v4.2 with a different system message on 20 level5 problems
+# python main.py -ptype v4.2python --folder ./48 --categories 0 1 4 5
 
-# trial 49: v4.2 with s2 system
-python main.py -ptype v3.1python -systype s2 --folder ./49 --categories 0 1 4 5
+# # trial 49: v4.2 with s2 system
+# python main.py -ptype v3.1python -systype s2 --folder ./49 --categories 0 1 4 5
 
-# trial 50: v4.2 with s2 system
-python main.py -ptype v4.2python -systype s2 --folder ./50 --categories 0 1 4 5
+# # trial 50: v4.2 with s2 system
+# python main.py -ptype v4.2python -systype s2 --folder ./50 --categories 0 1 4 5
+
+
+# # trial 51: v3.1 remove specific message
+python main.py -ptype v3.2python --folder ./51 --categories 0 1 3 4 5 6
+
+# # trial 52: v4.2  original system message
+python main.py -ptype v4.2python --folder ./52 --categories 0 1 3 4 5 6
+
+# # trial 53: v1.4  original system message
+python main.py -ptype v1.6select --folder ./53 --categories 0 1 4 5
 
 
 # trial 44: zeroshot on 50 level 5 problems per category
-python zeroshot.py --folder ./44 --categories 0 1 3 4 5 6 --samples_per_category 50
+# python zeroshot.py --folder ./44 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 45: PoT on all level-5 problems from 6 categories
 python PoT.py --folder ./45 --categories 0 1 3 4 5 6  --samples_per_category 400

@@ -16,7 +16,7 @@ class MathSolver:
         model,
         prompt_type="select",
         prompt_location="user",
-        sys_type="s1",
+        sys_type="s0",
         max_round=10,
         max_invalid_q_per_step=3,
         n=1,
@@ -138,11 +138,11 @@ class MathSolver:
                         response_with_ans = responses[0]
                         response_with_new_ans = responses[0]
                         break
-                    end_message = 'Now that we have solved the problem, please revisit the problem to make sure you didn\'t miss anything from the problem. If you think you have solved it, please conclude with "The answer is \\boxed{...}."'
+                    end_message = 'If you solved the problem, please conclude with "The answer is \\boxed{...}. Otherwise, continue solving the problem."'
                     config["messages"].append({"role": "user", "content": end_message})
                     save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
                     continue
-                tmp_msg = '\nAbove is the returned results. If the problem is solved, please revisit the problem to make sure you didn\'t miss anything from the problem. If you think you have solved it, please conclude with "The answer is \\boxed{...}."'
+                tmp_msg = '\nAbove is the returned results. If the problem is solved, if you think you have solved it, please conclude with "The answer is \\boxed{...}."'
 
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
                 tmp_msg, is_query_exist = query_handler.check_queries(responses[0])

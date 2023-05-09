@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("--select", action="store_true")
     parser.add_argument("--refine", action="store_true")
     parser.add_argument("--sample_all", help="samples per category", default=0, type=int)
-    parser.add_argument("-systype", dest="systype", help="system type", default="s1", type=str)
+    parser.add_argument("-systype", dest="systype", help="system type", default="s0", type=str)
 
     # not used
     parser.add_argument("--n", dest="n", help="number of samples", default=1, type=int)

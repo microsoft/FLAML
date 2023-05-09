@@ -24,29 +24,27 @@ Case 3: If the problem cannot be handled with the two ways above, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    "v4.4python": """Let's solve a math problem with python.
-First state what the problem is asking and the key idea to solve it. Then follow the process:
+    "v4.4python": """Let's solve a math problem with python step by step. Try to use sympy library to reduce your workload.
+For each step, there are 3 possible ways:
+Example 1, the step contains only the solve process:
+Step i:
 [Reasoning] # your reasoning
-```python
-# code to execute, print the output you want
-```
+
+Example 2, both reasoning and python code to help you:
+Step i:
 [Reasoning] # your reasoning
-```python
-# code to execute, print the output you want
-```
-... (Until the problem is solved, or you need results to proceed)
-Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
+[Code] # your code
 
-Note: you should use exact representation of numbers instead of decimals and simplify the results (Use sympy).
-Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
-Note: correct the code according to the error message. If you keep getting error message, you should solve it yourself.
-Note: an additional tool you can use is Wolfram Alpha. Put your query in
-```wolfram
-# wolfram query
-```
-and I will help you execute it.
+Example 3, only python code:
+Step i:
+[code]
 
-After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
+Do not overly divide the steps.
+You should continue your solving steps unitil the problem is finished, or when you need results from python code to proceed.
+I will help you execute the code and give you the results. You can continue the process above with the given results.
+You are recommended to use python to help you, but you can solve simple calculations and equations yourself.
+
+After you solved the problem and get the answer, please reply "[EOF]".
 """,
     "v4.3python": """Let's use python to solve a math problem.
 
@@ -87,7 +85,7 @@ First state what the problem is asking and the key idea to solve it. Then follow
 ```
 ... (Until the problem is solved, or you need results to proceed)
 Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
-Note: you should use exact representation of numbers instead of decimals and simplify the results.
+Note: you should use exact representation of numbers instead of decimals and simplify the results (sympy).
 Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
 
 After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
@@ -214,16 +212,15 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
     # You should always use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy).
     "v3.2python": """Let's use python to solve a math problem.
 
-Query requirements for python:
+Query requirements:
 You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
-You must follow the formats below to write your code:
+You must follow the formats below to write your code (otherwise it will not be recognized):
 ```python
 # your code
 ```
-When writing code, include your reasoning in the comments.
 
-First state the key idea to solve the problem then choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. Put your reasoning as comments in the code.
 Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
 Case 3: If the problem cannot be handled with the two ways above, please follow this process:
 1. Solve the problem step by step (do not overdivide the steps).
@@ -361,7 +358,24 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
 """,
     # change query format, change case 2
     # v1.6, come from v1.4, add wolfram note, add "follow your own reasoning"
-    "v1.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
+    "v1.6select": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+You should put reasoning as comments in the code.
+
+First state the key idea to solve the problem. Then follow the process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python or (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Correct this step based on the results, or give a new query if the results are invalid.
+When you get the answer, put the answer in \\boxed{}.
+""",
+    "v1.5python": """Let's use two tools (python code and Wolfram alpha) to solve a math problem step by step.
 
 Query requirements:
 You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
