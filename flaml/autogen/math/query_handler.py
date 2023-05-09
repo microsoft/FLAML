@@ -251,6 +251,7 @@ class QueryHandler:
             for line in query.split('\n'):
                 if 'import' in line:
                     tmp += line + '\n'
+            rcode, _ = execute_code(tmp, use_docker=False)
         if rcode == 0:
             self.previous_code = tmp
         return output, is_success
