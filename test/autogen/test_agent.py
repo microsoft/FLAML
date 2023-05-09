@@ -30,6 +30,10 @@ def test_coding_agent(human_input_mode="NEVER"):
     #     agent.receive("""Let $a_1,a_2,a_3,\\dots$ be an arithmetic sequence. If $\\frac{a_4}{a_2} = 3$, what is $\\frac{a_5}{a_3}$? Solve the problem smartly.""", user)
     #     agent.reset()
     #     agent.receive("""The product of the first and the third terms of an arithmetic sequence is $5$. If all terms of the sequence are positive integers, what is the fourth term? Solve the problem smartly.""", user)
+    agent.receive(
+        """Create and execute a script to plot a rocket""",
+        user,
+    )
     agent.reset()
     agent.receive(
         """Create a temp.py file with the following content:
