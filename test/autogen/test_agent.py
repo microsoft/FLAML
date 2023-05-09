@@ -6,7 +6,7 @@ def test_extract_code():
     print(extract_code("```bash\npython temp.py\n```"))
 
 
-def test_coding_agent(human_input_mode="NEVER", max_turn_num=10):
+def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:
@@ -20,7 +20,7 @@ def test_coding_agent(human_input_mode="NEVER", max_turn_num=10):
     user = HumanProxyAgent(
         "user",
         human_input_mode=human_input_mode,
-        max_turn_num=max_turn_num,
+        max_consecutive_auto_reply=max_consecutive_auto_reply,
         is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE"),
     )
     #     agent.receive("""Find $a+b+c$, given that $x+y\\neq -1$ and  \\begin{align*}
@@ -52,7 +52,7 @@ print('Hello world!')
     oai.ChatCompletion.stop_logging()
 
 
-def test_tsp(human_input_mode="NEVER", max_turn_num=10):
+def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:
@@ -69,7 +69,10 @@ def test_tsp(human_input_mode="NEVER", max_turn_num=10):
     oai.ChatCompletion.start_logging()
     agent = PythonAgent("coding_agent", temperature=0)
     user = HumanProxyAgent(
-        "user", work_dir="test/autogen", human_input_mode=human_input_mode, max_turn_num=max_turn_num
+        "user",
+        work_dir="test/autogen",
+        human_input_mode=human_input_mode,
+        max_consecutive_auto_reply=max_consecutive_auto_reply,
     )
     with open("test/autogen/tsp_prompt.txt", "r") as f:
         prompt = f.read()
@@ -91,4 +94,4 @@ if __name__ == "__main__":
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
     test_coding_agent(human_input_mode="TERMINATE")
-    test_tsp(human_input_mode="NEVER", max_turn_num=2)
+    test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=2)
