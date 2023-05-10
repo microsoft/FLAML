@@ -68,7 +68,7 @@ class QueryHandler:
                     #     self.consecutive_continue = 0
                     #     return "Continue. Please keep solving the problem until you need to query. (If you get to the answer already, put it in \\boxed{}.)", True
                     return (
-                        "Continue. Remember you can use python to help you. (If you already have the answer, put it in \\boxed{}.)",
+                        "Continue. Please keep solving the problem until you need to query. (If you get to the answer, put it in \\boxed{}.)",
                         True,
                     )
 
@@ -104,7 +104,8 @@ class QueryHandler:
                 # TODO: handle situation with several queries and one fails
                 all_success = False
                 self.valid_q_count -= 1  # invalid query
-
+        buffer_out = buffer_out.strip()
+        print("'",self.last_return, "'",buffer_out,"'",)
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
                 buffer_out + "\nYour query or result is same from the last, please try a new approach.",
@@ -112,7 +113,7 @@ class QueryHandler:
             )
         self.last_query = tuple(queries)
         self.last_return = buffer_out
-        return buffer_out.strip(), all_success
+        return buffer_out, all_success
 
     def wolfram_query(self, query: str):
         """

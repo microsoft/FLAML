@@ -185,21 +185,31 @@
 # python main.py -ptype v4.2python -systype s2 --folder ./50 --categories 0 1 4 5
 
 
-# # trial 51: v3.1 remove specific message
-python main.py -ptype v3.2python --folder ./51 --categories 0 1 3 4 5 6
+# # # trial 51: v3.1 remove specific message
+# python main.py -ptype v3.2python --folder ./51 --categories 0 1 3 4 5 6
 
-# # trial 52: v4.2  original system message
-# python main.py -ptype v4.2python --folder ./52 --categories 0 1 3 4 5 6
+# # # trial 52: v4.2  original system message
+# # python main.py -ptype v4.2python --folder ./52 --categories 0 1 3 4 5 6
 
-# # trial 53: v1.4  original system message
-python main.py -ptype v1.6select --folder ./53 --categories 0 1 4 5
+# # # trial 53: v1.4  original system message
+# python main.py -ptype v1.6select --folder ./53 --categories 0 1 4 5
 
 
-# trial 44: zeroshot on 50 level 5 problems per category
-# python zeroshot.py --folder ./44 --categories 0 1 3 4 5 6 --samples_per_category 50
+# # trial 44: zeroshot on 50 level 5 problems per category
+# # python zeroshot.py --folder ./44 --categories 0 1 3 4 5 6 --samples_per_category 50
 
-# trial 45: PoT on all level-5 problems from 6 categories
-python PoT.py --folder ./45 --categories 0 1 3 4 5 6  --samples_per_category 400
+# # trial 45: PoT on all level-5 problems from 6 categories
+# python PoT.py --folder ./45 --categories 0 1 3 4 5 6  --samples_per_category 400
 
-# trial 46: zeroshot on all level-5 problems from 6 categories
-python zeroshot.py --folder ./46 --categories 0 1 3 4 5 6 --samples_per_category 400
+# # trial 46: zeroshot on all level-5 problems from 6 categories
+# python zeroshot.py --folder ./46 --categories 0 1 3 4 5 6 --samples_per_category 400
+
+
+# trial 55: v3.2  original system message
+python main.py -ptype v3.3python --folder ./55 --categories 0 1
+
+# trial 55: v3.2  original system message
+python main.py -ptype v3.3python --folder ./55 --categories 4 5
+
+# trial 55: v3.2  original system message
+python main.py -ptype v3.3python --folder ./55 --categories 3 6

@@ -192,25 +192,49 @@ Case 3: If the problem cannot be handled with the two ways above, please solve t
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    "v3.3python": """Let's use python to solve a math problem. You must use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy). Follow this format to write your code:
+    "v3.3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+Query requirements:
+When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
+You must follow the formats below to write your code:
 ```python
 # your code
 ```
 
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write one program to directly solve it (include your reasoning as comments). If the problem involves enumerations, try to write a loop to iterate over all situations.
-Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
 1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and box in the message, I will assume the problem is not finished.
+""",
+    # You should solve the problem and get to the answer directly if the problem only involve simple calculations or is mostly reasoning,
+    # You should always use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy).
+    "v3.2python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+Query requirements:
+- Always use 'print' function for the output.
+- Try to use exact numbers like fractions or radical forms instead of decimal.
+- Put your reasoning as comments in the code.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If possible, write a program to directly solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overly divide steps).
 2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
 3. Wait for me to give the results.
 4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    # You should solve the problem and get to the answer directly if the problem only involve simple calculations or is mostly reasoning,
-    # You should always use 'print' function for the output, and use exact numbers like radical forms instead of decimal (maybe use sympy).
-    "v3.2python": """Let's use python to solve a math problem.
+    "v3.1python": """Let's use python to solve a math problem.
 
 Query requirements:
 You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
@@ -220,7 +244,7 @@ You must follow the formats below to write your code (otherwise it will not be r
 ```
 
 First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. Put your reasoning as comments in the code.
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
 Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
 Case 3: If the problem cannot be handled with the two ways above, please follow this process:
 1. Solve the problem step by step (do not overdivide the steps).
@@ -230,6 +254,28 @@ Case 3: If the problem cannot be handled with the two ways above, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
+    # v3python only
+    "v3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
+You must put the query in json format (otherwise it will not be recognized):
+{ "tool" : "python",
+"query": "Your code here."
+}
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+ 
     # v3.7select from v3.6, set python to default
     "v3.7select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
 
@@ -315,47 +361,6 @@ Case 3: If the problem cannot be handled with the above two ways, please follow 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
     # Case 1: If possible, write a program to directly solve it. You should try this espically when it involves enumerations and you can write a loop to iterate over all situations.   Put your reasoning as comments in the code.
-    "v3.1python": """Let's use python to solve a math problem.
-
-Query requirements:
-You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
-You must follow the formats below to write your code (otherwise it will not be recognized):
-```python
-# your code
-```
-
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
-Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 3: If the problem cannot be handled with the two ways above, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
-""",
-    # v3python only
-    "v3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
-
-Query requirements:
-When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
-You must put the query in json format (otherwise it will not be recognized):
-{ "tool" : "python",
-"query": "Your code here."
-}
-
-First state the key idea to solve the problem. You may choose from three ways to solve the problem:
-Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
-Case 3: If the problem cannot be handled with the above two ways, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
-""",
     # change query format, change case 2
     # v1.6, come from v1.4, add wolfram note, add "follow your own reasoning"
     "v1.6select": """Let's use python to solve a math problem.

@@ -34,7 +34,7 @@ def load_fixed(category_to_load=None):
     category_to_load = [i for i in range(7)] if not category_to_load or "all" in category_to_load else category_to_load
     category_to_load = [int(x) for x in category_to_load]
     folder = "22_user_v3select_t1"
-    folder = "37system_user_v3.1python_t1_random_sample"
+    # folder = "37system_user_v3.1python_t1_random_sample"
     sep_cat = []
 
     for i, category in enumerate(math_type_mapping.keys()):
