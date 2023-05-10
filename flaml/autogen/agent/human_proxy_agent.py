@@ -6,15 +6,12 @@ from collections import defaultdict
 class HumanProxyAgent(Agent):
     """(Experimental) A proxy agent for human, that can execute code and provide feedback to the other agents."""
 
-    DEFAULT_SYSTEM_MESSAGE = """You are human agent. You can execute_code or give feedback to the sender.
-    """
     MAX_CONSECUTIVE_AUTO_REPLY = 100  # maximum number of consecutive auto replies (subject to future change)
 
     def __init__(
         self,
         name,
         system_message="",
-        work_dir=None,
         human_input_mode="ALWAYS",
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
@@ -24,12 +21,15 @@ class HumanProxyAgent(Agent):
         Args:
             name (str): name of the agent
             system_message (str): system message to be sent to the agent
-            work_dir (str): working directory for the agent to execute code
             human_input_mode (bool): whether to ask for human inputs every time a message is received.
                 Possible values are "ALWAYS", "TERMINATE", "NEVER".
-                When "ALWAYS", the agent will ask for human input every time a message is received.
-                When "TERMINATE", the agent will ask for human input only when a termination message is received.
-                When "NEVER", the agent will never ask for human input.
+                (1) When "ALWAYS", the agent prompts for human input every time a message is received.
+                    Under this mode, the conversation stops when the human input is "exit".
+                (2) When "TERMINATE", the agent only prompts for human input only when a termination message is received or
+                    the number of auto reply reaches the max_consecutive_auto_reply.
+                    When human is prompted for input, the conversation stops if there is no input or the input is "exit".
+                (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
+                    when the number of auto reply reaches the max_consecutive_auto_reply.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default: None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -37,11 +37,8 @@ class HumanProxyAgent(Agent):
                 This function is used to determine if a received message is a termination message.
             config (dict): other configurations.
 
-            The conversation stops when the human input is "exit", or no human input is provided and a termination message is received,
-            or the number of consecutive auto reply is larger than the provided max_consecutive_auto_reply (when human_input_mode is not "ALWAYS").
         """
         super().__init__(name, system_message)
-        self._work_dir = work_dir
         self._human_input_mode = human_input_mode
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x == "TERMINATE")
@@ -72,25 +69,22 @@ class HumanProxyAgent(Agent):
 
     def receive(self, message, sender):
         """Receive a message from the sender agent.
-        Every time a message is received, the human agent will give feedback.
-
-        The conversation stops when the human input is "exit", or no human input is provided and a termination message is received,
-        or the number of consecutive auto reply is larger than the provided max_consecutive_auto_reply (when human_input_mode is not "ALWAYS").
+        Once a message is received, this function sends a reply to the sender or simply stop.
+        The reply can be generated automatically or entered manually by a human.
         """
         super().receive(message, sender)
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
         if self._human_input_mode == "ALWAYS":
-            # TODO: if skip and use auto reply, should we also display the auto reply?
             code, lang = extract_code(message)
             msg2display = (
-                f"Code block detected: \n{code}\nUse auto-reply to execute the code and return the result."
+                f"\nCode block detected: \n{code}\nUse auto-reply to execute the code and return the result.\n"
                 if lang != "unknown"
                 else ""
             )
             reply = input(
                 "*" * 40
-                + f"\n{msg2display} \nProvide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
+                + f"{msg2display}Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
         elif self._human_input_mode == "TERMINATE":
             if self._consecutive_auto_reply_counter[
