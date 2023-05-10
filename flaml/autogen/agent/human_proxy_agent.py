@@ -31,7 +31,7 @@ class HumanProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                     When human is prompted for input, the conversation stops if there is no input or the input is "exit".
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
-                    when the number of auto reply reaches the max_consecutive_auto_reply.
+                    when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default: None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -89,20 +89,17 @@ class HumanProxyAgent(Agent):
                 "*" * 40
                 + f"{msg2display}Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
-        elif self._human_input_mode == "TERMINATE":
-            if self._consecutive_auto_reply_counter[
-                sender.name
-            ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
+        elif self._consecutive_auto_reply_counter[
+            sender.name
+        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
+            if self._human_input_mode == "TERMINATE":
                 reply = input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
                 )
                 reply = reply if reply else "exit"
-        elif (
-            self._human_input_mode == "NEVER"
-            and self._consecutive_auto_reply_counter[sender.name] >= self._max_consecutive_auto_reply
-        ):
-            reply = "exit"
-
+            else:
+                # this corresponds to the case when self._human_input_mode == "NEVER"
+                reply = "exit"
         if reply == "exit":
             return
         elif reply:
