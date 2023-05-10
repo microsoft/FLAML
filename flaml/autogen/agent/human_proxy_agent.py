@@ -29,9 +29,11 @@ class HumanProxyAgent(Agent):
                     Under this mode, the conversation stops when the human input is "exit".
                 (2) When "TERMINATE", the agent only prompts for human input only when a termination message is received or
                     the number of auto reply reaches the max_consecutive_auto_reply.
-                    When human is prompted for input, the conversation stops if there is no input or the input is "exit".
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
-                    when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True
+                    when the number of auto reply reaches the max_consecutive_auto_reply.
+                In any case, the agent also stop the conversation in the following two cases:
+                    (a) if is_termination_msg is True and there is no human input;
+                    (b) if the human input is "exit".
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default: None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -100,7 +102,7 @@ class HumanProxyAgent(Agent):
             else:
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
-        if reply == "exit":
+        if reply == "exit" or (self._is_termination_msg(message) and not reply):
             return
         elif reply:
             # reset the consecutive_auto_reply_counter
