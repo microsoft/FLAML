@@ -12,6 +12,7 @@ class HumanProxyAgent(Agent):
         self,
         name,
         system_message="",
+        work_dir=None,
         human_input_mode="ALWAYS",
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
@@ -21,6 +22,7 @@ class HumanProxyAgent(Agent):
         Args:
             name (str): name of the agent
             system_message (str): system message to be sent to the agent
+            work_dir (str): working directory for the agent
             human_input_mode (bool): whether to ask for human inputs every time a message is received.
                 Possible values are "ALWAYS", "TERMINATE", "NEVER".
                 (1) When "ALWAYS", the agent prompts for human input every time a message is received.
@@ -39,6 +41,7 @@ class HumanProxyAgent(Agent):
 
         """
         super().__init__(name, system_message)
+        self._work_dir = work_dir
         self._human_input_mode = human_input_mode
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x == "TERMINATE")
