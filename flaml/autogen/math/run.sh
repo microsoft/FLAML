@@ -224,11 +224,13 @@
 
 
 # trial 60: v3.1python
-python main.py -ptype v3.1python --folder ./60 --categories 0 1
+python main.py -ptype v3.1python --folder ./60 --categories 3 4 5 6 
 
-# trial 61: general_4
-python main.py -ptype general_4 --folder ./61 --categories 0 1
+# # trial 61: general_4
+# python main.py -ptype general_4 --folder ./61 --categories 0 1
 
 
+# # trial 62: general_5
+python main.py -ptype general_5 --folder ./62 --categories 0 1
 
 
