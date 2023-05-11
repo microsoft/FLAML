@@ -4,6 +4,89 @@
 
 # and try to use fractions to express your answer,
 PROMPTS = {
+    "specific_1": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # from specific_1, only remove the specific sentence from case 1
+    "general_3": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # base on general_1, 1. "if your initial choice is not working. " 2. first python then reasoning 3. new case 3
+    "general_2": """Let's use python to solve a math problem.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem and choose the most suitable way below to solve the problem. You can switch to other ways if your initial choice is not working.
+Case 1: If the problem can be solved with python code directly, please write a program to solve it.
+Case 2: If the problem is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or mathematical manipulations such as simplification, solving equations, etc).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After you get the answer, put the answer in \\boxed{}.
+""",
+    # original v3python, 1. choose best way... 2. old query requirements 3. old case 3
+    "general_1": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+When you write python code, you should: 1.always use fractions instead of decimal 2. use the 'print' function for the output
+You must follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
     "v4.5python": """Let's use python to solve a math problem.
 
 Query requirements:
@@ -24,27 +107,23 @@ Case 3: If the problem cannot be handled with the two ways above, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    "v4.4python": """Let's solve a math problem with python step by step. Try to use sympy library to reduce your workload.
-For each step, there are 3 possible ways:
-Example 1, the step contains only the solve process:
-Step i:
+    "v4.4python": """Let's solve a math problem with python. You should query python for any mathematical manipulations such as calculations, simplification, solving equations, etc.
+
+First state what the problem is asking and the key idea to solve it. Then follow the process:
 [Reasoning] # your reasoning
-
-Example 2, both reasoning and python code to help you:
-Step i:
+```python
+# code to execute, print the output you want
+```
 [Reasoning] # your reasoning
-[Code] # your code
+```python
+# code to execute, print the output you want
+```
+... (Until the problem is solved, or you need results to proceed)
+Then I will help you execute the code and give you the results. If you need to keep solving the problem based on previous result, you can continue the process above.
+Note: you should use exact representation of numbers instead of decimals and simplify the results (sympy).
+Note: python is optional but recommended. You can directly solve the problem without python if the problem is mostly reasoning.
 
-Example 3, only python code:
-Step i:
-[code]
-
-Do not overly divide the steps.
-You should continue your solving steps unitil the problem is finished, or when you need results from python code to proceed.
-I will help you execute the code and give you the results. You can continue the process above with the given results.
-You are recommended to use python to help you, but you can solve simple calculations and equations yourself.
-
-After you solved the problem and get the answer, please reply "[EOF]".
+After I give all results back to you, and you think the problem is finished, please reply "[EOF]".
 """,
     "v4.3python": """Let's use python to solve a math problem.
 
@@ -194,7 +273,7 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
 """,
     "v3.3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 Query requirements:
-When you write python code, you should: 1.always use fractions instead of decimal 2.make sure the indentation is correct (use '\\t'). 3. use the 'print' function for the output
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
 You must follow the formats below to write your code:
 ```python
 # your code
@@ -270,91 +349,6 @@ Case 2: If the problem can be solved with python code directly, you can write a 
 Case 3: If the problem cannot be handled with the above two ways, please follow this process:
 1. Solve the problem step by step (do not overdivide the steps).
 2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
-""",
- 
-    # v3.7select from v3.6, set python to default
-    "v3.7select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
-
-Query requirements:
-You are provided with python code and Wolfram alpha to help you. By default you should use python but you can use Wolfram when it is more suitable.
-Note: For code, you should always use 'print' function for the output, and use exact numbers (like radical forms) instead of decimal.
-Note: For Wolfram, you should only have one query per code block, each query should be independent.
-Following the format below (otherwise it will not be recognized):
-For python:
-```python
-# your code
-```
-For wolfram:
-```wolfram
-# your wolfram query
-```
-
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
-Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
-Case 3: If the problem cannot be handled with the two ways above, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries that can be solved using python or Wolfram (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
-""",
-    # v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
-    "v3.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
-
-Query requirements:
-You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
-Note: For code, you should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
-Note: For Wolfram, you should separate different queries in different code blocks.
-Following the format below (otherwise it will not be recognized):
-For python:
-```python
-# your code
-```
-For wolfram:
-```wolfram
-# your wolfram query
-```
-
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
-Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
-Case 3: If the problem cannot be handled with the two ways above, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries and choose the most suitable tool (for example, any calculations or equations that can be calculated).
-3. Wait for me to give the results.
-4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
-
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
-""",
-    # v3.5select  v3python+wolfram
-    "v3.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
-
-Query requirements:
-You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
-You must following the formats below to write your queries (otherwise it will not be recognized):
-For python:
-```python
-# your code
-```
-For wolfram:
-```wolfram
-# your wolfram query
-```
-Note: When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
-Note: Wolfram might be suitable for symbolic manipulations (for example, simplifying expressions). Please use correct Wolfram language to describe your query. If you have several wolfram queries, put them in different code blocks.
-
-First state the key idea to solve the problem. You may choose from three ways to solve the problem:
-Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
-Case 3: If the problem cannot be handled with the above two ways, please follow this process:
-1. Solve the problem step by step (do not overdivide the steps).
-2. Take out any queries that can be asked through python or Wolfram (for example, any calculations or equations that can be calculated) and select the most suitable tool
 3. Wait for me to give the results.
 4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 
@@ -474,6 +468,90 @@ First state the key idea to solve the problem. Then follow the process:
 3. Wait for me to give the results.
 4. Correct this step based on the results, or give a new query if the results are invalid.
 When you get the answer, put the answer in \\boxed{}.
+""",
+    # v3.7select from v3.6, set python to default
+    "v3.7select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you. By default you should use python but you can use Wolfram when it is more suitable.
+Note: For code, you should always use 'print' function for the output, and use exact numbers (like radical forms) instead of decimal.
+Note: For Wolfram, you should only have one query per code block, each query should be independent.
+Following the format below (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be solved using python or Wolfram (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # v3.6select  v3.1python+wolfram, especially remove "Wolfram might be suitable for symbolic manipulations"
+    "v3.6select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+Note: For code, you should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: For Wolfram, you should separate different queries in different code blocks.
+Following the format below (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+
+First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
+Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
+Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. It is good practice to use tools to help but not necessary.
+Case 3: If the problem cannot be handled with the two ways above, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries and choose the most suitable tool (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
+    # v3.5select  v3python+wolfram
+    "v3.5select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You are provided with python code and Wolfram alpha to help you, please choose the most suitable tool for each task.
+You must following the formats below to write your queries (otherwise it will not be recognized):
+For python:
+```python
+# your code
+```
+For wolfram:
+```wolfram
+# your wolfram query
+```
+Note: When writing python, use the 'print' function for the output, and use fractions/radical forms instead of decimal.
+Note: Wolfram might be suitable for symbolic manipulations (for example, simplifying expressions). Please use correct Wolfram language to describe your query. If you have several wolfram queries, put them in different code blocks.
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. You should put the code in json following the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python or Wolfram (for example, any calculations or equations that can be calculated) and select the most suitable tool
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
     # best from v3.1 and 3.3
     "v3.4select": """Let's use two tools (python code and Wolfram alpha) to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.

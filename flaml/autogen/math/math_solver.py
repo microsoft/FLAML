@@ -119,6 +119,12 @@ class MathSolver:
             except (RateLimitError, Timeout) as e:
                 print("Ratelimit or timeout, retrying...", flush=True)
                 continue
+            if raw_responses["usage"]["total_tokens"] >= 8000:
+                error_str = "Use more than 8000 many tokens, breaking."
+                print(error_str)
+                save_message_to_file(error_str)
+                break
+
             assert raw_responses != -1, "Error in getting response"
             responses = oai.ChatCompletion.extract_text(raw_responses)
             assert len(responses) == 1, "More than one response"  # right now we only use one response

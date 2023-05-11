@@ -241,16 +241,16 @@ class QueryHandler:
         if len(output) > 2000:
             output = "You required too much output. Please print only the necessary output."
             is_success = False
-        
+
         if is_success:
             # remove print and check if it still works
             tmp = self.previous_code + "\n" + self.remove_print(query) + "\n"
             rcode, _ = execute_code(tmp, use_docker=False)
         else:
             tmp = self.previous_code + "\n"
-            for line in query.split('\n'):
-                if 'import' in line:
-                    tmp += line + '\n'
+            for line in query.split("\n"):
+                if "import" in line:
+                    tmp += line + "\n"
             rcode, _ = execute_code(tmp, use_docker=False)
         if rcode == 0:
             self.previous_code = tmp
