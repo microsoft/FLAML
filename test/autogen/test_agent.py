@@ -84,4 +84,7 @@ if __name__ == "__main__":
     # openai.api_key = "<your_api_key>"
     # test_extract_code()
     test_coding_agent(human_input_mode="TERMINATE")
-    test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=2)
+    # when GPT-4, i.e., the DEFAULT_MODEL, is used, conversation in the following test
+    # should terminate in 2-3 rounds of interactions (because is_termination_msg should be true after 2-3 rounds)
+    # although the max_consecutive_auto_reply is set to 10.
+    test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10)

@@ -5,6 +5,7 @@ class Agent:
     """(Experimental) An abstract class for AI agent.
     An agent can communicate with other agents and perform actions.
     Different agents can differ in what actions they perform in the `receive` method.
+
     """
 
     def __init__(self, name, system_message=""):
