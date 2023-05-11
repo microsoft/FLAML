@@ -205,17 +205,23 @@
 # python zeroshot.py --folder ./46 --categories 0 1 3 4 5 6 --samples_per_category 400
 
 
-# trial 55: v3.2  original system message, finish running v3.1
-python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5
 
 # trial 56: general_1, finalized from v3python
-python main.py -ptype general_1 --folder ./56 --categories 0 1
+python main.py -ptype general_1 --folder ./56 --categories 0 1 4 5
+
+# trial 59: specific_1, finalized from v3.1python
+python main.py -ptype specific_1 --folder ./59 --categories 0 1 4 5
+
+# trial 55: v3.2  original system message, finish running v3.2
+python main.py -ptype v3.3python --folder ./55 --categories 0 1
 
 # trial 57: general_2, finalized from v3python
 python main.py -ptype general_2 --folder ./57 --categories 0 1
 
-# trial 58: general_2, finalized from v3python
+# trial 58: general_3, change from v3.1python
 python main.py -ptype general_3 --folder ./58 --categories 0 1
 
-# trial 59: specific_1, finalized from v3.1python
-python main.py -ptype specific_1 --folder ./59 --categories 0 1 3 4 5
+
+
+
+
