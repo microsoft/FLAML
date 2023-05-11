@@ -24,6 +24,26 @@ Case 3: If the problem cannot be handled with the two ways above, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
+    "general_4": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow this format to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, you can write a program to solve it. Follow the query requirements above, and I will help you run it.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+""",
     # from specific_1, only remove the specific sentence from case 1
     "general_3": """Let's use python to solve a math problem.
 

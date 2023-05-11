@@ -10,7 +10,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Math Solver")
     parser.add_argument("--prompt_type", "-ptype", dest="prompt_type", help="prompt type", default="select", type=str)
     parser.add_argument("--prompt_location", dest="prompt_location", help="prompt location", default="user", type=str)
-    parser.add_argument("--max_round", dest="max_round", help="max round", default=12, type=int)
+    parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
     parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
     parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
     parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
@@ -75,14 +75,14 @@ def pseudo_main(config_list):
 
     # v3
     selected_samples = {
-        # "Algebra": [0, 2, 5, 13],  # [8] wrong,  # 8 correct
+        "Algebra": [0, 6],  # [8] wrong,  # 8 correct
         # "Algebra": [1,2,4,13],
         # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
         # "Algebra": [2, 5, 13],
-        "Counting & Probability": [1,6,7,8,9,11,12], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
+        # "Counting & Probability": [0,1], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
         # "Geometry": [],
         # # "Intermediate Algebra": [7, 11],
-        # "Number Theory": [4, 6, 7, 11, 12],  # assume 3,9,18wrong,  12 correct
+        # "Number Theory": [4, 10],  # assume 3,9,18wrong,  12 correct
         # "Prealgebra": [4, 8, 10, 15],
         "Precalculus": [],
     }
