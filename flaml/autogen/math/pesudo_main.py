@@ -62,6 +62,7 @@ def pseudo_main(config_list):
     if args.sample_all != 0:
         problem_sets = random_sample_MATH(args.sample_all)
 
+    print(f"Running {args.folder}")
     # v1
     # selected_samples ={
     #     "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
@@ -75,16 +76,18 @@ def pseudo_main(config_list):
 
     # v3
     selected_samples = {
-        "Algebra": [0, 6],  # [8] wrong,  # 8 correct
+        # "Algebra": [0, 6],  # [8] wrong,  # 8 correct
         # "Algebra": [1,2,4,13],
         # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
         # "Algebra": [2, 5, 13],
+        # "Algebra": [i for i in range(20)],
+        # "Counting & Probability": [i for i in range(20)],
         # "Counting & Probability": [0,1], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
         # "Geometry": [],
-        # # "Intermediate Algebra": [7, 11],
+        "Intermediate Algebra": [0, 3, 6, 8, 9, 10, 11, 13, 15, 16, 17],
         # "Number Theory": [4, 10],  # assume 3,9,18wrong,  12 correct
         # "Prealgebra": [4, 8, 10, 15],
-        "Precalculus": [],
+        "Precalculus": [1, 14, 15, 18],
     }
 
     # 4. solve
