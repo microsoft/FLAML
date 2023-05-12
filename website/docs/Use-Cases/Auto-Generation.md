@@ -98,15 +98,21 @@ config, analysis = oai.Completion.tune(
 `num_samples` is the number of configurations to sample. -1 means unlimited (until optimization budget is exhausted).
 The returned `config` contains the optimized configuration and `analysis` contains an [ExperimentAnalysis](../reference/tune/analysis#experimentanalysis-objects) object for all the tried configurations and results.
 
-## Perform inference with the tuned config
+The tuend config can be used to perform inference.
+
+## Perform Inference
 
 One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference.
 There are a number of benefits of using `flaml.oai.Completion.create` to perform inference.
 
-
 ### API unification
 
-`flaml.oai.Completion.create` is compatible with both `openai.Completion.create` and `openai.ChatCompletion.create`, and both OpenAI API and Azure OpenAI API. So models such as "text-davinci-003", "gpt-3.5-turbo" and "gpt-4" can share a common API. When only tuning the chat-based models, `flaml.oai.ChatCompletion` can be used.
+`flaml.oai.Completion.create` is compatible with both `openai.Completion.create` and `openai.ChatCompletion.create`, and both OpenAI API and Azure OpenAI API. So models such as "text-davinci-003", "gpt-3.5-turbo" and "gpt-4" can share a common API.
+When chat models are used and `prompt` is given as the input to `flaml.oai.Completion.create`, the prompt will be automatically converted into `messages` to fit the chat completion API requirement. One advantage is that one can experiment with both chat and non-chat models for the same prompt in a unified API.
+
+For local LLMs, one can spin up an endpoint using a package like [simple_ai_server](https://github.com/lhenault/simpleAI), and then use the same API to send a request.
+
+When only working with the chat-based models, `flaml.oai.ChatCompletion` can be used. It also does automatic conversion from prompt to messages, if prompt is provided instead of messages.
 
 ### Caching
 
@@ -116,12 +122,49 @@ API call results are cached locally and reused when the same request is issued. 
 
 It is easy to hit error when calling OpenAI APIs, due to connection, rate limit, or timeout. Some of the errors are transient. `flaml.oai.Completion.create` deals with the transient errors and retries automatically. Initial request timeout, retry timeout and retry time interval can be configured via `flaml.oai.request_timeout`, `flaml.oai.retry_timeout` and `flaml.oai.retry_time`.
 
+Moreover, one can pass a list of configurations of different models/endpoints to mitigate the rate limits. For example,
+
+```python
+response = oai.Completion.create(
+    config_list=[
+        {
+            "model": "gpt-4",
+            "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+            "api_type": "azure",
+            "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+            "api_version": "2023-03-15-preview",
+        },
+        {
+            "model": "gpt-3.5-turbo",
+            "api_key": os.environ.get("OPENAI_API_KEY"),
+            "api_type": "open_ai",
+            "api_base": "https://api.openai.com/v1",
+            "api_version": None,
+        },
+        {
+            "model": "llama-7B",
+            "api_base": "http://127.0.0.1:8080",
+            "api_type": "open_ai",
+            "api_version": None,
+        }
+    ],
+    prompt="Hi",
+)
+```
+
+It will try querying Azure OpenAI gpt-4, OpenAI gpt-3.5-turbo, and a locally hosted llama-7B one by one, ignoring AuthenticationError, RateLimitError and Timeout,
+until a valid result is returned. This can speed up the development process where the rate limit is a bottleneck. An error will be raised if the last choice fails. So make sure the last choice in the list has the best availability.
+
 ### Templating
 
 If the provided prompt or message is a template, it will be automatically materialized with a given context. For example,
 
 ```python
-response = oai.Completion.create(problme=problem, prompt="{problem} Solve the problem carefully.", **config)
+response = oai.Completion.create(
+    context={"problem": "How many positive integers, not exceeding 100, are multiples of 2 or 3 but not 4?"},
+    prompt="{problem} Solve the problem carefully.",
+    **config
+)
 ```
 
 A template is either a format str, like the example above, or a function which produces a str from several input fields, like the example below.
@@ -291,7 +334,7 @@ Set `compact=False` in `start_logging()` to switch.
 It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
 The compact history is more efficient and the individual API call history contains more details.
 
-## Other utilities
+## Other Utilities
 
 ### Completion
 
