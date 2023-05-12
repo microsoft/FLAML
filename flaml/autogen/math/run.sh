@@ -233,10 +233,13 @@
 # # trial 62: general_5
 # python main.py -ptype general_5 --folder ./62 --categories 0 1
 
-python main.py -ptype general_1 --folder ./56 --select
+# python main.py -ptype general_1 --folder ./56 --select
+
+python main.py -ptype v3.5python --folder ./63 --select
+
 
 # trial 55: v3.2  original system message, finish running v3.2
-python main.py -ptype v3.3python --folder ./55 --categories 0 1
+python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 
 

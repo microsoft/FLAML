@@ -293,6 +293,28 @@ Agent: ...
 User: #result
 ...
 """,
+
+    "v3.5python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You should always use 'print' function for the output, and use fractions/radical forms instead of decimal.
+You must follow the formats below to write your code (otherwise it will not be recognized):
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and box in the message, I will assume the problem is not finished.
+""",
+
     "v3.4python": """Let's use python to solve a math problem.
 
 Query requirements:
@@ -302,16 +324,16 @@ You must follow the formats below to write your code:
 # your code
 ```
 
-First state the key idea to solve the problem. You may choose from 3 ways to solve the problem:
-Case 1: If possible, write a program to directly solve it. If the problem involves enumerations, try to write a loop to iterate over all situations. Put your reasoning as comments in the code.
-Case 2: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
-Case 3: If the problem cannot be handled with the two ways above, please solve the problem step by step. **Keep solving the problem. Only stop when you have queries and need to be executed.**
-1. Output one step or several steps. (Do not overdivide the steps)
-2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated). Follow your own reasoning and query when necessary.
-3. Wait for me to run the queries and return the results.
-4. Correct this step based on the results, or give a new query if the results are invalid.
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involve simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use python to check calculations if necessary.
+Case 2: If the problem can be solved with python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled with the above two ways, please follow this process:
+1. Solve the problem step by step (do not overdivide the steps).
+2. Take out any queries that can be asked through python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
 
-After all the queries are run and you get the answer, put the answer in \\boxed{}.
+After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and box in the message, I will assume the problem is not finished.
 """,
     "v3.3python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 Query requirements:
