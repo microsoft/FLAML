@@ -70,6 +70,19 @@ class HumanProxyAgent(Agent):
             # raise NotImplementedError
         return exitcode, logs
 
+    def auto_reply(self, message, sender, default_reply="", lang=None, code=None):
+        """Generate an auto reply."""
+        if lang is None:
+            code, lang = extract_code(message)
+        if lang == "unknown":
+            # no code block is found, lang should be "unknown"
+            self._send(default_reply, sender)
+        else:
+            # try to execute the code
+            exitcode, logs = self._execute_code(code, lang)
+            exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
+            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs.decode('utf-8')}", sender)
+
     def receive(self, message, sender):
         """Receive a message from the sender agent.
         Once a message is received, this function sends a reply to the sender or simply stop.
@@ -109,13 +122,7 @@ class HumanProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        if self._human_input_mode != "ALWAYS":
-            code, lang = extract_code(message)
-        if lang == "unknown":
-            # no code block is found, lang should be "unknown"
-            self._send(reply, sender)
+        if self._human_input_mode == "ALWAYS":
+            self.auto_reply(message, sender, default_reply=reply, lang=lang, code=code)
         else:
-            # try to execute the code
-            exitcode, logs = self._execute_code(code, lang)
-            exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs.decode('utf-8')}", sender)
+            self.auto_reply(message, sender, default_reply=reply)

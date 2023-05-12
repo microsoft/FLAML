@@ -24,7 +24,7 @@ def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
         is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE"),
     )
     agent.receive(
-        """Create and execute a script to plot a rocket""",
+        """Create and execute a script to plot a rocket without using matplotlib""",
         user,
     )
     agent.reset()
