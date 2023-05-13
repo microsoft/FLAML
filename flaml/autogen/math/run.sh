@@ -242,11 +242,23 @@
 # python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 
-# trial 63: v3.6python
-python main.py -ptype v3.6python --folder ./63 --categories 0
+# trial 63: v3.6python 
+# python main.py -ptype v3.6python --folder ./63 --categories 0
 
-# trial 64: v3.7python
-python main.py -ptype v3.7python --folder ./64 --categories 0
+# # trial 64: v3.7python
+# python main.py -ptype v3.7python --folder ./64 --categories 0
 
-# trial 65: v3.8python
-python main.py -ptype v3.8python --folder ./65 --categories 0
+# # trial 65: v3.8python
+# python main.py -ptype v3.8python --folder ./65 --categories 0
+
+
+# python main.py -ptype v3.9python --folder ./66 --select
+
+# trial 67: 
+python main.py -ptype v3.3python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# trial 68: zero-shot on 50
+python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 50
+
+# trial 68: zero-shot on 50
+python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 400

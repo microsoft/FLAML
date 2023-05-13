@@ -52,7 +52,7 @@ def zeroshot_solve(model, problem, max_tokens=None):
     config = {
         "model": model,
         "messages": [
-            # {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": full_prompt},
         ],
         "n": 1,
