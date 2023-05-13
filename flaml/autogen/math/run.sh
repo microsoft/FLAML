@@ -255,7 +255,7 @@
 # python main.py -ptype v3.9python --folder ./66 --select
 
 # trial 67: 
-python main.py -ptype v3.3python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 50
+python main.py -ptype v3.9python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 68: zero-shot on 50
 python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 50
