@@ -235,11 +235,18 @@
 
 # python main.py -ptype general_1 --folder ./56 --select
 
-python main.py -ptype v3.5python --folder ./63 --select
+# python main.py -ptype v3.5python --folder ./63 --select
 
 
 # trial 55: v3.2  original system message, finish running v3.2
-python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5 6 --samples_per_category 50
+# python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 
+# trial 63: v3.6python
+python main.py -ptype v3.6python --folder ./63 --categories 0
 
+# trial 64: v3.7python
+python main.py -ptype v3.7python --folder ./64 --categories 0
+
+# trial 65: v3.8python
+python main.py -ptype v3.8python --folder ./65 --categories 0

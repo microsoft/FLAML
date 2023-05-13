@@ -294,6 +294,48 @@ User: #result
 ...
 """,
 
+    "v3.7python": """Let's use Python to solve a math problem. You are provided with three ways to solve the problem, choose the best way to solve the problem, and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem can be solved with Python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 2: If the problem only involves simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use Python to check calculations if necessary.
+Case 3: If the problem cannot be handled in the above two ways, please follow this process:
+1. Solve the problem step by step (do not over-divide the steps).
+2. Take out any queries that can be asked through Python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and the box in the message, I will assume the problem is not finished.
+
+""",
+    "v3.6python": """Let's use Python to solve a math problem. You are provided with three ways to solve the problem, choose the best way to solve the problem, and be flexible to switch to other ways if necessary.
+
+Query requirements:
+You should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem only involves simple calculations or is mostly reasoning, you can solve it by yourself directly. You can use Python to check calculations if necessary.
+Case 2: If the problem can be solved with Python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled in the above two ways, please follow this process:
+1. Solve the problem step by step (do not over-divide the steps).
+2. Take out any queries that can be asked through Python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and the box in the message, I will assume the problem is not finished.
+
+""",
     "v3.5python": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
