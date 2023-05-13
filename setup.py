@@ -84,6 +84,7 @@ setuptools.setup(
             "ipykernel",
             "pytorch-lightning<1.9.1",  # test_forecast_panel
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
+            "packaging",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
@@ -135,7 +136,7 @@ setuptools.setup(
             "optuna==2.8.0",
             "pyspark>=3.2.0",
         ],
-        "autozero": ["scikit-learn", "pandas"],
+        "autozero": ["scikit-learn", "pandas", "packaging"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

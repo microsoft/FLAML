@@ -18,10 +18,6 @@ logger = logging.getLogger(__name__)
 CONFIG_PREDICTORS = {}
 
 
-def version_parse(version):
-    return tuple(map(int, (version.split("."))))
-
-
 def meta_feature(task, X_train, y_train, meta_feature_names):
     this_feature = []
     n_row = X_train.shape[0]
@@ -80,6 +76,8 @@ def suggest_config(
     The returned configs can be used as starting points for AutoML.fit().
     `FLAML_sample_size` is removed from the configs.
     """
+    from packaging.version import parse as version_parse
+
     task = get_classification_objective(len_labels(y)) if task == "classification" and y is not None else task
     predictor = (
         load_config_predictor(estimator_or_predictor, task, location)
