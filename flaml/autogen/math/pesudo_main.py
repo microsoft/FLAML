@@ -76,18 +76,22 @@ def pseudo_main(config_list):
 
     # v3
     selected_samples = {
-        # "Algebra": [0, 6],  # [8] wrong,  # 8 correct
+        # "Algebra": [9,13,14],  # [8] wrong,  # 8 correct
+        # "Algebra": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],  # [8] wrong,  # 8 correct
+
         # "Algebra": [1,2,4,13],
         # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
         # "Algebra": [2, 5, 13],
-        # "Counting & Probability": [0,1], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
+        # "Counting & Probability": [0,1,8,9], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
         # "Geometry": [],
-        "Algebra": [i for i in range(20)],
-        "Counting & Probability": [i for i in range(20)],
+
+        # "Algebra": [i for i in range(20)],
+        # "Counting & Probability": [i for i in range(20)],
         "Intermediate Algebra": [0, 3, 6, 8, 9, 10, 11, 13, 15, 16, 17],
-        "Number Theory": [i for i in range(20)],
-        "Prealgebra": [i for i in range(20)],
+        # "Number Theory": [i for i in range(20)],
+        # "Prealgebra": [i for i in range(20)],
         "Precalculus": [1, 14, 15, 18],
+
         # "Number Theory": [0, 2, 4,6,7,8,10,11,12,13,14,15,17,18],  # [3] always wrong      [1, 5, 9, 16, 19] always right
         # "Prealgebra": [3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 17], # [0,7,16] always wrong, [1,2,5,6,10,18,19] always right
     }
