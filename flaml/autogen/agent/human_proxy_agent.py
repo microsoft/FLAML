@@ -70,10 +70,9 @@ class HumanProxyAgent(Agent):
             # raise NotImplementedError
         return exitcode, logs
 
-    def auto_reply(self, message, sender, default_reply="", lang=None, code=None):
+    def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""
-        if lang is None:
-            code, lang = extract_code(message)
+        code, lang = extract_code(message)
         if lang == "unknown":
             # no code block is found, lang should be "unknown"
             self._send(default_reply, sender)
@@ -92,15 +91,8 @@ class HumanProxyAgent(Agent):
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
         if self._human_input_mode == "ALWAYS":
-            code, lang = extract_code(message)
-            msg2display = (
-                f"\nCode block detected: \n{code}\nUse auto-reply to execute the code and return the result.\n"
-                if lang != "unknown"
-                else ""
-            )
             reply = input(
-                "*" * 40
-                + f"{msg2display}Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
+                "Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
@@ -122,7 +114,4 @@ class HumanProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        if self._human_input_mode == "ALWAYS":
-            self.auto_reply(message, sender, default_reply=reply, lang=lang, code=code)
-        else:
-            self.auto_reply(message, sender, default_reply=reply)
+        self.auto_reply(message, sender, default_reply=reply)
