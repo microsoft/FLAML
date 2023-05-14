@@ -2,7 +2,7 @@ from time import sleep
 import logging
 import numpy as np
 import time
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable
 import sys
 import json
 from flaml import tune, BlendSearch
@@ -682,6 +682,7 @@ class Completion(openai_Completion):
         context: Optional[Dict] = None,
         use_cache: Optional[bool] = True,
         config_list: Optional[List] = None,
+        filter: Optional[Callable[[Dict, Dict, Dict], bool]] = None,
         **config,
     ):
         """Make a completion for a given context.
@@ -727,6 +728,13 @@ class Completion(openai_Completion):
         )
         ```
 
+            filter (Callable, Optional): A function that takes in the context, the config and the response and returns a boolean to indicate whether the response is valid. E.g.,
+
+        ```python
+        def yes_or_no_filter(context, config, response):
+            return context["yes_or_no_choice"] is False or oai.Completion.extract_text(response) in ["yes", "no"]
+        ```
+
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
                 This is useful when implementing "controlled randomness" for the completion.
@@ -739,16 +747,19 @@ class Completion(openai_Completion):
             raise ERROR
         if config_list:
             retry_timeout = cls.retry_timeout
+            last = len(config_list) - 1
             for i, each_config in enumerate(config_list):
                 base_config = config.copy()
                 base_config.update(each_config)
                 try:
                     cls.retry_timeout = 0 if i < len(config_list) - 1 else retry_timeout
                     # retry_timeout = 0 to avoid retrying
-                    return cls.create(context, use_cache, **base_config)
+                    response = cls.create(context, use_cache, **base_config)
+                    if i == last or filter is None or filter(context, base_config, response):
+                        return response
                 except (AuthenticationError, RateLimitError, Timeout):
                     logger.info(f"failed with config {i}", exc_info=1)
-                    if i == len(config_list) - 1:
+                    if i == last:
                         raise
                 finally:
                     cls.retry_timeout = retry_timeout

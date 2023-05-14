@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from functools import partial
 import os
+import json
 from flaml import oai
 from flaml.autogen.code_utils import (
     eval_function_completions,
@@ -16,6 +17,46 @@ from flaml.autogen.code_utils import (
     execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+
+
+def yes_or_no_filter(context, config, response):
+    return context["yes_or_no_choice"] is False or oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
+
+
+def valid_json_filter(context, config, response):
+    try:
+        json.loads(oai.Completion.extract_text(response)[0])
+        return True
+    except ValueError:
+        return False
+
+
+def test_filter():
+    try:
+        import openai
+    except ImportError as exc:
+        print(exc)
+        return
+    response = oai.Completion.create(
+        context={"yes_or_no_choice": True},
+        config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
+        prompt="Is 37 a prime number? Please answer 'Yes.' or 'No.'",
+        filter=yes_or_no_filter,
+    )
+    assert oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
+    response = oai.Completion.create(
+        context={"yes_or_no_choice": False},
+        config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
+        prompt="Is 37 a prime number?",
+        filter=yes_or_no_filter,
+    )
+    assert response["model"] == "text-ada-001"
+    response = oai.Completion.create(
+        config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
+        prompt="How to construct a json request to Bing API to search for 'latest AI news'? Return the JSON request.",
+        filter=valid_json_filter,
+    )
+    assert json.loads(oai.Completion.extract_text(response)[0])
 
 
 def test_chatcompletion():
@@ -410,7 +451,8 @@ if __name__ == "__main__":
     openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
     os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
     os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
-    test_chatcompletion()
+    test_filter()
+    # test_chatcompletion()
     # test_multi_model()
     # test_execute_code()
     # test_improve()

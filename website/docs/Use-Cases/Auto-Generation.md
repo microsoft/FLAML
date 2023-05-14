@@ -120,6 +120,8 @@ API call results are cached locally and reused when the same request is issued. 
 
 ### Error handling
 
+#### Runtime error
+
 It is easy to hit error when calling OpenAI APIs, due to connection, rate limit, or timeout. Some of the errors are transient. `flaml.oai.Completion.create` deals with the transient errors and retries automatically. Initial request timeout, retry timeout and retry time interval can be configured via `flaml.oai.request_timeout`, `flaml.oai.retry_timeout` and `flaml.oai.retry_time`.
 
 Moreover, one can pass a list of configurations of different models/endpoints to mitigate the rate limits. For example,
@@ -154,6 +156,27 @@ response = oai.Completion.create(
 
 It will try querying Azure OpenAI gpt-4, OpenAI gpt-3.5-turbo, and a locally hosted llama-7B one by one, ignoring AuthenticationError, RateLimitError and Timeout,
 until a valid result is returned. This can speed up the development process where the rate limit is a bottleneck. An error will be raised if the last choice fails. So make sure the last choice in the list has the best availability.
+
+#### Logic error
+
+Another type of error is that the returned response does not satisfy a requirement. For example, if the response is required to be a valid json string, one would like to filter the responses that are not. This can be achieved by providing a list of configurations and a filter function. For example,
+
+```python
+def valid_json_filter(context, config, response):
+    try:
+        json.loads(oai.Completion.extract_text(response)[0])
+        return True
+    except ValueError:
+        return False
+
+response = oai.Completion.create(
+    config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
+    prompt="How to construct a json request to Bing API to search for 'latest AI news'? Return the JSON request.",
+    filter=valid_json_filter,
+)
+```
+
+The example above will try to use text-ada-001, gpt-3.5-turbo, and text-davinci-003 iteratively, until a valid json string is returned or the last config is used. One can also repeat the same model in the list for multiple times to try one model multiple times to increase the robustness of the response.
 
 ### Templating
 
