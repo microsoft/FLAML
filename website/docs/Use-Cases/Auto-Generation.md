@@ -26,6 +26,9 @@ There are also complex interactions among subsets of the hyperparameters. For ex
 the temperature and top_p are not recommended to be altered from their default values together because they both control the randomness of the generated text, and changing both at the same time can result in conflicting effects; n and best_of are rarely tuned together because if the application can process multiple outputs, filtering on the server side causes unnecessary information loss; both n and max_tokens will affect the total number of tokens generated, which in turn will affect the cost of the request.
 These interactions and trade-offs make it difficult to manually determine the optimal hyperparameter settings for a given text generation task.
 
+*Do the choices matter? Check this [blog post](blog/2023/04/21/LLM-tuning-math) for a case study.*
+
+
 ## Tune Hyperparameters
 
 The tuning can be performed with the following information:
@@ -46,8 +49,9 @@ The evaluation function should take a list of responses, and other keyword argum
 ```python
 def eval_math_responses(responses: List[str], solution: str, **args) -> Dict:
     # select a response from the list of responses
+    answer = voted_answer(responses)
     # check whether the answer is correct
-    return {"success": True or False}
+    return {"success": is_equivalent(answer, solution)}
 ```
 
 [`flaml.autogen.code_utils`](../reference/autogen/code_utils) and [`flaml.autogen.math_utils`](../reference/autogen/math_utils) offer some example evaluation functions for code generation and math problem solving.
@@ -99,6 +103,8 @@ config, analysis = oai.Completion.tune(
 The returned `config` contains the optimized configuration and `analysis` contains an [ExperimentAnalysis](../reference/tune/analysis#experimentanalysis-objects) object for all the tried configurations and results.
 
 The tuend config can be used to perform inference.
+
+*Refer to this [page](../Examples/AutoGen-OpenAI) for a full example.*
 
 ## Perform Inference
 
@@ -172,7 +178,7 @@ def valid_json_filter(context, config, response):
 response = oai.Completion.create(
     config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
     prompt="How to construct a json request to Bing API to search for 'latest AI news'? Return the JSON request.",
-    filter=valid_json_filter,
+    filter_func=valid_json_filter,
 )
 ```
 

@@ -2,7 +2,7 @@ from time import sleep
 import logging
 import numpy as np
 import time
-from typing import List, Optional, Dict, Callable
+from typing import List, Optional, Dict, Callable, Any
 import sys
 import json
 from flaml import tune, BlendSearch
@@ -138,6 +138,8 @@ class Completion(openai_Completion):
     @classmethod
     def _book_keeping(cls, config: Dict, response):
         """Book keeping for the created completions."""
+        if response != -1 and "cost" not in response:
+            response["cost"] = cls.cost(response)
         if cls._history_dict is None:
             return
         if cls._history_compact:
@@ -154,7 +156,7 @@ class Completion(openai_Completion):
             else:
                 key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
             value["created_at"].append(cls._count_create)
-            value["cost"].append(cls.cost(response))
+            value["cost"].append(response["cost"])
             cls._history_dict[key] = value
             cls._count_create += 1
             return
@@ -489,15 +491,15 @@ class Completion(openai_Completion):
     @classmethod
     def tune(
         cls,
-        data,
-        metric,
-        mode,
-        eval_func,
-        log_file_name=None,
-        inference_budget=None,
-        optimization_budget=None,
-        num_samples=1,
-        logging_level=logging.WARNING,
+        data: List[Dict],
+        metric: str,
+        mode: str,
+        eval_func: Callable,
+        log_file_name: Optional[str] = None,
+        inference_budget: Optional[float] = None,
+        optimization_budget: Optional[float] = None,
+        num_samples: Optional[int] = 1,
+        logging_level: Optional[int] = logging.WARNING,
         **config,
     ):
         """Tune the parameters for the OpenAI API call.
@@ -681,8 +683,8 @@ class Completion(openai_Completion):
         cls,
         context: Optional[Dict] = None,
         use_cache: Optional[bool] = True,
-        config_list: Optional[List] = None,
-        filter: Optional[Callable[[Dict, Dict, Dict], bool]] = None,
+        config_list: Optional[List[Dict]] = None,
+        filter_func: Optional[Callable[[Dict, Dict, Dict], bool]] = None,
         **config,
     ):
         """Make a completion for a given context.
@@ -728,7 +730,7 @@ class Completion(openai_Completion):
         )
         ```
 
-            filter (Callable, Optional): A function that takes in the context, the config and the response and returns a boolean to indicate whether the response is valid. E.g.,
+            filter_func (Callable, Optional): A function that takes in the context, the config and the response and returns a boolean to indicate whether the response is valid. E.g.,
 
         ```python
         def yes_or_no_filter(context, config, response):
@@ -748,15 +750,19 @@ class Completion(openai_Completion):
         if config_list:
             retry_timeout = cls.retry_timeout
             last = len(config_list) - 1
+            cost = 0
             for i, each_config in enumerate(config_list):
                 base_config = config.copy()
                 base_config.update(each_config)
                 try:
-                    cls.retry_timeout = 0 if i < len(config_list) - 1 else retry_timeout
-                    # retry_timeout = 0 to avoid retrying
+                    cls.retry_timeout = 0 if i < last and filter_func is None else retry_timeout
+                    # retry_timeout = 0 to avoid retrying when no filter is given
                     response = cls.create(context, use_cache, **base_config)
-                    if i == last or filter is None or filter(context, base_config, response):
+                    if filter_func is None or filter_func(context, base_config, response) or i == last:
+                        response["cost"] = cost + response["cost"]
+                        response["config_id"] = i
                         return response
+                    cost += response["cost"]
                 except (AuthenticationError, RateLimitError, Timeout):
                     logger.info(f"failed with config {i}", exc_info=1)
                     if i == last:
@@ -892,7 +898,7 @@ class Completion(openai_Completion):
         for i, data_i in enumerate(data):
             logger.info(f"evaluating data instance {i}")
             response = cls.create(data_i, use_cache, **config)
-            cost += cls.cost(response)
+            cost += response["cost"]
             # evaluate the quality of the responses
             responses = cls.extract_text(response)
             if eval_func is not None:
@@ -958,11 +964,12 @@ class Completion(openai_Completion):
             response (dict): The response from OpenAI API.
 
         Returns:
-            The cost in USD.
+            The cost in USD. 0 if the model is not supported.
         """
         model = response["model"]
         if model not in cls.price1K:
-            raise ValueError(f"Unknown model: {model}")
+            return 0
+            # raise ValueError(f"Unknown model: {model}")
         usage = response["usage"]
         n_input_tokens = usage["prompt_tokens"]
         n_output_tokens = usage.get("completion_tokens", 0)

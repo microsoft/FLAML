@@ -41,20 +41,20 @@ def test_filter():
         context={"yes_or_no_choice": True},
         config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
         prompt="Is 37 a prime number? Please answer 'Yes.' or 'No.'",
-        filter=yes_or_no_filter,
+        filter_func=yes_or_no_filter,
     )
     assert oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
     response = oai.Completion.create(
         context={"yes_or_no_choice": False},
         config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
         prompt="Is 37 a prime number?",
-        filter=yes_or_no_filter,
+        filter_func=yes_or_no_filter,
     )
     assert response["model"] == "text-ada-001"
     response = oai.Completion.create(
         config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
         prompt="How to construct a json request to Bing API to search for 'latest AI news'? Return the JSON request.",
-        filter=valid_json_filter,
+        filter_func=valid_json_filter,
     )
     assert json.loads(oai.Completion.extract_text(response)[0])
 
@@ -306,9 +306,10 @@ def test_humaneval(num_samples=1):
     )
     responses = oai.ChatCompletion.create(context=test_data[0], **config)
     print(responses)
-    code, cost, _ = implement(tune_data[1], [config])
+    code, cost, selected = implement(tune_data[1], [config])
     print(code)
     print(cost)
+    assert selected == 0
     print(eval_function_completions([code], **tune_data[1]))
     # a more comprehensive tuning example
     config2, analysis = oai.Completion.tune(
@@ -339,6 +340,8 @@ def test_humaneval(num_samples=1):
     result = oai.Completion.test(test_data[:num_samples], config=config2)
     print(result)
     code, cost, selected = implement(tune_data[1], [config2, config])
+    print(code)
+    print(cost)
     print(selected)
     print(eval_function_completions([code], **tune_data[1]))
 
@@ -451,11 +454,11 @@ if __name__ == "__main__":
     openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
     os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
     os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
-    test_filter()
+    # test_filter()
     # test_chatcompletion()
     # test_multi_model()
     # test_execute_code()
     # test_improve()
     # test_nocontext()
-    # test_humaneval(1)
+    test_humaneval(1)
     # test_math(1)
