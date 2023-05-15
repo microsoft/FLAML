@@ -26,7 +26,7 @@ There are also complex interactions among subsets of the hyperparameters. For ex
 the temperature and top_p are not recommended to be altered from their default values together because they both control the randomness of the generated text, and changing both at the same time can result in conflicting effects; n and best_of are rarely tuned together because if the application can process multiple outputs, filtering on the server side causes unnecessary information loss; both n and max_tokens will affect the total number of tokens generated, which in turn will affect the cost of the request.
 These interactions and trade-offs make it difficult to manually determine the optimal hyperparameter settings for a given text generation task.
 
-*Do the choices matter? Check this [blog post](blog/2023/04/21/LLM-tuning-math) for a case study.*
+*Do the choices matter? Check this [blog post](/blog/2023/04/21/LLM-tuning-math) for a case study.*
 
 
 ## Tune Hyperparameters
