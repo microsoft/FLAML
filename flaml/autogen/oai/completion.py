@@ -734,7 +734,9 @@ class Completion(openai_Completion):
 
         ```python
         def yes_or_no_filter(context, config, response):
-            return context["yes_or_no_choice"] is False or oai.Completion.extract_text(response) in ["yes", "no"]
+            return context["yes_or_no_choice"] is False or any(
+                text in ["Yes.", "No."] for text in oai.Completion.extract_text(response)
+            )
         ```
 
             **config: Configuration for the completion.
@@ -758,7 +760,11 @@ class Completion(openai_Completion):
                     cls.retry_timeout = 0 if i < last and filter_func is None else retry_timeout
                     # retry_timeout = 0 to avoid retrying when no filter is given
                     response = cls.create(context, use_cache, **base_config)
-                    if filter_func is None or filter_func(context, base_config, response) or i == last:
+                    if (
+                        filter_func is None
+                        or filter_func(context=context, base_config=config, response=response)
+                        or i == last
+                    ):
                         response["cost"] = cost + response["cost"]
                         response["config_id"] = i
                         return response

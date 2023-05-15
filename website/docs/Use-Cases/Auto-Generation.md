@@ -169,11 +169,13 @@ Another type of error is that the returned response does not satisfy a requireme
 
 ```python
 def valid_json_filter(context, config, response):
-    try:
-        json.loads(oai.Completion.extract_text(response)[0])
-        return True
-    except ValueError:
-        return False
+    for text in oai.Completion.extract_text(response):
+        try:
+            json.loads(text)
+            return True
+        except ValueError:
+            pass
+    return False
 
 response = oai.Completion.create(
     config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],
@@ -182,7 +184,7 @@ response = oai.Completion.create(
 )
 ```
 
-The example above will try to use text-ada-001, gpt-3.5-turbo, and text-davinci-003 iteratively, until a valid json string is returned or the last config is used. One can also repeat the same model in the list for multiple times to try one model multiple times to increase the robustness of the response.
+The example above will try to use text-ada-001, gpt-3.5-turbo, and text-davinci-003 iteratively, until a valid json string is returned or the last config is used. One can also repeat the same model in the list for multiple times to try one model multiple times for increasing the robustness of the final response.
 
 ### Templating
 

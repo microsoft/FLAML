@@ -389,7 +389,7 @@ class PassAssertionFilter:
         self.cost = 0
         self.metrics = self.responses = None
 
-    def pass_assertions(self, context, config, response):
+    def pass_assertions(self, context, response, **_):
         """Check if the response passes the assertions."""
         responses = oai.Completion.extract_text(response)
         metrics = eval_function_completions(responses, context["definition"], assertions=self._assertions)

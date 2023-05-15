@@ -19,16 +19,20 @@ from flaml.autogen.code_utils import (
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 
-def yes_or_no_filter(context, config, response):
-    return context["yes_or_no_choice"] is False or oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
+def yes_or_no_filter(context, response, **_):
+    return context["yes_or_no_choice"] is False or any(
+        text in ["Yes.", "No."] for text in oai.Completion.extract_text(response)
+    )
 
 
-def valid_json_filter(context, config, response):
-    try:
-        json.loads(oai.Completion.extract_text(response)[0])
-        return True
-    except ValueError:
-        return False
+def valid_json_filter(response, **_):
+    for text in oai.Completion.extract_text(response):
+        try:
+            json.loads(text)
+            return True
+        except ValueError:
+            pass
+    return False
 
 
 def test_filter():
