@@ -1,6 +1,6 @@
 # Auto Generation
 
-`flaml.autogen` is a subpackage for automating generation tasks. It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
+`flaml.autogen` is a package for automating generation tasks (in preview). It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
 Such optimization has several benefits:
 * Maximize the utility out of using expensive foundation models.
 * Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
@@ -98,16 +98,21 @@ config, analysis = oai.Completion.tune(
 `num_samples` is the number of configurations to sample. -1 means unlimited (until optimization budget is exhausted).
 The returned `config` contains the optimized configuration and `analysis` contains an [ExperimentAnalysis](../reference/tune/analysis#experimentanalysis-objects) object for all the tried configurations and results.
 
-## Perform inference with the tuned config
+The tuend config can be used to perform inference.
 
-One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to performance inference.
+## Perform Inference
+
+One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference.
 There are a number of benefits of using `flaml.oai.Completion.create` to perform inference.
-
-A template is either a format str, or a function which produces a str from several input fields.
 
 ### API unification
 
-`flaml.oai.Completion.create` is compatible with both `openai.Completion.create` and `openai.ChatCompletion.create`, and both OpenAI API and Azure OpenAI API. So models such as "text-davinci-003", "gpt-3.5-turbo" and "gpt-4" can share a common API. When only tuning the chat-based models, `flaml.oai.ChatCompletion` can be used.
+`flaml.oai.Completion.create` is compatible with both `openai.Completion.create` and `openai.ChatCompletion.create`, and both OpenAI API and Azure OpenAI API. So models such as "text-davinci-003", "gpt-3.5-turbo" and "gpt-4" can share a common API.
+When chat models are used and `prompt` is given as the input to `flaml.oai.Completion.create`, the prompt will be automatically converted into `messages` to fit the chat completion API requirement. One advantage is that one can experiment with both chat and non-chat models for the same prompt in a unified API.
+
+For local LLMs, one can spin up an endpoint using a package like [simple_ai_server](https://github.com/lhenault/simpleAI), and then use the same API to send a request.
+
+When only working with the chat-based models, `flaml.oai.ChatCompletion` can be used. It also does automatic conversion from prompt to messages, if prompt is provided instead of messages.
 
 ### Caching
 
@@ -117,15 +122,219 @@ API call results are cached locally and reused when the same request is issued. 
 
 It is easy to hit error when calling OpenAI APIs, due to connection, rate limit, or timeout. Some of the errors are transient. `flaml.oai.Completion.create` deals with the transient errors and retries automatically. Initial request timeout, retry timeout and retry time interval can be configured via `flaml.oai.request_timeout`, `flaml.oai.retry_timeout` and `flaml.oai.retry_time`.
 
+Moreover, one can pass a list of configurations of different models/endpoints to mitigate the rate limits. For example,
+
+```python
+response = oai.Completion.create(
+    config_list=[
+        {
+            "model": "gpt-4",
+            "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+            "api_type": "azure",
+            "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+            "api_version": "2023-03-15-preview",
+        },
+        {
+            "model": "gpt-3.5-turbo",
+            "api_key": os.environ.get("OPENAI_API_KEY"),
+            "api_type": "open_ai",
+            "api_base": "https://api.openai.com/v1",
+            "api_version": None,
+        },
+        {
+            "model": "llama-7B",
+            "api_base": "http://127.0.0.1:8080",
+            "api_type": "open_ai",
+            "api_version": None,
+        }
+    ],
+    prompt="Hi",
+)
+```
+
+It will try querying Azure OpenAI gpt-4, OpenAI gpt-3.5-turbo, and a locally hosted llama-7B one by one, ignoring AuthenticationError, RateLimitError and Timeout,
+until a valid result is returned. This can speed up the development process where the rate limit is a bottleneck. An error will be raised if the last choice fails. So make sure the last choice in the list has the best availability.
+
 ### Templating
 
 If the provided prompt or message is a template, it will be automatically materialized with a given context. For example,
 
 ```python
-response = oai.Completion.create(problme=problem, prompt="{problem} Solve the problem carefully.", **config)
+response = oai.Completion.create(
+    context={"problem": "How many positive integers, not exceeding 100, are multiples of 2 or 3 but not 4?"},
+    prompt="{problem} Solve the problem carefully.",
+    **config
+)
 ```
 
-## Other utilities
+A template is either a format str, like the example above, or a function which produces a str from several input fields, like the example below.
+
+```python
+def content(turn, **context):
+    return "\n".join(
+        [
+            context[f"user_message_{turn}"],
+            context[f"external_info_{turn}"]
+        ]
+    )
+
+messages = [
+    {
+        "role": "system",
+        "content": "You are a teaching assistant of math.",
+    },
+    {
+        "role": "user",
+        "content": partial(content, turn=0),
+    },
+]
+context = {
+    "user_message_0": "Could you explain the solution to Problem 1?",
+    "external_info_0": "Problem 1: ...",
+}
+
+response = oai.ChatCompletion.create(context, messages=messages, **config)
+messages.append(
+    {
+        "role": "assistant",
+        "content": oai.ChatCompletion.extract_text(response)[0]
+    }
+)
+messages.append(
+    {
+        "role": "user",
+        "content": partial(content, turn=1),
+    },
+)
+context.append(
+    {
+        "user_message_1": "Why can't we apply Theorem 1 to Equation (2)?",
+        "external_info_1": "Theorem 1: ...",
+    }
+)
+response = oai.ChatCompletion.create(context, messages=messages, **config)
+```
+
+### Logging (Experimental)
+
+When debugging or diagnosing an LLM-based system, it is often convenient to log the API calls and analyze them. `flaml.oai.Completion` and `flaml.oai.ChatCompletion` offer an easy way to collect the API call histories. For example, to log the chat histories, simply run:
+```python
+flaml.oai.ChatCompletion.start_logging()
+```
+The API calls made after this will be automatically logged. They can be retrieved at any time by:
+```python
+flaml.oai.ChatCompletion.logged_history
+```
+To stop logging, use
+```python
+flaml.oai.ChatCompletion.stop_logging()
+```
+If one would like to append the history to an existing dict, pass the dict like:
+```python
+flaml.oai.ChatCompletion.start_logging(history_dict=existing_history_dict)
+```
+By default, the counter of API calls will be reset at `start_logging()`. If no reset is desired, set `reset_counter=False`.
+
+There are two types of logging formats: compact logging and individual API call logging. The default format is compact.
+Set `compact=False` in `start_logging()` to switch.
+
+* Example of a history dict with compact logging.
+```python
+{
+    """
+    [
+        {
+            'role': 'system',
+            'content': system_message,
+        },
+        {
+            'role': 'user',
+            'content': user_message_1,
+        },
+        {
+            'role': 'assistant',
+            'content': assistant_message_1,
+        },
+        {
+            'role': 'user',
+            'content': user_message_2,
+        },
+        {
+            'role': 'assistant',
+            'content': assistant_message_2,
+        },
+    ]""": {
+        "created_at": [0, 1],
+        "cost": [0.1, 0.2],
+    }
+}
+```
+
+* Example of a history dict with individual API call logging.
+```python
+{
+    0: {
+        "request": {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_1,
+                }
+            ],
+            ... # other parameters in the request
+        },
+        "response": {
+            "choices": [
+                "messages": {
+                    "role": "assistant",
+                    "content": assistant_message_1,
+                },
+            ],
+            ... # other fields in the response
+        }
+    },
+    1: {
+        "request": {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_message,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_1,
+                },
+                {
+                    "role": "assistant",
+                    "content": assistant_message_1,
+                },
+                {
+                    "role": "user",
+                    "content": user_message_2,
+                },
+            ],
+            ... # other parameters in the request
+        },
+        "response": {
+            "choices": [
+                "messages": {
+                    "role": "assistant",
+                    "content": assistant_message_2,
+                },
+            ],
+            ... # other fields in the response
+        }
+    },
+}
+```
+It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
+The compact history is more efficient and the individual API call history contains more details.
+
+## Other Utilities
 
 ### Completion
 

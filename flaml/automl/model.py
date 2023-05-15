@@ -1135,7 +1135,7 @@ class TransformersEstimator(BaseEstimator):
             predictions = new_trainer.predict(test_dataset).predictions
         except ZeroDivisionError:
             logger.warning("Zero division error appeared in HuggingFace Transformers.")
-            predictions = np.array([-0.05] * len(test_dataset))
+            predictions = None
         return predictions
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
@@ -1171,7 +1171,7 @@ class TransformersEstimator(BaseEstimator):
             predictions = new_trainer.predict(test_dataset, **kwargs).predictions
         except ZeroDivisionError:
             logger.warning("Zero division error appeared in HuggingFace Transformers.")
-            predictions = np.array([0] * len(test_dataset))
+            predictions = None
         post_y_pred, _ = postprocess_prediction_and_true(
             task=self._task,
             y_pred=predictions,
@@ -2324,10 +2324,7 @@ class HoltWinters(ARIMA):
         if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
             self.params["trend"] = "add"
 
-        if not self.params["seasonal"] or not self.params["trend"] in [
-            "mul",
-            "add",
-        ]:
+        if not self.params["seasonal"] or self.params["trend"] not in ["mul", "add"]:
             self.params["damped_trend"] = False
 
         model = HWExponentialSmoothing(

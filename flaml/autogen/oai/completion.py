@@ -4,6 +4,7 @@ import numpy as np
 import time
 from typing import List, Optional, Dict
 import sys
+import json
 from flaml import tune, BlendSearch
 from flaml.automl.logger import logger_formatter
 
@@ -16,12 +17,15 @@ try:
         InvalidRequestError,
         APIConnectionError,
         Timeout,
+        AuthenticationError,
     )
+    from openai import Completion as openai_Completion
     import diskcache
 
     ERROR = None
 except ImportError:
     ERROR = ImportError("please install flaml[openai] option to use the flaml.oai subpackage.")
+    openai_Completion = object
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     # Add the console handler.
@@ -39,14 +43,15 @@ def get_key(config):
     Returns:
         tuple: A unique identifier which can be used as a key for a dict.
     """
-    if isinstance(config, dict):
-        return tuple(get_key(x) for x in sorted(config.items()))
-    if isinstance(config, list):
-        return tuple(get_key(x) for x in config)
-    return config
+    # if isinstance(config, dict):
+    #     return tuple(get_key(x) for x in sorted(config.items()))
+    # if isinstance(config, list):
+    #     return tuple(get_key(x) for x in config)
+    # return config
+    return json.dumps(config, sort_keys=True)
 
 
-class Completion:
+class Completion(openai_Completion):
     """A class for OpenAI completion API.
 
     It also supports: ChatCompletion, Azure OpenAI API.
@@ -115,6 +120,8 @@ class Completion:
     _total_cost = 0
     optimization_budget = None
 
+    _history_dict = _count_create = None
+
     @classmethod
     def set_cache(cls, seed=41, cache_path=".cache"):
         """Set cache path.
@@ -129,18 +136,54 @@ class Completion:
         cls.cache_path = f"{cache_path}/{seed}"
 
     @classmethod
-    def _get_response(cls, config: dict, eval_only=False, use_cache=True):
+    def _book_keeping(cls, config: Dict, response):
+        """Book keeping for the created completions."""
+        if cls._history_dict is None:
+            return
+        if cls._history_compact:
+            value = {
+                "created_at": [],
+                "cost": [],
+            }
+            if "messages" in config:
+                messages = config["messages"]
+                if len(messages) > 1 and messages[-1]["role"] != "assistant":
+                    existing_key = get_key(messages[:-1])
+                    value = cls._history_dict.pop(existing_key, value)
+                key = get_key(messages + [choice["message"] for choice in response["choices"]])
+            else:
+                key = get_key([config["prompt"]] + [choice.get("text") for choice in response["choices"]])
+            value["created_at"].append(cls._count_create)
+            value["cost"].append(cls.cost(response))
+            cls._history_dict[key] = value
+            cls._count_create += 1
+            return
+        cls._history_dict[cls._count_create] = {
+            "request": config,
+            "response": response.to_dict_recursive(),
+        }
+        cls._count_create += 1
+
+    @classmethod
+    def _get_response(cls, config: Dict, eval_only=False, use_cache=True):
         """Get the response from the openai api call.
 
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
         """
+        config = config.copy()
+        openai.api_key_path = config.pop("api_key_path", openai.api_key_path)
         key = get_key(config)
         if use_cache:
             response = cls._cache.get(key, None)
             if response is not None and (response != -1 or not eval_only):
                 # print("using cached response")
+                cls._book_keeping(config, response)
                 return response
-        openai_completion = openai.ChatCompletion if config["model"] in cls.chat_models else openai.Completion
+        openai_completion = (
+            openai.ChatCompletion
+            if config["model"] in cls.chat_models or issubclass(cls, ChatCompletion)
+            else openai.Completion
+        )
         start_time = time.time()
         request_timeout = cls.request_timeout
         while True:
@@ -151,41 +194,48 @@ class Completion:
                     response = openai_completion.create(request_timeout=request_timeout, **config)
             except (
                 ServiceUnavailableError,
-                APIError,
                 APIConnectionError,
             ):
                 # transient error
                 logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
-            except (RateLimitError, Timeout) as e:
+            except APIError as err:
+                error_code = err and err.json_body and err.json_body.get("error")
+                error_code = error_code and error_code.get("code")
+                if error_code == "content_filter":
+                    raise
+                # transient error
+                logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                sleep(cls.retry_time)
+            except (RateLimitError, Timeout) as err:
                 time_left = cls.retry_timeout - (time.time() - start_time + cls.retry_time)
                 if (
                     time_left > 0
-                    and isinstance(e, RateLimitError)
+                    and isinstance(err, RateLimitError)
                     or time_left > request_timeout
-                    and isinstance(e, Timeout)
+                    and isinstance(err, Timeout)
                 ):
                     logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 elif eval_only:
                     raise
                 else:
                     break
-                if isinstance(e, Timeout):
+                if isinstance(err, Timeout):
                     if "request_timeout" in config:
                         raise
                     request_timeout <<= 1
                 request_timeout = min(request_timeout, time_left)
                 sleep(cls.retry_time)
             except InvalidRequestError:
-                if "azure" == openai.api_type and "model" in config:
+                if "azure" == config.get("api_type", openai.api_type) and "model" in config:
                     # azure api uses "engine" instead of "model"
-                    config = config.copy()
                     config["engine"] = config.pop("model").replace("gpt-3.5-turbo", "gpt-35-turbo")
                 else:
                     raise
             else:
                 if use_cache:
                     cls._cache.set(key, response)
+                cls._book_keeping(config, response)
                 return response
         logger.warning(
             f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
@@ -241,7 +291,7 @@ class Completion:
     @classmethod
     def _get_prompt_messages_from_config(cls, model, config):
         prompt, messages = None, None
-        if model in cls.chat_models:
+        if model in cls.chat_models or issubclass(cls, ChatCompletion):
             # either "prompt" should be in config (for being compatible with non-chat models)
             # or "messages" should be in config (for tuning chat models only)
             prompt = config.get("prompt")
@@ -627,17 +677,56 @@ class Completion:
         return params, analysis
 
     @classmethod
-    def create(cls, context: Optional[Dict] = None, use_cache: Optional[bool] = True, **config):
+    def create(
+        cls,
+        context: Optional[Dict] = None,
+        use_cache: Optional[bool] = True,
+        config_list: Optional[List] = None,
+        **config,
+    ):
         """Make a completion for a given context.
 
         Args:
-            context (dict, Optional): The context to instantiate the prompt.
+            context (Dict, Optional): The context to instantiate the prompt.
                 It needs to contain keys that are used by the prompt template.
-                E.g., `prompt="Complete the following sentence: {prefix}"`.
-                `context={"prefix": "Today I feel"}`.
-                The actual prompt sent to OpenAI will be:
+                E.g., `prompt="Complete the following sentence: {prefix}, context={"prefix": "Today I feel"}`.
+                The actual prompt will be:
                 "Complete the following sentence: Today I feel".
+                More examples can be found at [templating](/docs/Use-Cases/Auto-Generation#templating).
             use_cache (bool, Optional): Whether to use cached responses.
+            config_list (List, Optional): List of configurations for the completion to try.
+                The first one that does not raise an error will be used.
+                Only the differences from the default config need to be provided.
+                E.g.,
+
+        ```python
+        response = oai.Completion.create(
+            config_list=[
+                {
+                    "model": "gpt-4",
+                    "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+                    "api_type": "azure",
+                    "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+                    "api_version": "2023-03-15-preview",
+                },
+                {
+                    "model": "gpt-3.5-turbo",
+                    "api_key": os.environ.get("OPENAI_API_KEY"),
+                    "api_type": "open_ai",
+                    "api_base": "https://api.openai.com/v1",
+                    "api_version": None,
+                },
+                {
+                    "model": "llama-7B",
+                    "api_base": "http://127.0.0.1:8080",
+                    "api_type": "open_ai",
+                    "api_version": None,
+                }
+            ],
+            prompt="Hi",
+        )
+        ```
+
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
                 This is useful when implementing "controlled randomness" for the completion.
@@ -648,6 +737,21 @@ class Completion:
         """
         if ERROR:
             raise ERROR
+        if config_list:
+            retry_timeout = cls.retry_timeout
+            for i, each_config in enumerate(config_list):
+                base_config = config.copy()
+                base_config.update(each_config)
+                try:
+                    cls.retry_timeout = 0 if i < len(config_list) - 1 else retry_timeout
+                    # retry_timeout = 0 to avoid retrying
+                    return cls.create(context, use_cache, **base_config)
+                except (AuthenticationError, RateLimitError, Timeout):
+                    logger.info(f"failed with config {i}", exc_info=1)
+                    if i == len(config_list) - 1:
+                        raise
+                finally:
+                    cls.retry_timeout = retry_timeout
         params = cls._construct_params(context, config)
         if not use_cache:
             return cls._get_response(params, eval_only=True, use_cache=False)
@@ -674,7 +778,7 @@ class Completion:
         messages = config.get("messages") if messages is None else messages
         # either "prompt" should be in config (for being compatible with non-chat models)
         # or "messages" should be in config (for tuning chat models only)
-        if prompt is None and model in cls.chat_models:
+        if prompt is None and (model in cls.chat_models or issubclass(cls, ChatCompletion)):
             if messages is None:
                 raise ValueError("Either prompt or messages should be in config for chat models.")
         if prompt is None:
@@ -689,7 +793,7 @@ class Completion:
                 if data_instance
                 else messages
             )
-        elif model in cls.chat_models:
+        elif model in cls.chat_models or issubclass(cls, ChatCompletion):
             # convert prompt to messages
             params["messages"] = [
                 {
@@ -772,13 +876,12 @@ class Completion:
         result_agg, responses_list, result_list = {}, [], []
         metric_keys = None
         cost = 0
-        model = config["model"]
         old_level = logger.getEffectiveLevel()
         logger.setLevel(logging_level)
         for i, data_i in enumerate(data):
             logger.info(f"evaluating data instance {i}")
             response = cls.create(data_i, use_cache, **config)
-            cost += cls.cost(model, response)
+            cost += cls.cost(response)
             # evaluate the quality of the responses
             responses = cls.extract_text(response)
             if eval_func is not None:
@@ -837,16 +940,16 @@ class Completion:
             return result_agg
 
     @classmethod
-    def cost(cls, model: str, response: dict):
+    def cost(cls, response: dict):
         """Compute the cost of an API call.
 
         Args:
-            model (str): The model name.
             response (dict): The response from OpenAI API.
 
         Returns:
             The cost in USD.
         """
+        model = response["model"]
         if model not in cls.price1K:
             raise ValueError(f"Unknown model: {model}")
         usage = response["usage"]
@@ -871,6 +974,68 @@ class Completion:
         if "text" in choices[0]:
             return [choice["text"] for choice in choices]
         return [choice["message"].get("content", "") for choice in choices]
+
+    @classmethod
+    @property
+    def logged_history(cls) -> Dict:
+        """Return the book keeping dictionary."""
+        return cls._history_dict
+
+    @classmethod
+    def start_logging(
+        cls, history_dict: Optional[Dict] = None, compact: Optional[bool] = True, reset_counter: Optional[bool] = True
+    ):
+        """Start book keeping.
+
+        Args:
+            history_dict (Dict): A dictionary for book keeping.
+                If no provided, a new one will be created.
+            compact (bool): Whether to keep the history dictionary compact.
+                Compact history contains one key per conversation, and the value is a dictionary
+                like:
+        ```python
+        {
+            "create_at": [0, 1],
+            "cost": [0.1, 0.2],
+        }
+        ```
+                where "created_at" is the index of API calls indicating the order of all the calls,
+                and "cost" is the cost of each call. This example shows that the conversation is based
+                on two API calls. The compact format is useful for condensing the history of a conversation.
+                If compact is False, the history dictionary will contain all the API calls: the key
+                is the index of the API call, and the value is a dictionary like:
+        ```python
+        {
+            "request": request_dict,
+            "response": response_dict,
+        }
+        ```
+                where request_dict is the request sent to OpenAI API, and response_dict is the response.
+                For a conversation containing two API calls, the non-compact history dictionary will be like:
+        ```python
+        {
+            0: {
+                "request": request_dict_0,
+                "response": response_dict_0,
+            },
+            1: {
+                "request": request_dict_1,
+                "response": response_dict_1,
+            },
+        ```
+                The first request's messages plus the response is equal to the second request's messages.
+                For a conversation with many turns, the non-compact history dictionary has a quadratic size
+                while the compact history dict has a linear size.
+            reset_counter (bool): whether to reset the counter of the number of API calls.
+        """
+        cls._history_dict = {} if history_dict is None else history_dict
+        cls._history_compact = compact
+        cls._count_create = 0 if reset_counter or cls._count_create is None else cls._count_create
+
+    @classmethod
+    def stop_logging(cls):
+        """End book keeping."""
+        cls._history_dict = cls._count_create = None
 
 
 class ChatCompletion(Completion):

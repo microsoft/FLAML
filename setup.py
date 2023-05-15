@@ -49,14 +49,13 @@ setuptools.setup(
             "joblibspark>=0.5.0",
         ],
         "test": [
-            "flake8>=3.8.4",
             "thop",
             "pytest>=6.1.1",
             "coverage>=5.3",
             "pre-commit",
             "torch",
             "torchvision",
-            "catboost>=0.26",
+            "catboost>=0.26,<1.2",
             "rgf-python",
             "optuna==2.8.0",
             "openml==0.10.2",
@@ -77,6 +76,7 @@ setuptools.setup(
             "nbformat",
             "ipykernel",
             "pytorch-lightning<1.9.1",  # test_forecast_panel
+            "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
