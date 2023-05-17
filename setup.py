@@ -75,7 +75,7 @@ setuptools.setup(
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning<1.9.1", # test_forecast_panel
+            "pytorch-lightning<1.9.1",  # test_forecast_panel
             "tensorboardX==2.6",  # test_forecast_panel
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
         ],
