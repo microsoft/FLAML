@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pytest
 from functools import partial
+import os
 from flaml import oai
 from flaml.autogen.code_utils import (
     eval_function_completions,
@@ -15,6 +16,69 @@ from flaml.autogen.code_utils import (
     execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+
+
+def test_chatcompletion():
+    params = oai.ChatCompletion._construct_params(
+        data_instance=None,
+        config={"model": "unknown"},
+        prompt="hi",
+    )
+    assert "messages" in params
+    params = oai.Completion._construct_params(
+        data_instance=None,
+        config={"model": "unknown"},
+        prompt="hi",
+    )
+    assert "messages" not in params
+    params = oai.Completion._construct_params(
+        data_instance=None,
+        config={"model": "gpt-4"},
+        prompt="hi",
+    )
+    assert "messages" in params
+
+
+def test_multi_model():
+    try:
+        import openai
+    except ImportError as exc:
+        print(exc)
+        return
+    response = oai.Completion.create(
+        config_list=[
+            {
+                "model": "gpt-4",
+                "api_key": os.environ.get("OPENAI_API_KEY"),
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
+                "api_version": None,
+            },
+            {
+                "model": "gpt-4",
+                "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+                "api_type": "azure",
+                "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+                "api_version": "2023-03-15-preview",
+            },
+            {
+                "model": "gpt-3.5-turbo",
+                "api_key": os.environ.get("OPENAI_API_KEY"),
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
+                "api_version": None,
+            },
+            {
+                "model": "gpt-3.5-turbo",
+                "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
+                "api_type": "azure",
+                "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+                "api_version": "2023-03-15-preview",
+            },
+        ],
+        prompt="Hi",
+    )
+    print(response)
 
 
 @pytest.mark.skipif(
@@ -100,7 +164,7 @@ def test_nocontext():
     )
     print(code)
     # test extract_code from markdown
-    code = extract_code(
+    code, _ = extract_code(
         """
 Example:
 ```
@@ -110,7 +174,7 @@ print("hello extract code")
     )
     print(code)
 
-    code = extract_code(
+    code, _ = extract_code(
         """
 Example:
 ```python
@@ -239,6 +303,13 @@ def test_humaneval(num_samples=1):
 
 
 def test_math(num_samples=-1):
+    try:
+        import openai
+        import diskcache
+    except ImportError as exc:
+        print(exc)
+        return
+
     seed = 41
     data = datasets.load_dataset("competition_math")
     train_data = data["train"].shuffle(seed=seed)
@@ -270,13 +341,6 @@ def test_math(num_samples=-1):
         lambda data: "%s Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{}."
         % data["problem"]
     ]
-
-    try:
-        import openai
-        import diskcache
-    except ImportError as exc:
-        print(exc)
-        return
 
     oai.ChatCompletion.set_cache(seed)
     vanilla_config = {
@@ -341,10 +405,14 @@ def test_math(num_samples=-1):
 
 
 if __name__ == "__main__":
-    # import openai
+    import openai
 
-    # openai.api_key_path = "test/openai/key.txt"
-    test_execute_code()
+    openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
+    os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
+    os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
+    test_chatcompletion()
+    # test_multi_model()
+    # test_execute_code()
     # test_improve()
     # test_nocontext()
     # test_humaneval(1)

@@ -68,17 +68,18 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting==0.10.1",  # test_forecast_panel
+            "pytorch-forecasting>=0.9.0,<=0.10.1",
             "mlflow",
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning==1.9.0",  # test_forecast_panel
+            "pytorch-lightning<1.9.1", # test_forecast_panel
             "tensorboardX==2.6",  # test_forecast_panel
+            "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
         ],
-        "catboost": ["catboost>=0.26,<1.2"],
+        "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
             "ray[tune]~=1.13",
@@ -117,11 +118,11 @@ setuptools.setup(
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
-            "pytorch-forecasting==0.10.1",
+            "pytorch-forecasting>=0.9.0",
             "pytorch-lightning==1.9.0",
             "tensorboardX==2.6",
         ],
-        "benchmark": ["catboost>=0.26,<1.2", "psutil==5.8.0", "xgboost==1.3.3"],
+        "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
         "openai": ["openai==0.27.4", "diskcache"],
         "autogen": ["openai==0.27.4", "diskcache", "docker"],
         "synapse": ["joblibspark>=0.5.0", "optuna==2.8.0", "pyspark>=3.2.0"],
