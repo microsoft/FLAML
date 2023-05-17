@@ -54,19 +54,22 @@ class HumanProxyAgent(Agent):
 
     def _execute_code(self, code, lang):
         """Execute the code and return the result."""
-        if lang == "bash":
-            assert code.startswith("python "), code
+        if lang in ["bash", "shell"]:
+            if not code.startswith("python "):
+                return 1, f"please do not suggest bash or shell commands like {code}"
             file_name = code[len("python ") :]
             exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
+            logs = logs.decode("utf-8")
         elif lang == "python":
             if code.startswith("# filename: "):
                 filename = code[11 : code.find("\n")].strip()
             else:
                 filename = None
             exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename)
+            logs = logs.decode("utf-8")
         else:
             # TODO: could this happen?
-            exitcode, logs = 1, "unknown language"
+            exitcode, logs = 1, f"unknown language {lang}"
             # raise NotImplementedError
         return exitcode, logs
 
@@ -80,7 +83,7 @@ class HumanProxyAgent(Agent):
             # try to execute the code
             exitcode, logs = self._execute_code(code, lang)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs.decode('utf-8')}", sender)
+            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
 
     def receive(self, message, sender):
         """Receive a message from the sender agent.
