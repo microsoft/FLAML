@@ -110,7 +110,7 @@ class Completion(openai_Completion):
     seed = 41
     cache_path = f".cache/{seed}"
     # retry after this many seconds
-    retry_time = 10
+    retry_time = 60
     # fail a request after hitting RateLimitError for this many seconds
     retry_timeout = 120
     # time out for request to openai server
