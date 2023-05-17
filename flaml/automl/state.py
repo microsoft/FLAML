@@ -376,9 +376,9 @@ class AutoMLState:
 
     def _train_with_config(
         self,
-        estimator,
-        config_w_resource,
-        sample_size=None,
+        estimator: str,
+        config_w_resource: dict,
+        sample_size: Optional[int] = None,
     ):
         if not sample_size:
             sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
