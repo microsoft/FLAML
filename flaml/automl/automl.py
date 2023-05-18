@@ -1447,6 +1447,8 @@ class AutoML(BaseEstimator):
             }
         }
         ```
+            time_col: for a time series task, name of the column containing the timestamps. If not
+                provided, defaults to the first column of X_train/X_val
 
             cv_score_agg_func: customized cross-validation scores aggregate function. Default to average metrics across folds. If specificed, this function needs to
                 have the following input arguments:
