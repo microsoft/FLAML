@@ -244,7 +244,7 @@ class SearchState:
 
 
 class AutoMLState:
-    def prepare_sample_train_data(self, sample_size):
+    def prepare_sample_train_data(self, sample_size: int):
         sampled_weight = groups = None
         if sample_size <= self.data_size[0]:
             if isinstance(self.X_train, TimeSeriesDataset):
