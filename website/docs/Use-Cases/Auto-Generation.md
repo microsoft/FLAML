@@ -5,7 +5,7 @@
   - Maximize the utility out of using expensive foundation models.
   - Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
 * An enhanced inference API with utilities like API unification, caching, error handling, multi-config inference, context programming etc.
-* Higher-level utility functions like LLM-based coding.
+* Higher-level utility functions like LLM-based coding and interactive agents.
 
 The package is under active development with more features upcoming.
 
@@ -337,6 +337,10 @@ Set `compact=False` in `start_logging()` to switch.
 ```
 It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
 The compact history is more efficient and the individual API call history contains more details.
+
+## Agents (Experimental)
+
+[`flaml.autogen.agents`](../reference/autogen/agent/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
 
 ## Other Utilities
 
