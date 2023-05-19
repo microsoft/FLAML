@@ -41,6 +41,7 @@ args.folder = args.folder + "_baseline_fewshot" "_t" + str(args.temperature) + "
 
 def random_select(problem_set, problem, k = 2):
     examplar_data = [p for p in problem_set if p['problem_id']!=problem['problem_id'] and not 'asy' in p['problem'] and not 'ASY' in p['problem']]
+    assert len(examplar_data) >= k, "Not enough examplars"
     selected_samples = random.sample(list(examplar_data), k)
     return selected_samples
 
@@ -92,17 +93,17 @@ def fewshot_solve(model, problem, problem_set, max_tokens=None, k =2):
 
 
 if __name__ == "__main__":
-    from azure.identity import DefaultAzureCredential
+    # from azure.identity import DefaultAzureCredential
 
-    SCOPE = "https://ml.azure.com"
-    credential = DefaultAzureCredential()
-    token = credential.get_token(SCOPE).token
-    headers = {
-        "azureml-model-deployment": "gpt4",
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        **json.load(open("headers.json")),
-    }
+    # SCOPE = "https://ml.azure.com"
+    # credential = DefaultAzureCredential()
+    # token = credential.get_token(SCOPE).token
+    # headers = {
+    #     "azureml-model-deployment": "gpt4",
+    #     "Authorization": f"Bearer {token}",
+    #     "Content-Type": "application/json",
+    #     **json.load(open("headers.json")),
+    # }
 
     config_list = [
         {
@@ -110,23 +111,23 @@ if __name__ == "__main__":
             "api_type": "open_ai",
             "api_base": "https://api.openai.com/v1",
         },
-        {
-            "api_key": open("key_flaml.txt").read().strip(),
-            "api_type": "azure",
-            "api_base": open("base_flaml.txt").read().strip(),
-            "api_version": "2023-03-15-preview",
-        },
-        {
-            "api_key": open("key_gcr.txt").read().strip(),
-            "api_type": "azure",
-            "api_base": open("base_gcr.txt").read().strip(),
-            "api_version": "2023-03-15-preview",
-        },
-        {
-            "api_key": "nokey",
-            "headers": headers,
-            "api_base": open("base_azure.txt").read().strip(),
-        },
+        # {
+        #     "api_key": open("key_flaml.txt").read().strip(),
+        #     "api_type": "azure",
+        #     "api_base": open("base_flaml.txt").read().strip(),
+        #     "api_version": "2023-03-15-preview",
+        # },
+        # {
+        #     "api_key": open("key_gcr.txt").read().strip(),
+        #     "api_type": "azure",
+        #     "api_base": open("base_gcr.txt").read().strip(),
+        #     "api_version": "2023-03-15-preview",
+        # },
+        # {
+        #     "api_key": "nokey",
+        #     "headers": headers,
+        #     "api_base": open("base_azure.txt").read().strip(),
+        # },
     ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
