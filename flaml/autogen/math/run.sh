@@ -280,4 +280,7 @@
 # python main.py -ptype v1python --folder ./70 --samples_per_category 400 --categories 0 1 3 4 5 6
 
 # trial 71: run v1 python + wolfram 
-python main.py -ptype v1final_select --folder ./71 --samples_per_category 50 --categories 0 1 3 4 5 6
+# python main.py -ptype v1final_select --folder ./71 --samples_per_category 50 --categories 0 1 3 4 5 6
+
+# trial 72: run PoT
+python baselines/PoT.py --folder ./72 --samples_per_category 50 --categories 0 1 3 4 5 6
