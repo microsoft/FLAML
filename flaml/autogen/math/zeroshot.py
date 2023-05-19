@@ -19,6 +19,7 @@ from utils import (
     write_json,
     remove_asy_sections,
     mylogger,
+    load_all_fixed,
 )
 
 
@@ -31,6 +32,8 @@ parser.add_argument("--samples_per_category", "-s", help="samples per category",
 parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
 parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
+parser.add_argument("--select", action="store_true")
+
 args = parser.parse_args()
 args.folder = args.folder + "_baseline_zeroshot" "_t" + str(args.temperature) + "_seed" + str(args.seed)
 
@@ -61,26 +64,92 @@ def zeroshot_solve(model, problem, max_tokens=None):
     if max_tokens is not None:
         config["max_tokens"] = max_tokens
 
-    raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
+    if config_list is not None:
+        raw_responses = oai.ChatCompletion.create(
+            config_list=config_list, **config, 
+        )
+    else:
+        raw_responses = oai.ChatCompletion.create(None, **config)
+    # raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
     responses = oai.ChatCompletion.extract_text(raw_responses)
 
+    try:
+        total_cost = oai.ChatCompletion.cost(raw_responses)
+    except TypeError:
+        total_cost = oai.ChatCompletion.cost('gpt-4', raw_responses)
     return {
-        "cost": oai.ChatCompletion.cost(raw_responses),
+        "cost": total_cost,
         "response_with_ans": responses[0],
     }
 
 
 if __name__ == "__main__":
-    from azure.identity import DefaultAzureCredential
+    config_list = None
+    openai.api_key = "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"  # feiran's GPT-4
+    # from azure.identity import DefaultAzureCredential
 
-    SCOPE = "https://ml.azure.com"
-    credential = DefaultAzureCredential()
-    token = credential.get_token(SCOPE).token
-    headers = {
-        "azureml-model-deployment": "gpt4",
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        **json.load(open("headers.json")),
+    # SCOPE = "https://ml.azure.com"
+    # credential = DefaultAzureCredential()
+    # token = credential.get_token(SCOPE).token
+    # headers = {
+    #     "azureml-model-deployment": "gpt4",
+    #     "Authorization": f"Bearer {token}",
+    #     "Content-Type": "application/json",
+    #     **json.load(open("headers.json")),
+    # }
+    # config_list = [
+    #     {
+    #         "api_key": open("key.txt").read().strip(),
+    #         "api_type": "open_ai",
+    #         "api_base": "https://api.openai.com/v1",
+    #     },
+    #     {
+    #         "api_key": open("key_flaml.txt").read().strip(),
+    #         "api_type": "azure",
+    #         "api_base": open("base_flaml.txt").read().strip(),
+    #         "api_version": "2023-03-15-preview",
+    #     },
+    #     # {
+    #     #     "api_key": open("key_gcr.txt").read().strip(),
+    #     #     "api_type": "azure",
+    #     #     "api_base": open("base_gcr.txt").read().strip(),
+    #     #     "api_version": "2023-03-15-preview",
+    #     # },
+    #     # {
+    #     #     "api_key": "nokey",
+    #     #     "headers": headers,
+    #     #     "api_base": open("base_azure.txt").read().strip(),
+    #     # },
+    # ]
+    problem_sets = load_level5_math_each_category(
+        samples_per_category=args.samples_per_category, category_to_load=args.categories
+    )
+    if args.select:
+        # problem_sets = load_fixed()
+        problem_sets = load_all_fixed()
+        # print("hhh")
+    
+    selected_samples = {
+        "Algebra": [108],  # [8] wrong,  # 8 correct
+        # "Counting & Probability": [73, 96], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong 
+        # "Algebra": [14],
+        # "Number Theory": [75, 120],
+        # "Precalculus": [62],
+        # "Number Theory": [19, 26, 75, 120, 140],
+        # "Algebra": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],  # [8] wrong,  # 8 correct
+        # "Algebra": [1,2,4,13],
+        # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
+        # "Algebra": [2, 5, 13],
+
+        # "Geometry": [],
+        # "Algebra": [i for i in range(20)],
+        # "Counting & Probability": [i for i in range(20)],
+        # "Intermediate Algebra": [0, 8, 15, 17],
+
+        # "Prealgebra": [i for i in range(20)],
+ 
+        # "Number Theory": [0, 2, 4,6,7,8,10,11,12,13,14,15,17,18],  # [3] always wrong      [1, 5, 9, 16, 19] always right
+        # "Prealgebra": [3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 17], # [0,7,16] always wrong, [1,2,5,6,10,18,19] always right
     }
     config_list = [
         {
@@ -92,6 +161,12 @@ if __name__ == "__main__":
             "api_key": open("key_flaml.txt").read().strip(),
             "api_type": "azure",
             "api_base": open("base_flaml.txt").read().strip(),
+            "api_version": "2023-03-15-preview",
+        },
+        {
+            "api_key": open("key_aoai.txt").read().strip(),
+            "api_type": "azure",
+            "api_base": open("base_aoai.txt").read().strip(),
             "api_version": "2023-03-15-preview",
         },
         # {
@@ -112,17 +187,21 @@ if __name__ == "__main__":
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
 
+    
     engine = "gpt-4"
     aggre_correct = 0
-    problem_sets = load_level5_math_each_category(
-        samples_per_category=args.samples_per_category, category_to_load=args.categories
-    )
+
     logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
 
     for problem_set in problem_sets:  # one problem_set is one category
         for i in range(len(problem_set)):
             problem_set[i]["problem_id"] = str(i)  # assign problem id
-
+        if args.select:
+            if problem_set[0]["type"] in selected_samples and len(selected_samples[problem_set[0]["type"]]) > 0:
+                problem_set = [problem_set[i] for i in selected_samples[problem_set[0]["type"]]]
+                print(problem_set[0]["type"], selected_samples[problem_set[0]["type"]])
+            else:
+                continue
         logger.log("Solving " + problem_set[0]["type"], verbose=True)
         saving_folder = os.path.join(args.folder, math_type_mapping[problem_set[0]["type"]])
         os.makedirs(saving_folder, exist_ok=True)

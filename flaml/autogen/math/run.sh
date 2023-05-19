@@ -224,7 +224,7 @@
 
 
 # trial 60: v3.1python
-# python main.py -ptype v3.1python --folder ./60 --categories 3 4 5 6 
+# python main.py -ptype v3.1python --folder ./60 --categories 3 4 5 6
 
 # # trial 61: general_4
 # python main.py -ptype general_4 --folder ./61 --categories 0 1
@@ -242,7 +242,7 @@
 # python main.py -ptype v3.3python --folder ./55 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 
-# trial 63: v3.6python 
+# trial 63: v3.6python
 # python main.py -ptype v3.6python --folder ./63 --categories 0
 
 # # trial 64: v3.7python
@@ -254,20 +254,33 @@
 
 # python main.py -ptype v3.9python --folder ./66 --select
 
-# trial 67: 
+# trial 67:
 # python main.py -ptype v3.9python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # # trial 68: zero-shot on 50
 # python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 50
 
 # trial 68: zero-shot on 50
-python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 400
+# python zeroshot.py --folder ./68 --categories 0 1 3 4 5 6 --samples_per_category 400
 
-# trial 67: continue run ours on all the problems
-python main.py -ptype v3.9python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 400
+# # trial 67: continue run ours on all the problems
+# python main.py -ptype v3.9python --folder ./67 --categories 0 1 3 4 5 6 --samples_per_category 400
 
-# trial 69: run pnas on 50 problems from each category
-python pnas.py --folder ./69 --samples_per_category 50 --categories 0 1 3 4 5 6
+# # trial 69: run pnas on 50 problems from each category
+# python pnas.py --folder ./69 --samples_per_category 50 --categories 0 1 3 4 5 6
 
-# trial 69: run pnas on all problems from each category
-python pnas.py --folder ./69 --samples_per_category 400 --categories 0 1 3 4 5 6
+# # trial 69: run pnas on all problems from each category
+# python pnas.py --folder ./69 --samples_per_category 400 --categories 0 1 3 4 5 6
+
+
+# trial 70: run pnas on all problems from each category
+# python main.py -ptype v1python --folder ./70 --samples_per_category 50 --categories 0 1 3 4 5 6
+
+# trial 70: run pnas on all problems from each category
+# python main.py -ptype v1python --folder ./70 --samples_per_category 400 --categories 0 1 3 4 5 6
+
+# trial 71: run v1 python + wolfram
+# python main.py -ptype v1final_select --folder ./71 --samples_per_category 50 --categories 0 1 3 4 5 6
+
+# trial 72
+python PoT.py --folder ./72 --samples_per_category 50 --categories 0 1 3 4 5 6

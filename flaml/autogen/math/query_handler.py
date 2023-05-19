@@ -107,7 +107,8 @@ class QueryHandler:
         buffer_out = buffer_out.strip()
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
-                buffer_out + "\nYour query or result is same from the last, please try a new approach.",
+                buffer_out
+                + "\nYour query or result is same from the last, please try a new approach or use a differnt tool.",
                 False,
             )
         self.last_query = tuple(queries)

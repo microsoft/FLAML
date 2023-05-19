@@ -24,7 +24,6 @@ Case 3: If the problem cannot be handled with the two ways above, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    
     "general_5": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
@@ -45,7 +44,6 @@ Case 3: If the problem cannot be handled with the above two ways, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 """,
-    
     "general_4": """Let's use python to solve a math problem. Your are provided with three ways to solve the problem, choose the best way to solve the problem and be flexible to switch to other ways if necessary.
 
 Query requirements:
@@ -293,11 +291,76 @@ Agent: ...
 User: #result
 ...
 """,
+    "v3.10python": """Let's use Python to solve a math problem.
 
+Query requirements:
+You should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
+You can use packages like sympy to help you.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+
+First state the key idea to solve the problem. You may choose from three ways to solve the problem:
+Case 1: If the problem is mostly reasoning, you can solve it by yourself directly.
+Case 2: If the problem can be solved with Python code directly, please write a program to solve it. You can enumerate all possible arrangements if needed.
+Case 3: If the problem cannot be handled in the above two ways, please follow this process:
+1. Solve the problem step by step (do not over-divide the steps).
+2. Take out any queries that can be asked through Python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+
+""",
+    "v1final_select": """Let's use two tools (Python and Wolfram alpha) to solve a math problem.
+
+Query requirements:
+You must follow the formats below to write your code:
+For Wolfram Alpha:
+```wolfram
+# your wolfram query
+```
+For Python:
+```python
+# your code
+```
+When using Python, you should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
+You can use packages like sympy to help you.
+
+
+Please follow this process:
+1. Solve the problem step by step (do not over-divide the steps).
+2. Take out any queries that can be asked through Python or Wolfram Alpha and select the most suitable tool to be used (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the final answer in \\boxed{}.
+
+""",
+    "v1python": """Let's use Python to solve a math problem.
+
+Query requirements:
+You should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
+You can use packages like sympy to help you.
+You must follow the formats below to write your code:
+```python
+# your code
+```
+
+Please follow this process:
+1. Solve the problem step by step (do not over-divide the steps).
+2. Take out any queries that can be asked through Python (for example, any calculations or equations that can be calculated).
+3. Wait for me to give the results.
+4. Continue if you think the result is correct. If the result is invalid or unexpected, please correct your query or reasoning.
+
+After all the queries are run and you get the answer, put the answer in \\boxed{}.
+
+""",
     "v3.9python": """Let's use Python to solve a math problem.
 
 Query requirements:
-You should always use the 'print' function for the output and use fractions/radical forms instead of decimals. 
+You should always use the 'print' function for the output and use fractions/radical forms instead of decimals.
 You can use packages like sympy to help you.
 You must follow the formats below to write your code:
 ```python
@@ -399,7 +462,6 @@ Case 3: If the problem cannot be handled with the above two ways, please follow 
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}. If you have both queries and box in the message, I will assume the problem is not finished.
 """,
-
     "v3.4python": """Let's use python to solve a math problem.
 
 Query requirements:

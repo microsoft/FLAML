@@ -127,8 +127,12 @@ if __name__ == "__main__":
             "api_base": open("base_flaml.txt").read().strip(),
             "api_version": "2023-03-15-preview",
         },
-        
-        # TODO: Need to check this is the endpoint that cannot have system message.
+        {
+            "api_key": open("key_aoai.txt").read().strip(),
+            "api_type": "azure",
+            "api_base": open("base_aoai.txt").read().strip(),
+            "api_version": "2023-03-15-preview",
+        },
         # {
         #     "api_key": open("key_gcr.txt").read().strip(),
         #     "api_type": "azure",
