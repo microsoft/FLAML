@@ -1,11 +1,17 @@
 # Auto Generation
 
-`flaml.autogen` is a package for automating generation tasks (in preview). It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
-Such optimization has several benefits:
-* Maximize the utility out of using expensive foundation models.
-* Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
+`flaml.autogen` is a package for automating generation tasks (in preview), featuring:
+* Leveraging [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints, such that:
+  - Maximize the utility out of using expensive foundation models.
+  - Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
+* An enhanced inference API with utilities like API unification, caching, error handling, multi-config inference, context programming etc.
+* Higher-level utility functions like LLM-based coding.
 
-## Choices to Optimize
+The package is under active development with more features upcoming.
+
+## Tune Inference Parameters
+
+### Choices to optimize
 
 The cost of using foundation models for text generation is typically measured in terms of the number of tokens in the input and output combined. From the perspective of an application builder using foundation models, the use case is to maximize the utility of the generated text under an inference budget constraint (e.g., measured by the average dollar cost needed to solve a coding problem). This can be achieved by optimizing the hyperparameters of the inference,
 which can significantly affect both the utility and the cost of the generated text.
@@ -26,9 +32,7 @@ There are also complex interactions among subsets of the hyperparameters. For ex
 the temperature and top_p are not recommended to be altered from their default values together because they both control the randomness of the generated text, and changing both at the same time can result in conflicting effects; n and best_of are rarely tuned together because if the application can process multiple outputs, filtering on the server side causes unnecessary information loss; both n and max_tokens will affect the total number of tokens generated, which in turn will affect the cost of the request.
 These interactions and trade-offs make it difficult to manually determine the optimal hyperparameter settings for a given text generation task.
 
-## Tune Hyperparameters
-
-The tuning can be performed with the following information:
+With `flaml.autogen`, the tuning can be performed with the following information:
 1. Validation data.
 1. Evaluation function.
 1. Metric to optimize.
