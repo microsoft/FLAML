@@ -12,12 +12,12 @@ def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.human_proxy_agent import HumanProxyAgent
+    from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     agent = PythonAgent("coding_agent", request_timeout=600, seed=42)
-    user = HumanProxyAgent(
+    user = UserProxyAgent(
         "user",
         human_input_mode=human_input_mode,
         max_consecutive_auto_reply=max_consecutive_auto_reply,
@@ -48,7 +48,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     except ImportError:
         return
     from flaml.autogen.agent.coding_agent import PythonAgent
-    from flaml.autogen.agent.human_proxy_agent import HumanProxyAgent
+    from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
 
     hard_questions = [
         "What if we must go from node 1 to node 2?",
@@ -58,7 +58,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
 
     oai.ChatCompletion.start_logging()
     agent = PythonAgent("coding_agent", temperature=0)
-    user = HumanProxyAgent(
+    user = UserProxyAgent(
         "user",
         work_dir="test/autogen",
         human_input_mode=human_input_mode,

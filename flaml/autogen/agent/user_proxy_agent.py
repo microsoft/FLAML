@@ -3,7 +3,7 @@ from flaml.autogen.code_utils import extract_code, execute_code
 from collections import defaultdict
 
 
-class HumanProxyAgent(Agent):
+class UserProxyAgent(Agent):
     """(Experimental) A proxy agent for human, that can execute code and provide feedback to the other agents."""
 
     MAX_CONSECUTIVE_AUTO_REPLY = 100  # maximum number of consecutive auto replies (subject to future change)
@@ -16,6 +16,7 @@ class HumanProxyAgent(Agent):
         human_input_mode="ALWAYS",
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
+        use_docker=True,
         **config,
     ):
         """
@@ -51,6 +52,7 @@ class HumanProxyAgent(Agent):
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
+        self._use_docker = use_docker
 
     def _execute_code(self, code, lang):
         """Execute the code and return the result."""
@@ -58,14 +60,14 @@ class HumanProxyAgent(Agent):
             if not code.startswith("python "):
                 return 1, f"please do not suggest bash or shell commands like {code}"
             file_name = code[len("python ") :]
-            exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir)
+            exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
             logs = logs.decode("utf-8")
         elif lang == "python":
             if code.startswith("# filename: "):
                 filename = code[11 : code.find("\n")].strip()
             else:
                 filename = None
-            exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename)
+            exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename, use_docker=self._use_docker)
             logs = logs.decode("utf-8")
         else:
             # TODO: could this happen?
