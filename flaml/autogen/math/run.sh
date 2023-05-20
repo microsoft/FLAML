@@ -283,4 +283,7 @@
 # python main.py -ptype v1final_select --folder ./71 --samples_per_category 50 --categories 0 1 3 4 5 6
 
 # trial 72
-python PoT.py --folder ./72 --samples_per_category 50 --categories 0 1 3 4 5 6
+# python PoT.py --folder ./72 --samples_per_category 50 --categories 0 1 3 4 5 6
+
+# trial 73
+python fewshot.py --folder ./73 --samples_per_category 50 --categories 0 1 3 4 5 6

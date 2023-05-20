@@ -14,7 +14,7 @@ import datasets
 # Caution: distinguish between the two types imports
 from flaml.autogen.math_utils import eval_math_responses, get_answer
 from utils import (
-    load_level5_math_each_category,
+    load_level5_math_test_each_category,
     math_type_mapping,
     write_json,
     remove_asy_sections,
@@ -35,7 +35,7 @@ parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 parser.add_argument("--select", action="store_true")
 
 args = parser.parse_args()
-args.folder = args.folder + "_baseline_zeroshot" "_t" + str(args.temperature) + "_seed" + str(args.seed)
+args.folder = args.folder + "_baseline_zeroshot_t" + str(args.temperature) + "_seed" + str(args.seed)
 
 # key = os.getenv(args.key)
 # print(key)
@@ -85,7 +85,7 @@ def zeroshot_solve(model, problem, max_tokens=None):
 
 if __name__ == "__main__":
     config_list = None
-    openai.api_key = "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"  # feiran's GPT-4
+
     # from azure.identity import DefaultAzureCredential
 
     # SCOPE = "https://ml.azure.com"
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     #     #     "api_base": open("base_azure.txt").read().strip(),
     #     # },
     # ]
-    problem_sets = load_level5_math_each_category(
+    problem_sets = load_level5_math_test_each_category(
         samples_per_category=args.samples_per_category, category_to_load=args.categories
     )
     if args.select:

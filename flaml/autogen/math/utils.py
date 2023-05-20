@@ -63,9 +63,9 @@ def load_fixed(category_to_load=None):
     return sep_cat
 
 
-def load_level5_math_each_category(samples_per_category=20, category_to_load=None):
+def load_level5_math_test_each_category(samples_per_category=20, category_to_load=None):
     """
-    Load level 5 math problems from the competition dataset.
+    Load level 5 math problems from the testset of competition dataset.
     Returns:
         A list of list of problems. Each list of problems is of the same category.
     """

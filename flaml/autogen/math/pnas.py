@@ -14,7 +14,7 @@ import datasets
 # Caution: distinguish between the two types imports
 from flaml.autogen.math_utils import eval_math_responses, get_answer
 from utils import (
-    load_level5_math_each_category,
+    load_level5_math_test_each_category,
     math_type_mapping,
     write_json,
     remove_asy_sections,
@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     engine = "gpt-4"
     aggre_correct = 0
-    problem_sets = load_level5_math_each_category(
+    problem_sets = load_level5_math_test_each_category(
         samples_per_category=args.samples_per_category, category_to_load=args.categories
     )
     if args.sample_all != 0:
@@ -200,6 +200,7 @@ if __name__ == "__main__":
                     "is_correct": bool(metrics["success_vote"]),
                     "correct_ans": get_answer(problem["solution"]),
                     "voted_answer": get_answer(metrics["voted_answer"]),
+                    "response_with_ans": results["response_with_ans"],
                     "program": results["program"],
                 }
             )
