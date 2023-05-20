@@ -34,7 +34,7 @@ In this session, we will provide an in-depth and hands-on tutorial on Automated 
 
 ### **Part 4. New features in FLAML**
 - Targeted Hyperparameter Optimization With Lexicographic Objectives
-    - [Notebook: Tune models with lexicographic preference across objectives](pydata2023seattle/demo_4_tune_lexicographic.ipynb)
+    - [Notebook: Tune models with lexicographic preference across objectives](https://github.com/microsoft/FLAML/blob/main/notebook/tune_lexicographic.ipynb)
 - OpenAI GPT-3, GPT-4 and ChatGPT tuning
-    - [Notebook: Use FLAML to Tune OpenAI Models](pydata2023seattle/demo_5_code_integrate_openai.ipynb)
-    - [Notebook: Use FLAML to Tune ChatGPT](pydata2023seattle/demo_6_math_integrate_chatgpt.ipynb)
+    - [Notebook: Use FLAML to Tune OpenAI Models](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai.ipynb)
+    - [Notebook: Use FLAML to Tune ChatGPT](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_chatgpt.ipynb)
