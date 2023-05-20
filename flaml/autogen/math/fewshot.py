@@ -39,6 +39,7 @@ args.folder = args.folder + "_baseline_fewshot_t" + str(args.temperature) + "_se
 # key = os.getenv(args.key)
 # print(key)
 
+
 def random_sample_level5_train_each_category(k=3, category_to_load=None):
     """
     Load level 5 math problems from the train set of  competition dataset.
@@ -58,9 +59,14 @@ def random_sample_level5_train_each_category(k=3, category_to_load=None):
             continue
         tmp = []
         for x in range(len(train_data)):
-            if train_data[x]["level"] == "Level 5" and train_data[x]["type"] == category \
-                    and not 'asy' in train_data[x]['problem'] and not 'ASY' in train_data[x]['problem'] \
-                    and not 'asy' in train_data[x]['solution'] and not 'ASY' in train_data[x]['solution']:
+            if (
+                train_data[x]["level"] == "Level 5"
+                and train_data[x]["type"] == category
+                and "asy" not in train_data[x]["problem"]
+                and "ASY" not in train_data[x]["problem"]
+                and "asy" not in train_data[x]["solution"]
+                and "ASY" not in train_data[x]["solution"]
+            ):
                 tmp.append(train_data[x])
 
         sep_cate.append(tmp[:k])
@@ -78,6 +84,7 @@ def random_sample_level5_train_each_category(k=3, category_to_load=None):
 #     selected_samples = random.sample(list(examplar_data), k)
 #     return selected_samples
 
+
 def few_shot_template(examplars):
     few_shot_prompt = ""
     for examplar in examplars:
@@ -90,11 +97,12 @@ def few_shot_template(examplars):
         )
     return few_shot_prompt
 
+
 def fewshot_solve(model, problem, prompt, max_tokens=None):
     # few shot examplars
     # examplars = random_select(problem_set, problem, k = k)
     # few_shot_prompt = few_shot_template(examplars)
-    
+
     prompt += remove_asy_sections(problem["problem"])
     if args.dry_run:
         print(prompt)
@@ -115,7 +123,8 @@ def fewshot_solve(model, problem, prompt, max_tokens=None):
 
     if config_list is not None:
         raw_responses = oai.ChatCompletion.create(
-            config_list=config_list, **config, 
+            config_list=config_list,
+            **config,
         )
     else:
         raw_responses = oai.ChatCompletion.create(None, **config)
@@ -124,7 +133,7 @@ def fewshot_solve(model, problem, prompt, max_tokens=None):
     try:
         total_cost = oai.ChatCompletion.cost(raw_responses)
     except TypeError:
-        total_cost = oai.ChatCompletion.cost('gpt-4', raw_responses)
+        total_cost = oai.ChatCompletion.cost("gpt-4", raw_responses)
     return {
         "cost": total_cost,
         "response_with_ans": responses[0],
@@ -134,45 +143,45 @@ def fewshot_solve(model, problem, prompt, max_tokens=None):
 if __name__ == "__main__":
     config_list = None
 
-    openai.api_key = open("key_e.txt").read().strip()
-    print(openai.api_key)
+    # openai.api_key = open("key_e.txt").read().strip()
+    # print(openai.api_key)
 
-    # from azure.identity import DefaultAzureCredential
+    from azure.identity import DefaultAzureCredential
 
-    # SCOPE = "https://ml.azure.com"
-    # credential = DefaultAzureCredential()
-    # token = credential.get_token(SCOPE).token
-    # headers = {
-    #     "azureml-model-deployment": "gpt4",
-    #     "Authorization": f"Bearer {token}",
-    #     "Content-Type": "application/json",
-    #     **json.load(open("headers.json")),
-    # }
+    SCOPE = "https://ml.azure.com"
+    credential = DefaultAzureCredential()
+    token = credential.get_token(SCOPE).token
+    headers = {
+        "azureml-model-deployment": "gpt4",
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        **json.load(open("headers.json")),
+    }
 
-    # config_list = [
-    #     {
-    #         "api_key": open("key.txt").read().strip(),
-    #         "api_type": "open_ai",
-    #         "api_base": "https://api.openai.com/v1",
-    #     },
-    #     {
-    #         "api_key": open("key_flaml.txt").read().strip(),
-    #         "api_type": "azure",
-    #         "api_base": open("base_flaml.txt").read().strip(),
-    #         "api_version": "2023-03-15-preview",
-    #     },
-    #     # {
-    #     #     "api_key": open("key_gcr.txt").read().strip(),
-    #     #     "api_type": "azure",
-    #     #     "api_base": open("base_gcr.txt").read().strip(),
-    #     #     "api_version": "2023-03-15-preview",
-    #     # },
-    #     # {
-    #     #     "api_key": "nokey",
-    #     #     "headers": headers,
-    #     #     "api_base": open("base_azure.txt").read().strip(),
-    #     # },
-    # ]
+    config_list = [
+        {
+            "api_key": open("key.txt").read().strip(),
+            "api_type": "open_ai",
+            "api_base": "https://api.openai.com/v1",
+        },
+        {
+            "api_key": open("key_flaml.txt").read().strip(),
+            "api_type": "azure",
+            "api_base": open("base_flaml.txt").read().strip(),
+            "api_version": "2023-03-15-preview",
+        },
+        # {
+        #     "api_key": open("key_gcr.txt").read().strip(),
+        #     "api_type": "azure",
+        #     "api_base": open("base_gcr.txt").read().strip(),
+        #     "api_version": "2023-03-15-preview",
+        # },
+        # {
+        #     "api_key": "nokey",
+        #     "headers": headers,
+        #     "api_base": open("base_azure.txt").read().strip(),
+        # },
+    ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
     random.seed(args.seed)
@@ -197,8 +206,12 @@ if __name__ == "__main__":
         os.makedirs(saving_folder, exist_ok=True)
         done_problems = set([int(f.split(".")[0]) for f in os.listdir(saving_folder) if "json" in f])
 
-        assert examplar_data[cate_id][0]['type'] == problem_set[0]['type'], " examplar and test category mismatch"
-        category_prompt = "Solve a math problem carefully. Put the final answer in \\boxed{}.\n\n" + few_shot_template(examplar_data[cate_id]) + """\n\nProblem: """
+        assert examplar_data[cate_id][0]["type"] == problem_set[0]["type"], " examplar and test category mismatch"
+        category_prompt = (
+            "Solve a math problem carefully. Put the final answer in \\boxed{}.\n\n"
+            + few_shot_template(examplar_data[cate_id])
+            + """\n\nProblem: """
+        )
 
         with open(os.path.join(args.folder, f"prompt_{math_type_mapping[problem_set[0]['type']]}.txt"), "w") as f:
             f.write(category_prompt)

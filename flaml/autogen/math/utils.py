@@ -47,7 +47,7 @@ def load_fixed(category_to_load=None):
             try:
                 with open(os.path.join(folder, c, f"{i}.json"), "r") as fp:
                     problem = json.load(fp)
-            except Exception as e:
+            except Exception:
                 continue
             del problem["is_valid_reply"]
             del problem["is_correct"]

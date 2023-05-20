@@ -116,7 +116,7 @@ class MathSolver:
                 print(problem["type"], problem["problem_id"], str(e), flush=True)
                 save_message_to_file(str(e))
                 break
-            except (RateLimitError, Timeout) as e:
+            except (RateLimitError, Timeout):
                 print("Ratelimit or timeout, retrying...", flush=True)
                 continue
             if raw_responses["usage"]["total_tokens"] >= 8000:
