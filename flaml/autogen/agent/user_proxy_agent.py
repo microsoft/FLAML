@@ -4,7 +4,7 @@ from collections import defaultdict
 
 
 class UserProxyAgent(Agent):
-    """(Experimental) A proxy agent for human, that can execute code and provide feedback to the other agents."""
+    """(Experimental) A proxy agent for the user, that can execute code and provide feedback to the other agents."""
 
     MAX_CONSECUTIVE_AUTO_REPLY = 100  # maximum number of consecutive auto replies (subject to future change)
 

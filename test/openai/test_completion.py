@@ -20,7 +20,7 @@ from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 
 def yes_or_no_filter(context, response, **_):
-    return context["yes_or_no_choice"] is False or any(
+    return context.get("yes_or_no_choice", False) is False or any(
         text in ["Yes.", "No."] for text in oai.Completion.extract_text(response)
     )
 

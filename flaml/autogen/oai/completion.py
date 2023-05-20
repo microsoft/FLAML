@@ -691,7 +691,7 @@ class Completion(openai_Completion):
 
         Args:
             context (Dict, Optional): The context to instantiate the prompt.
-                It needs to contain keys that are used by the prompt template.
+                It needs to contain keys that are used by the prompt template or the filter function.
                 E.g., `prompt="Complete the following sentence: {prefix}, context={"prefix": "Today I feel"}`.
                 The actual prompt will be:
                 "Complete the following sentence: Today I feel".
@@ -734,7 +734,7 @@ class Completion(openai_Completion):
 
         ```python
         def yes_or_no_filter(context, config, response):
-            return context["yes_or_no_choice"] is False or any(
+            return context.get("yes_or_no_choice", False) is False or any(
                 text in ["Yes.", "No."] for text in oai.Completion.extract_text(response)
             )
         ```
