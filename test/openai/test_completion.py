@@ -17,6 +17,7 @@ from flaml.autogen.code_utils import (
     execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+from utils import config_list_gpt4_gpt35, config_list_openai_aoai
 
 
 def yes_or_no_filter(context, response, **_):
@@ -91,36 +92,7 @@ def test_multi_model():
         print(exc)
         return
     response = oai.Completion.create(
-        config_list=[
-            {
-                "model": "gpt-4",
-                "api_key": os.environ.get("OPENAI_API_KEY"),
-                "api_type": "open_ai",
-                "api_base": "https://api.openai.com/v1",
-                "api_version": None,
-            },
-            {
-                "model": "gpt-4",
-                "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-                "api_type": "azure",
-                "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
-                "api_version": "2023-03-15-preview",
-            },
-            {
-                "model": "gpt-3.5-turbo",
-                "api_key": os.environ.get("OPENAI_API_KEY"),
-                "api_type": "open_ai",
-                "api_base": "https://api.openai.com/v1",
-                "api_version": None,
-            },
-            {
-                "model": "gpt-3.5-turbo",
-                "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-                "api_type": "azure",
-                "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
-                "api_version": "2023-03-15-preview",
-            },
-        ],
+        config_list=config_list_gpt4_gpt35(),
         prompt="Hi",
     )
     print(response)
@@ -165,18 +137,21 @@ def test_improve():
         "flaml/autogen/math_utils.py",
         "solve_problem",
         "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
+        config_list=config_list_openai_aoai(),
     )
     with open("test/openai/math_utils.py.improved", "w") as f:
         f.write(improved)
     suggestion, _ = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
+        config_list=config_list_openai_aoai(),
     )
     print(suggestion)
     improvement, cost = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
         suggest_only=False,
+        config_list=config_list_openai_aoai(),
     )
     print(cost)
     with open("test/openai/suggested_improvement.txt", "w") as f:
@@ -250,6 +225,8 @@ print(f"Text: {text}")
     reason="do not run on windows",
 )
 def test_humaneval(num_samples=1):
+    oai.Completion.clear_cache(400)
+    oai.Completion.clear_cache(cache_path_root="test/openai/cache")
     eval_with_generated_assertions = partial(eval_function_completions, assertions=generate_assertions)
 
     seed = 41
@@ -299,7 +276,7 @@ def test_humaneval(num_samples=1):
         prompt="{definition}",
     )
     responses = oai.Completion.create(context=test_data[0], **config)
-    # a minimal tuning example for tuning chat completion models using the Completion class
+    # a minimal tuning example for tuning chat completion models using the ChatCompletion class
     config, _ = oai.ChatCompletion.tune(
         data=tune_data,
         metric="expected_success",
@@ -307,6 +284,7 @@ def test_humaneval(num_samples=1):
         eval_func=eval_function_completions,
         n=1,
         messages=[{"role": "user", "content": "{definition}"}],
+        config_list=config_list_openai_aoai(),
     )
     responses = oai.ChatCompletion.create(context=test_data[0], **config)
     print(responses)
@@ -458,6 +436,7 @@ if __name__ == "__main__":
     openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
     os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
     os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
+
     # test_filter()
     # test_chatcompletion()
     # test_multi_model()

@@ -4,8 +4,10 @@ import numpy as np
 import time
 from typing import List, Optional, Dict, Callable, Any
 import sys
+import shutil
 import json
 from flaml import tune, BlendSearch
+from flaml.tune.space import is_constant
 from flaml.automl.logger import logger_formatter
 
 try:
@@ -33,6 +35,8 @@ if not logger.handlers:
     _ch.setFormatter(logger_formatter)
     logger.addHandler(_ch)
 
+NON_CACHE_KEY = ["api_key", "api_base", "api_type", "api_version"]
+
 
 def get_key(config):
     """Get a unique identifier of a configuration.
@@ -43,12 +47,43 @@ def get_key(config):
     Returns:
         tuple: A unique identifier which can be used as a key for a dict.
     """
+    copied = False
+    for key in NON_CACHE_KEY:
+        if key in config:
+            config, copied = config.copy() if not copied else config, True
+            config.pop(key)
     # if isinstance(config, dict):
     #     return tuple(get_key(x) for x in sorted(config.items()))
     # if isinstance(config, list):
     #     return tuple(get_key(x) for x in config)
     # return config
     return json.dumps(config, sort_keys=True)
+
+
+def get_config_list(
+    api_keys: List, api_bases: Optional[List] = None, api_type: Optional[str] = None, api_version: Optional[str] = None
+) -> List[Dict]:
+    """Get a list of configs for openai api calls.
+
+    Args:
+        api_keys (list): The api keys for openai api calls.
+        api_bases (list, optional): The api bases for openai api calls.
+        api_type (str, optional): The api type for openai api calls.
+        api_version (str, optional): The api version for openai api calls.
+    """
+    config_list = []
+    for i, api_key in enumerate(api_keys):
+        if not api_key.strip():
+            continue
+        config = {"api_key": api_key}
+        if api_bases:
+            config["api_base"] = api_bases[i]
+        if api_type:
+            config["api_type"] = api_type
+        if api_version:
+            config["api_version"] = api_version
+        config_list.append(config)
+    return config_list
 
 
 class Completion(openai_Completion):
@@ -123,7 +158,7 @@ class Completion(openai_Completion):
     _history_dict = _count_create = None
 
     @classmethod
-    def set_cache(cls, seed=41, cache_path=".cache"):
+    def set_cache(cls, seed: Optional[int] = 41, cache_path_root: Optional[str] = ".cache"):
         """Set cache path.
 
         Args:
@@ -133,7 +168,23 @@ class Completion(openai_Completion):
                 The complete cache path will be {cache_path}/{seed}.
         """
         cls.seed = seed
-        cls.cache_path = f"{cache_path}/{seed}"
+        cls.cache_path = f"{cache_path_root}/{seed}"
+
+    @classmethod
+    def clear_cache(cls, seed: Optional[int] = None, cache_path_root: Optional[str] = ".cache"):
+        """Clear cache.
+
+        Args:
+            seed (int, Optional): The integer identifier for the pseudo seed.
+                If omitted, all caches under cache_path_root will be cleared.
+            cache_path (str, Optional): The root path for the cache.
+                The complete cache path will be {cache_path}/{seed}.
+        """
+        if seed is None:
+            shutil.rmtree(cache_path_root, ignore_errors=True)
+            return
+        with diskcache.Cache(f"{cache_path_root}/{seed}") as cache:
+            cache.clear()
 
     @classmethod
     def _book_keeping(cls, config: Dict, response):
@@ -167,7 +218,7 @@ class Completion(openai_Completion):
         cls._count_create += 1
 
     @classmethod
-    def _get_response(cls, config: Dict, eval_only=False, use_cache=True):
+    def _get_response(cls, config: Dict, raise_error=False, use_cache=True):
         """Get the response from the openai api call.
 
         Try cache first. If not found, call the openai api. If the api call fails, retry after retry_time.
@@ -177,7 +228,7 @@ class Completion(openai_Completion):
         key = get_key(config)
         if use_cache:
             response = cls._cache.get(key, None)
-            if response is not None and (response != -1 or not eval_only):
+            if response is not None and (response != -1 or not raise_error):
                 # print("using cached response")
                 cls._book_keeping(config, response)
                 return response
@@ -199,7 +250,7 @@ class Completion(openai_Completion):
                 APIConnectionError,
             ):
                 # transient error
-                logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
             except APIError as err:
                 error_code = err and err.json_body and err.json_body.get("error")
@@ -207,7 +258,7 @@ class Completion(openai_Completion):
                 if error_code == "content_filter":
                     raise
                 # transient error
-                logger.warning(f"retrying in {cls.retry_time} seconds...", exc_info=1)
+                logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
             except (RateLimitError, Timeout) as err:
                 time_left = cls.retry_timeout - (time.time() - start_time + cls.retry_time)
@@ -218,10 +269,16 @@ class Completion(openai_Completion):
                     and isinstance(err, Timeout)
                 ):
                     logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
-                elif eval_only:
+                elif raise_error:
                     raise
                 else:
-                    break
+                    response = -1
+                    if use_cache and isinstance(err, Timeout):
+                        cls._cache.set(key, response)
+                    logger.warning(
+                        f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
+                    )
+                    return response
                 if isinstance(err, Timeout):
                     if "request_timeout" in config:
                         raise
@@ -239,13 +296,6 @@ class Completion(openai_Completion):
                     cls._cache.set(key, response)
                 cls._book_keeping(config, response)
                 return response
-        logger.warning(
-            f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
-        )
-        response = -1
-        if use_cache:
-            cls._cache.set(key, response)
-        return response
 
     @classmethod
     def _get_max_valid_n(cls, key, max_tokens):
@@ -268,6 +318,7 @@ class Completion(openai_Completion):
     @classmethod
     def _get_region_key(cls, config):
         # get a key for the valid/invalid region corresponding to the given config
+        config = cls._pop_subspace(config, always_copy=False)
         return (
             config["model"],
             config.get("prompt", config.get("messages")),
@@ -284,31 +335,28 @@ class Completion(openai_Completion):
             invalid_n[max_tokens] = min(num_completions, invalid_n.get(max_tokens, np.inf))
 
     @classmethod
-    def _pop_subspace(cls, config):
+    def _pop_subspace(cls, config, always_copy=True):
         if "subspace" in config:
             config = config.copy()
             config.update(config.pop("subspace"))
-        return config
+        return config.copy() if always_copy else config
 
     @classmethod
-    def _get_prompt_messages_from_config(cls, model, config):
-        prompt, messages = None, None
-        if model in cls.chat_models or issubclass(cls, ChatCompletion):
-            # either "prompt" should be in config (for being compatible with non-chat models)
-            # or "messages" should be in config (for tuning chat models only)
-            prompt = config.get("prompt")
-            messages = config.get("messages")
-            # either prompt or messages should be in config, but not both
-            assert (prompt is None) != (
-                messages is None
-            ), "Either prompt or messages should be in config for chat models."
-            if prompt is None:
-                messages = cls._messages[messages]
-            else:
-                prompt = cls._prompts[prompt]
+    def _get_params_for_create(cls, config: Dict) -> Dict:
+        """Get the params for the openai api call from a config in the search space."""
+        params = cls._pop_subspace(config)
+        if cls._prompts:
+            params["prompt"] = cls._prompts[config["prompt"]]
         else:
-            prompt = cls._prompts[config["prompt"]]
-        return prompt, messages
+            params["messages"] = cls._messages[config["messages"]]
+        if "stop" in params:
+            params["stop"] = cls._stops and cls._stops[params["stop"]]
+        temperature_or_top_p = params.pop("temperature_or_top_p", None)
+        if temperature_or_top_p:
+            params.update(temperature_or_top_p)
+        if cls._config_list and "config_list" not in params:
+            params["config_list"] = cls._config_list
+        return params
 
     @classmethod
     def _eval(cls, config: dict, prune=True, eval_only=False):
@@ -317,7 +365,8 @@ class Completion(openai_Completion):
         Args:
             config (dict): Hyperparameter setting for the openai api call.
             prune (bool, optional): Whether to enable pruning. Defaults to True.
-            eval_only (bool, optional): Whether to evaluate only (ignore the inference budget and no timeout).
+            eval_only (bool, optional): Whether to evaluate only
+              (ignore the inference budget and do not rasie error when a request fails).
               Defaults to False.
 
         Returns:
@@ -325,18 +374,18 @@ class Completion(openai_Completion):
         """
         cost = 0
         data = cls.data
-        config = cls._pop_subspace(config)
-        model = config["model"]
+        params = cls._get_params_for_create(config)
+        model = params["model"]
         data_length = len(data)
         price = cls.price1K.get(model)
         price_input, price_output = price if isinstance(price, tuple) else (price, price)
         inference_budget = getattr(cls, "inference_budget", None)
         prune_hp = getattr(cls, "_prune_hp", "n")
         metric = cls._metric
-        config_n = config.get(prune_hp, 1)  # default value in OpenAI is 1
-        max_tokens = config.get("max_tokens", np.inf if model in cls.chat_models else 16)
-        prompt, messages = cls._get_prompt_messages_from_config(model, config)
-        stop = cls._stops and cls._stops[config["stop"]]
+        config_n = params.get(prune_hp, 1)  # default value in OpenAI is 1
+        max_tokens = params.get(
+            "max_tokens", np.inf if model in cls.chat_models or issubclass(cls, ChatCompletion) else 16
+        )
         target_output_tokens = None
         if not cls.avg_input_tokens:
             input_tokens = [None] * data_length
@@ -367,12 +416,6 @@ class Completion(openai_Completion):
         else:
             start_n = config_n
             region_key = None
-        params = config.copy()
-        if "stop" in config:
-            params["stop"] = stop
-        temperature_or_top_p = params.pop("temperature_or_top_p", None)
-        if temperature_or_top_p:
-            params.update(temperature_or_top_p)
         num_completions, previous_num_completions = start_n, 0
         n_tokens_list, result, responses_list = [], {}, []
         while True:  # n <= config_n
@@ -385,9 +428,9 @@ class Completion(openai_Completion):
                 for i in range(prev_data_limit, data_limit):
                     logger.debug(f"num_completions={num_completions}, data instance={i}")
                     data_i = data[i]
-                    params = cls._construct_params(data_i, params, prompt, messages)
-                    response = cls._get_response(params, eval_only)
-                    if response == -1:  # rate limit error, treat as invalid
+                    # params = cls._construct_params(data_i, params, prompt, messages)
+                    response = cls.create(data_i, raise_error=eval_only, **params)
+                    if response == -1:  # rate limit/timeout error, treat as invalid
                         cls._update_invalid_n(prune, region_key, max_tokens, num_completions)
                         result[metric] = 0
                         result["cost"] = cost
@@ -400,7 +443,7 @@ class Completion(openai_Completion):
                     if not cls.avg_input_tokens and not input_tokens[i]:
                         # store the # input tokens
                         input_tokens[i] = n_input_tokens
-                    query_cost = (price_input * n_input_tokens + price_output * n_output_tokens) / 1000
+                    query_cost = response["cost"]
                     cls._total_cost += query_cost
                     cost += query_cost
                     if cls.optimization_budget and cls._total_cost >= cls.optimization_budget and not eval_only:
@@ -599,6 +642,11 @@ class Completion(openai_Completion):
             if not (isinstance(cls._stops, list) and isinstance(cls._stops[0], list)):
                 cls._stops = [cls._stops]
             space["stop"] = tune.choice(list(range(len(cls._stops))))
+        cls._config_list = space.get("config_list")
+        if cls._config_list is not None:
+            is_const = is_constant(cls._config_list)
+            if is_const:
+                space.pop("config_list")
         cls._metric, cls._mode = metric, mode
         cls._total_cost = 0  # total optimization cost
         cls._eval_func = eval_func
@@ -665,16 +713,9 @@ class Completion(openai_Completion):
                 verbose=3,
             )
         config = analysis.best_config
-        params = cls._pop_subspace(config)
-        if cls._prompts:
-            params["prompt"] = cls._prompts[config["prompt"]]
-        else:
-            params["messages"] = cls._messages[config["messages"]]
-        stop = cls._stops and cls._stops[config["stop"]]
-        params["stop"] = stop
-        temperature_or_top_p = params.pop("temperature_or_top_p", None)
-        if temperature_or_top_p:
-            params.update(temperature_or_top_p)
+        params = cls._get_params_for_create(config)
+        if cls._config_list is not None and is_const:
+            params.pop("config_list")
         logger.setLevel(old_level)
         return params, analysis
 
@@ -685,6 +726,7 @@ class Completion(openai_Completion):
         use_cache: Optional[bool] = True,
         config_list: Optional[List[Dict]] = None,
         filter_func: Optional[Callable[[Dict, Dict, Dict], bool]] = None,
+        raise_error: Optional[bool] = True,
         **config,
     ):
         """Make a completion for a given context.
@@ -717,13 +759,11 @@ class Completion(openai_Completion):
                     "api_key": os.environ.get("OPENAI_API_KEY"),
                     "api_type": "open_ai",
                     "api_base": "https://api.openai.com/v1",
-                    "api_version": None,
                 },
                 {
                     "model": "llama-7B",
                     "api_base": "http://127.0.0.1:8080",
                     "api_type": "open_ai",
-                    "api_version": None,
                 }
             ],
             prompt="Hi",
@@ -739,6 +779,8 @@ class Completion(openai_Completion):
             )
         ```
 
+            raise_error (bool, Optional): Whether to raise error when all configs fail.
+                When set to False, -1 will be returned when all configs fail.
             **config: Configuration for the completion.
                 Besides the parameters for the openai API call, it can also contain a seed (int) for the cache.
                 This is useful when implementing "controlled randomness" for the completion.
@@ -770,20 +812,20 @@ class Completion(openai_Completion):
                         return response
                     cost += response["cost"]
                 except (AuthenticationError, RateLimitError, Timeout):
-                    logger.info(f"failed with config {i}", exc_info=1)
+                    logger.debug(f"failed with config {i}", exc_info=1)
                     if i == last:
                         raise
                 finally:
                     cls.retry_timeout = retry_timeout
         params = cls._construct_params(context, config)
         if not use_cache:
-            return cls._get_response(params, eval_only=True, use_cache=False)
+            return cls._get_response(params, raise_error=raise_error, use_cache=False)
         seed = cls.seed
         if "seed" in params:
             cls.set_cache(params.pop("seed"))
         with diskcache.Cache(cls.cache_path) as cls._cache:
             cls.set_cache(seed)
-            return cls._get_response(params, eval_only=True)
+            return cls._get_response(params, raise_error=raise_error)
 
     @classmethod
     def _instantiate(cls, template: str, context: Optional[Dict] = None):
