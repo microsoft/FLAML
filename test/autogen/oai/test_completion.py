@@ -220,7 +220,7 @@ print(f"Text: {text}")
 """
     )
     print(code)
-    solution, cost = solve_problem("1+1=")
+    solution, cost = solve_problem("1+1=", config_list=oai.config_list_gpt4_gpt35(KEY_LOC))
     print(solution, cost)
 
 
@@ -293,7 +293,7 @@ def test_humaneval(num_samples=1):
     )
     responses = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
     print(responses)
-    code, cost, selected = implement(tune_data[1], [config])
+    code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
     print(code)
     print(cost)
     assert selected == 0
@@ -324,7 +324,7 @@ def test_humaneval(num_samples=1):
     oai.Completion.data = test_data[:num_samples]
     result = oai.Completion._eval(analysis.best_config, prune=False, eval_only=True)
     print("result without pruning", result)
-    result = oai.Completion.test(test_data[:num_samples], config=config2)
+    result = oai.Completion.test(test_data[:num_samples], **config2)
     print(result)
     code, cost, selected = implement(tune_data[1], [config2, config])
     print(code)
@@ -383,12 +383,12 @@ def test_math(num_samples=-1):
         "stop": "###",
     }
     test_data_sample = test_data[0:3]
-    result = oai.ChatCompletion.test(test_data_sample, vanilla_config, eval_math_responses)
+    result = oai.ChatCompletion.test(test_data_sample, eval_math_responses, **vanilla_config)
     result = oai.ChatCompletion.test(
         test_data_sample,
-        vanilla_config,
         eval_math_responses,
         agg_method="median",
+        **vanilla_config,
     )
 
     def my_median(results):
@@ -399,13 +399,12 @@ def test_math(num_samples=-1):
 
     result = oai.ChatCompletion.test(
         test_data_sample,
-        vanilla_config,
         eval_math_responses,
         agg_method=my_median,
+        **vanilla_config,
     )
     result = oai.ChatCompletion.test(
         test_data_sample,
-        vanilla_config,
         eval_math_responses,
         agg_method={
             "expected_success": my_median,
@@ -413,6 +412,7 @@ def test_math(num_samples=-1):
             "success_vote": my_average,
             "votes": np.mean,
         },
+        **vanilla_config,
     )
 
     print(result)
@@ -430,7 +430,7 @@ def test_math(num_samples=-1):
         stop="###",  # the stop sequence
     )
     print("tuned config", config)
-    result = oai.ChatCompletion.test(test_data_sample, config)
+    result = oai.ChatCompletion.test(test_data_sample, config_list=oai.config_list_openai_aoai(KEY_LOC), **config)
     print("result from tuned config:", result)
     print("empty responses", eval_math_responses([], None))
 

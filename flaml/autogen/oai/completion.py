@@ -825,18 +825,17 @@ class Completion(openai_Completion):
     def test(
         cls,
         data,
-        config,
         eval_func=None,
         use_cache=True,
         agg_method="avg",
         return_responses_and_per_instance_result=False,
         logging_level=logging.WARNING,
+        **config,
     ):
         """Evaluate the responses created with the config for the OpenAI API call.
 
         Args:
             data (list): The list of test data points.
-            config (dict): Hyperparameter setting for the openai api call.
             eval_func (Callable): The evaluation function for responses per data instance.
                 The function should take a list of responses and a data point as input,
                 and return a dict of metrics. You need to either provide a valid callable
@@ -882,6 +881,7 @@ class Completion(openai_Completion):
             return_responses_and_per_instance_result (bool): Whether to also return responses
                 and per instance results in addition to the aggregated results.
             logging_level (optional): logging level. Defaults to logging.WARNING.
+            **config (dict): parametes passed to the openai api call `create()`.
 
         Returns:
             None when no valid eval_func is provided in either test or tune;

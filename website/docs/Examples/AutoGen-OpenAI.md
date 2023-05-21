@@ -128,7 +128,7 @@ print(eval_with_generated_assertions(oai.Completion.extract_text(response), **tu
 You can use flaml's `oai.Completion.test` to evaluate the performance of an entire dataset with the tuned config.
 
 ```python
-result = oai.Completion.test(test_data, config)
+result = oai.Completion.test(test_data, **config)
 print("performance on test data with the tuned config:", result)
 ```
 
