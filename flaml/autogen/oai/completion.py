@@ -752,13 +752,13 @@ class Completion(openai_Completion):
                     cls.retry_timeout = 0 if i < last and filter_func is None else retry_timeout
                     # retry_timeout = 0 to avoid retrying when no filter is given
                     response = cls.create(context, use_cache, **base_config)
-                    if (
-                        filter_func is None
-                        or filter_func(context=context, base_config=config, response=response)
-                        or i == last
-                    ):
+                    pass_filter = filter_func is None or filter_func(
+                        context=context, base_config=config, response=response
+                    )
+                    if pass_filter or i == last:
                         response["cost"] = cost + response["cost"]
                         response["config_id"] = i
+                        response["pass_filter"] = pass_filter
                         return response
                     cost += response["cost"]
                 except (AuthenticationError, RateLimitError, Timeout):

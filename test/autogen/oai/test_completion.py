@@ -63,7 +63,8 @@ def test_filter():
         prompt="How to construct a json request to Bing API to search for 'latest AI news'? Return the JSON request.",
         filter_func=valid_json_filter,
     )
-    assert json.loads(oai.Completion.extract_text(response)[0])
+    assert response["config_id"] == 2 or response["pass_filter"], "the response must pass filter unless all fail"
+    assert not response["pass_filter"] or json.loads(oai.Completion.extract_text(response)[0])
 
 
 def test_chatcompletion():
@@ -280,6 +281,7 @@ def test_humaneval(num_samples=1):
     )
     responses = oai.Completion.create(context=test_data[0], **config)
     # a minimal tuning example for tuning chat completion models using the ChatCompletion class
+    config_list = oai.config_list_openai_aoai(KEY_LOC)
     config, _ = oai.ChatCompletion.tune(
         data=tune_data,
         metric="expected_success",
@@ -287,7 +289,7 @@ def test_humaneval(num_samples=1):
         eval_func=eval_function_completions,
         n=1,
         messages=[{"role": "user", "content": "{definition}"}],
-        config_list=oai.config_list_openai_aoai(KEY_LOC),
+        config_list=config_list,
     )
     responses = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
     print(responses)
