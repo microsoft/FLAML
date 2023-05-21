@@ -31,7 +31,6 @@ jobs:
         run: |
           docker --version
           python -m pip install --upgrade pip wheel
-          python -c "import flaml"
       - name: Coverage
         if: matrix.python-version == '3.9'
         env:
@@ -40,6 +39,7 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
         run: |
           pip install -e .[autogen]
+          python -c "import flaml"
           pip install coverage pytest datasets
           coverage run -a -m pytest test/autogen
           coverage xml
@@ -51,6 +51,7 @@ jobs:
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
         run: |
           pip install -e .[autogen,blendsearch]
+          python -c "import flaml"
           pip install coverage pytest datasets nbconvert nbformat ipykernel
           coverage run -a -m pytest test/autogen
           coverage xml
