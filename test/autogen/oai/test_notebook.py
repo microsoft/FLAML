@@ -19,7 +19,7 @@ def run_notebook(input_nb, output_nb="executed_openai_notebook.ipynb", save=Fals
     from nbconvert.preprocessors import CellExecutionError
 
     try:
-        file_path = os.path.join(here, os.pardir, os.pardir, "notebook", input_nb)
+        file_path = os.path.join(here, os.pardir, os.pardir, os.pardir, "notebook", input_nb)
         with open(file_path) as nb_file:
             nb = nbformat.read(nb_file, as_version=4)
         preprocessor = ExecutePreprocessor(timeout=4800, kernel_name="python3")
