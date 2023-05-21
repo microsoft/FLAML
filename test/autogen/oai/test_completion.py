@@ -17,9 +17,9 @@ from flaml.autogen.code_utils import (
     execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
-from flaml.autogen.oai.openai_utils import config_list_gpt4_gpt35, config_list_openai_aoai
 
-TEST_LOC = "test/openai"
+KEY_LOC = "test/autogen"
+here = os.path.abspath(os.path.dirname(__file__))
 
 
 def yes_or_no_filter(context, response, **_):
@@ -94,7 +94,7 @@ def test_multi_model():
         print(exc)
         return
     response = oai.Completion.create(
-        config_list=config_list_gpt4_gpt35(TEST_LOC),
+        config_list=oai.config_list_gpt4_gpt35(KEY_LOC),
         prompt="Hi",
     )
     print(response)
@@ -115,7 +115,7 @@ def test_execute_code():
     # read a file
     print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
     # create a file
-    print(execute_code("with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir="test/openai/my_tmp"))
+    print(execute_code("with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir=f"{here}/my_tmp"))
     # execute code in a file
     print(execute_code(filename="tmp/codetest.py"))
     # execute code for assertion error
@@ -135,14 +135,14 @@ def test_improve():
     except ImportError as exc:
         print(exc)
         return
-    config_list = config_list_openai_aoai(TEST_LOC)
+    config_list = oai.config_list_openai_aoai(KEY_LOC)
     improved, _ = improve_function(
         "flaml/autogen/math_utils.py",
         "solve_problem",
         "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
         config_list=config_list,
     )
-    with open("test/openai/math_utils.py.improved", "w") as f:
+    with open(f"{here}/math_utils.py.improved", "w") as f:
         f.write(improved)
     suggestion, _ = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
@@ -157,7 +157,7 @@ def test_improve():
         config_list=config_list,
     )
     print(cost)
-    with open("test/openai/suggested_improvement.txt", "w") as f:
+    with open(f"{here}/suggested_improvement.txt", "w") as f:
         f.write(improvement)
 
 
@@ -229,7 +229,7 @@ print(f"Text: {text}")
 )
 def test_humaneval(num_samples=1):
     oai.Completion.clear_cache(400)
-    oai.Completion.clear_cache(cache_path_root="test/openai/cache")
+    oai.Completion.clear_cache(cache_path_root="{here}/cache")
     eval_with_generated_assertions = partial(eval_function_completions, assertions=generate_assertions)
 
     seed = 41
@@ -287,7 +287,7 @@ def test_humaneval(num_samples=1):
         eval_func=eval_function_completions,
         n=1,
         messages=[{"role": "user", "content": "{definition}"}],
-        config_list=config_list_openai_aoai(),
+        config_list=oai.config_list_openai_aoai(),
     )
     responses = oai.ChatCompletion.create(context=test_data[0], **config)
     print(responses)
@@ -436,9 +436,8 @@ def test_math(num_samples=-1):
 if __name__ == "__main__":
     import openai
 
-    openai.api_key = os.environ["OPENAI_API_KEY"] = open(f"{TEST_LOC}/key.txt").read().strip()
-    # os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
-    # os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
+    oai.config_list_openai_aoai(KEY_LOC)
+    openai.api_key = os.environ["OPENAI_API_KEY"]
 
     # test_filter()
     # test_chatcompletion()

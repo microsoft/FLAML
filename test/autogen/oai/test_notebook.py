@@ -1,3 +1,4 @@
+import sys
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 from nbconvert.preprocessors import CellExecutionError
@@ -42,21 +43,21 @@ def run_notebook(input_nb, output_nb="executed_openai_notebook.ipynb", save=Fals
 
 
 @pytest.mark.skipif(
-    skip,
-    reason="do not run openai test if openai is not installed",
+    skip or not sys.version.startswith("3.10"),
+    reason="do not run openai test if openai is not installed or py!=3.10",
 )
 def test_autogen_openai(save=False):
     run_notebook("autogen_openai.ipynb", save=save)
 
 
 @pytest.mark.skipif(
-    skip,
-    reason="do not run openai test if openai is not installed",
+    skip or not sys.version.startswith("3.11"),
+    reason="do not run openai test if openai is not installed or py!=3.11",
 )
-def test_autogen_chatgpt(save=False):
-    run_notebook("autogen_chatgpt.ipynb", save=save)
+def test_autogen_chatgpt_gpt4(save=False):
+    run_notebook("autogen_chatgpt_gpt4.ipynb", save=save)
 
 
 if __name__ == "__main__":
-    test_autogen_chatgpt(save=True)
+    test_autogen_chatgpt_gpt4(save=True)
     test_autogen_openai(save=True)
