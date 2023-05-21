@@ -31,6 +31,9 @@ jobs:
         run: |
           docker --version
           python -m pip install --upgrade pip wheel
+          pip install -e .[autogen,blendsearch]
+          python -c "import flaml"
+          pip install coverage pytest datasets
       - name: Coverage
         if: matrix.python-version == '3.9'
         env:
@@ -38,9 +41,6 @@ jobs:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
         run: |
-          pip install -e .[autogen]
-          python -c "import flaml"
-          pip install coverage pytest datasets
           coverage run -a -m pytest test/autogen
           coverage xml
       - name: Coverage and check notebook outputs
@@ -50,9 +50,7 @@ jobs:
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_API_BASE: ${{ secrets.AZURE_OPENAI_API_BASE }}
         run: |
-          pip install -e .[autogen,blendsearch]
-          python -c "import flaml"
-          pip install coverage pytest datasets nbconvert nbformat ipykernel
+          pip install nbconvert nbformat ipykernel
           coverage run -a -m pytest test/autogen
           coverage xml
           cat "$(pwd)/test/autogen/oai/executed_openai_notebook_output.txt"
