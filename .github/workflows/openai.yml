@@ -9,7 +9,7 @@ on:
     paths:
       - 'flaml/autogen/**'
       - 'test/autogen/**'
-      - 'notebook/autogen_openai.ipynb'
+      - 'notebook/autogen_openai_completion.ipynb'
       - 'notebook/autogen_chatgpt_gpt4.ipynb'
       - '.github/workflows/openai.yml'
 
