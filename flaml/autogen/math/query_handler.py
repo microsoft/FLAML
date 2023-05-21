@@ -107,8 +107,7 @@ class QueryHandler:
         buffer_out = buffer_out.strip()
         if self.last_query == tuple(queries) or self.last_return == buffer_out:
             return (
-                buffer_out
-                + "\nYour query or result is same from the last, please try a new approach or use a differnt tool.",
+                buffer_out + "\nYour query or result is same from the last, please try a new approach.",
                 False,
             )
         self.last_query = tuple(queries)
@@ -376,7 +375,7 @@ class WolframAlphaAPIWrapper(BaseModel):
                 break
             except HTTPError:
                 sleep(1)
-            except Exception as e:
+            except Exception:
                 return (
                     "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.",
                     is_success,
@@ -405,7 +404,7 @@ class WolframAlphaAPIWrapper(BaseModel):
             if answer == "":
                 answer = next(res.results).text
 
-        except Exception as e:
+        except Exception:
             return (
                 "Wolfram Alpha wasn't able to answer it. Please try a new query for wolfram or use python.",
                 is_success,

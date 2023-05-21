@@ -103,6 +103,7 @@ class MathSolver:
         total_cost = 0
         response_with_ans = ""  # save the response with \box to get the answer
         rr = 0  # round
+        total_completion_tokens = 0
         while rr < self.max_round:
             # 1. get the response from the assistant, handle exceptions
             try:
@@ -119,6 +120,10 @@ class MathSolver:
             except (RateLimitError, Timeout):
                 print("Ratelimit or timeout, retrying...", flush=True)
                 continue
+            try:
+                total_completion_tokens += raw_responses["usage"]["completion_tokens"]
+            except Exception:
+                pass
             if raw_responses["usage"]["total_tokens"] >= 8000:
                 error_str = "Use more than 8000 many tokens, breaking."
                 print(error_str)
@@ -203,6 +208,7 @@ class MathSolver:
         save_message_to_file("Solution: " + problem["solution"])
 
         return {
+            "total_completion_tokens": total_completion_tokens,
             "valid_q_count": query_handler.valid_q_count,  # number of valid queries
             "total_q_count": query_handler.total_q_count,
             "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
@@ -306,6 +312,7 @@ class MathSolver:
                     "total_q_count": result["total_q_count"],  # total number of queries
                     "cost": result["cost"],  # total cost of the conversation
                     "messages": result["messages"],  # the conversation
+                    "total_completion_tokens": result["total_completion_tokens"],
                 }
             )
             write_json(problem, problem_path)
