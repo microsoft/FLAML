@@ -229,8 +229,6 @@ print(f"Text: {text}")
     reason="do not run on windows",
 )
 def test_humaneval(num_samples=1):
-    oai.Completion.clear_cache(400)
-    oai.Completion.clear_cache(cache_path_root="{here}/cache")
     eval_with_generated_assertions = partial(eval_function_completions, assertions=generate_assertions)
 
     seed = 41
@@ -252,6 +250,7 @@ def test_humaneval(num_samples=1):
         }
         for x in range(n_tune_data, len(data))
     ]
+    oai.Completion.clear_cache(cache_path_root="{here}/cache")
     oai.Completion.set_cache(seed)
     try:
         import openai
@@ -259,6 +258,7 @@ def test_humaneval(num_samples=1):
     except ImportError as exc:
         print(exc)
         return
+    oai.Completion.clear_cache(400)
     # a minimal tuning example
     config, _ = oai.Completion.tune(
         data=tune_data,
