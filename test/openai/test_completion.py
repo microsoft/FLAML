@@ -17,7 +17,9 @@ from flaml.autogen.code_utils import (
     execute_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
-from utils import config_list_gpt4_gpt35, config_list_openai_aoai
+from flaml.autogen.oai.openai_utils import config_list_gpt4_gpt35, config_list_openai_aoai
+
+TEST_LOC = "test/openai"
 
 
 def yes_or_no_filter(context, response, **_):
@@ -92,7 +94,7 @@ def test_multi_model():
         print(exc)
         return
     response = oai.Completion.create(
-        config_list=config_list_gpt4_gpt35(),
+        config_list=config_list_gpt4_gpt35(TEST_LOC),
         prompt="Hi",
     )
     print(response)
@@ -133,25 +135,26 @@ def test_improve():
     except ImportError as exc:
         print(exc)
         return
+    config_list = config_list_openai_aoai(TEST_LOC)
     improved, _ = improve_function(
         "flaml/autogen/math_utils.py",
         "solve_problem",
         "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
-        config_list=config_list_openai_aoai(),
+        config_list=config_list,
     )
     with open("test/openai/math_utils.py.improved", "w") as f:
         f.write(improved)
     suggestion, _ = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
-        config_list=config_list_openai_aoai(),
+        config_list=config_list,
     )
     print(suggestion)
     improvement, cost = improve_code(
         ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
         "leverage generative AI smartly and cost-effectively",
         suggest_only=False,
-        config_list=config_list_openai_aoai(),
+        config_list=config_list,
     )
     print(cost)
     with open("test/openai/suggested_improvement.txt", "w") as f:
@@ -433,15 +436,15 @@ def test_math(num_samples=-1):
 if __name__ == "__main__":
     import openai
 
-    openai.api_key = os.environ["OPENAI_API_KEY"] = open("test/openai/key.txt").read().strip()
-    os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
-    os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
+    openai.api_key = os.environ["OPENAI_API_KEY"] = open(f"{TEST_LOC}/key.txt").read().strip()
+    # os.environ["AZURE_OPENAI_API_KEY"] = open("test/openai/key_azure.txt").read().strip()
+    # os.environ["AZURE_OPENAI_API_BASE"] = open("test/openai/base_azure.txt").read().strip()
 
     # test_filter()
     # test_chatcompletion()
     # test_multi_model()
     # test_execute_code()
-    # test_improve()
+    test_improve()
     # test_nocontext()
-    test_humaneval(1)
+    # test_humaneval(1)
     # test_math(1)

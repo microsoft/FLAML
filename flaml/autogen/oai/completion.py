@@ -5,10 +5,10 @@ import time
 from typing import List, Optional, Dict, Callable, Any
 import sys
 import shutil
-import json
 from flaml import tune, BlendSearch
 from flaml.tune.space import is_constant
 from flaml.automl.logger import logger_formatter
+from .openai_utils import get_key
 
 try:
     import openai
@@ -34,56 +34,6 @@ if not logger.handlers:
     _ch = logging.StreamHandler(stream=sys.stdout)
     _ch.setFormatter(logger_formatter)
     logger.addHandler(_ch)
-
-NON_CACHE_KEY = ["api_key", "api_base", "api_type", "api_version"]
-
-
-def get_key(config):
-    """Get a unique identifier of a configuration.
-
-    Args:
-        config (dict or list): A configuration.
-
-    Returns:
-        tuple: A unique identifier which can be used as a key for a dict.
-    """
-    copied = False
-    for key in NON_CACHE_KEY:
-        if key in config:
-            config, copied = config.copy() if not copied else config, True
-            config.pop(key)
-    # if isinstance(config, dict):
-    #     return tuple(get_key(x) for x in sorted(config.items()))
-    # if isinstance(config, list):
-    #     return tuple(get_key(x) for x in config)
-    # return config
-    return json.dumps(config, sort_keys=True)
-
-
-def get_config_list(
-    api_keys: List, api_bases: Optional[List] = None, api_type: Optional[str] = None, api_version: Optional[str] = None
-) -> List[Dict]:
-    """Get a list of configs for openai api calls.
-
-    Args:
-        api_keys (list): The api keys for openai api calls.
-        api_bases (list, optional): The api bases for openai api calls.
-        api_type (str, optional): The api type for openai api calls.
-        api_version (str, optional): The api version for openai api calls.
-    """
-    config_list = []
-    for i, api_key in enumerate(api_keys):
-        if not api_key.strip():
-            continue
-        config = {"api_key": api_key}
-        if api_bases:
-            config["api_base"] = api_bases[i]
-        if api_type:
-            config["api_type"] = api_type
-        if api_version:
-            config["api_version"] = api_version
-        config_list.append(config)
-    return config_list
 
 
 class Completion(openai_Completion):
