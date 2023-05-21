@@ -390,5 +390,5 @@ The compact history is more efficient and the individual API call history contai
 
 
 *Interested in trying it yourself? Please check the following notebook examples:*
-* [Optimize for Code Gen](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai.ipynb)
+* [Optimize for Code Gen](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
 * [Optimize for Math](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_chatgpt_gpt4.ipynb)

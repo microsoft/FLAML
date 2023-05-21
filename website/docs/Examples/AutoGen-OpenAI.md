@@ -134,4 +134,4 @@ print("performance on test data with the tuned config:", result)
 
 The result will vary with the inference budget and optimization budget.
 
-[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/autogen_openai.ipynb)
+[Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
