@@ -287,9 +287,9 @@ def test_humaneval(num_samples=1):
         eval_func=eval_function_completions,
         n=1,
         messages=[{"role": "user", "content": "{definition}"}],
-        config_list=oai.config_list_openai_aoai(),
+        config_list=oai.config_list_openai_aoai(KEY_LOC),
     )
-    responses = oai.ChatCompletion.create(context=test_data[0], **config)
+    responses = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
     print(responses)
     code, cost, selected = implement(tune_data[1], [config])
     print(code)
@@ -436,14 +436,15 @@ def test_math(num_samples=-1):
 if __name__ == "__main__":
     import openai
 
-    oai.config_list_openai_aoai(KEY_LOC)
+    config_list = oai.config_list_openai_aoai(KEY_LOC)
+    assert len(config_list) >= 3, config_list
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
     # test_filter()
     # test_chatcompletion()
     # test_multi_model()
     # test_execute_code()
-    test_improve()
+    # test_improve()
     # test_nocontext()
-    # test_humaneval(1)
+    test_humaneval(1)
     # test_math(1)
