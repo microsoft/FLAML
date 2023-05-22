@@ -24,13 +24,13 @@ In this session, we will provide an in-depth and hands-on tutorial on Automated 
 ### **Part 2. Introduction to FLAML**
 - Introduction to FLAML
 - AutoML and Hyperparameter Tuning with FLAML
-    - [Notebook: AutoML with FLAML Library](pydata2023seattle/demo_1_flight_delays_automl.ipynb)
-    - [Notebook: Hyperparameter Tuning with FLAML](pydata2023seattle/demo_2_house_price_tune_synapseml.ipynb)
+    - [Notebook: AutoML with FLAML Library](https://github.com/microsoft/FLAML/blob/main/notebook/automl_flight_delays.ipynb)
+    - [Notebook: Hyperparameter Tuning with FLAML](https://github.com/microsoft/FLAML/blob/main/notebook/tune_synapseml)
 
 ### **Part 3. Deep Dive into FLAML**
 - Advanced Functionalities
 - Parallelization with Apache Spark
-    - [Notebook: FLAML AutoML on Apache Spark](pydata2023seattle/demo_3_bankrupt_automl_synapseml.ipynb)
+    - [Notebook: FLAML AutoML on Apache Spark](https://github.com/microsoft/FLAML/blob/main/notebook/automl_bankrupt_synapseml.ipynb)
 
 ### **Part 4. New features in FLAML**
 - Targeted Hyperparameter Optimization With Lexicographic Objectives
