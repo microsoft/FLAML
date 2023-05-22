@@ -289,4 +289,8 @@
 # python fewshot.py --folder ./73 --samples_per_category 50 --categories 0 1 3 4 5 6
 
 # trial 74: run ours to get additional information: completion_tokens. This should run quickly using the cache.
-python main.py -ptype v3.9python --folder ./74 --categories 0 1 3 4 5 6 --samples_per_category 400
+# python main.py -ptype v3.9python --folder ./74 --categories 0 1 3 4 5 6 --samples_per_category 400
+
+
+# trial 72
+python PoT.py --folder ./72 --samples_per_category 400 --categories 0 1 3 4 5 6
