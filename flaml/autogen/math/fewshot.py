@@ -189,7 +189,7 @@ if __name__ == "__main__":
         # },
     ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path_root=args.cache_folder)
     random.seed(args.seed)
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))

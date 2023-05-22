@@ -45,7 +45,7 @@ def pseudo_main(config_list):
     args = parse_args()
     args.model = "gpt-4"
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path_root=args.cache_folder)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
 
     # 3. load math dataset
