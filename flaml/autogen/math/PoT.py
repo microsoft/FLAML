@@ -80,7 +80,15 @@ def solver():
     # TODO: adapt for voting
     program = synthesize_program(responses[0], full_prompt)
     return_code, ans = execute_code(program, timeout=5, use_docker=False)
-    ans = ans.decode("ascii").strip() if type(ans) is bytes else ans
+    if isinstance(ans, bytes):
+        try:
+            ans = ans.decode("ascii")
+        except Exception:
+            try:
+                ans = ans.decode("utf-8")
+            except Exception:
+                ans = "The return cannot be decoded."
+    
     ans = "Error" if return_code != 0 or ans is None else ans
     response_with_ans = "\\boxed{" + str(ans) + "}"
 
