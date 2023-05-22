@@ -98,6 +98,10 @@ def solver():
 
 
 if __name__ == "__main__":
+    config_list = None
+    # openai.api_key = open("key_e.txt").read().strip()
+    # print(openai.api_key)
+    
     from azure.identity import DefaultAzureCredential
 
     SCOPE = "https://ml.azure.com"
@@ -135,7 +139,7 @@ if __name__ == "__main__":
         # },
     ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path_root=args.cache_folder)
 
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
