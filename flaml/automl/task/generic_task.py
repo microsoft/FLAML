@@ -68,36 +68,38 @@ logger = logging.getLogger(__name__)
 class GenericTask(Task):
     @property
     def estimators(self):
-        # put this into a function to avoid circular dependency
-        from flaml.automl.model import (
-            XGBoostSklearnEstimator,
-            XGBoostLimitDepthEstimator,
-            RandomForestEstimator,
-            LGBMEstimator,
-            LRL1Classifier,
-            LRL2Classifier,
-            CatBoostEstimator,
-            ExtraTreesEstimator,
-            KNeighborsEstimator,
-            TransformersEstimator,
-            TransformersEstimatorModelSelection,
-            SparkLGBMEstimator,
-        )
+        if self._estimators is None:
+            # put this into a function to avoid circular dependency
+            from flaml.automl.model import (
+                XGBoostSklearnEstimator,
+                XGBoostLimitDepthEstimator,
+                RandomForestEstimator,
+                LGBMEstimator,
+                LRL1Classifier,
+                LRL2Classifier,
+                CatBoostEstimator,
+                ExtraTreesEstimator,
+                KNeighborsEstimator,
+                TransformersEstimator,
+                TransformersEstimatorModelSelection,
+                SparkLGBMEstimator,
+            )
 
-        return {
-            "xgboost": XGBoostSklearnEstimator,
-            "xgb_limitdepth": XGBoostLimitDepthEstimator,
-            "rf": RandomForestEstimator,
-            "lgbm": LGBMEstimator,
-            "lgbm_spark": SparkLGBMEstimator,
-            "lrl1": LRL1Classifier,
-            "lrl2": LRL2Classifier,
-            "catboost": CatBoostEstimator,
-            "extra_tree": ExtraTreesEstimator,
-            "kneighbor": KNeighborsEstimator,
-            "transformer": TransformersEstimator,
-            "transformer_ms": TransformersEstimatorModelSelection,
-        }
+            self._estimators = {
+                "xgboost": XGBoostSklearnEstimator,
+                "xgb_limitdepth": XGBoostLimitDepthEstimator,
+                "rf": RandomForestEstimator,
+                "lgbm": LGBMEstimator,
+                "lgbm_spark": SparkLGBMEstimator,
+                "lrl1": LRL1Classifier,
+                "lrl2": LRL2Classifier,
+                "catboost": CatBoostEstimator,
+                "extra_tree": ExtraTreesEstimator,
+                "kneighbor": KNeighborsEstimator,
+                "transformer": TransformersEstimator,
+                "transformer_ms": TransformersEstimatorModelSelection,
+            }
+        return self._estimators
 
     def validate_data(
         self,
@@ -448,8 +450,7 @@ class GenericTask(Task):
         state.groups_all = state.groups
         if X_val is None and eval_method == "holdout":
             if split_type == "time":
-                if self.is_ts_forecast():
-                    raise Exception("For a TS forecast task, this code should never be called")
+                assert not self.is_ts_forecast(), "For a TS forecast task, this code should never be called"
 
                 is_sample_weight = "sample_weight" in state.fit_kwargs
                 if not is_spark_dataframe and is_sample_weight:

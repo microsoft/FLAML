@@ -15,7 +15,6 @@ from flaml.automl.time_series.ts_data import (
     TimeSeriesDataset,
     DataTransformerTS,
     normalize_ts_data,
-    validate_data_basic,
 )
 
 from flaml.automl.task.task import (
@@ -29,39 +28,42 @@ logger = logging.getLogger(__name__)
 
 
 class TimeSeriesTask(Task):
+
     @property
     def estimators(self):
-        # put this into a function to avoid circular dependency
-        from flaml.automl.time_series import (
-            XGBoost_TS,
-            XGBoostLimitDepth_TS,
-            RF_TS,
-            LGBM_TS,
-            ExtraTrees_TS,
-            CatBoost_TS,
-            Prophet,
-            Orbit,
-            ARIMA,
-            SARIMAX,
-            TemporalFusionTransformerEstimator,
-            HoltWinters,
-        )
+        if self._estimators is None:
+            # put this into a function to avoid circular dependency
+            from flaml.automl.time_series import (
+                XGBoost_TS,
+                XGBoostLimitDepth_TS,
+                RF_TS,
+                LGBM_TS,
+                ExtraTrees_TS,
+                CatBoost_TS,
+                Prophet,
+                Orbit,
+                ARIMA,
+                SARIMAX,
+                TemporalFusionTransformerEstimator,
+                HoltWinters,
+            )
 
-        return {
-            "xgboost": XGBoost_TS,
-            "xgb_limitdepth": XGBoostLimitDepth_TS,
-            "rf": RF_TS,
-            "lgbm": LGBM_TS,
-            "extra_tree": ExtraTrees_TS,
-            "prophet": Prophet,
-            "orbit": Orbit,
-            "arima": ARIMA,
-            "sarimax": SARIMAX,
-            "holt-winters": HoltWinters,
-            "catboost": CatBoost_TS,
-            "tft": TemporalFusionTransformerEstimator,
-        }
+            self._estimators = {
+                "xgboost": XGBoost_TS,
+                "xgb_limitdepth": XGBoostLimitDepth_TS,
+                "rf": RF_TS,
+                "lgbm": LGBM_TS,
+                "extra_tree": ExtraTrees_TS,
+                "prophet": Prophet,
+                "orbit": Orbit,
+                "arima": ARIMA,
+                "sarimax": SARIMAX,
+                "holt-winters": HoltWinters,
+                "catboost": CatBoost_TS,
+                "tft": TemporalFusionTransformerEstimator,
+            }
 
+        return self._estimators
     # processed
     def validate_data(
         self,
@@ -465,13 +467,11 @@ class TimeSeriesTask(Task):
         return estimator_list
 
     def default_metric(self, metric: str) -> str:
-        if "auto" != metric:
-            return metric
-
-        if self.is_ts_forecast():
+        assert self.is_ts_forecast(), "If this is not a TS forecasting task, this code should never have been called"
+        if metric == "auto":
             return "mape"
         else:
-            raise ValueError("If this is not a TS forecasting task, this code should never have been called")
+            return metric
 
     @staticmethod
     def prepare_sample_train_data(automlstate, sample_size):

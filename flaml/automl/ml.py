@@ -24,11 +24,9 @@ from sklearn.metrics import (
     ndcg_score,
 )
 
-from flaml.automl.model import TransformersEstimator
-
 from flaml.automl.task import Task
 from flaml.automl.data import group_counts
-from flaml.automl.model import BaseEstimator
+from flaml.automl.model import BaseEstimator, TransformersEstimator
 
 try:
     from flaml.automl.spark.utils import len_labels

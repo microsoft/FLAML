@@ -92,6 +92,7 @@ class Task(ABC):
                 such as in binary vs multilabel classification.
         """
         self.name = task_name
+        self._estimators = None
 
     def __str__(self) -> str:
         """Name of this task type."""
