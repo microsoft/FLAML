@@ -917,8 +917,9 @@ class AutoML(BaseEstimator):
             ], "eval_method must be 'auto' or 'cv' for custom data splitter."
             assert self._state.X_val is None, "custom splitter and custom validation data can't be used together."
             return "cv"
-        if self._state.X_val is not None and (not isinstance(self._state.X_val, TimeSeriesDataset)
-                                              or len(self._state.X_val.test_data)>0):
+        if self._state.X_val is not None and (
+            not isinstance(self._state.X_val, TimeSeriesDataset) or len(self._state.X_val.test_data)>0
+        ):
             assert eval_method in [
                 "auto",
                 "holdout",

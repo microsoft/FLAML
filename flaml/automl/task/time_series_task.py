@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 class TimeSeriesTask(Task):
-
     @property
     def estimators(self):
         if self._estimators is None:
@@ -64,6 +63,7 @@ class TimeSeriesTask(Task):
             }
 
         return self._estimators
+
     # processed
     def validate_data(
         self,
