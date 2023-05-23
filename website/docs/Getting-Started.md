@@ -3,7 +3,7 @@
 <!-- ### Welcome to FLAML, a Fast Library for Automated Machine Learning & Tuning! -->
 
 FLAML is a lightweight Python library for efficient automation of machine
-learning, including selection of
+learning and AI operations, including selection of
 models, hyperparameters, and other tunable choices of an application.
 
 ### Main Features
@@ -40,7 +40,7 @@ config, analysis = oai.Completion.tune(
 ```
 
 The automated experimentation and optimization can help you maximize the utility out of these expensive models.
-A suite of utilities such as caching and templating are offered to accelerate the experimentation and application development.
+A suite of utilities are offered to accelerate the experimentation and application development, such as low-level inference API with caching, templating, filtering, and higher-level utility functions like LLM-based coding and interactive agents.
 
 #### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
 
@@ -113,7 +113,7 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 
 * Understand the use cases for [Auto Generation](Use-Cases/Auto-Generation), [Task-oriented AutoML](Use-Cases/Task-Oriented-Automl), [Tune user-defined function](Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML).
 * Find code examples under "Examples": from [AutoGen - OpenAI](Examples/AutoGen-OpenAI) to [Tune - PyTorch](Examples/Tune-PyTorch).
-* Learn about [research](Research) around FLAML.
+* Learn about [research](Research) around FLAML and check [blogposts](/blog).
 * Chat on [Discord](https://discord.gg/Cppx2vSPVP).
 
 If you like our project, please give it a [star](https://github.com/microsoft/FLAML/stargazers) on GitHub. If you are interested in contributing, please read [Contributor's Guide](Contribute).

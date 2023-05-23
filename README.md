@@ -118,11 +118,11 @@ You can find a detailed documentation about FLAML [here](https://microsoft.githu
 
 In addition, you can find:
 
-- Research around FLAML [here](https://microsoft.github.io/FLAML/docs/Research).
+- [Research](https://microsoft.github.io/FLAML/docs/Research) and [blogposts](https://microsoft.github.io/FLAML/blog) around FLAML.
 
-- Discord [here](https://discord.gg/Cppx2vSPVP).
+- [Discord](https://discord.gg/Cppx2vSPVP).
 
-- Contributing guide [here](https://microsoft.github.io/FLAML/docs/Contribute).
+- [Contributing guide](https://microsoft.github.io/FLAML/docs/Contribute).
 
 - ML.NET documentation and tutorials for [Model Builder](https://learn.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder), [ML.NET CLI](https://learn.microsoft.com/dotnet/machine-learning/tutorials/sentiment-analysis-cli), and [AutoML API](https://learn.microsoft.com/dotnet/machine-learning/how-to-guides/how-to-use-the-automl-api).
 
