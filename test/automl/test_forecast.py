@@ -6,7 +6,7 @@ import pandas as pd
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
+def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     # using dataframe
     import statsmodels.api as sm
 
