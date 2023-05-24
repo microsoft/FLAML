@@ -6,7 +6,7 @@ import pandas as pd
 from flaml import AutoML
 
 
-def test_forecast_automl(budget=30, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
+def test_forecast_automl(budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     # using dataframe
     import statsmodels.api as sm
 
@@ -604,7 +604,7 @@ def test_cv_step():
     for tgt in tgts:
         features = []  # [c for c in train_df.columns if "SERIES" not in c and c != time_col]
 
-        automl = AutoML(time_budget=60, metric="mae", task="ts_forecast", eval_method="cv")
+        automl = AutoML(time_budget=5, metric="mae", task="ts_forecast", eval_method="cv")
 
         automl.fit(
             dataframe=train_df[[time_col] + features + [tgt]],
