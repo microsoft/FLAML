@@ -41,9 +41,6 @@ pred = automl.predict(X_test)
 ```
 
 If users provide the minimal inputs only, `AutoML` uses the default settings for optimization metric, estimator list etc.
-## Automated feature preprocessing in FLAML
-To make the data usable by all the estimators for a given task, FLAML does some automatic data preprocessing.
-
 
 ## Customize AutoML.fit()
 
