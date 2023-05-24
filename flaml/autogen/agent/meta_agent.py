@@ -1,7 +1,6 @@
 from collections import defaultdict
+from typing import Optional
 from flaml.autogen.agent.agent import Agent
-from flaml.autogen.agent.chat_agent import ChatAgent
-from flaml.autogen.agent.coding_agent import PythonAgent
 from flaml import oai
 from flaml.autogen.code_utils import DEFAULT_MODEL, FAST_MODEL
 
@@ -10,7 +9,7 @@ class MetaAgent(Agent):
     """(Experimental) A meta agent that can wrap other agents and perform actions based on the messages received."""
 
     DEFAULT_CONFIG = {
-        "model": FAST_MODEL,
+        "model": DEFAULT_MODEL,
     }
 
     DEFAULT_SYSTEM_MESSAGE = """
@@ -35,35 +34,25 @@ class MetaAgent(Agent):
     """
 
     def __init__(
-        self, agent_class, name, system_message="", meta_agent_name="meta-agent", meta_agent_system_message=""
+        self,
+        name,
+        system_message="",
+        agent: Optional[Agent] = None,
+        dev_agent: Optional[Agent] = None,
     ):
         """
         Args:
-            agent_class (Agent): the class of the agent to be wrapped
-            name (str): name of the agent to be wrapped
-            system_message (str): system message to be sent to the agent to be wrapped
-            meta_agent_name (str): name of the meta agent
-            meta_agent_system_message (str): system message to be sent to the meta agent
+            name (str): name of the meta agent
+            system_message (str): system message to be sent to the meta agent
+            user_agent (optional): the agent to be wrapped
+            dev_agent (optional): the agent to be wrapped for development
         """
-        self._memory = []
-        # a dictionary of conversations, default value is list
-        self._conversations = defaultdict(list)
-        self._name = meta_agent_name
-        self._config = self.DEFAULT_CONFIG
-        self._system_message = meta_agent_system_message if meta_agent_system_message else self.DEFAULT_SYSTEM_MESSAGE
-        self._agent_class = agent_class
-        if system_message:
-            self._agent = agent_class(name, system_message=system_message)
-        else:
-            self._agent = agent_class(name)
-
-        # TODO: Maintain a dictionary of meta prompts for each agent class
-        # self._meta_prompt_glossary = {
-        #     ChatAgent.__name__: ChatAgent.DEFAULT_SYSTEM_MESSAGE,
-        #     PythonAgent.__name__: PythonAgent.DEFAULT_SYSTEM_MESSAGE,
-        # }
-
-        # the following meta prompt is based on https://noahgoodman.substack.com/p/meta-prompt-a-simple-self-improving
+        # use super() to call the parent class's __init__ method
+        super().__init__(name, system_message=system_message)
+        self._system_message = system_message if system_message else self.DEFAULT_SYSTEM_MESSAGE
+        # TODO: do we only need to have only user_agent or dev_agent?
+        self._agent = agent
+        self._dev_agent = dev_agent
         self._meta_prompt_template = """
         Assistant has just had the below interactions with a User. Assistant followed their "Instructions" closely.
         Your job is to critique the Assistant's performance and then revise the Instructions so that Assistant would
@@ -88,7 +77,10 @@ class MetaAgent(Agent):
 
     def _receive(self, message, sender):
         """Receive a message from another agent."""
-        self._agent.receive(message, sender)
+        if self._agent:
+            self._agent.receive(message, sender)
+        # if self._dev_agent:
+        #     self._dev_agent.receive(message, sender)
 
     def _get_chat_history(self):
         """Get the chat history of the agent."""
@@ -102,11 +94,12 @@ class MetaAgent(Agent):
         return chat_history
 
     def reflect(self):
-        """Reflect on the conversations with the agents."""
-        chat_history = self._get_chat_history()
-        meta_prompt = self._meta_prompt_template.format(chat_history=chat_history)
-        responses = oai.ChatCompletion.create(messages=[{"content": meta_prompt, "role": "user"}], **self._config)
-        response = oai.ChatCompletion.extract_text(responses)[0]
-        print(f"Reflecting.....\n{self._name}", response)
-        self._agent = self._agent_class(self._name, meta_prompt=response)
+        self.receive("reflect", self._dev_agent)
+        # """Reflect on the conversations with the agents."""
+        # chat_history = self._get_chat_history()
+        # meta_prompt = self._meta_prompt_template.format(chat_history=chat_history)
+        # responses = oai.ChatCompletion.create(messages=[{"content": meta_prompt, "role": "user"}], **self._config)
+        # response = oai.ChatCompletion.extract_text(responses)[0]
+        # print(f"Reflecting.....\n{self._name}", response)
+        # self._agent = self._agent_class(self._name, meta_prompt=response)
         # TODO: maybe we should also consider adding the instruction as the init prompt
