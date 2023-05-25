@@ -1,44 +1,13 @@
 import inspect
 import copy
 import time
-import os
 from typing import Any, Optional
-
 import numpy as np
-import pandas as pd
-
 from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
-
-try:
-    from flaml.automl.spark.utils import (
-        train_test_split_pyspark,
-        unique_pandas_on_spark,
-        len_labels,
-        unique_value_first_index,
-    )
-except ImportError:
-    train_test_split_pyspark = None
-    unique_pandas_on_spark = None
-    from flaml.automl.utils import (
-        len_labels,
-        unique_value_first_index,
-    )
-try:
-    os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    import pyspark.pandas as ps
-    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries
-    from pyspark.pandas.config import set_option, reset_option
-except ImportError:
-    ps = None
-
-    class psDataFrame:
-        pass
-
-    class psSeries:
-        pass
+from flaml.automl.spark import psDataFrame, psSeries, DataFrame, Series
 
 
 class SearchState:
@@ -252,11 +221,11 @@ class AutoMLState:
                 sampled_X_train.train_data = self.X_train.train_data.iloc[-sample_size:]
                 sampled_y_train = None
             else:
-                if isinstance(self.X_train, (pd.DataFrame, psDataFrame)):
+                if isinstance(self.X_train, (DataFrame, psDataFrame)):
                     sampled_X_train = self.X_train.iloc[:sample_size]
                 else:
                     sampled_X_train = self.X_train[:sample_size]
-                if isinstance(self.y_train, (pd.Series, psSeries)):
+                if isinstance(self.y_train, (Series, psSeries)):
                     sampled_y_train = self.y_train.iloc[:sample_size]
                 else:
                     sampled_y_train = self.y_train[:sample_size]
@@ -265,12 +234,12 @@ class AutoMLState:
             )  # NOTE: _prepare_sample_train_data is before kwargs is updated to fit_kwargs_by_estimator
             if weight is not None:
                 sampled_weight = (
-                    weight.iloc[:sample_size] if isinstance(weight, (pd.Series, psSeries)) else weight[:sample_size]
+                    weight.iloc[:sample_size] if isinstance(weight, (Series, psSeries)) else weight[:sample_size]
                 )
             if self.groups is not None:
                 groups = (
                     self.groups.iloc[:sample_size]
-                    if isinstance(self.groups, (pd.Series, psSeries))
+                    if isinstance(self.groups, (Series, psSeries))
                     else self.groups[:sample_size]
                 )
         else:
