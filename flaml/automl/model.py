@@ -11,7 +11,6 @@ import numpy as np
 import time
 import logging
 import shutil
-from pandas import DataFrame, Series
 import sys
 import math
 from flaml import tune
