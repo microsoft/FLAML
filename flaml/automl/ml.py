@@ -9,21 +9,6 @@ import logging
 import numpy as np
 import pandas as pd
 
-
-from sklearn.metrics import (
-    mean_squared_error,
-    r2_score,
-    roc_auc_score,
-    accuracy_score,
-    mean_absolute_error,
-    log_loss,
-    average_precision_score,
-    f1_score,
-    mean_absolute_percentage_error,
-    ndcg_score,
-)
-
-
 from flaml.automl.data import group_counts
 from flaml.automl.task.task import Task
 from flaml.automl.model import BaseEstimator, TransformersEstimator
