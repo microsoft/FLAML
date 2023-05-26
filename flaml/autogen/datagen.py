@@ -21,15 +21,15 @@ def generate_adversarial_examples(data, verif_func, eval_func, num_examples=5, r
         # query["prompt"] = base_prompt.format(examples=str(data))
         response = oai.Completion.create({"examples": str(data)}, prompt=base_prompt, **config)
         resp = oai.Completion.extract_text(response)[0]
-        adv_candidates = re.findall(r"(?={).*(?<=})", resp)
+        adv_candidates = eval(resp.strip())  # re.findall(r"(?={).*(?<=})", resp)
         for cand in adv_candidates:
             candidate = eval(cand)
             cand_verification = verif_func(candidate)
-            cand_test = eval_func(candidate, **config)
+            cand_test = eval_func(candidate)
             if cand_verification and not cand_test:
                 adv_examples.append(candidate)
 
-    input_data_metric = reduction(eval_func(data, **config))
-    adv_metric = reduction(eval_func(adv_examples, **config))
+    input_data_metric = reduction(eval_func(data))
+    adv_metric = reduction(eval_func(adv_examples))
 
     return adv_examples, (input_data_metric - adv_metric)

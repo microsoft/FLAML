@@ -50,9 +50,17 @@ def test_adv_gen():
 
         return lhs == rhs
 
-    def test_arith(example, **config):
+    def test_arith(example):
         base_prompt = "{input}"
-        # query = {"max_tokens": 64, "temperature": 0, "top_p": 1, "n": 1, "stream": False, "logprobs": None, 'engine': 'text-davinci-003', 'stop': '\n'}
+        config = {
+            "max_tokens": 64,
+            "temperature": 0,
+            "top_p": 1,
+            "n": 1,
+            "stream": False,
+            "model": "text-davinci-003",
+            "stop": "\n",
+        }
         # query['prompt'] = base_prompt.format(example['input'])
         # resp = oai.Completion.create(**query)
         response = oai.Completion.create(example, prompt=base_prompt, **config)
@@ -80,10 +88,10 @@ def test_adv_gen():
 
 
 if __name__ == "__main__":
-    import openai
-    import os
+    # import openai
+    # import os
 
-    config_list = oai.config_list_openai_aoai(KEY_LOC)
-    assert len(config_list) >= 3, config_list
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+    # config_list = oai.config_list_openai_aoai(KEY_LOC)
+    # assert len(config_list) >= 3, config_list
+    # openai.api_key = os.environ["OPENAI_API_KEY"]
     test_adv_gen()
