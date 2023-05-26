@@ -119,5 +119,5 @@ class UserProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        print("NO HUMAN INPUT RECEIVED. TRYING TO AUTO REPLY FOR THE USR...", flush=True)
+        print(">>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
         self.auto_reply(message, sender, default_reply=reply)
