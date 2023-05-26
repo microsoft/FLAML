@@ -579,6 +579,7 @@ class GenericTask(Task):
         fit_kwargs,
         groups=None,
     ) -> str:
+        assert not self.is_ts_forecast(), "This function should never be called as part of a time-series task."
         if self.name == "classification":
             self.name = get_classification_objective(len_labels(y_train_all))
         if not isinstance(split_type, str):
@@ -589,20 +590,6 @@ class GenericTask(Task):
                 not isinstance(split_type, GroupKFold) or groups is not None
             ), "GroupKFold requires groups to be provided."
             return split_type
-
-        # elif self.is_ts_forecast():
-        #     assert split_type in ["auto", "time"]
-        #     assert isinstance(
-        #         fit_kwargs.get("period"),
-        #         int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
-        #     ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
-        #     if fit_kwargs.get("group_ids"):
-        #         # TODO (MARK) This will likely not play well with the task class
-        #         self.name = TS_FORECASTPANEL
-        #         assert isinstance(
-        #             fit_kwargs.get("group_ids"), list
-        #         ), f"missing a required List[str] 'group_ids' for '{TS_FORECASTPANEL}' task."
-        #     return "time"
 
         elif self.is_classification():
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]

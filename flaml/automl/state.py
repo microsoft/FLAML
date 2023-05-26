@@ -56,7 +56,6 @@ class SearchState:
     def __init__(
         self,
         learner_class,
-        data_size,
         data,
         task,
         starting_point=None,
@@ -70,14 +69,18 @@ class SearchState:
         self.init_config = None
         self.low_cost_partial_config = {}
         self.cat_hp_cost = {}
-        self.data_size = data_size
+
         self.ls_ever_converged = False
         self.learner_class = learner_class
         self._budget = budget
+
         if task.is_ts_forecast():
+            data_size = data.train_data.shape
             search_space = learner_class.search_space(data=data, task=task, pred_horizon=period)
         else:
+            data_size = data.shape
             search_space = learner_class.search_space(data_size=data_size, task=task)
+        self.data_size = data_size
 
         if custom_hp is not None:
             search_space.update(custom_hp)
