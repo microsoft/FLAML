@@ -14,14 +14,24 @@ CODE_BLOCK_PATTERN = r"```(\w*)\n(.*?)\n```"
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
 
 
-def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> str:
-    # Use a regular expression to find the code block
-    match = re.search(pattern, text, flags=re.DOTALL)
+def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str, str]]:
+    """Extract code from a text.
+
+    Args:
+        text (str): The text to extract code from.
+        pattern (Optional, str): The regular expression pattern for finding the code block.
+
+    Returns:
+        list: A list of tuples, each containing the language and the code.
+    """
+    # Use a regular expression to find all the code blocks
+    match = re.findall(pattern, text, flags=re.DOTALL)
+    # match = re.search(pattern, text, flags=re.DOTALL)
     # If a match is found, return the code
-    if match:
-        return match.group(2), match.group(1)
+    # if match:
+    #     return match.group(2), match.group(1)
     # If no code block is found, return the whole text
-    return text, "unknown"
+    return match if match else ["unknown", text]
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
@@ -108,6 +118,7 @@ def execute_code(
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
     use_docker: Optional[bool] = True,
+    lang: Optional[str] = "python",
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
@@ -130,6 +141,7 @@ def execute_code(
             If False, the code will be executed in the current environment.
             Default is True. If the code is executed in the current environment,
             the code must be trusted.
+        lang (Optional, str): The language of the code. Default is "python".
 
     Returns:
         int: 0 if the code executes successfully.
@@ -141,7 +153,7 @@ def execute_code(
     if filename is None:
         code_hash = md5(code.encode()).hexdigest()
         # create a file with a automatically generated name
-        filename = f"tmp_code_{code_hash}.py"
+        filename = f"tmp_code_{code_hash}.py" if lang == "python" else f"tmp_code_{code_hash}.{lang}"
     if work_dir is None:
         work_dir = WORKING_DIR
     filepath = os.path.join(work_dir, filename)
@@ -155,12 +167,13 @@ def execute_code(
     in_docker_container = os.path.exists("/.dockerenv")
     if not use_docker or in_docker_container:
         # already running in a docker container
+        cmd = [sys.executable, filename] if lang == "python" else [lang, filename]
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
             signal.alarm(timeout)
             # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
-                [sys.executable, filename],
+                cmd,
                 cwd=work_dir,
                 capture_output=True,
             )
@@ -174,7 +187,6 @@ def execute_code(
         return result.returncode, result.stderr if result.returncode else result.stdout
 
     import docker
-    from requests.exceptions import ReadTimeout, ConnectionError
 
     # create a docker client
     client = docker.from_env()
@@ -198,14 +210,13 @@ def execute_code(
     # if sys.platform == "win32":
     #     abs_path = str(abs_path).replace("\\", "/")
     #     abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
+    cmd = [
+        f"{lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+    ]
     # create a docker container
     container = client.containers.run(
         image,
-        command=[
-            "sh",
-            "-c",
-            f"python {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
-        ],
+        command=cmd,
         working_dir="/workspace",
         detach=True,
         # get absolute path to the working directory

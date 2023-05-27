@@ -54,36 +54,50 @@ class UserProxyAgent(Agent):
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._use_docker = use_docker
 
-    def _execute_code(self, code, lang):
+    def _execute_code(self, code_blocks):
         """Execute the code and return the result."""
-        if lang in ["bash", "shell"]:
-            if not code.startswith("python "):
-                return 1, f"please do not suggest bash or shell commands like {code}"
-            file_name = code[len("python ") :]
-            exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
-            logs = logs.decode("utf-8")
-        elif lang == "python":
-            if code.startswith("# filename: "):
-                filename = code[11 : code.find("\n")].strip()
+        logs_all = ""
+        for code_block in code_blocks:
+            lang, code = code_block
+            if lang in ["bash", "shell", "sh", ""]:
+                # if code.startswith("python "):
+                #     # return 1, f"please do not suggest bash or shell commands like {code}"
+                #     file_name = code[len("python ") :]
+                #     exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
+                # else:
+                exitcode, logs = execute_code(
+                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang if lang else "sh"
+                )
+                logs = logs.decode("utf-8")
+            elif lang == "python":
+                if code.startswith("# filename: "):
+                    filename = code[11 : code.find("\n")].strip()
+                else:
+                    filename = None
+                exitcode, logs = execute_code(
+                    code, work_dir=self._work_dir, filename=filename, use_docker=self._use_docker
+                )
+                logs = logs.decode("utf-8")
+            # elif code.startswith("pip install "):
+            #     exitcode, logs = self._execute_code([("sh", code)])
             else:
-                filename = None
-            exitcode, logs = execute_code(code, work_dir=self._work_dir, filename=filename, use_docker=self._use_docker)
-            logs = logs.decode("utf-8")
-        else:
-            # TODO: could this happen?
-            exitcode, logs = 1, f"unknown language {lang}"
-            # raise NotImplementedError
+                # TODO: could this happen?
+                exitcode, logs = 1, f"unknown language {lang}"
+                # raise NotImplementedError
+            logs_all += "\n" + logs
+            if exitcode != 0:
+                return exitcode, logs
         return exitcode, logs
 
     def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""
-        code, lang = extract_code(message)
-        if lang == "unknown":
+        code_blocks = extract_code(message)
+        if len(code_blocks) == 1 and code_blocks[0][0] == "unknown":
             # no code block is found, lang should be "unknown"
             self._send(default_reply, sender)
         else:
             # try to execute the code
-            exitcode, logs = self._execute_code(code, lang)
+            exitcode, logs = self._execute_code(code_blocks)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
             self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
 

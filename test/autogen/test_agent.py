@@ -1,13 +1,8 @@
 import os
-from flaml.autogen.code_utils import extract_code
 from flaml import oai
 
 KEY_LOC = "test/autogen"
 here = os.path.abspath(os.path.dirname(__file__))
-
-
-def test_extract_code():
-    print(extract_code("```bash\npython temp.py\n```"))
 
 
 def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
