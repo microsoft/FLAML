@@ -380,7 +380,7 @@ The compact history is more efficient and the individual API call history contai
 
 [`flaml.autogen.agents`](../reference/autogen/agent/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
 
-Find a notebook example [here](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent.ipynb).
+Find a notebook example on how to [use agents in FLAML to solve coding tasks](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent.ipynb).
 
 ## Utilities for Applications
 
