@@ -32,7 +32,7 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str
     # if match:
     #     return match.group(2), match.group(1)
     # If no code block is found, return the whole text
-    return match if match else ["unknown", text]
+    return match if match else [(UNKNOWN, text)]
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:

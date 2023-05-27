@@ -1,5 +1,5 @@
 from .agent import Agent
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
+from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code
 from collections import defaultdict
 
 
@@ -92,8 +92,8 @@ class UserProxyAgent(Agent):
     def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""
         code_blocks = extract_code(message)
-        if len(code_blocks) == 1 and code_blocks[0][0] == "unknown":
-            # no code block is found, lang should be "unknown"
+        if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
+            # no code block is found, lang should be `UNKNOWN``
             self._send(default_reply, sender)
         else:
             # try to execute the code

@@ -1,7 +1,7 @@
 import sys
 import os
 import pytest
-from flaml.autogen.code_utils import extract_code, execute_code
+from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -41,6 +41,8 @@ print(f"Text: {text}")
 """
     )
     print(codeblocks)
+    codeblocks = extract_code("no code block")
+    assert len(codeblocks) == 1 and codeblocks[0] == (UNKNOWN, "no code block")
 
 
 @pytest.mark.skipif(
@@ -73,4 +75,5 @@ def test_execute_code():
 
 
 if __name__ == "__main__":
+    test_extract_code()
     test_execute_code()
