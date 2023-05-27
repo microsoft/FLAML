@@ -15,6 +15,15 @@ WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensi
 UNKNOWN = "unknown"
 
 
+def infer_lang(code):
+    """infer the language for the code.
+    TODO: make it robust.
+    """
+    if code.startswith("python ") or code.startswith("pip"):
+        return "sh"
+    return "python"
+
+
 def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str, str]]:
     """Extract code from a text.
 
