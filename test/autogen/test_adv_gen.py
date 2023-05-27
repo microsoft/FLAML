@@ -63,22 +63,20 @@ def test_adv_gen():
         }
         # query['prompt'] = base_prompt.format(example['input'])
         # resp = oai.Completion.create(**query)
-        response = oai.Completion.create(example, prompt=base_prompt, **config)
+        response = oai.Completion.create(example, prompt=base_prompt, config_list=config_list_eval, **config)
+        return example["target"] == oai.Completion.extract_text(response)[0].strip()
 
-        return example["target"] == oai.Completion.extract_text(response)[0]
-
-    config_list = oai.config_list_openai_aoai(KEY_LOC)
-    adv_examples, metric_change = generate_adversarial_examples(
+    config_list_adv = oai.config_list_gpt4_gpt35(KEY_LOC)
+    config_list_eval = oai.config_list_openai_aoai(KEY_LOC)
+    adv_examples = generate_adversarial_examples(
         data=input_examples,
         verif_func=verif_arith,
         eval_func=test_arith,
         num_examples=5,
         # reduction=np.mean,
-        config_list=config_list,
-        model="gpt-3.5-turbo",
+        config_list=config_list_adv,
     )
     print(adv_examples)
-    print(metric_change)
 
     # adv_examples, metric_change = oai.Completion.generate_adversarial_examples(data=input_examples, mode, eval_func, num_examples)
 
