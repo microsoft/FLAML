@@ -12,6 +12,7 @@ from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```(\w*)\n(.*?)\n```"
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
+UNKNOWN = "unknown"
 
 
 def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str, str]]:
@@ -31,7 +32,7 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str
     # if match:
     #     return match.group(2), match.group(1)
     # If no code block is found, return the whole text
-    return match if match else ["unknown", text]
+    return match if match else [(UNKNOWN, text)]
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
