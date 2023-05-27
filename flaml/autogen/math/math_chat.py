@@ -1,4 +1,4 @@
-from query_handler import QueryHandler
+from flaml.autogen.math.user_proxy_agent import UserProxyAgent
 from flaml.autogen.math_utils import eval_math_responses, get_answer
 from flaml import oai
 import os
@@ -10,7 +10,7 @@ from utils import write_json, remove_asy_sections, math_type_mapping, mylogger
 from prompts import PROMPTS
 
 
-class MathSolver:
+class MathChat:
     def __init__(
         self,
         model,
@@ -68,7 +68,7 @@ class MathSolver:
 
     def make_conversation(self, problem, n=1, file_to_be_saved=None):
         # initialize the query handler
-        query_handler = QueryHandler()
+        proxyagent = UserProxyAgent()
 
         # initialize the conversation
         config = copy.deepcopy(self.deafult_config)
@@ -143,21 +143,21 @@ class MathSolver:
                 total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
             tmp_msg = ""
-            if "[EOF]" in responses[0] or "EOF" in responses[0]:
-                _, is_query_exist = query_handler.check_queries(responses[0])
-                if not is_query_exist:
-                    if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-                        response_with_ans = responses[0]
-                        response_with_new_ans = responses[0]
-                        break
-                    end_message = 'If you solved the problem, please conclude with "The answer is \\boxed{...}. Otherwise, continue solving the problem."'
-                    config["messages"].append({"role": "user", "content": end_message})
-                    save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
-                    continue
-                tmp_msg = '\nAbove is the returned results. If the problem is solved, if you think you have solved it, please conclude with "The answer is \\boxed{...}."'
+            # if "[EOF]" in responses[0] or "EOF" in responses[0]:
+            #     _, is_query_exist = proxyagent.check_queries(responses[0])
+            #     if not is_query_exist:
+            #         if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
+            #             response_with_ans = responses[0]
+            #             response_with_new_ans = responses[0]
+            #             break
+            #         end_message = 'If you solved the problem, please conclude with "The answer is \\boxed{...}. Otherwise, continue solving the problem."'
+            #         config["messages"].append({"role": "user", "content": end_message})
+            #         save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
+            #         continue
+            #     tmp_msg = '\nAbove is the returned results. If the problem is solved, if you think you have solved it, please conclude with "The answer is \\boxed{...}."'
 
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-                tmp_msg, is_query_exist = query_handler.check_queries(responses[0])
+                tmp_msg, is_query_exist = proxyagent.check_queries(responses[0])
                 if not is_query_exist:
                     # if the assistant gives a valid reply and no more queries, stop the conversation
                     is_valid_reply = True
@@ -179,15 +179,15 @@ class MathSolver:
                         break
 
             # 3. handle the response and get the query
-            query_response, is_query_sucess = query_handler.handle_query(responses[0])
+            query_response, is_query_sucess = proxyagent.handle_query(responses[0])
             if len(query_response) > 2000:
                 # prevent long response by string length, 2000 chars -> around 500-1000 tokens
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
-            if (
-                "v4." in self.prompt_type and "Continue" in query_response
-            ):  # to avoid changing queryhandler for python v4, change response here
+                # if (
+                #     "v4." in self.prompt_type and "Continue" in query_response
+                # ):  # to avoid changing queryhandler for python v4, change response here
                 query_response = 'Continue. (If you think the problem is finished, please reply "[EOF]")'
             if is_query_sucess:
                 query_response += tmp_msg  # add the query response from the previous step
@@ -209,8 +209,8 @@ class MathSolver:
 
         return {
             "total_completion_tokens": total_completion_tokens,
-            "valid_q_count": query_handler.valid_q_count,  # number of valid queries
-            "total_q_count": query_handler.total_q_count,
+            "valid_q_count": proxyagent.valid_q_count,  # number of valid queries
+            "total_q_count": proxyagent.total_q_count,
             "is_valid_reply": is_valid_reply,  # whether the assistant can give a valid reply
             "response_with_ans": response_with_ans,  # string instead of list
             "response_with_new_ans": response_with_new_ans,  # string instead of list

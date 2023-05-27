@@ -20,135 +20,136 @@ from utils import (
     remove_asy_sections,
     mylogger,
     random_sample_MATH,
+    load_fixed,
 )
 from flaml.autogen.code_utils import execute_code
+from flaml.autogen.math.user_proxy_agent import UserProxyAgent
 
 
 parser = argparse.ArgumentParser()
 # parser.add_argument("--key", default='OPENAI_KEY', type=str)
 parser.add_argument("--dry_run", default=False, action="store_true")
-parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./PoT", type=str)
-parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache/PoT", help="cache folder")
+parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./pnas", type=str)
+parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache/pnas", help="cache folder")
 parser.add_argument("--samples_per_category", "-s", help="samples per category", default=20, type=int)
 parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
 parser.add_argument("--seed", dest="seed", help="seed", default=41, type=int)
 parser.add_argument("--categories", dest="categories", help="categories", default=[0, 1], nargs="+")
 parser.add_argument("--sample_all", help="samples per category", default=0, type=int)
+parser.add_argument("--select", action="store_true")
 args = parser.parse_args()
-args.folder = args.folder + "_baseline_PoT" "_t" + str(args.temperature) + "_seed" + str(args.seed)
+args.folder = args.folder + "_baseline_pnas" "_t" + str(args.temperature) + "_seed" + str(args.seed)
 if args.sample_all != 0:
     args.folder += "_random_sample"
 # key = os.getenv(args.key)
 # print(key)
 
 
-def PoT_solve(model, problem, max_tokens=None):
-    commented_problem = problem["problem"].replace("\n", "\n# ")  # in case the problem is multiline
-    commented_problem = remove_asy_sections(commented_problem)
-    full_prompt = f"""
-import math
-import numpy as np
-import sympy as sp # added
-
-# Question: {commented_problem}
-# Answer this question by implementing a solver() function.
-def solver():
-    # Let's write a Python program step by step, and then return the answer
-    # Firstly, we need define the following variable:
-"""
-    with open(os.path.join(args.folder, "prompt.txt"), "w") as f:
-        f.write(full_prompt)
-    if args.dry_run:
-        print(full_prompt)
-        print("=======================")
-        return
-
+def pnas_solve(model, problem, max_tokens=None):
+    problem = remove_asy_sections(problem["problem"])
+    docstring_front = '''"""\n'''
+    docstring_back = '''\n"""\n'''
+    context_array = ["write a python program", "using sympy", "using simulations"]
+    prompt_prefix = "that answers the following question:"
+    codex_input = docstring_front + context_array[0] + " " + prompt_prefix + " " + problem + docstring_back
+    # print(codex_input)
     config = {
         "model": model,
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": full_prompt},
+            {"role": "user", "content": codex_input},
         ],
         "n": 1,
     }
     if max_tokens is not None:
         config["max_tokens"] = max_tokens
 
-    raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
+    if config_list is None:
+        raw_responses = oai.ChatCompletion.create(None, **config, use_cache=True)
+    else:
+        raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
     responses = oai.ChatCompletion.extract_text(raw_responses)
+    # print(responses[0])
 
-    # TODO: adapt for voting
-    program = synthesize_program(responses[0], full_prompt)
-    return_code, ans = execute_code(program, timeout=5, use_docker=False)
-    if isinstance(ans, bytes):
-        try:
-            ans = ans.decode("ascii")
-        except Exception:
-            try:
-                ans = ans.decode("utf-8")
-            except Exception:
-                ans = "The return cannot be decoded."
-    
-    ans = "Error" if return_code != 0 or ans is None else ans
-    response_with_ans = "\\boxed{" + str(ans) + "}"
+    proxyagent = UserProxyAgent()
+    query_response, is_query_sucess = proxyagent.handle_query(responses[0])
 
-    prompt_price = (
-        oai.ChatCompletion.price1K[model][0]
-        if type(oai.ChatCompletion.price1K[model]) == tuple
-        else oai.ChatCompletion.price1K[model]
-    )
+    config["messages"].append({"role": "assistant", "content": responses[0]})
+    if is_query_sucess:
+        config["messages"].append(
+            {"role": "user", "content": "Return: " + query_response + "\nPlease put the final answer in \\boxed{}."}
+        )
+        if config_list is None:
+            raw_responses = oai.ChatCompletion.create(None, **config, use_cache=True)
+        else:
+            raw_responses = oai.ChatCompletion.create(config_list=config_list, **config)
+        answer_response = oai.ChatCompletion.extract_text(raw_responses)
+        response_with_ans = answer_response[0]
+        if get_answer(answer_response[0]) is None:
+            response_with_ans = "\\boxed{N/A}"
+    else:
+        response_with_ans = "\\boxed{Error}"
+
+    try:
+        cost = oai.ChatCompletion.cost(raw_responses)
+    except TypeError:
+        cost = oai.ChatCompletion.cost(model, raw_responses)
     return {
-        "cost": oai.ChatCompletion.cost(raw_responses),
-        "prompt_cost": prompt_price * raw_responses["usage"]["prompt_tokens"] / 1000,
+        "cost": cost,
         "response_with_ans": response_with_ans,
-        "program": program,
+        "program": responses[0],
     }
 
 
 if __name__ == "__main__":
     config_list = None
-    # openai.api_key = open("key_e.txt").read().strip()
-    # print(openai.api_key)
-    
-    from azure.identity import DefaultAzureCredential
+    try:
+        openai.api_key = open("key_e.txt").read().strip()
+        print(openai.api_key)
+    except Exception:
+        from azure.identity import DefaultAzureCredential
 
-    SCOPE = "https://ml.azure.com"
-    credential = DefaultAzureCredential()
-    token = credential.get_token(SCOPE).token
-    headers = {
-        "azureml-model-deployment": "gpt4",
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        **json.load(open("headers.json")),
-    }
-    print(headers)
-    config_list = [
-        {
-            "api_key": open("key.txt").read().strip(),
-            "api_type": "open_ai",
-            "api_base": "https://api.openai.com/v1",
-        },
-        {
-            "api_key": open("key_flaml.txt").read().strip(),
-            "api_type": "azure",
-            "api_base": open("base_flaml.txt").read().strip(),
-            "api_version": "2023-03-15-preview",
-        },
-        # {
-        #     "api_key": open("key_gcr.txt").read().strip(),
-        #     "api_type": "azure",
-        #     "api_base": open("base_gcr.txt").read().strip(),
-        #     "api_version": "2023-03-15-preview",
-        # },
-        # {
-        #     "api_key": "nokey",
-        #     "headers": headers,
-        #     "api_base": open("base_azure.txt").read().strip(),
-        # },
-    ]
+        SCOPE = "https://ml.azure.com"
+        credential = DefaultAzureCredential()
+        token = credential.get_token(SCOPE).token
+        headers = {
+            "azureml-model-deployment": "gpt4",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            **json.load(open("headers.json")),
+        }
+        config_list = [
+            {
+                "api_key": open("key.txt").read().strip(),
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
+            },
+            {
+                "api_key": open("key_flaml.txt").read().strip(),
+                "api_type": "azure",
+                "api_base": open("base_flaml.txt").read().strip(),
+                "api_version": "2023-03-15-preview",
+            },
+            {
+                "api_key": open("key_aoai.txt").read().strip(),
+                "api_type": "azure",
+                "api_base": open("base_aoai.txt").read().strip(),
+                "api_version": "2023-03-15-preview",
+            },
+            # {
+            #     "api_key": open("key_gcr.txt").read().strip(),
+            #     "api_type": "azure",
+            #     "api_base": open("base_gcr.txt").read().strip(),
+            #     "api_version": "2023-03-15-preview",
+            # },
+            # {
+            #     "api_key": "nokey",
+            #     "headers": headers,
+            #     "api_base": open("base_azure.txt").read().strip(),
+            # },
+        ]
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
     oai.ChatCompletion.set_cache(seed=args.seed, cache_path_root=args.cache_folder)
-
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
 
@@ -159,6 +160,10 @@ if __name__ == "__main__":
     )
     if args.sample_all != 0:
         problem_sets = random_sample_MATH(args.sample_all)
+
+    if args.select:
+        problem_sets = load_fixed()
+
     logger.log("problem id: is_correct $ ans $ correct_ans $ accum_acc", verbose=True)
 
     for problem_set in problem_sets:  # one problem_set is one category
@@ -187,7 +192,7 @@ if __name__ == "__main__":
                 )
                 continue
 
-            results = PoT_solve(engine, problem)
+            results = pnas_solve(engine, problem)
             metrics = eval_math_responses([results["response_with_ans"]], problem["solution"])
             aggre_correct += metrics["success_vote"]
             correct_counts += metrics["success_vote"]
@@ -198,6 +203,7 @@ if __name__ == "__main__":
                     "is_correct": bool(metrics["success_vote"]),
                     "correct_ans": get_answer(problem["solution"]),
                     "voted_answer": get_answer(metrics["voted_answer"]),
+                    "response_with_ans": results["response_with_ans"],
                     "program": results["program"],
                 }
             )

@@ -1,17 +1,17 @@
 import os
 from flaml import oai
 from math_voting import SelfConsistency
-from math_solver import MathSolver
+from flaml.autogen.math.math_chat import MathChat
 import argparse
 from utils import mylogger, load_level5_math_test_each_category, load_fixed, random_sample_MATH
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Math Solver")
+    parser = argparse.ArgumentParser(description="MathChat")
     parser.add_argument("--prompt_type", "-ptype", dest="prompt_type", help="prompt type", default="select", type=str)
     parser.add_argument("--prompt_location", dest="prompt_location", help="prompt location", default="user", type=str)
     parser.add_argument("--max_round", dest="max_round", help="max round", default=15, type=int)
-    parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./autotools", type=str)
+    parser.add_argument("--folder", "-f", dest="folder", help="saving folder", default="./mathchat", type=str)
     parser.add_argument("--cache_folder", "-c", dest="cache_folder", default=".cache", help="cache folder")
     parser.add_argument("--samples_per_category", help="samples per category", default=20, type=int)
     parser.add_argument("--temperature", "-t", dest="temperature", help="temperature", default=1, type=float)
@@ -63,18 +63,7 @@ def pseudo_main(config_list):
         problem_sets = random_sample_MATH(args.sample_all)
 
     print(f"Running {args.folder}")
-    # v1
-    # selected_samples ={
-    #     "Algebra": [0, 1, 2, 4, 10, 11, 13, 14, 17, 18, 19], # number, assume 8 correct 1 wrong (8)
-    #     "Counting & Probability": [],
-    #     "Geometry": [],
-    #     "Intermediate Algebra": [],
-    #     "Number Theory": [3, 4, 6, 7, 11, 12, 14, 15, 18], # number, assume 11 correct
-    #     "Prealgebra": [],
-    #     "Precalculus": [],
-    # }
 
-    # v3
     selected_samples = {
         # "Algebra": [9,13,14],  # [8] wrong,  # 8 correct
         # "Algebra": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],  # [8] wrong,  # 8 correct
@@ -95,7 +84,7 @@ def pseudo_main(config_list):
 
     # 4. solve
     if not args.voting:
-        solver = MathSolver(
+        solver = MathChat(
             config_list=config_list,
             model=args.model,
             prompt_type=args.prompt_type,

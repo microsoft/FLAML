@@ -19,7 +19,7 @@ from utils import (
     write_json,
     remove_asy_sections,
     mylogger,
-    load_all_fixed,
+    load_fixed,
 )
 
 
@@ -75,11 +75,11 @@ def zeroshot_solve(model, problem, max_tokens=None):
     responses = oai.ChatCompletion.extract_text(raw_responses)
 
     try:
-        total_cost = oai.ChatCompletion.cost(raw_responses)
+        oai.ChatCompletion.cost(raw_responses)
     except TypeError:
-        total_cost = oai.ChatCompletion.cost("gpt-4", raw_responses)
+        oai.ChatCompletion.cost("gpt-4", raw_responses)
     return {
-        "cost": total_cost,
+        "usage": raw_responses["usage"],
         "response_with_ans": responses[0],
     }
 
@@ -87,100 +87,64 @@ def zeroshot_solve(model, problem, max_tokens=None):
 if __name__ == "__main__":
     config_list = None
 
-    # from azure.identity import DefaultAzureCredential
+    try:
+        openai.api_key = open("key_e.txt").read().strip()
+        print(openai.api_key)
+    except Exception:
+        from azure.identity import DefaultAzureCredential
 
-    # SCOPE = "https://ml.azure.com"
-    # credential = DefaultAzureCredential()
-    # token = credential.get_token(SCOPE).token
-    # headers = {
-    #     "azureml-model-deployment": "gpt4",
-    #     "Authorization": f"Bearer {token}",
-    #     "Content-Type": "application/json",
-    #     **json.load(open("headers.json")),
-    # }
-    # config_list = [
-    #     {
-    #         "api_key": open("key.txt").read().strip(),
-    #         "api_type": "open_ai",
-    #         "api_base": "https://api.openai.com/v1",
-    #     },
-    #     {
-    #         "api_key": open("key_flaml.txt").read().strip(),
-    #         "api_type": "azure",
-    #         "api_base": open("base_flaml.txt").read().strip(),
-    #         "api_version": "2023-03-15-preview",
-    #     },
-    #     # {
-    #     #     "api_key": open("key_gcr.txt").read().strip(),
-    #     #     "api_type": "azure",
-    #     #     "api_base": open("base_gcr.txt").read().strip(),
-    #     #     "api_version": "2023-03-15-preview",
-    #     # },
-    #     # {
-    #     #     "api_key": "nokey",
-    #     #     "headers": headers,
-    #     #     "api_base": open("base_azure.txt").read().strip(),
-    #     # },
-    # ]
+        SCOPE = "https://ml.azure.com"
+        credential = DefaultAzureCredential()
+        token = credential.get_token(SCOPE).token
+        headers = {
+            "azureml-model-deployment": "gpt4",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            **json.load(open("headers.json")),
+        }
+        config_list = [
+            {
+                "api_key": open("key.txt").read().strip(),
+                "api_type": "open_ai",
+                "api_base": "https://api.openai.com/v1",
+            },
+            {
+                "api_key": open("key_flaml.txt").read().strip(),
+                "api_type": "azure",
+                "api_base": open("base_flaml.txt").read().strip(),
+                "api_version": "2023-03-15-preview",
+            },
+            {
+                "api_key": open("key_aoai.txt").read().strip(),
+                "api_type": "azure",
+                "api_base": open("base_aoai.txt").read().strip(),
+                "api_version": "2023-03-15-preview",
+            },
+            # {
+            #     "api_key": open("key_gcr.txt").read().strip(),
+            #     "api_type": "azure",
+            #     "api_base": open("base_gcr.txt").read().strip(),
+            #     "api_version": "2023-03-15-preview",
+            # },
+            # {
+            #     "api_key": "nokey",
+            #     "headers": headers,
+            #     "api_base": open("base_azure.txt").read().strip(),
+            # },
+        ]
     problem_sets = load_level5_math_test_each_category(
         samples_per_category=args.samples_per_category, category_to_load=args.categories
     )
     if args.select:
-        # problem_sets = load_fixed()
-        problem_sets = load_all_fixed()
+        problem_sets = load_fixed()
         # print("hhh")
 
     selected_samples = {
         "Algebra": [108],  # [8] wrong,  # 8 correct
-        # "Counting & Probability": [73, 96], #  0,10,  | 5 correct [2,3,16,18,19], 6 [4,5,13,14,15,17] wrong
-        # "Algebra": [14],
-        # "Number Theory": [75, 120],
-        # "Precalculus": [62],
-        # "Number Theory": [19, 26, 75, 120, 140],
-        # "Algebra": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],  # [8] wrong,  # 8 correct
-        # "Algebra": [1,2,4,13],
-        # "Algebra": [18], # [1, 8] wrong, 9-10 out of 10 correct
-        # "Algebra": [2, 5, 13],
-        # "Geometry": [],
-        # "Algebra": [i for i in range(20)],
-        # "Counting & Probability": [i for i in range(20)],
-        # "Intermediate Algebra": [0, 8, 15, 17],
-        # "Prealgebra": [i for i in range(20)],
-        # "Number Theory": [0, 2, 4,6,7,8,10,11,12,13,14,15,17,18],  # [3] always wrong      [1, 5, 9, 16, 19] always right
-        # "Prealgebra": [3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 17], # [0,7,16] always wrong, [1,2,5,6,10,18,19] always right
     }
-    config_list = [
-        {
-            "api_key": open("key.txt").read().strip(),
-            "api_type": "open_ai",
-            "api_base": "https://api.openai.com/v1",
-        },
-        {
-            "api_key": open("key_flaml.txt").read().strip(),
-            "api_type": "azure",
-            "api_base": open("base_flaml.txt").read().strip(),
-            "api_version": "2023-03-15-preview",
-        },
-        {
-            "api_key": open("key_aoai.txt").read().strip(),
-            "api_type": "azure",
-            "api_base": open("base_aoai.txt").read().strip(),
-            "api_version": "2023-03-15-preview",
-        },
-        # {
-        #     "api_key": open("key_gcr.txt").read().strip(),
-        #     "api_type": "azure",
-        #     "api_base": open("base_gcr.txt").read().strip(),
-        #     "api_version": "2023-03-15-preview",
-        # },
-        # {
-        #     "api_key": "nokey",
-        #     "headers": headers,
-        #     "api_base": open("base_azure.txt").read().strip(),
-        # },
-    ]
+
     oai.ChatCompletion.request_timeout = 60 * 10  # 10 minutes
-    oai.ChatCompletion.set_cache(seed=args.seed, cache_path=args.cache_folder)
+    oai.ChatCompletion.set_cache(seed=args.seed, cache_path_root=args.cache_folder)
 
     os.makedirs(args.folder, exist_ok=True)
     logger = mylogger(os.path.join(args.folder, "log.txt"))
@@ -228,7 +192,7 @@ if __name__ == "__main__":
 
             problem.update(
                 {
-                    "cost": results["cost"],
+                    "usage": results["usage"],
                     "is_correct": bool(metrics["success_vote"]),
                     "correct_ans": get_answer(problem["solution"]),
                     "voted_answer": get_answer(metrics["voted_answer"]),

@@ -1,12 +1,12 @@
-from query_handler import QueryHandler
+from flaml.autogen.math.user_proxy_agent import UserProxyAgent
 from flaml.autogen.math_utils import eval_math_responses, get_answer
-from math_solver import write_json, remove_asy_sections, math_type_mapping
+from flaml.autogen.math.math_chat import write_json, remove_asy_sections, math_type_mapping
 from flaml import oai
 import os
 import json
 import re
 import copy
-from math_solver import MathSolver
+from flaml.autogen.math.math_chat import MathChat
 from functools import partial
 
 
@@ -53,7 +53,7 @@ def vanilla_voting_one_category(model, problem_set, saving_folder, n=10, n_per_t
 
 def tool_voting_one_category(model, problem_set, saving_folder, n=2, n_per_time=1):
     selfconsistency = SelfConsistency(n=n, n_per_time=n_per_time)
-    toolsolver = MathSolver(model="gpt-4", tool="both", max_round=10)
+    toolsolver = MathChat(model="gpt-4", tool="both", max_round=10)
 
     saving_folder = os.path.join(saving_folder, math_type_mapping[problem_set[0]["type"]])
     os.makedirs(saving_folder, exist_ok=True)
@@ -120,7 +120,7 @@ class SelfConsistency:
         query_count = len(accum_responses)
         tmp_n = self.n_per_time
         while query_count < self.n:
-            oai.ChatCompletion.set_cache(seed=self.start_seed + query_count, cache_path=self.cache_folder)
+            oai.ChatCompletion.set_cache(seed=self.start_seed + query_count, cache_path_root=self.cache_folder)
             tmp_n = min(tmp_n, self.n - self.n_per_time)
 
             responses = solving(problem=problem, n=tmp_n)

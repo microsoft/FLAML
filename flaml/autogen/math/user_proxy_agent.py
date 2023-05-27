@@ -10,7 +10,7 @@ from flaml.autogen.code_utils import execute_code
 from time import sleep
 
 
-class QueryHandler:
+class UserProxyAgent:
     def __init__(self):
         self.previous_code = "import sympy\nfrom sympy import symbols, Eq, solve\nfrom fractions import Fraction\n"
 

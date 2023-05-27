@@ -78,13 +78,6 @@ def random_sample_level5_train_each_category(k=3, category_to_load=None):
     return sep_cate
 
 
-# def random_select(problem_set, problem, k = 2):
-#     examplar_data = [p for p in problem_set if p['problem_id']!=problem['problem_id'] and not 'asy' in p['problem'] and not 'ASY' in p['problem']]
-#     assert len(examplar_data) >= k, "Not enough examplars"
-#     selected_samples = random.sample(list(examplar_data), k)
-#     return selected_samples
-
-
 def few_shot_template(examplars):
     few_shot_prompt = ""
     for examplar in examplars:
@@ -130,12 +123,8 @@ def fewshot_solve(model, problem, prompt, max_tokens=None):
         raw_responses = oai.ChatCompletion.create(None, **config)
     responses = oai.ChatCompletion.extract_text(raw_responses)
 
-    try:
-        total_cost = oai.ChatCompletion.cost(raw_responses)
-    except TypeError:
-        total_cost = oai.ChatCompletion.cost("gpt-4", raw_responses)
     return {
-        "cost": total_cost,
+        "usage": raw_responses["usage"],
         "response_with_ans": responses[0],
     }
 
@@ -245,11 +234,11 @@ if __name__ == "__main__":
 
             problem.update(
                 {
-                    "cost": results["cost"],
                     "is_correct": bool(metrics["success_vote"]),
                     "correct_ans": get_answer(problem["solution"]),
                     "voted_answer": get_answer(metrics["voted_answer"]),
                     "response": results["response_with_ans"],
+                    "usage": results["usage"],
                 }
             )
             write_json(problem, problem_path)
