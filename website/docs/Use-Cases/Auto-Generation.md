@@ -380,8 +380,22 @@ The compact history is more efficient and the individual API call history contai
 
 [`flaml.autogen.agents`](../reference/autogen/agent/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
 
-Find a notebook example on how to [use agents in FLAML to solve coding tasks](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent.ipynb).
+We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform in the `receive` method. At the moment, there are three primary types of Agents in FLAML: `ChatAgent`, `PythonAgent`, and `UserProxyAgent`.
 
+
+### `ChatAgent`
+`ChatAgent` is an Agent class that could generate responses with LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI) once a message is received.
+
+### `PythonAgent`
+
+`PythonAgent` is an Agent class that could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI).
+
+### `UserProxyAgent`
+`UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode`, `max_consecutive_auto_reply` defined when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
+
+Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. This capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
+
+Find a notebook example on how to [use the `UserProxyAgent` and `PythonAgent` in FLAML to solve coding tasks](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent.ipynb).
 ## Utilities for Applications
 
 ### Code
