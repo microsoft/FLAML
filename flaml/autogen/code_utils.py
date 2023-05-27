@@ -15,15 +15,6 @@ WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensi
 UNKNOWN = "unknown"
 
 
-def infer_lang(code):
-    """infer the language for the code.
-    TODO: make it robust.
-    """
-    if code.startswith("python ") or code.startswith("pip"):
-        return "sh"
-    return "python"
-
-
 def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str, str]]:
     """Extract code from a text.
 
@@ -41,7 +32,7 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str
     # if match:
     #     return match.group(2), match.group(1)
     # If no code block is found, return the whole text
-    return match if match else [(UNKNOWN, text)]
+    return match if match else ["unknown", text]
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
@@ -135,9 +126,9 @@ def execute_code(
     timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[Union[List[str], str, bool]] = True,
+    use_docker: Optional[bool] = True,
     lang: Optional[str] = "python",
-) -> Tuple[int, bytes, str]:
+) -> Tuple[int, bytes]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
 
@@ -174,7 +165,7 @@ def execute_code(
     if filename is None:
         code_hash = md5(code.encode()).hexdigest()
         # create a file with a automatically generated name
-        filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
+        filename = f"tmp_code_{code_hash}.py" if lang == "python" else f"tmp_code_{code_hash}.{lang}"
     if work_dir is None:
         work_dir = WORKING_DIR
     filepath = os.path.join(work_dir, filename)
@@ -188,7 +179,7 @@ def execute_code(
     in_docker_container = os.path.exists("/.dockerenv")
     if not use_docker or in_docker_container:
         # already running in a docker container
-        cmd = [sys.executable if lang.startswith("python") else _cmd(lang), filename]
+        cmd = [sys.executable, filename] if lang == "python" else [lang, filename]
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
             signal.alarm(timeout)
@@ -238,9 +229,7 @@ def execute_code(
     #     abs_path = str(abs_path).replace("\\", "/")
     #     abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
     cmd = [
-        "sh",
-        "-c",
-        f"{_cmd(lang)} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+        f"{lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
     ]
     # create a docker container
     container = client.containers.run(

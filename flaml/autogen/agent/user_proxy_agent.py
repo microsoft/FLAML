@@ -59,16 +59,14 @@ class UserProxyAgent(Agent):
         logs_all = ""
         for code_block in code_blocks:
             lang, code = code_block
-            if not lang:
-                lang = infer_lang(code)
-            if lang in ["bash", "shell", "sh"]:
+            if lang in ["bash", "shell", "sh", ""]:
                 # if code.startswith("python "):
                 #     # return 1, f"please do not suggest bash or shell commands like {code}"
                 #     file_name = code[len("python ") :]
                 #     exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
                 # else:
-                exitcode, logs, image = execute_code(
-                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang
+                exitcode, logs = execute_code(
+                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang if lang else "sh"
                 )
                 logs = logs.decode("utf-8")
             elif lang == "python":
@@ -76,25 +74,26 @@ class UserProxyAgent(Agent):
                     filename = code[11 : code.find("\n")].strip()
                 else:
                     filename = None
-                exitcode, logs, image = execute_code(
+                exitcode, logs = execute_code(
                     code, work_dir=self._work_dir, filename=filename, use_docker=self._use_docker
                 )
                 logs = logs.decode("utf-8")
+            # elif code.startswith("pip install "):
+            #     exitcode, logs = self._execute_code([("sh", code)])
             else:
                 # TODO: could this happen?
-                exitcode, logs, image = 1, f"unknown language {lang}"
+                exitcode, logs = 1, f"unknown language {lang}"
                 # raise NotImplementedError
-            self._use_docker = image
             logs_all += "\n" + logs
             if exitcode != 0:
-                return exitcode, logs_all
-        return exitcode, logs_all
+                return exitcode, logs
+        return exitcode, logs
 
     def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""
         code_blocks = extract_code(message)
-        if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
-            # no code block is found, lang should be `UNKNOWN``
+        if len(code_blocks) == 1 and code_blocks[0][0] == "unknown":
+            # no code block is found, lang should be "unknown"
             self._send(default_reply, sender)
         else:
             # try to execute the code

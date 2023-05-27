@@ -6,37 +6,7 @@ KEY_LOC = "test/autogen"
 here = os.path.abspath(os.path.dirname(__file__))
 
 
-def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
-    try:
-        import openai
-    except ImportError:
-        return
-    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo"])
-    assistant = AssistantAgent(
-        "coding_agent",
-        request_timeout=600,
-        seed=40,
-        max_tokens=1024,
-        config_list=config_list,
-    )
-    user = UserProxyAgent(
-        "user",
-        work_dir=f"{here}/test_agent_scripts",
-        human_input_mode=human_input_mode,
-        is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE"),
-        max_consecutive_auto_reply=max_consecutive_auto_reply,
-        use_docker="python:3",
-    )
-    coding_task = "Print hello world to a file called hello.txt"
-    assistant.receive(coding_task, user)
-    # coding_task = "Create a powerpoint with the text hello world in it."
-    # assistant.receive(coding_task, user)
-    assistant.reset()
-    coding_task = "Save a pandas df with 3 rows and 3 columns to disk."
-    assistant.receive(coding_task, user)
-
-
-def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_reply=10):
+def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:

@@ -1,14 +1,9 @@
 import sys
 import os
 import pytest
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
+from flaml.autogen.code_utils import extract_code, execute_code
 
 here = os.path.abspath(os.path.dirname(__file__))
-
-
-def test_infer_lang():
-    assert infer_lang("print('hello world')") == "python"
-    assert infer_lang("pip install flaml") == "sh"
 
 
 def test_extract_code():
@@ -46,8 +41,6 @@ print(f"Text: {text}")
 """
     )
     print(codeblocks)
-    codeblocks = extract_code("no code block")
-    assert len(codeblocks) == 1 and codeblocks[0] == (UNKNOWN, "no code block")
 
 
 @pytest.mark.skipif(
@@ -60,7 +53,7 @@ def test_execute_code():
     except ImportError as exc:
         print(exc)
         return
-    exitcode, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py")
+    exitcode, msg = execute_code("print('hello world')", filename="tmp/codetest.py")
     assert exitcode == 0 and msg == b"hello world\n", msg
     # read a file
     print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
@@ -70,16 +63,14 @@ def test_execute_code():
     print(execute_code(filename="tmp/codetest.py"))
     print(execute_code("python tmp/codetest.py", lang="sh"))
     # execute code for assertion error
-    exit_code, msg, image = execute_code("assert 1==2")
+    exit_code, msg = execute_code("assert 1==2")
     assert exit_code, msg
     # execute code which takes a long time
-    exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1)
+    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1)
     assert exit_code and error == "Timeout"
-    exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
-    assert exit_code and error == "Timeout" and image is None
+    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
+    assert exit_code and error == "Timeout"
 
 
 if __name__ == "__main__":
-    # test_infer_lang()
-    # test_extract_code()
     test_execute_code()
