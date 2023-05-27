@@ -7,12 +7,12 @@ from typing import Union, Callable, TypeVar, Optional, Tuple
 import logging
 
 import numpy as np
-import pandas as pd
+
 
 from flaml.automl.data import group_counts
 from flaml.automl.task.task import Task
 from flaml.automl.model import BaseEstimator, TransformersEstimator
-from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR, Series
+from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR, Series, DataFrame
 
 try:
     from sklearn.metrics import (
@@ -294,14 +294,14 @@ def get_y_pred(estimator, X, eval_metric, task: Task):
     else:
         y_pred = estimator.predict(X)
 
-    if isinstance(y_pred, pd.Series) or isinstance(y_pred, pd.DataFrame):
+    if isinstance(y_pred, Series) or isinstance(y_pred, DataFrame):
         y_pred = y_pred.values
 
     return y_pred
 
 
 def to_numpy(x):
-    if isinstance(x, pd.Series or isinstance(x, pd.DataFrame)):
+    if isinstance(x, Series or isinstance(x, DataFrame)):
         x = x.values
     else:
         x = np.ndarray(x)
@@ -551,16 +551,15 @@ def _eval_estimator(
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
         # TODO: why are integer labels being cast to str in the first place?
-        if (
-            not pd.api.types.is_numeric_dtype(val_pred_y)
-            and not isinstance(val_pred_y, list)
-            and (
-                isinstance(val_pred_y, pd.Series)
-                or isinstance(val_pred_y, pd.DataFrame)
+
+        if (isinstance(val_pred_y, Series)
+                or isinstance(val_pred_y, DataFrame)
                 or isinstance(val_pred_y, np.ndarray)
-            )
-        ):  # some NLP models return a list
-            val_pred_y = val_pred_y.astype(str)
+            ):
+            test = val_pred_y if isinstance(val_pred_y, np.ndarray) else val_pred_y.values
+            if not np.issubdtype(test.dtype, np.number):
+                 # some NLP models return a list
+                val_pred_y = val_pred_y.astype(str)
 
         if isinstance(X_val, TimeSeriesDataset):
             num_val_rows = len(X_val.test_data)
