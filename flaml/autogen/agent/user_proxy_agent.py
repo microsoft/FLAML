@@ -1,5 +1,5 @@
 from .agent import Agent
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code
+from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
 
 
@@ -59,7 +59,9 @@ class UserProxyAgent(Agent):
         logs_all = ""
         for code_block in code_blocks:
             lang, code = code_block
-            if lang in ["bash", "shell", "sh", ""]:
+            if not lang:
+                lang = infer_lang(code)
+            if lang in ["bash", "shell", "sh"]:
                 # if code.startswith("python "):
                 #     # return 1, f"please do not suggest bash or shell commands like {code}"
                 #     file_name = code[len("python ") :]

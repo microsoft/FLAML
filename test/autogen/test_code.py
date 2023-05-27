@@ -1,9 +1,14 @@
 import sys
 import os
 import pytest
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code
+from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 
 here = os.path.abspath(os.path.dirname(__file__))
+
+
+def test_infer_lang():
+    assert infer_lang("print('hello world')") == "python"
+    assert infer_lang("pip install flaml") == "sh"
 
 
 def test_extract_code():
@@ -75,5 +80,6 @@ def test_execute_code():
 
 
 if __name__ == "__main__":
+    test_infer_lang()
     test_extract_code()
     test_execute_code()
