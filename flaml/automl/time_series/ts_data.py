@@ -16,7 +16,11 @@ try:
 
     from .feature import monthly_fourier_features
 except ImportError:
+    pd = object()
+    pd.DataFrame = None
+    pd.Series = None
     DataFrame = Series = pd = None
+    pass
 
 
 
