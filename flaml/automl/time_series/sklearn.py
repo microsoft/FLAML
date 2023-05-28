@@ -1,4 +1,15 @@
-import pandas as pd
+try:
+    import pandas as pd
+    from pandas import DataFrame, Series, to_datetime
+except ImportError:
+    class PD:
+        pass
+
+    pd = PD()
+    pd.DataFrame = None
+    pd.Series = None
+    DataFrame = Series = None
+
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA

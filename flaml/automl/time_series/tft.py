@@ -1,6 +1,15 @@
 import time
+try:
+    import pandas as pd
+    from pandas import DataFrame, Series, to_datetime
+except ImportError:
+    class PD:
+        pass
 
-import pandas as pd
+    pd = PD()
+    pd.DataFrame = None
+    pd.Series = None
+    DataFrame = Series = None
 
 from flaml import tune
 from flaml.automl.data import add_time_idx_col
