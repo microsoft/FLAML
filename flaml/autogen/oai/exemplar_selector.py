@@ -42,10 +42,10 @@ class ExemplarSelector:
     @staticmethod
     def default_template(context, exemplars, key_order):
         few_shot_prompt = ""
-        for examplar in exemplars:
+        for exemplar in exemplars:
             few_shot_prompt += "\n".join(
                 [
-                    key + ": " + str(examplar[key]) for key in key_order
+                    key + ": " + str(exemplar[key]) for key in key_order
                 ]
             ) + "\n"
         few_shot_prompt += "\n".join(
