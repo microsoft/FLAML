@@ -1,6 +1,6 @@
 import unittest
 import datasets
-from flaml import oai
+from flaml import icl
 
 class TestExemplarSelector(unittest.TestCase):
     '''
@@ -19,7 +19,7 @@ class TestExemplarSelector(unittest.TestCase):
 
     def test_case_existing_method_default_template(self):
         # Most cases should use the default template and existing methods
-        prompt_fn = oai.ExemplarSelector.get_few_shot_template(self.exemplars, method="random", 
+        prompt_fn = icl.ExemplarSelector.get_few_shot_template(self.exemplars, method="random", 
                                                                method_params={"k": 3}, template_params={"key_order": self.key_order})
         output= prompt_fn(self.context)
         #print("Existing method + default template: prompt = ", output)
@@ -45,7 +45,7 @@ class TestExemplarSelector(unittest.TestCase):
             )
             few_shot_prompt += "\n" + key_order[-1] + ": " + "\n"
             return few_shot_prompt
-        prompt_fn = oai.ExemplarSelector.get_few_shot_template(self.exemplars, 
+        prompt_fn = icl.ExemplarSelector.get_few_shot_template(self.exemplars, 
                                                                few_shot_template=few_shot_template,
                                                                method_params={"k": 3})
         output= prompt_fn(self.context)
@@ -65,7 +65,7 @@ class TestExemplarSelector(unittest.TestCase):
         def user_method(context):
             return self.exemplars[3:5]
         # key_order should be provided if we use the default template
-        prompt_fn = oai.ExemplarSelector.get_few_shot_template(self.exemplars, 
+        prompt_fn = icl.ExemplarSelector.get_few_shot_template(self.exemplars, 
                                                                method = user_method,
                                                                template_params={"key_order": self.key_order})
         output= prompt_fn(self.context)
@@ -82,7 +82,7 @@ class TestExemplarSelector(unittest.TestCase):
         
     def test_invalid_method(self):
         with self.assertRaises(ValueError):
-            oai.ExemplarSelector.get_few_shot_template(self.exemplars, method="nonexistent")
+            icl.ExemplarSelector.get_few_shot_template(self.exemplars, method="nonexistent")
   
 
 

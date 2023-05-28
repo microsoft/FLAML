@@ -1,7 +1,7 @@
 from functools import partial
 import random
 import numpy as np
-from flaml.autogen.oai.selection_methods import RandomSelect
+from flaml.autogen.icl.selection_methods import RandomSelect
 
 class ExemplarSelector:
     METHOD_MAPPING = {
