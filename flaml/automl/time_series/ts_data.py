@@ -22,7 +22,7 @@ except ImportError:
     pd = PD()
     pd.DataFrame = None
     pd.Series = None
-    DataFrame = Series = pd = None
+    DataFrame = Series = None
     pass
 
 
