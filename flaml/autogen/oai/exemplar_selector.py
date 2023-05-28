@@ -33,6 +33,9 @@ class ExemplarSelector:
         if few_shot_template is not None:
             return few_shot_template(context, exemplars=exemplars)
         else:
+            if 'key_order' not in template_params:
+                raise ValueError("No 'key_order' found in 'template_params'. 'key_order' is required when no 'few_shot_template' is provided.")
+
             key_order = template_params.get('key_order', None)
             return ExemplarSelector.default_template(context, exemplars, key_order)
 
