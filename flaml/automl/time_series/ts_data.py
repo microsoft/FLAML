@@ -4,9 +4,14 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Callable, Dict, Generator, Union
 
-import pandas as pd
 import numpy as np
-from pandas import DataFrame, Series
+
+try:
+    import pandas as pd
+    from pandas import DataFrame, Series, to_datetime
+except ImportError:
+    DataFrame = Series = pd = None
+
 from scipy.sparse import issparse
 
 from sklearn.preprocessing import LabelEncoder
