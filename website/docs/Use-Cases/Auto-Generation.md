@@ -395,7 +395,11 @@ We have designed different classes of Agents that are capable of communicating w
 
 Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. This capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
 
-Find a notebook example on how to [use the `UserProxyAgent` and `PythonAgent` in FLAML to solve coding tasks](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent.ipynb).
+*Interested in trying it yourself? Please check the following notebook examples of using the agents to perform tasks with code:*
+* [Use agents to perform tasks with auto-feedback from code execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
+
+* [Use agents to perform tasks with human feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_user_feedback.ipynb)
+
 ## Utilities for Applications
 
 ### Code
