@@ -23,7 +23,6 @@ except ImportError:
     pd.DataFrame = None
     pd.Series = None
     DataFrame = Series = None
-    pass
 
 
 
