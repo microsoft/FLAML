@@ -5,8 +5,12 @@ from datetime import datetime
 import math
 from typing import List, Optional, Union
 
-import pandas as pd
-from pandas import DataFrame, Series, to_datetime
+try:
+    import pandas as pd
+    from pandas import DataFrame, Series, to_datetime
+except ImportError:
+    DataFrame = Series = pd = None
+
 import numpy as np
 
 from flaml import tune
@@ -43,7 +47,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def enrich(
         self,
-        X: Union[int, TimeSeriesDataset, pd.DataFrame],
+        X: Union[int, TimeSeriesDataset, DataFrame],
         remove_constants: bool = False,
     ):
         X = normalize_ts_data(X, None, self.time_col, None)
@@ -169,7 +173,7 @@ class Orbit(TimeSeriesEstimator):
         train_time = time.time() - current_time
         return train_time
 
-    def predict(self, X: Union[TimeSeriesDataset, pd.DataFrame], **kwargs):
+    def predict(self, X: Union[TimeSeriesDataset, DataFrame], **kwargs):
         if isinstance(X, int):
             X = create_forward_frame(
                 self.frequency,
@@ -185,7 +189,7 @@ class Orbit(TimeSeriesEstimator):
         if self._model is not None:
             forecast = self._model.predict(X, **kwargs)
             out = (
-                pd.DataFrame(
+                DataFrame(
                     forecast[
                         [
                             self.time_col,
@@ -664,7 +668,7 @@ class TS_SKLearn(TimeSeriesEstimator):
             y_train = data.y_train
             self.time_col = data.time_col
             self.target_names = data.target_names
-        elif isinstance(X_train, pd.DataFrame):
+        elif isinstance(X_train, DataFrame):
             self.time_col = X_train.columns.tolist()[0]
 
             # X_train = self.transform_X(X_train)
@@ -704,7 +708,7 @@ class TS_SKLearn(TimeSeriesEstimator):
             # X = self.transform_X(X)
             X = self._preprocess(X)
             forecast = self._model.predict(X)
-            if isinstance(forecast, pd.Series):
+            if isinstance(forecast, Series):
                 forecast.name = self.target_names[0]
 
             return forecast
