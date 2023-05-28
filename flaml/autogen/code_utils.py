@@ -223,6 +223,8 @@ def execute_code(
     cmd = [
         f"{lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
     ]
+    if lang == "python":
+        cmd = ["sh -c"] + cmd
     # create a docker container
     container = client.containers.run(
         image,
