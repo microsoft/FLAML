@@ -174,7 +174,7 @@ def execute_code(
     if filename is None:
         code_hash = md5(code.encode()).hexdigest()
         # create a file with a automatically generated name
-        filename = f"tmp_code_{code_hash}.py" if lang == "python" else f"tmp_code_{code_hash}.{lang}"
+        filename = f"tmp_code_{code_hash}.{'py' if lang.startswith('python') else lang}"
     if work_dir is None:
         work_dir = WORKING_DIR
     filepath = os.path.join(work_dir, filename)
@@ -188,7 +188,7 @@ def execute_code(
     in_docker_container = os.path.exists("/.dockerenv")
     if not use_docker or in_docker_container:
         # already running in a docker container
-        cmd = [sys.executable, filename] if lang == "python" else [lang, filename]
+        cmd = [sys.executable if lang.startswith("python") else lang, filename]
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
             signal.alarm(timeout)
@@ -237,11 +237,16 @@ def execute_code(
     # if sys.platform == "win32":
     #     abs_path = str(abs_path).replace("\\", "/")
     #     abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
-    cmd = [
-        f"{lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
-    ]
-    if lang == "python":
-        cmd = ["sh -c"] + cmd
+    if lang.startswith("python"):
+        cmd = [
+            "sh",
+            f"-c {lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+        ]
+    else:
+        cmd = [
+            f"{lang}",
+            f" {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+        ]
     # create a docker container
     container = client.containers.run(
         image,
