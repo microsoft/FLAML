@@ -127,8 +127,10 @@ class UserProxyAgent(Agent):
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
         if reply == "exit" or (self._is_termination_msg(message) and not reply):
+            # reset the consecutive_auto_reply_counter
+            self._consecutive_auto_reply_counter[sender.name] = 0
             return
-        elif reply:
+        if reply:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             self._send(reply, sender)
