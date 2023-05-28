@@ -10,16 +10,17 @@ try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
     from scipy.sparse import issparse
+    from sklearn.preprocessing import LabelEncoder
+    from sklearn.impute import SimpleImputer
+    from sklearn.compose import ColumnTransformer
+
+    from .feature import monthly_fourier_features
 except ImportError:
     DataFrame = Series = pd = None
 
 
 
-from sklearn.preprocessing import LabelEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
 
-from .feature import monthly_fourier_features
 
 
 @dataclass
