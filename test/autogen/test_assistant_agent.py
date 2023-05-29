@@ -6,7 +6,7 @@ KEY_LOC = "test/autogen"
 here = os.path.abspath(os.path.dirname(__file__))
 
 
-def test_coding_agent(human_input_mode="NEVER", max_consecutive_auto_reply=10):
+def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     try:
         import openai
     except ImportError:
@@ -72,7 +72,10 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD:test/autogen/test_assistant_agent.py
     test_gpt35()
+=======
+>>>>>>> rename test:test/autogen/test_coding_agent.py
     test_create_execute_script(human_input_mode="TERMINATE")
     # when GPT-4, i.e., the DEFAULT_MODEL, is used, conversation in the following test
     # should terminate in 2-3 rounds of interactions (because is_termination_msg should be true after 2-3 rounds)
