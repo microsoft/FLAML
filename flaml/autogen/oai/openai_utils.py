@@ -59,6 +59,7 @@ def config_list_openai_aoai(
     openai_api_key_file: Optional[str] = "key_openai.txt",
     aoai_api_key_file: Optional[str] = "key_aoai.txt",
     aoai_api_base_file: Optional[str] = "base_aoai.txt",
+    exclude: Optional[str] = None,
 ) -> List[Dict]:
     """Get a list of configs for openai + azure openai api calls.
 
@@ -67,47 +68,59 @@ def config_list_openai_aoai(
         openai_api_key_file (str, optional): The file name of the openai api key.
         aoai_api_key_file (str, optional): The file name of the azure openai api key.
         aoai_api_base_file (str, optional): The file name of the azure openai api base.
+        exclude (str, optional): The api type to exclude, "openai" or "aoai".
 
     Returns:
         list: A list of configs for openai api calls.
     """
-    if "OPENAI_API_KEY" not in os.environ:
+    if "OPENAI_API_KEY" not in os.environ and exclude != "openai":
         try:
-            os.environ["OPENAI_API_KEY"] = open(f"{key_file_path}/{openai_api_key_file}").read().strip()
+            with open(f"{key_file_path}/{openai_api_key_file}") as key_file:
+                os.environ["OPENAI_API_KEY"] = key_file.read().strip()
         except FileNotFoundError:
             logging.info(
                 "To use OpenAI API, please set OPENAI_API_KEY in os.environ "
                 "or create key_openai.txt in the specified path, or specify the api_key in config_list."
             )
-    if "AZURE_OPENAI_API_KEY" not in os.environ:
+    if "AZURE_OPENAI_API_KEY" not in os.environ and exclude != "aoai":
         try:
-            os.environ["AZURE_OPENAI_API_KEY"] = open(f"{key_file_path}/{aoai_api_key_file}").read().strip()
+            with open(f"{key_file_path}/{aoai_api_key_file}") as key_file:
+                os.environ["AZURE_OPENAI_API_KEY"] = key_file.read().strip()
         except FileNotFoundError:
             logging.info(
                 "To use Azure OpenAI API, please set AZURE_OPENAI_API_KEY in os.environ "
                 "or create key_aoai.txt in the specified path, or specify the api_key in config_list."
             )
-    if "AZURE_OPENAI_API_BASE" not in os.environ:
+    if "AZURE_OPENAI_API_BASE" not in os.environ and exclude != "aoai":
         try:
-            os.environ["AZURE_OPENAI_API_BASE"] = open(f"{key_file_path}/{aoai_api_base_file}").read().strip()
+            with open(f"{key_file_path}/{aoai_api_base_file}") as key_file:
+                os.environ["AZURE_OPENAI_API_BASE"] = key_file.read().strip()
         except FileNotFoundError:
             logging.info(
                 "To use Azure OpenAI API, please set AZURE_OPENAI_API_BASE in os.environ "
                 "or create base_aoai.txt in the specified path, or specify the api_base in config_list."
             )
-    aoai_config = get_config_list(
-        # Assuming Azure OpenAI api keys in os.environ["AZURE_OPENAI_API_KEY"], in separated lines
-        api_keys=os.environ.get("AZURE_OPENAI_API_KEY", "").split("\n"),
-        # Assuming Azure OpenAI api bases in os.environ["AZURE_OPENAI_API_BASE"], in separated lines
-        api_bases=os.environ.get("AZURE_OPENAI_API_BASE", "").split("\n"),
-        api_type="azure",
-        api_version="2023-03-15-preview",  # change if necessary
+    aoai_config = (
+        get_config_list(
+            # Assuming Azure OpenAI api keys in os.environ["AZURE_OPENAI_API_KEY"], in separated lines
+            api_keys=os.environ.get("AZURE_OPENAI_API_KEY", "").split("\n"),
+            # Assuming Azure OpenAI api bases in os.environ["AZURE_OPENAI_API_BASE"], in separated lines
+            api_bases=os.environ.get("AZURE_OPENAI_API_BASE", "").split("\n"),
+            api_type="azure",
+            api_version="2023-03-15-preview",  # change if necessary
+        )
+        if exclude != "aoai"
+        else []
     )
-    openai_config = get_config_list(
-        # Assuming OpenAI API_KEY in os.environ["OPENAI_API_KEY"]
-        api_keys=os.environ.get("OPENAI_API_KEY", "").split("\n"),
-        # "api_type": "open_ai",
-        # "api_base": "https://api.openai.com/v1",
+    openai_config = (
+        get_config_list(
+            # Assuming OpenAI API_KEY in os.environ["OPENAI_API_KEY"]
+            api_keys=os.environ.get("OPENAI_API_KEY", "").split("\n"),
+            # "api_type": "open_ai",
+            # "api_base": "https://api.openai.com/v1",
+        )
+        if exclude != "openai"
+        else []
     )
     config_list = openai_config + aoai_config
     return config_list
