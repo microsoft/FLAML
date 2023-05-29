@@ -16,6 +16,7 @@ try:
 
     from .feature import monthly_fourier_features
 except ImportError:
+
     class PD:
         pass
 
@@ -23,10 +24,6 @@ except ImportError:
     pd.DataFrame = None
     pd.Series = None
     DataFrame = Series = None
-
-
-
-
 
 
 @dataclass

@@ -1,8 +1,10 @@
 import time
+
 try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
 except ImportError:
+
     class PD:
         pass
 
