@@ -380,11 +380,7 @@ The compact history is more efficient and the individual API call history contai
 
 [`flaml.autogen.agents`](../reference/autogen/agent/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
 
-We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform in the `receive` method. At the moment, there are three primary types of Agents in FLAML: `ChatAgent`, `PythonAgent`, and `UserProxyAgent`.
-
-
-### `ChatAgent`
-`ChatAgent` is an Agent class that could generate responses with LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI) once a message is received.
+We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform in the `receive` method.
 
 ### `PythonAgent`
 
