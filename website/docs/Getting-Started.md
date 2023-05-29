@@ -8,7 +8,7 @@ models, hyperparameters, and other tunable choices of an application.
 
 ### Main Features
 
-* For foundation models like the GPT models, it automates the experimentation and optimization of their performance to maximize the effectiveness for applications and minimize the inference cost. FLAML enables users to build and use intelligent adaptive AI agents with minimal effort.
+* For foundation models like the GPT models, it automates the experimentation and optimization of their performance to maximize the effectiveness for applications and minimize the inference cost. FLAML enables users to build and use adaptive AI agents with minimal effort.
 * For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., search space and metric), or full customization (arbitrary training/inference/evaluation code).
 * It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a [cost-effective
 hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
