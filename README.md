@@ -42,12 +42,13 @@ FLAML requires **Python version >= 3.7**. It can be installed from pip:
 pip install flaml
 ```
 
-To run the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook),
-install flaml with the [notebook] option:
-
+Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`autogen`](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package.
 ```bash
-pip install flaml[notebook]
+pip install "flaml[autogen]"
 ```
+
+Find more options in [Installation](Installation).
+Each of the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook) may require a specific option to be installed.
 
 ### .NET
 
