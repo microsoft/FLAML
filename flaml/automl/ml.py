@@ -552,8 +552,7 @@ def _eval_estimator(
 
         # TODO: why are integer labels being cast to str in the first place?
 
-        if (isinstance(val_pred_y, Series) or isinstance(val_pred_y, DataFrame) or isinstance(val_pred_y, np.ndarray)
-            ):
+        if isinstance(val_pred_y, Series) or isinstance(val_pred_y, DataFrame) or isinstance(val_pred_y, np.ndarray):
             test = val_pred_y if isinstance(val_pred_y, np.ndarray) else val_pred_y.values
             if not np.issubdtype(test.dtype, np.number):
                 # some NLP models return a list
