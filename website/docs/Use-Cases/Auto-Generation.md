@@ -391,6 +391,37 @@ We have designed different classes of Agents that are capable of communicating w
 
 Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. This capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
 
+Example usage of the agents to solve a task with code:
+```python
+from flaml.autogen.agent.coding_agent import PythonAgent
+from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
+
+# create an assistant which is essentially a PythonAgent instance named "coding_agent"
+assistant = PythonAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
+
+# create a UserProxyAgent instance named "user"
+user = UserProxyAgent(
+    "user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
+    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'),
+    work_dir=".",
+)
+
+# the assistant receives a message from the user, which contains the task description
+assistant.receive(
+    """What date is today? How much % has NVDA stock price changed in 2023?""",
+    user,
+)
+```
+In the example above, we create a PythonAgent named "coding_agent" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
+1. The assistant receives a message from the user, which contains the task description.
+2. The assistant then tries to write Python code to solve the task and sends the response to the user.
+
+3. The user executes the code or provide feedback, and sends the result back to the assistant.
+
+4. The assistant then generates a further response for the user. The user can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
+
 *Interested in trying it yourself? Please check the following notebook examples of using the agents to perform tasks with code:*
 * [Use agents to perform tasks with auto-feedback from code execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
 
