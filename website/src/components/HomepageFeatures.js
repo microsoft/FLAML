@@ -22,7 +22,7 @@ const FeatureList = [
       <>
         By automatically adapting LLMs to applications, FLAML
         maximizes the benefits of expensive LLMs and reduce monetary cost.
-        FLAML enables users to build and use intelligent AI agents with minimal effort.
+        FLAML enables users to build and use intelligent adaptive AI agents with minimal effort.
       </>
     ),
   },
