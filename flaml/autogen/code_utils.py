@@ -122,6 +122,12 @@ def timeout_handler(signum, frame):
     raise TimeoutError("Timed out!")
 
 
+def _cmd(lang):
+    if lang in ["sh", "shell", "bash"]:
+        return "sh"
+    raise NotImplementedError(f"{lang} not recognized in code execution")
+
+
 def execute_code(
     code: Optional[str] = None,
     timeout: Optional[int] = 600,
@@ -228,7 +234,7 @@ def execute_code(
         ]
     else:
         cmd = [
-            f"{lang}",
+            f"{_cmd(lang)}",
             f" {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
         ]
     # create a docker container
