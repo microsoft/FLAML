@@ -101,7 +101,7 @@ def test_models(budget=3):
             "A": pd.date_range(start="1900-01-01", periods=n, freq="D"),
         }
     )
-    y = np.random.choice([0, 1], size=n, replace=True)
+    y = np.exp(np.random.randn(n))
 
     task = TimeSeriesTask("ts_forecast")
 
