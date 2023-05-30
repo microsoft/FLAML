@@ -382,9 +382,9 @@ The compact history is more efficient and the individual API call history contai
 
 We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform in the `receive` method.
 
-### `PythonAgent`
+### `AssistantAgent`
 
-`PythonAgent` is an Agent class that could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI).
+`AssistantAgent` is an Agent class designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI).
 
 ### `UserProxyAgent`
 `UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode`, `max_consecutive_auto_reply` defined when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
@@ -393,11 +393,11 @@ Currently, the automatically generated reply is crafted based on automatic code 
 
 Example usage of the agents to solve a task with code:
 ```python
-from flaml.autogen.agent.coding_agent import PythonAgent
+from flaml.autogen.agent.assistant_agent import AssistantAgent
 from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
 
-# create an assistant which is essentially a PythonAgent instance named "coding_agent"
-assistant = PythonAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
+# create an AssistantAgent instance named "coding_agent"
+assistant = AssistantAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
 
 # create a UserProxyAgent instance named "user"
 user = UserProxyAgent(
@@ -414,7 +414,7 @@ assistant.receive(
     user,
 )
 ```
-In the example above, we create a PythonAgent named "coding_agent" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
+In the example above, we create a AssistantAgent named "coding_agent" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
 1. The assistant receives a message from the user, which contains the task description.
 2. The assistant then tries to write Python code to solve the task and sends the response to the user.
 
