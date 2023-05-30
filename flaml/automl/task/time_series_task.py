@@ -62,14 +62,17 @@ class TimeSeriesTask(Task):
 
             try:
                 from prophet import Prophet as foo
+
                 self._estimators["prophet"] = Prophet
-            except:
-                pass
+            except ImportError:
+                logger.info("Couldn't import Prophet, skipping")
+
             try:
                 from orbit.models import DLT
+
                 self._estimators["orbit"] = Orbit
-            except:
-                pass
+            except ImportError:
+                logger.info("Couldn't import Prophet, skipping")
 
         return self._estimators
 
@@ -133,8 +136,10 @@ class TimeSeriesTask(Task):
 
             try:
                 dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
-            except:
-                raise ValueError(f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values.")
+            except Exception as e:
+                raise ValueError(
+                    f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
+                )
 
             dataframe = remove_ts_duplicates(dataframe, self.time_col)
 
