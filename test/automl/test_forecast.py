@@ -7,6 +7,7 @@ from flaml import AutoML
 
 from flaml.automl.task.time_series_task import TimeSeriesTask
 
+
 def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     # using dataframe
     import statsmodels.api as sm
@@ -91,6 +92,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
             estimator_list=estimators_when_no_prophet,
             period=time_horizon,
         )
+
 
 def test_models(budget=3):
     n = 100

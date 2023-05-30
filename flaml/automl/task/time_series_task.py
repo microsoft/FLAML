@@ -136,7 +136,7 @@ class TimeSeriesTask(Task):
 
             try:
                 dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
-            except Exception as e:
+            except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
                 )
