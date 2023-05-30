@@ -10,13 +10,13 @@ def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_re
         import openai
     except ImportError:
         return
-    from flaml.autogen.agent.coding_agent import PythonAgent
+    from flaml.autogen.agent.assistant_agent import AssistantAgent
     from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
 
     config_list = oai.config_list_gpt4_gpt35(key_file_path=KEY_LOC)
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
-    agent = PythonAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
+    agent = AssistantAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
     user = UserProxyAgent(
         "user",
         human_input_mode=human_input_mode,
@@ -47,7 +47,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
         import openai
     except ImportError:
         return
-    from flaml.autogen.agent.coding_agent import PythonAgent
+    from flaml.autogen.agent.assistant_agent import AssistantAgent
     from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
 
     config_list = oai.config_list_openai_aoai(key_file_path=KEY_LOC)
@@ -58,7 +58,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     ]
 
     oai.ChatCompletion.start_logging()
-    agent = PythonAgent("coding_agent", temperature=0, config_list=config_list)
+    agent = AssistantAgent("coding_agent", temperature=0, config_list=config_list)
     user = UserProxyAgent(
         "user",
         work_dir=f"{here}",

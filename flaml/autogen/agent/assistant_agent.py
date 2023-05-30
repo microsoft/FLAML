@@ -3,8 +3,8 @@ from flaml.autogen.code_utils import DEFAULT_MODEL
 from flaml import oai
 
 
-class PythonAgent(Agent):
-    """(Experimental) Suggest code blocks."""
+class AssistantAgent(Agent):
+    """(Experimental) Assistant agent, able to suggest code blocks."""
 
     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant.
     In the following cases, suggest python code (in a python coding block) for the user to execute.
