@@ -53,14 +53,23 @@ class TimeSeriesTask(Task):
                 "rf": RF_TS,
                 "lgbm": LGBM_TS,
                 "extra_tree": ExtraTrees_TS,
-                "prophet": Prophet,
-                "orbit": Orbit,
                 "arima": ARIMA,
                 "sarimax": SARIMAX,
                 "holt-winters": HoltWinters,
                 "catboost": CatBoost_TS,
                 "tft": TemporalFusionTransformerEstimator,
             }
+
+            try:
+                from prophet import Prophet as foo
+                self._estimators["prophet"] = Prophet
+            except:
+                pass
+            try:
+                from orbit.models import DLT
+                self._estimators["orbit"] = Orbit
+            except:
+                pass
 
         return self._estimators
 
@@ -122,9 +131,10 @@ class TimeSeriesTask(Task):
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
-            assert (
-                dataframe.dtypes[self.time_col].name == "datetime64[ns]"
-            ), f"For '{TS_FORECAST}' task, time_col must contain timestamp values."
+            try:
+                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
+            except:
+                raise ValueError(f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values.")
 
             dataframe = remove_ts_duplicates(dataframe, self.time_col)
 
