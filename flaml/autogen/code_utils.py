@@ -183,7 +183,7 @@ def execute_code(
     in_docker_container = os.path.exists("/.dockerenv")
     if not use_docker or in_docker_container:
         # already running in a docker container
-        cmd = [sys.executable if lang.startswith("python") else lang, filename]
+        cmd = [sys.executable if lang.startswith("python") else _cmd(lang), filename]
         signal.signal(signal.SIGALRM, timeout_handler)
         try:
             signal.alarm(timeout)
