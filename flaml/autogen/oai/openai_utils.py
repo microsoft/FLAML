@@ -126,11 +126,45 @@ def config_list_openai_aoai(
     return config_list
 
 
+def config_list_from_models(
+    key_file_path: Optional[str] = ".",
+    openai_api_key_file: Optional[str] = "key_openai.txt",
+    aoai_api_key_file: Optional[str] = "key_aoai.txt",
+    aoai_api_base_file: Optional[str] = "base_aoai.txt",
+    exclude: Optional[str] = None,
+    model_list: Optional[list] = None,
+) -> List[Dict]:
+    """Get a list of configs for api calls with models in the model list.
+
+    Args:
+        key_file_path (str, optional): The path to the key files.
+        openai_api_key_file (str, optional): The file name of the openai api key.
+        aoai_api_key_file (str, optional): The file name of the azure openai api key.
+        aoai_api_base_file (str, optional): The file name of the azure openai api base.
+        exclude (str, optional): The api type to exclude, "openai" or "aoai".
+        model_list (list, optional): The model list.
+
+    Returns:
+        list: A list of configs for openai api calls.
+    """
+    config_list = config_list_openai_aoai(
+        key_file_path,
+        openai_api_key_file,
+        aoai_api_key_file,
+        aoai_api_base_file,
+        exclude,
+    )
+    if model_list:
+        config_list = [{**config, "model": model} for config in config_list for model in model_list]
+    return config_list
+
+
 def config_list_gpt4_gpt35(
     key_file_path: Optional[str] = ".",
     openai_api_key_file: Optional[str] = "key_openai.txt",
     aoai_api_key_file: Optional[str] = "key_aoai.txt",
     aoai_api_base_file: Optional[str] = "base_aoai.txt",
+    exclude: Optional[str] = None,
 ) -> List[Dict]:
     """Get a list of configs for gpt-4 followed by gpt-3.5 api calls.
 
@@ -139,17 +173,16 @@ def config_list_gpt4_gpt35(
         openai_api_key_file (str, optional): The file name of the openai api key.
         aoai_api_key_file (str, optional): The file name of the azure openai api key.
         aoai_api_base_file (str, optional): The file name of the azure openai api base.
+        exclude (str, optional): The api type to exclude, "openai" or "aoai".
 
     Returns:
         list: A list of configs for openai api calls.
     """
-
-    config_list = config_list_openai_aoai(
+    return config_list_from_models(
         key_file_path,
         openai_api_key_file,
         aoai_api_key_file,
         aoai_api_base_file,
+        exclude,
+        model_list=["gpt-4", "gpt-3.5-turbo"],
     )
-    return [{**config, "model": "gpt-4"} for config in config_list] + [
-        {**config, "model": "gpt-3.5-turbo"} for config in config_list
-    ]
