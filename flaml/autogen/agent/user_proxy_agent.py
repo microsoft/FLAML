@@ -67,9 +67,7 @@ class UserProxyAgent(Agent):
                 #     file_name = code[len("python ") :]
                 #     exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
                 # else:
-                exitcode, logs = execute_code(
-                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang if lang else "sh"
-                )
+                exitcode, logs = execute_code(code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang)
                 logs = logs.decode("utf-8")
             elif lang == "python":
                 if code.startswith("# filename: "):
