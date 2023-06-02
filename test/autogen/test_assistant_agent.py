@@ -16,7 +16,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     assistant = AssistantAgent(
         "coding_agent",
         request_timeout=600,
-        seed=42,
+        seed=40,
         max_tokens=1024,
         config_list=config_list,
     )
