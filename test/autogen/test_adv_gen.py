@@ -8,6 +8,7 @@ import wikipedia
 KEY_LOC = "test/autogen"
 logger = logging.getLogger(__name__)
 
+
 @hydra.main(config_path="configs", config_name="config")
 def test_adv_gen(cfg):
     try:
@@ -16,14 +17,19 @@ def test_adv_gen(cfg):
         return
 
     # config_list_adv = oai.config_list_gpt4_gpt35(KEY_LOC)
-    config_list_adv = oai.config_list_openai_aoai(KEY_LOC)
-    config_list_adv[0].update(cfg.openai.adv)
+    config_list_adv = oai.config_list_openai_aoai(KEY_LOC)[1:]
+    # config_list_adv[0].update(cfg.openai.adv)
     config_list_eval = oai.config_list_openai_aoai(KEY_LOC)
-    config_list_eval[0].update(cfg.openai.eval)
+    # config_list_eval[0].update(cfg.openai.eval)
 
-    test_cases = [# SimpleArith(config_list=config_list_eval)
-        WikipediaQGen(config_list=config_list_eval)
-        ]
+    test_cases = [  # SimpleArith(config_list=config_list_eval)
+        WikipediaQGen(
+            config_list_adv=config_list_adv,
+            config_adv=cfg.openai.adv,
+            config_list_eval=config_list_eval,
+            config_eval=cfg.openai.eval,
+        )
+    ]
 
     for case in test_cases:
         adv_examples = generate_adversarial_examples(
@@ -33,8 +39,10 @@ def test_adv_gen(cfg):
             num_examples=5,
             # reduction=np.mean,
             config_list=config_list_adv,
+            **cfg.openai.adv,
         )
         print(adv_examples)
+
 
 class SimpleArith:
     input_examples = [
@@ -75,8 +83,13 @@ class SimpleArith:
 
 
 class WikipediaQGen:
-    def __init__(self, config_list, search_term='Cornell University'):
-        self.config_list = config_list
+    def __init__(
+        self, config_list_adv={}, search_term="Cornell University", config_eval={}, config_adv={}, config_list_eval={}
+    ):
+        self.config_list_adv = config_list_adv
+        self.config_list_eval = config_list_eval
+        self.config_eval = config_eval
+        self.config_adv = config_adv
         r = wikipedia.search(search_term)
         page = wikipedia.page(r[0])
         self.title = page.title
@@ -87,7 +100,7 @@ You are a question generating assistant. Your objective is to take some context 
 <|im_start|>user
 Context
 ---
-# 
+#
 {page.title}
 
 {page.content}
@@ -120,25 +133,25 @@ For each question above, provide the corresponding correct answer. If there is m
             "temperature": 0.7,
             "top_p": 1,
             "n": 1,
-            "stream": False,
-            "model": "text-davinci-003",
+            "model": "gpt-4-32k",
         }
-
-        response = oai.Completion.create(prompt=example_gen_prompt, config_list=self.config_list, **config)
+        response = oai.Completion.create(prompt=example_gen_prompt, config_list=self.config_list_adv, **config)
         answer = oai.Completion.extract_text(response)[0].strip()
         # find qa
-        qa_parsed = re.findall(r"(?=Question:)[\s\S]*?(?=[0-9]. Mode|$)", response)
+        qa_parsed = re.findall(r"(?=Question:)[\s\S]*?(?=[0-9]. Mode|$)", answer)
         self.input_examples = []
         for qa in qa_parsed:
-            example = {"input":re.findall(r"(?<=Question:)[\s\S]*?(?=Answer:)", qa)[0].strip(), 
-                       "target":re.findall(r"(?<=Answer:)", qa)[0].strip()}
+            example = {
+                "input": re.findall(r"(?<=Question:)[\s\S]*?(?=Answer:)", qa)[0].strip(),
+                "target": re.findall(r"(?<=Answer:)", qa)[0].strip(),
+            }
             self.input_examples.append(example)
 
-
-    def add_message(self, content, role="user"):
-        self.messages.append({"role": role, "content": content})
+    # def add_message(self, content, role="user"):
+    #     self.messages.append({"role": role, "content": content})
 
     def verif_func(self, example):
+        print(example)
         base_prompt = """Respond with Yes or No, does the text below answer the question provided?
         Question: {input}
         Text: {target}
@@ -149,12 +162,11 @@ For each question above, provide the corresponding correct answer. If there is m
             "temperature": 0,
             "top_p": 1,
             "n": 1,
-            "stream": False,
-            "model": "text-davinci-003",
+            **self.config_adv,
         }
-        response = oai.Completion.create(example, prompt=base_prompt, config_list=self.config_list, **config)
+        response = oai.Completion.create(example, prompt=base_prompt, config_list=self.config_list_adv, **config)
         answer = oai.Completion.extract_text(response)[0].strip()
-        return answer == 'Yes'
+        return answer == "Yes"
 
     def test_func(self, example):
         base_prompt = f"""Answer the following question based on the context provided.
@@ -170,14 +182,12 @@ For each question above, provide the corresponding correct answer. If there is m
             "temperature": 0,
             "top_p": 1,
             "n": 1,
-            "stream": False,
-            "model": "text-davinci-003",
+            **self.config_eval,
         }
-        response = oai.Completion.create(example, prompt=base_prompt, config_list=self.config_list, **config)
+        response = oai.Completion.create(example, prompt=base_prompt, config_list=self.config_list_eval, **config)
         answer = oai.Completion.extract_text(response)[0]
         pred_example = {"input": example["input"], "target": answer}
         return self.verif_func(pred_example)
-
 
 
 if __name__ == "__main__":
