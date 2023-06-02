@@ -135,7 +135,7 @@ def execute_code(
     timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[bool] = True,
+    use_docker: Optional[list] = ["python:3-alpine", "python:3", "python:3-windowsservercore"],
     lang: Optional[str] = "python",
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
@@ -154,10 +154,11 @@ def execute_code(
             If None, a default working directory will be used.
             The default working directory is the "extensions" directory under
             "xxx/flaml/autogen", where "xxx" is the path to the flaml package.
-        use_docker (Optional, bool): Whether to use a docker container for code execution.
-            If True, the code will be executed in a docker container.
-            If False, the code will be executed in the current environment.
-            Default is True. If the code is executed in the current environment,
+        use_docker (Optional, list): The docker image to use for code execution.
+            If a list is provided, the code will be executed in a docker container
+              with the first image successfully pulled.
+            If None or empty, the code will be executed in the current environment.
+            Default is a list. If the code is executed in the current environment,
             the code must be trusted.
         lang (Optional, str): The language of the code. Default is "python".
 
@@ -208,7 +209,7 @@ def execute_code(
 
     # create a docker client
     client = docker.from_env()
-    image_list = ["python:3-alpine", "python:3", "python:3-windowsservercore"]
+    image_list = use_docker if isinstance(use_docker, list) else [use_docker]
     for image in image_list:
         # check if the image exists
         try:
