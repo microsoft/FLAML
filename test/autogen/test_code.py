@@ -80,6 +80,6 @@ def test_execute_code():
 
 
 if __name__ == "__main__":
-    test_infer_lang()
-    test_extract_code()
+    # test_infer_lang()
+    # test_extract_code()
     test_execute_code()
