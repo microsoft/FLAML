@@ -125,6 +125,8 @@ def timeout_handler(signum, frame):
 def _cmd(lang):
     if lang in ["sh", "shell", "bash"]:
         return "sh"
+    if lang.startswith("python"):
+        return lang
     raise NotImplementedError(f"{lang} not recognized in code execution")
 
 
@@ -235,17 +237,11 @@ def execute_code(
     # if sys.platform == "win32":
     #     abs_path = str(abs_path).replace("\\", "/")
     #     abs_path = f"/{abs_path[0].lower()}{abs_path[2:]}"
-    if lang.startswith("python"):
-        cmd = [
-            "sh",
-            "-c",
-            f"{lang} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
-        ]
-    else:
-        cmd = [
-            f"{_cmd(lang)}",
-            f"{filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
-        ]
+    cmd = [
+        "sh",
+        "-c",
+        f"{_cmd(lang)} {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+    ]
     # create a docker container
     container = client.containers.run(
         image,
