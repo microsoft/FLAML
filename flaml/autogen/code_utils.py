@@ -235,7 +235,7 @@ def execute_code(
     else:
         cmd = [
             f"{_cmd(lang)}",
-            f" {filename}; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
+            f" '{filename}'; exit_code=$?; echo -n {exit_code_str}; echo -n $exit_code; echo {exit_code_str}",
         ]
     # create a docker container
     container = client.containers.run(
