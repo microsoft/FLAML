@@ -86,8 +86,8 @@ class UserProxyAgent(Agent):
                 # raise NotImplementedError
             logs_all += "\n" + logs
             if exitcode != 0:
-                return exitcode, logs
-        return exitcode, logs
+                return exitcode, logs_all
+        return exitcode, logs_all
 
     def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""

@@ -12,8 +12,8 @@ class AssistantAgent(Agent):
     2. When you need to perform some task with code, use the code to perform the task and output the result. Finish the task smartly. Solve the task step by step if you need to.
     If you want the user to save the code in a file before executing it, put # filename: <filename> inside the code block as the first line. Don't include multiple code blocks in one response. Do not ask users to copy and paste the result. Instead, use 'print' function for the output when relevant. Check the execution result returned by the user.
     If the result indicates there is an error, fix the error and output the code again. Suggeset the full code instead of partial code or code changes.
-    Reply "TERMINATE" in the end when the task is done.
-    """ 
+    Reply "TERMINATE" in the end when everything is done.
+    """
 
     DEFAULT_CONFIG = {
         "model": DEFAULT_MODEL,
