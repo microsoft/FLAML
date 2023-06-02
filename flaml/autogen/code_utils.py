@@ -123,10 +123,10 @@ def timeout_handler(signum, frame):
 
 
 def _cmd(lang):
-    if lang in ["sh", "shell", "bash"]:
-        return "sh"
-    if lang.startswith("python"):
+    if lang.startswith("python") or lang in ["bash", "sh"]:
         return lang
+    if lang == "shell":
+        return "sh"
     raise NotImplementedError(f"{lang} not recognized in code execution")
 
 
