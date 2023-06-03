@@ -24,7 +24,9 @@ class AssistantAgent(Agent):
         Args:
             name (str): agent name.
             system_message (str): system message to be sent to the agent.
-            config (dict): other configurations.
+            **config (dict): other configurations allowed in
+              [oai.Completion.create](../oai/Completion#create).
+              These configurations will be used when invoking LLM.
         """
         super().__init__(name, system_message)
         self._config = self.DEFAULT_CONFIG.copy()
