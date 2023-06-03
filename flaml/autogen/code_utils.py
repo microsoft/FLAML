@@ -135,7 +135,7 @@ def execute_code(
     timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[list] = ["python:3-alpine", "python:3", "python:3-windowsservercore"],
+    use_docker: Optional[Union[List, str, bool]] = True,
     lang: Optional[str] = "python",
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
@@ -154,11 +154,12 @@ def execute_code(
             If None, a default working directory will be used.
             The default working directory is the "extensions" directory under
             "xxx/flaml/autogen", where "xxx" is the path to the flaml package.
-        use_docker (Optional, list): The docker image to use for code execution.
-            If a list is provided, the code will be executed in a docker container
+        use_docker (Optional, list, str or bool): The docker image to use for code execution.
+            If a list or a str of image name(s) is provided, the code will be executed in a docker container
               with the first image successfully pulled.
-            If None or empty, the code will be executed in the current environment.
-            Default is a list. If the code is executed in the current environment,
+            If None, False or empty, the code will be executed in the current environment.
+            Default is True, which will be converted into a list.
+            If the code is executed in the current environment,
             the code must be trusted.
         lang (Optional, str): The language of the code. Default is "python".
 
@@ -210,7 +211,13 @@ def execute_code(
 
     # create a docker client
     client = docker.from_env()
-    image_list = use_docker if isinstance(use_docker, list) else [use_docker]
+    image_list = (
+        ["python:3-alpine", "python:3", "python:3-windowsservercore"]
+        if use_docker is True
+        else [use_docker]
+        if isinstance(use_docker, str)
+        else use_docker
+    )
     for image in image_list:
         # check if the image exists
         try:
