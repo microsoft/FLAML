@@ -135,7 +135,7 @@ def execute_code(
     timeout: Optional[int] = 600,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[Union[List, str, bool]] = True,
+    use_docker: Optional[Union[List[str], str, bool]] = True,
     lang: Optional[str] = "python",
 ) -> Tuple[int, bytes]:
     """Execute code in a docker container.
