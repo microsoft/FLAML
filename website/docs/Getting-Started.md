@@ -20,14 +20,14 @@ Install FLAML from pip: `pip install flaml`. Find more options in [Installation]
 
 There are several ways of using flaml:
 
-#### (New) [Auto Generation](/docs/Use-Cases/Auto-Generation)
+#### (New) [Auto Generation](Use-Cases/Auto-Generation)
 
-Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
+Maximize the utility out of the expensive LLMs like ChatGPT or GPT-4 etc.
+A suite of utilities are offered to accelerate the experimentation and application development, such as:
     - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
     ```python
     from flaml import oai
 
-    # perform tuning
     config, analysis = oai.Completion.tune(
         data=tune_data,
         metric="success",
@@ -37,9 +37,6 @@ Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, includ
         optimization_budget=3,
         num_samples=-1,
     )
-
-    # perform inference for a test instance
-    response = oai.Completion.create(context=test_instance, **config)
     ```
     - LLM-driven intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code. For example,
     ```python
@@ -48,7 +45,7 @@ Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, includ
     assistant.receive("Draw a rocket and save to a file named 'rocket.svg'")
     ```
 
-#### [Task-oriented AutoML](/docs/Use-Cases/task-oriented-automl)
+#### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
 
 For example, with three lines of code, you can start using this economical and fast AutoML engine as a scikit-learn style estimator.
 

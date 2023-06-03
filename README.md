@@ -61,12 +61,12 @@ Use the following guides to get started with FLAML in .NET:
 
 ## Quickstart
 
-* (New) The [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package can help you maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
+* (New) The [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package can help you maximize the utility out of the expensive LLMs like ChatGPT or GPT-4 etc.
+A suite of utilities are offered to accelerate the experimentation and application development, such as:
     - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
     ```python
     from flaml import oai
 
-    # perform tuning
     config, analysis = oai.Completion.tune(
         data=tune_data,
         metric="success",
@@ -76,9 +76,6 @@ Use the following guides to get started with FLAML in .NET:
         optimization_budget=3,
         num_samples=-1,
     )
-
-    # perform inference for a test instance
-    response = oai.Completion.create(context=test_instance, **config)
     ```
     - LLM-driven intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code.
     ```python
