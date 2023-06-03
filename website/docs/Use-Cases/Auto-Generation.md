@@ -4,8 +4,8 @@
 * Leveraging [`flaml.tune`](../reference/tune/tune) to adapt LLMs to applications, such that:
   - Maximize the utility out of using expensive foundation models.
   - Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
-* An enhanced inference API with utilities like API unification, caching, error handling, multi-config inference, context programming etc.
-* Higher-level utility functions like LLM-based coding and interactive agents.
+* An enhanced inference API as a drop-in replacement of `openai.Completion.create` or `openai.ChatCompletion.create` with utilities like API unification, caching, error handling, multi-config inference, context programming etc.
+* Higher-level components like LLM-based intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code.
 
 The package is under active development with more features upcoming.
 

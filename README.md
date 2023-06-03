@@ -59,25 +59,28 @@ Use the following guides to get started with FLAML in .NET:
 
 ## Quickstart
 
-* (New) You can optimize [generations](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) by ChatGPT or GPT-4 etc. with your own tuning data, success metrics and budgets.
+* (New) The [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package can help you maximize the utility out of the expensive LLMs like ChatGPT or GPT-4 etc.
+A suite of utilities are offered to accelerate the experimentation and application development, such as:
+    - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
+    ```python
+    from flaml import oai
 
-```python
-from flaml import oai
-
-config, analysis = oai.Completion.tune(
-    data=tune_data,
-    metric="success",
-    mode="max",
-    eval_func=eval_func,
-    inference_budget=0.05,
-    optimization_budget=3,
-    num_samples=-1,
-)
-```
-
-The automated experimentation and optimization can help you maximize the utility out of these expensive models.
-A suite of utilities are offered to accelerate the experimentation and application development, such as low-level inference API with caching, templating, filtering, and higher-level components like LLM-based coding and interactive agents.
-
+    config, analysis = oai.Completion.tune(
+        data=tune_data,
+        metric="success",
+        mode="max",
+        eval_func=eval_func,
+        inference_budget=0.05,
+        optimization_budget=3,
+        num_samples=-1,
+    )
+    ```
+    - LLM-driven intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code.
+    ```python
+    assistant = AssistantAgent("assistant")
+    user = UserProxyAgent("user", human_input_mode="TERMINATE")
+    assistant.receive("Draw a rocket and save to a file named 'rocket.svg'")
+    ```
 * With three lines of code, you can start using this economical and fast
 AutoML engine as a [scikit-learn style estimator](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML).
 

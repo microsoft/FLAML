@@ -1,7 +1,6 @@
 import os
 from flaml import oai
-from flaml.autogen.agent.assistant_agent import AssistantAgent
-from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
+from flaml.autogen.agent import AssistantAgent, UserProxyAgent
 
 KEY_LOC = "test/autogen"
 here = os.path.abspath(os.path.dirname(__file__))
