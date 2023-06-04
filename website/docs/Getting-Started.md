@@ -22,12 +22,12 @@ There are several ways of using flaml:
 
 #### (New) [Auto Generation](Use-Cases/Auto-Generation)
 
-Maximize the utility out of the expensive LLMs like ChatGPT or GPT-4 etc.
-A suite of utilities are offered to accelerate the experimentation and application development, such as:
+Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
     - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
     ```python
     from flaml import oai
 
+    # perform tuning
     config, analysis = oai.Completion.tune(
         data=tune_data,
         metric="success",
@@ -37,6 +37,9 @@ A suite of utilities are offered to accelerate the experimentation and applicati
         optimization_budget=3,
         num_samples=-1,
     )
+
+    # perform inference for a test instance
+    response = oai.Completion.create(context=test_instance, **config)
     ```
     - LLM-driven intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code. For example,
     ```python
