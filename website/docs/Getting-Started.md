@@ -11,16 +11,16 @@ models, hyperparameters, and other tunable choices of an application.
 * For foundation models like the GPT models, it automates the experimentation and optimization of their performance to maximize the effectiveness for applications and minimize the inference cost. FLAML enables users to build and use adaptive AI agents with minimal effort.
 * For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., search space and metric), or full customization (arbitrary training/inference/evaluation code).
 * It supports fast and economical automatic tuning, capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping. FLAML is powered by a [cost-effective
-hyperparameter optimization](Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
-and model selection method invented by Microsoft Research, and many followup [research studies](Research).
+hyperparameter optimization](/docs/Use-Cases/Tune-User-Defined-Function#hyperparameter-optimization-algorithm)
+and model selection method invented by Microsoft Research, and many followup [research studies](/docs/Research).
 
 ### Quickstart
 
-Install FLAML from pip: `pip install flaml`. Find more options in [Installation](Installation).
+Install FLAML from pip: `pip install flaml`. Find more options in [Installation](/docs/Installation).
 
 There are several ways of using flaml:
 
-#### (New) [Auto Generation](Use-Cases/Auto-Generation)
+#### (New) [Auto Generation](/docs/Use-Cases/Auto-Generation)
 
 Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
     - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
@@ -48,7 +48,7 @@ Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, includ
     assistant.receive("Draw a rocket and save to a file named 'rocket.svg'")
     ```
 
-#### [Task-oriented AutoML](Use-Cases/task-oriented-automl)
+#### [Task-oriented AutoML](/docs/Use-Cases/task-oriented-automl)
 
 For example, with three lines of code, you can start using this economical and fast AutoML engine as a scikit-learn style estimator.
 
@@ -58,14 +58,14 @@ automl = AutoML()
 automl.fit(X_train, y_train, task="classification", time_budget=60)
 ```
 
-It automatically tunes the hyperparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. for the specified time budget 60 seconds. [Customizing](Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
+It automatically tunes the hyperparameters and selects the best model from default learners such as LightGBM, XGBoost, random forest etc. for the specified time budget 60 seconds. [Customizing](/docs/Use-Cases/task-oriented-automl#customize-automlfit) the optimization metrics, learners and search spaces etc. is very easy. For example,
 
 ```python
 automl.add_learner("mylgbm", MyLGBMEstimator)
 automl.fit(X_train, y_train, task="classification", metric=custom_metric, estimator_list=["mylgbm"], time_budget=60)
 ```
 
-#### [Tune user-defined function](Use-Cases/Tune-User-Defined-Function)
+#### [Tune user-defined function](/docs/Use-Cases/Tune-User-Defined-Function)
 
 You can run generic hyperparameter tuning for a custom function (machine learning or beyond). For example,
 
@@ -105,7 +105,7 @@ analysis = tune.run(
 ```
 Please see this [script](https://github.com/microsoft/FLAML/blob/main/test/tune_example.py) for the complete version of the above example.
 
-#### [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML)
+#### [Zero-shot AutoML](/docs/Use-Cases/Zero-Shot-AutoML)
 
 FLAML offers a unique, seamless and effortless way to leverage AutoML for the commonly used classifiers and regressors such as LightGBM and XGBoost. For example, if you are using `lightgbm.LGBMClassifier` as your current learner, all you need to do is to replace `from lightgbm import LGBMClassifier` by:
 
@@ -117,11 +117,11 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 
 ### Where to Go Next?
 
-* Understand the use cases for [Auto Generation](Use-Cases/Auto-Generation), [Task-oriented AutoML](Use-Cases/Task-Oriented-Automl), [Tune user-defined function](Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](Use-Cases/Zero-Shot-AutoML).
-* Find code examples under "Examples": from [AutoGen - OpenAI](Examples/AutoGen-OpenAI) to [Tune - PyTorch](Examples/Tune-PyTorch).
-* Learn about [research](Research) around FLAML and check [blogposts](/blog).
+* Understand the use cases for [Auto Generation](/docs/Use-Cases/Auto-Generation), [Task-oriented AutoML](/docs/Use-Cases/Task-Oriented-Automl), [Tune user-defined function](/docs/Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](/docs/Use-Cases/Zero-Shot-AutoML).
+* Find code examples under "Examples": from [AutoGen - OpenAI](/docs/Examples/AutoGen-OpenAI) to [Tune - PyTorch](/docs/Examples/Tune-PyTorch).
+* Learn about [research](/docs/Research) around FLAML and check [blogposts](/blog).
 * Chat on [Discord](https://discord.gg/Cppx2vSPVP).
 
-If you like our project, please give it a [star](https://github.com/microsoft/FLAML/stargazers) on GitHub. If you are interested in contributing, please read [Contributor's Guide](Contribute).
+If you like our project, please give it a [star](https://github.com/microsoft/FLAML/stargazers) on GitHub. If you are interested in contributing, please read [Contributor's Guide](/docs/Contribute).
 
 <iframe src="https://ghbtns.com/github-btn.html?user=microsoft&amp;repo=FLAML&amp;type=star&amp;count=true&amp;size=large" frameborder="0" scrolling="0" width="170" height="30" title="GitHub"></iframe>
