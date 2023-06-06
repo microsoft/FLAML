@@ -5,7 +5,7 @@ from collections import defaultdict
 import re
 
 # PROMPTS = {
-#     # default 
+#     # default
 #     "default": """Let's use Python to solve a math problem.
 
 # Query requirements:
@@ -75,7 +75,8 @@ import re
 
 # """,
 # }
-        # self.prompt = new_prompt if new_prompt is not None else PROMPTS[prompt_type]
+# self.prompt = new_prompt if new_prompt is not None else PROMPTS[prompt_type]
+
 
 class MathUserProxyAgent(UserProxyAgent):
     """(Experimental) A MathChat agent that can handle math problems."""
@@ -91,7 +92,7 @@ class MathUserProxyAgent(UserProxyAgent):
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
-        max_invalid_q_per_step=3, # new parameter
+        max_invalid_q_per_step=3,  # new parameter
         **config,
     ):
         """
@@ -117,8 +118,10 @@ class MathUserProxyAgent(UserProxyAgent):
             **config (dict): other configurations.
         """
         if is_termination_msg is None:
-            is_termination_msg = lambda x: (get_answer(x) is not None and get_answer(x) != "")
-        
+
+            def is_termination_msg(x):
+                return get_answer(x) is not None and get_answer(x) != ""
+
         super().__init__(
             name=name,
             system_message=system_message,
@@ -127,14 +130,15 @@ class MathUserProxyAgent(UserProxyAgent):
             max_consecutive_auto_reply=max_consecutive_auto_reply,
             is_termination_msg=is_termination_msg,
             use_docker=use_docker,
-            **config)
+            **config,
+        )
 
         self._max_invalid_q_per_step = max_invalid_q_per_step
         self._valid_q_count = 0
         self._total_q_count = 0
         self._accum_invalid_q_per_step = 0
-        self._previous_code = ''
-    
+        self._previous_code = ""
+
     def reset(self):
         self._accum_invalid_q_per_step = 0
         self._valid_q_count = 0
@@ -156,7 +160,7 @@ class MathUserProxyAgent(UserProxyAgent):
 
         # Join the lines back together
         return "\n".join(lines)
-    
+
     def _remove_print(self, s):
         # remove all print statements from a string
         lines = s.splitlines()
@@ -211,7 +215,7 @@ class MathUserProxyAgent(UserProxyAgent):
                 if "import" in line:
                     tmp += line + "\n"
             rcode, _ = execute_code(tmp, use_docker=False)
-        
+
         if rcode == 0:
             self._previous_code = tmp
         return output, is_success
@@ -233,15 +237,13 @@ class MathUserProxyAgent(UserProxyAgent):
                 # TODO: Allow wolfram code
                 pass
 
-        if reply == '':
+        if reply == "":
             reply = "Continue. Please keep solving the problem until you need to query. (If you get to the answer, put it in \\boxed{}.)"
 
         if not is_success:
             self._accum_invalid_q_per_step += 1
             if self._accum_invalid_q_per_step > self._max_invalid_q_per_step:
-                self._accum_invalid_q_per_step = 0 
+                self._accum_invalid_q_per_step = 0
                 reply = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
-        
+
         self._send(reply, sender)
-
-
