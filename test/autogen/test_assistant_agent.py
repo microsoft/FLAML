@@ -25,6 +25,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
         human_input_mode=human_input_mode,
         is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE"),
         max_consecutive_auto_reply=max_consecutive_auto_reply,
+        use_docker="python:3",
     )
     coding_task = "Print hello world to a file called hello.txt"
     assistant.receive(coding_task, user)
