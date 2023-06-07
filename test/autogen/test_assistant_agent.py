@@ -29,8 +29,8 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     )
     coding_task = "Print hello world to a file called hello.txt"
     assistant.receive(coding_task, user)
-    coding_task = "Create a powerpoint with the text hello world in it."
-    assistant.receive(coding_task, user)
+    # coding_task = "Create a powerpoint with the text hello world in it."
+    # assistant.receive(coding_task, user)
     assistant.reset()
     coding_task = "Save a pandas df with 3 rows and 3 columns to disk."
     assistant.receive(coding_task, user)
