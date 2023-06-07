@@ -30,6 +30,9 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     assistant.receive(coding_task, user)
     coding_task = "Create a powerpoint with the text hello world in it."
     assistant.receive(coding_task, user)
+    assistant.reset()
+    coding_task = "Save a pandas df with 3 rows and 3 columns to disk."
+    assistant.receive(coding_task, user)
 
 
 def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_reply=10):
