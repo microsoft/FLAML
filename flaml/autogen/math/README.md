@@ -33,6 +33,7 @@ echo "your_wolfram_key" > wolfram.txt
 ## Run MathChat
 
 - Use `--categories` to select category to run, and `--samples_per_category` for number of samples. The problems are randomly selected from level-5 difficulty. Here are the category names and IDs:
+
 | ID | Category Name            |
 |----|--------------------------|
 | 0  | Algebra                  |
