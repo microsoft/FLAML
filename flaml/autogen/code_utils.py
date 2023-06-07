@@ -137,7 +137,7 @@ def execute_code(
     work_dir: Optional[str] = None,
     use_docker: Optional[Union[List[str], str, bool]] = True,
     lang: Optional[str] = "python",
-) -> Tuple[int, bytes]:
+) -> Tuple[int, bytes, str]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
 
@@ -166,6 +166,7 @@ def execute_code(
     Returns:
         int: 0 if the code executes successfully.
         bytes: The error message if the code fails to execute; the stdout otherwise.
+        image: The docker image name after container run when docker is used.
     """
     assert code is not None or filename is not None, "Either code or filename must be provided."
 
@@ -201,10 +202,10 @@ def execute_code(
         except TimeoutError:
             if original_filename is None:
                 os.remove(filepath)
-            return 1, "Timeout"
+            return 1, "Timeout", None
         if original_filename is None:
             os.remove(filepath)
-        return result.returncode, result.stderr if result.returncode else result.stdout
+        return result.returncode, result.stderr if result.returncode else result.stdout, None
 
     import docker
 
@@ -259,7 +260,7 @@ def execute_code(
         container.remove()
         if original_filename is None:
             os.remove(filepath)
-        return 1, "Timeout"
+        return 1, "Timeout", image
     # try:
     #     container.wait(timeout=timeout)
     # except (ReadTimeout, ConnectionError):
@@ -270,6 +271,8 @@ def execute_code(
     #     return 1, "Timeout"
     # get the container logs
     logs = container.logs().decode("utf-8").rstrip()
+    # commit the image
+    container.commit(repository="python", tag=filename.replace("/", ""))
     # remove the container
     container.remove()
     # check if the code executed successfully
@@ -285,8 +288,8 @@ def execute_code(
     logs = bytes(logs, "utf-8")
     if original_filename is None:
         os.remove(filepath)
-    # return the exit code and logs
-    return exit_code, logs
+    # return the exit code, logs and image
+    return exit_code, logs, f"python:{filename}"
 
 
 _GENERATE_ASSERTIONS_CONFIG = {

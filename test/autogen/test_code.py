@@ -60,7 +60,7 @@ def test_execute_code():
     except ImportError as exc:
         print(exc)
         return
-    exitcode, msg = execute_code("print('hello world')", filename="tmp/codetest.py")
+    exitcode, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py")
     assert exitcode == 0 and msg == b"hello world\n", msg
     # read a file
     print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
@@ -70,13 +70,13 @@ def test_execute_code():
     print(execute_code(filename="tmp/codetest.py"))
     print(execute_code("python tmp/codetest.py", lang="sh"))
     # execute code for assertion error
-    exit_code, msg = execute_code("assert 1==2")
+    exit_code, msg, image = execute_code("assert 1==2")
     assert exit_code, msg
     # execute code which takes a long time
-    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1)
+    exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1)
     assert exit_code and error == "Timeout"
-    exit_code, error = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
-    assert exit_code and error == "Timeout"
+    exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
+    assert exit_code and error == "Timeout" and image is None
 
 
 if __name__ == "__main__":

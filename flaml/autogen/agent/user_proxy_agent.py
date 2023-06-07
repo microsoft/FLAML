@@ -67,23 +67,24 @@ class UserProxyAgent(Agent):
                 #     file_name = code[len("python ") :]
                 #     exitcode, logs = execute_code(filename=file_name, work_dir=self._work_dir, use_docker=self._use_docker)
                 # else:
-                exitcode, logs = execute_code(code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang)
+                exitcode, logs, image = execute_code(
+                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang
+                )
                 logs = logs.decode("utf-8")
             elif lang == "python":
                 if code.startswith("# filename: "):
                     filename = code[11 : code.find("\n")].strip()
                 else:
                     filename = None
-                exitcode, logs = execute_code(
+                exitcode, logs, image = execute_code(
                     code, work_dir=self._work_dir, filename=filename, use_docker=self._use_docker
                 )
                 logs = logs.decode("utf-8")
-            # elif code.startswith("pip install "):
-            #     exitcode, logs = self._execute_code([("sh", code)])
             else:
                 # TODO: could this happen?
-                exitcode, logs = 1, f"unknown language {lang}"
+                exitcode, logs, image = 1, f"unknown language {lang}"
                 # raise NotImplementedError
+            self._use_docker = image
             logs_all += "\n" + logs
             if exitcode != 0:
                 return exitcode, logs_all
