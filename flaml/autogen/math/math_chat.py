@@ -39,9 +39,6 @@ class MathChat:
         self.sys_type = sys_type
         sys_choices = {
             "s0": "You are a helpful assistant.",
-            "s1": "You are a helpful assistant that help user solve math problems. You will follow the user's instruction to solve the problem.",
-            "s2": "You are a helpful assistant that help user solve math problems. You are good at using the most effective and accurate way to solve math problems. You will follow the user's instruction to solve the problem.",
-            "s4": "You are a helpful assistant that is good at math problems.",
         }
         messages = (
             [{"role": "system", "content": self.prompt}]

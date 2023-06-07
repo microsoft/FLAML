@@ -31,15 +31,25 @@ echo "your_wolfram_key" > wolfram.txt
 ## Run MathChat
 
 - Use `--categories` to select category to run, and `--samples_per_category` for number of samples. The problems are randomly selected from level-5 difficulty. Here are the category names and IDs:
-  ID : Category Name0 : Algebra1 : Counting & Probability2 : Geometry3 : Intermediate Algebra4 : Number Theory5 : Prealgebra6 : Precalculus
+| ID | Category Name            |
+|----|--------------------------|
+| 0  | Algebra                  |
+| 1  | Counting & Probability   |
+| 2  | Geometry                 |
+| 3  | Intermediate Algebra     |
+| 4  | Number Theory            |
+| 5  | Prealgebra               |
+| 6  | Precalculus              |
+
+
 - Test on 1 level-5 problem from Alegbra (`--categories 0`):
 
 ```python
-python main.py -ptype default --folder ./default --categories 0 1 3 4 5 6 --samples_per_category 1
+python main.py -ptype default --folder ./default --categories 0 --samples_per_category 1
 ```
+You can find the output in folder `./default/`.
 
 - Test on 1 level-5 problem from each category (except geometry):
-
 ```python
 python main.py -ptype default --folder ./default --categories 0 1 3 4 5 6 --samples_per_category 1
 ```
