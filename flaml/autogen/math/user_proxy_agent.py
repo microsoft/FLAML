@@ -80,10 +80,11 @@ class UserProxyAgent:
         all_success = True  # all queries are successful
         for i, query in enumerate(queries):
             if "tool" in query:
+                # old format of query in json format, ignore
                 if query["tool"] == "python":
-                    output, is_success = self.run_one_code(query["query"])
+                    output, is_success = self.execute_python_code(query["query"])
                 elif query["tool"] == "wolfram":
-                    output, is_success = self.wolfram_query(query["query"])
+                    output, is_success = self.execute_wolfram_query(query["query"])
                 else:
                     output = "Error: Unknown tool"
                     is_success = False
@@ -91,13 +92,14 @@ class UserProxyAgent:
                 output = ""
                 is_success = False
                 if "python" in query and query["python"] != "":
-                    pyout, pysucess = self.run_one_code(query["python"])
+                    pyout, pysucess = self.execute_python_code(query["python"])
                     output += "python: " + pyout + "\n"
                     is_success = is_success or pysucess
                 if "wolfram" in query and query["wolfram"] != "":
-                    wolframout, wolframsuccess = self.wolfram_query(query["wolfram"])
+                    wolframout, wolframsuccess = self.execute_wolfram_query(query["wolfram"])
                     output += "wolfram: " + wolframout + "\n"
                     is_success = is_success or wolframsuccess
+                # add new query handling here
 
             buffer_out += output + "\n"
             if not is_success:
@@ -114,7 +116,21 @@ class UserProxyAgent:
         self.last_return = buffer_out
         return buffer_out, all_success
 
-    def wolfram_query(self, query: str):
+    def extractCode(self, input_string: str):
+        """Extract code blocks from message."""
+        pattern = r"```(.*?)```"
+        match = re.findall(pattern, input_string, flags=re.DOTALL)
+
+        queries = []
+        for m in match:
+            if "python" in m:
+                queries.append({"tool": "python", "query": m.replace("python", "").strip()})
+            elif "wolfram" in m:
+                queries.append({"tool": "wolfram", "query": m.replace("wolfram", "").strip()})
+            # add new query handling here
+        return queries
+
+    def execute_wolfram_query(self, query: str):
         """
         Run one wolfram query and return the output.
         return:
@@ -128,79 +144,8 @@ class UserProxyAgent:
             output = "Error: The wolfram query is invalid."
         return output, is_success
 
-    def _remove_newlines_outside_quotes(self, s):
-        """Remove newlines outside of quotes.
-
-        Return from openai:
-            s = "{\n"tool": "python",\n"query": "print('hello')\nprint('world')"\n}"
-
-        if calling json.loads(s), it will throw an error because of the newline in the query.
-        So this function removes the newline in the query outside of quotes.
-
-        _remove_newlines_outside_quotes(s) -> "{"tool": "python","query": "print('hello')\nprint('world')"}"
-
-
-        params:
-            s: string to remove newlines from
-        returns:
-            string with newlines removed
-
-        Example:
-
-        """
-        result = []
-        inside_quotes = False
-        for c in s:
-            if c == '"':
-                inside_quotes = not inside_quotes
-            if not inside_quotes and c == "\n":
-                continue
-            if inside_quotes and c == "\n":
-                c = "\\n"
-            if inside_quotes and c == "\t":
-                c = "\\t"
-            result.append(c)
-        return "".join(result)
-
-    def extractCode(self, input_string: str):
-        pattern = r"```(.*?)```"
-        match = re.findall(pattern, input_string, flags=re.DOTALL)
-
-        queries = []
-        for m in match:
-            if "python" in m:
-                queries.append({"tool": "python", "query": m.replace("python", "").strip()})
-            elif "wolfram" in m:
-                queries.append({"tool": "wolfram", "query": m.replace("wolfram", "").strip()})
-        return queries
-
-    def extractJSON(self, input_string: str):
-        """
-        Extract JSON queries from a string.
-        params:
-            input_string: string to extract JSON queries from
-        returns:
-            list of JSON queries
-        """
-        input_string = input_string.replace(",\n}", "}")
-        # bracketed_strings = re.findall(r'\{[\s\S]*?\}', input_string)
-        bracketed_strings = regex.findall(r"\{(?:[^{}]|(?R))*\}", input_string)
-        # print(bracketed_strings)
-        # Extract valid JSON queries
-        json_queries = []
-        for bracketed_string in bracketed_strings:
-            bracketed_string = self._remove_newlines_outside_quotes(bracketed_string)
-            try:
-                data = json.loads(bracketed_string)
-                if ("tool" in data and "query" in data) or "python" in data or "wolfram" in data:
-                    json_queries.append(data)
-            except json.JSONDecodeError:
-                pass
-
-        return json_queries
-
     # code query handler
-    def run_one_code(self, query: str):
+    def execute_python_code(self, query: str):
         """Run one code query and return the output.
         params:
             query: string with the code query
@@ -279,34 +224,64 @@ class UserProxyAgent:
         lines = [line for line in lines if "print(" not in line]
         return "\n".join(lines)
 
+    def _remove_newlines_outside_quotes(self, s):
+        """Remove newlines outside of quotes.
 
-# Imported from langchain
-class PythonREPL(BaseModel):
-    """Simulates a standalone Python REPL."""
+        Return from openai:
+            s = "{\n"tool": "python",\n"query": "print('hello')\nprint('world')"\n}"
 
-    globals: Optional[Dict] = Field(default_factory=dict, alias="_globals")
-    locals: Optional[Dict] = Field(default_factory=dict, alias="_locals")
+        if calling json.loads(s), it will throw an error because of the newline in the query.
+        So this function removes the newline in the query outside of quotes.
 
-    def run(self, command: str) -> str:
-        """Run command with own globals/locals and returns anything printed.
+        _remove_newlines_outside_quotes(s) -> "{"tool": "python","query": "print('hello')\nprint('world')"}"
 
-        Add is_success.
+
+        params:
+            s: string to remove newlines from
+        returns:
+            string with newlines removed
+
+        Example:
+
         """
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = StringIO()
-        is_success = True
-        try:
-            # TODO: need further testing; original exec(command, self.globals, self.locals),
-            # Wrong for '\nfrom math import factorial\nrotations_fixed = [factorial(7 - i) for i in [1, 2, 3, 4, 5]]\nprint(rotations_fixed)'
-            combined_globals_and_locals = {**self.globals, **self.locals}
-            exec(command, combined_globals_and_locals, combined_globals_and_locals)
-            sys.stdout = old_stdout
-            output = mystdout.getvalue()
-        except Exception as e:
-            sys.stdout = old_stdout
-            output = str(e)
-            is_success = False
-        return output, is_success
+        result = []
+        inside_quotes = False
+        for c in s:
+            if c == '"':
+                inside_quotes = not inside_quotes
+            if not inside_quotes and c == "\n":
+                continue
+            if inside_quotes and c == "\n":
+                c = "\\n"
+            if inside_quotes and c == "\t":
+                c = "\\t"
+            result.append(c)
+        return "".join(result)
+
+    def extractJSON(self, input_string: str):
+        """
+        Extract JSON queries from a string.
+        params:
+            input_string: string to extract JSON queries from
+        returns:
+            list of JSON queries
+        """
+        input_string = input_string.replace(",\n}", "}")
+        # bracketed_strings = re.findall(r'\{[\s\S]*?\}', input_string)
+        bracketed_strings = regex.findall(r"\{(?:[^{}]|(?R))*\}", input_string)
+        # print(bracketed_strings)
+        # Extract valid JSON queries
+        json_queries = []
+        for bracketed_string in bracketed_strings:
+            bracketed_string = self._remove_newlines_outside_quotes(bracketed_string)
+            try:
+                data = json.loads(bracketed_string)
+                if ("tool" in data and "query" in data) or "python" in data or "wolfram" in data:
+                    json_queries.append(data)
+            except json.JSONDecodeError:
+                pass
+
+        return json_queries
 
 
 # Imported from langchain
@@ -416,37 +391,3 @@ class WolframAlphaAPIWrapper(BaseModel):
         else:
             is_success = True
             return f"Assumption: {assumption} \nAnswer: {answer}", is_success
-
-
-# import re
-# def parse_std_err(error):
-#     if error is None:
-#         return error
-#     return re.sub("File (.*)\", ", " ", error.decode('utf-8'))
-
-# import signal
-# import subprocess
-# import sys
-
-# def timeout_handler(signum, frame):
-#     raise TimeoutError("Timed out!")
-
-# signal.signal(signal.SIGALRM, timeout_handler)
-# max_exec_time = 3  # seconds
-
-# def execute_code(code):
-#     code = code.strip()
-#     with open("codetest.py", "w") as fout:
-#         fout.write(code)
-
-#     try:
-#         signal.alarm(max_exec_time)
-#         result = subprocess.run(
-#             [sys.executable, "codetest.py"],
-#             stdout=subprocess.DEVNULL,
-#             stderr=subprocess.PIPE,
-#         )
-#         signal.alarm(0)
-#     except TimeoutError:
-#         return -1, "TimeoutError"
-#     return int(result.returncode == 0), parse_std_err(result.stderr)

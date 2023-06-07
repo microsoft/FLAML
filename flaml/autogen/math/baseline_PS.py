@@ -104,7 +104,7 @@ def pnas_solve(model, problem, max_tokens=None):
 if __name__ == "__main__":
     config_list = None
     try:
-        openai.api_key = open("key_e.txt").read().strip()
+        openai.api_key = open("key.txt").read().strip()
         print(openai.api_key)
     except Exception:
         from azure.identity import DefaultAzureCredential

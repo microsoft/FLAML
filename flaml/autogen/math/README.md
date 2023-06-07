@@ -1,105 +1,68 @@
-# Math Solver
+# MathChat: A conversational framework for math problem solving with GPT-4
 
-## Run
+## Introduction:
 
-1. Set up env
+Employing Large Language Models (LLMs) to address mathematical problems is an intriguing research endeavor, with LLMs demonstrating remarkable proficiency in various tasks spanning diverse domains. We propose *MathChat*, a framework that simulates a mock conversation between an LLM assistant (GPT-4 in our case) and a user proxy agent. Here a user proxy agent is an agent playing the user's role in conversations with the LLM assistant. In *MathChat*, the assistant and the user proxy agent work together to solve the math problem.Here a user proxy agent is an agent playing the user's role in conversations with the LLM assistant. In *MathChat*, the assistant and the user proxy agent work together to solve the math problem (See Figure below). The user proxy agent takes a math problem to be solved as input and would initiate a conversation with the LLM assistant using an intial prompt. With proper modifications, effective prompting methods from existing research, such as CoT and tool-using, can be integrated into the *MathChat* framework.
 
-```
-pip install -e .[math]
-```
+More details are provided in our paper [An Empirical Study on Challenging Math Problem Solving with GPT-4](https://arxiv.org/abs/2306.01337).
 
-2. In `main.py`: set openai_key and wolfram id
+## Environment Setup
 
-```
-openai.key = "Your key here"
-os.environ["WOLFRAM_ALPHA_APPID"] = "Your id here"
-```
-
-3. Test out `main.py` with `--test_run`
+1. You can set up the environment using the following commands:
 
 ```
-cd flaml/autogen/math_solver
-python main.py --prompt_type select --test_run --categories all
+cd flaml/autogen/math
+conda env create -f environment.yml
+conda activate mathchat
 ```
 
-Arguments:
+2. Create a `key.txt` file in `flaml/autogen/math`, and put your openai key in it. The key should allow GPT-4 usage.
 
 ```
-python main.py \
-  --prompt_type ['select', 'python', 'wolfram']  \
-  --max_round [default=15] \
-  --folder [default='./autotools'] \
-  --cache_folder [default='./cache'] \
-  --samples_per_category [default=20] \
-  --temperature [default=1, range[0,2]] \
-  --prompt_location [default='user', choose from ['user', 'system']]
-  --categories [default=[0,1], list of category ids below or 'all' (meaning all 7 categories)]
-  [--test_run] # test run
+echo "your_openai_key" > key.txt
 ```
 
-
-
-0 Algebra
-1 Counting & Probability
-2 Geometry
-3 Intermediate Algebra
-4 Number Theory
-5 Prealgebra
-6 Precalculus
-
-5. Check results from path `saving_folder` (default is './autotools).
-
-### Baselines
-
-1. Program of Thoughts (PoT)
+3. If you want to try out the wolfram prompt, you need to register a wolfram id and put it in `wolfram.txt`, which will be read in `main.py`.
 
 ```
-cd flaml/autogen/math_solver
-python baselines/PoT.py
+echo "your_wolfram_key" > wolfram.txt
 ```
 
-Arguments:
+## Run MathChat
 
+- Use `--categories` to select category to run, and `--samples_per_category` for number of samples. The problems are randomly selected from level-5 difficulty. Here are the category names and IDs:
+  ID : Category Name0 : Algebra1 : Counting & Probability2 : Geometry3 : Intermediate Algebra4 : Number Theory5 : Prealgebra6 : Precalculus
+- Test on 1 level-5 problem from Alegbra (`--categories 0`):
+
+```python
+python main.py -ptype default --folder ./default --categories 0 1 3 4 5 6 --samples_per_category 1
 ```
-python baselines/PoT.py \
-  --folder [default='./PoT'] \
-  --cache_folder [default='./cache/PoT'] \
-  --samples_per_category [default=20] \
-  [--dry_run] # output prompt with one problem from each category and do not query openai
+
+- Test on 1 level-5 problem from each category (except geometry):
+
+```python
+python main.py -ptype default --folder ./default --categories 0 1 3 4 5 6 --samples_per_category 1
 ```
 
-## Implementation
+Note: `default` is the default prompt for *MathChat*, other choices are `python` and `two_tools`.
 
-- `QueryHandler.py`:
+- Test on all problems from each category (except geometry):
 
-  - Function `handle_query`:
-    1. Parse all queries given an input string.
-    2. Iterate over queries and call python or wolfram
-    3. Return all results and a boolean indicating whether all the queries are executed without error.
-- `MathSolver.py`: Main solver using tools.
+```python
+python main.py -ptype default --folder ./default --categories 0 1 3 4 5 6 --samples_per_category 400
+```
 
-  - Setting:
+Note that no category has more that 400 problems, by setting `--samples_per_category 400` will take all problems.
 
-    - `use_cache=True`
-    - `oai.ChatCompletion.request_timeout = 60*10`
-    - `max_round=15`: max round of messages allowed
-    - `len(query_response) < 2000`: The response should have less than 2000 chars (around 600-1000 tokens). To prevent excessive decimal numbers from python code.
-    - `max_invalid_q_per_step=3`: For one step, if we keep getting invalide results for 3 times, we ask the LLM to solve the query itself.
-  - Function `make_conversation`: get response from openai, extract query from response and get results
+## Citation
 
-    - Answer is valid if '\boxed{}' is detected.
-    - Answer is invalid (return empty string) if
-      - exceed max_round  (of conversations)
-      - exceed max token (8192 for GPT-4)
-      - char count of query reply > 2000
-  - Function `solve_one_category`: Solve problems from one category.
+If you find this work helpful, please cite:
 
-    - Assumption 1: when called with a problem set, all problems are of the same type
-    - Assumption 2: if resume from a previous run, the sequence of problems from one category are the same as the previous run. This should be fine as long as the same shuffling seed is used.
-
-## Prompts
-
-Three prompts available: ['select', 'python', 'wolfram'].
-'select' allows the model to choose from two tools, 'python' and 'wolfram' corresponding to one tool only.
-
-Please see `math_solver.py` for the prompts.
+```bibtex
+@inproceedings{wu2023empirical,
+    title={An Empirical Study on Challenging Math Problem Solving with GPT-4},
+    author={Yiran Wu and Feiran Jia and Shaokun Zhang and Hangyu Li and Erkang Zhu and Yue Wang and Yin Tat Lee and Richard Peng and Qingyun Wu and Chi Wang},
+    year={2023},
+    booktitle={ArXiv preprint arXiv:2306.01337},
+}
+```

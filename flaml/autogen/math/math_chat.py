@@ -143,18 +143,6 @@ class MathChat:
                 total_cost += oai.ChatCompletion.cost(self.deafult_config["model"], raw_responses)
             config["messages"].append({"role": "assistant", "content": responses[0]})
             tmp_msg = ""
-            # if "[EOF]" in responses[0] or "EOF" in responses[0]:
-            #     _, is_query_exist = proxyagent.check_queries(responses[0])
-            #     if not is_query_exist:
-            #         if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
-            #             response_with_ans = responses[0]
-            #             response_with_new_ans = responses[0]
-            #             break
-            #         end_message = 'If you solved the problem, please conclude with "The answer is \\boxed{...}. Otherwise, continue solving the problem."'
-            #         config["messages"].append({"role": "user", "content": end_message})
-            #         save_message_to_file("user: {a}{s}".format(a=config["messages"][-1]["content"], s=seperate_line))
-            #         continue
-            #     tmp_msg = '\nAbove is the returned results. If the problem is solved, if you think you have solved it, please conclude with "The answer is \\boxed{...}."'
 
             if get_answer(responses[0]) is not None and get_answer(responses[0]) != "":
                 tmp_msg, is_query_exist = proxyagent.check_queries(responses[0])
@@ -185,9 +173,7 @@ class MathChat:
                 save_message_to_file(f"****: Replacing {query_response} ****\n")
                 query_response = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
                 is_query_sucess = False
-                # if (
-                #     "v4." in self.prompt_type and "Continue" in query_response
-                # ):  # to avoid changing queryhandler for python v4, change response here
+
                 query_response = 'Continue. (If you think the problem is finished, please reply "[EOF]")'
             if is_query_sucess:
                 query_response += tmp_msg  # add the query response from the previous step
@@ -219,7 +205,7 @@ class MathChat:
             "cost": total_cost,
         }
 
-    def str_splitter(self, string, length=300):
+    def str_splitter(self, string, length=500):
         """
         Add '\n' every 'length' characters to make the output more readable.
         If at 'length' there is a word, add '\n' before the word.
