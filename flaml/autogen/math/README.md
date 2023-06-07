@@ -6,6 +6,8 @@ Employing Large Language Models (LLMs) to address mathematical problems is an in
 
 More details are provided in our paper [An Empirical Study on Challenging Math Problem Solving with GPT-4](https://arxiv.org/abs/2306.01337).
 
+![Example Image](./mathchat.png)
+
 ## Environment Setup
 
 1. You can set up the environment using the following commands:
