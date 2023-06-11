@@ -393,11 +393,10 @@ Currently, the automatically generated reply is crafted based on automatic code 
 
 Example usage of the agents to solve a task with code:
 ```python
-from flaml.autogen.agent.assistant_agent import AssistantAgent
-from flaml.autogen.agent.user_proxy_agent import UserProxyAgent
+from flaml.autogen.agent import AssistantAgent, UserProxyAgent
 
-# create an AssistantAgent instance named "coding_agent"
-assistant = AssistantAgent("coding_agent", request_timeout=600, seed=42, config_list=config_list)
+# create an AssistantAgent instance named "assistant"
+assistant = AssistantAgent("assistant", request_timeout=600, seed=42, config_list=config_list)
 
 # create a UserProxyAgent instance named "user"
 user = UserProxyAgent(
@@ -414,18 +413,18 @@ assistant.receive(
     user,
 )
 ```
-In the example above, we create a AssistantAgent named "coding_agent" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
+In the example above, we create a AssistantAgent named "assistant" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
 1. The assistant receives a message from the user, which contains the task description.
 2. The assistant then tries to write Python code to solve the task and sends the response to the user.
-
 3. The user executes the code or provide feedback, and sends the result back to the assistant.
-
 4. The assistant then generates a further response for the user. The user can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
 
 *Interested in trying it yourself? Please check the following notebook examples of using the agents to perform tasks with code:*
-* [Use agents to perform tasks with auto-feedback from code execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
+* [Interactive LLM Agent with Auto Feedback from Code Execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
 
-* [Use agents to perform tasks with human feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_user_feedback.ipynb)
+* [Interactive LLM Agent with Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_human_feedback.ipynb)
+
+* [Interactive LLM Agent Dealing with Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_web_info.ipynb)
 
 ## Utilities for Applications
 
