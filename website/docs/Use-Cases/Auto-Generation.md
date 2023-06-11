@@ -391,7 +391,7 @@ We have designed different classes of Agents that are capable of communicating w
 ### `UserProxyAgent`
 `UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
 
-Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. This capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
+Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. We plan to add more capabilities in `UserProxyAgent` beyond code execution. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message. This auto-reply capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
 
 Example usage of the agents to solve a task with code:
 ```python
