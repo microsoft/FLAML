@@ -49,8 +49,3 @@ class Agent:
         """
         self._receive(message, sender)
         # perform actions based on the message
-
-    def reset(self):
-        """Reset the agent."""
-        self._memory = []
-        self._conversations.clear()
