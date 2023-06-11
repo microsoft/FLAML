@@ -386,10 +386,10 @@ We have designed different classes of Agents that are capable of communicating w
 
 ### `AssistantAgent`
 
-`AssistantAgent` is an Agent class designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (more specifically GPT-3.5-turbo or GPT-4 from OpenAI).
+`AssistantAgent` is an Agent class designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (e.g., GPT-4).
 
 ### `UserProxyAgent`
-`UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode`, `max_consecutive_auto_reply` defined when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
+`UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
 
 Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. This capability allows for seamless and interactive user-agent communication, even when human input is not immediately available.
 
@@ -398,28 +398,31 @@ Example usage of the agents to solve a task with code:
 from flaml.autogen.agent import AssistantAgent, UserProxyAgent
 
 # create an AssistantAgent instance named "assistant"
-assistant = AssistantAgent("assistant", request_timeout=600, seed=42, config_list=config_list)
+assistant = AssistantAgent(name="assistant")
 
-# create a UserProxyAgent instance named "user"
-user = UserProxyAgent(
-    "user",
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=10,
-    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'),
+# create a UserProxyAgent instance named "user_proxy"
+user_proxy = UserProxyAgent(
+    name="user_proxy",
+    human_input_mode="NEVER", # in this mode, the agent never solicit human input but always auto reply
+    max_consecutive_auto_reply=10, # the maximum number of consecutive auto replies
+    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'), # the function to determine whether a message is a termination message
     work_dir=".",
 )
 
 # the assistant receives a message from the user, which contains the task description
 assistant.receive(
     """What date is today? How much % has NVDA stock price changed in 2023?""",
-    user,
+    user_proxy,
 )
 ```
-In the example above, we create a AssistantAgent named "assistant" to serve as the assistant and a UserProxyAgent named "user" to serve as a proxy for the human user.
-1. The assistant receives a message from the user, which contains the task description.
-2. The assistant then tries to write Python code to solve the task and sends the response to the user.
-3. The user executes the code or provide feedback, and sends the result back to the assistant.
-4. The assistant then generates a further response for the user. The user can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
+In the example above, we create an AssistantAgent named "assistant" to serve as the assistant and a UserProxyAgent named "user_proxy" to serve as a proxy for the human user.
+1. The assistant receives a message from the user_proxy, which contains the task description.
+2. The assistant then tries to write Python code to solve the task and sends the response to the user_proxy.
+3. Once the user_proxy receives a response from the assistant, it tries to reply by either soliciting human input or preparing an automatically generated reply. In this specific example, since `human_input_mode` is set to `"NEVER"`, the user_proxy will not solicit human input but prepare an automatically generated reply (auto reply). More specifically, the user_proxy executes the code and uses the result as the auto-reply.
+4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
+
+Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops
+when the number of auto reply reaches the upper limit specified by `max_consecutive_auto_reply` or or when `is_termination_msg` is True.
 
 *Interested in trying it yourself? Please check the following notebook examples:*
 * [Interactive LLM Agent with Auto Feedback from Code Execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
