@@ -419,7 +419,7 @@ In the example above, we create a AssistantAgent named "assistant" to serve as t
 3. The user executes the code or provide feedback, and sends the result back to the assistant.
 4. The assistant then generates a further response for the user. The user can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
 
-*Interested in trying it yourself? Please check the following notebook examples of using the agents to perform tasks with code:*
+*Interested in trying it yourself? Please check the following notebook examples:*
 * [Interactive LLM Agent with Auto Feedback from Code Execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
 
 * [Interactive LLM Agent with Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_human_feedback.ipynb)
