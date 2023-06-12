@@ -3,8 +3,8 @@
 [![Build](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml/badge.svg)](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml)
 ![Python Version](https://img.shields.io/badge/3.7%20%7C%203.8%20%7C%203.9%20%7C%203.10-blue)
 [![Downloads](https://pepy.tech/badge/flaml)](https://pepy.tech/project/flaml)
-[![Join the chat at https://gitter.im/FLAMLer/community](https://badges.gitter.im/FLAMLer/community.svg)](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![](https://img.shields.io/discord/1025786666260111483?logo=discord&style=flat)](https://discord.gg/Cppx2vSPVP)
+<!-- [![Join the chat at https://gitter.im/FLAMLer/community](https://badges.gitter.im/FLAMLer/community.svg)](https://gitter.im/FLAMLer/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) -->
 
 
 # A Fast Library for Automated Machine Learning & Tuning
@@ -14,20 +14,21 @@
     <br>
 </p>
 
-:fire: OpenAI GPT-3 models support in v1.1.3. ChatGPT support is coming.
+:fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
 
-:fire: A [lab forum](https://github.com/microsoft/FLAML/tree/tutorial-aaai23/tutorial) on FLAML at AAAI 2023.
+:fire: [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
 
-:fire: A [hands-on tutorial](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) on FLAML presented at KDD 2022
+:fire: FLAML supports AutoML and Hyperparameter Tuning features in [Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview) private preview. Sign up for these features at: https://aka.ms/fabric/data-science/sign-up.
+
 
 ## What is FLAML
-FLAML is a lightweight Python library that finds accurate machine
-learning models automatically, efficiently and economically. It frees users from selecting
-models and hyperparameters for each model. It can also be used to tune generic hyperparameters for large language models (LLM), MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations and so on.
+FLAML is a lightweight Python library for efficient automation of machine
+learning and AI operations, including selection of
+models, hyperparameters, and other tunable choices of an application (e.g., inference hyperparameters for foundation models, configurations in MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations).
 
-1. For common machine learning or AI tasks like classification, regression, and generation, it quickly finds quality models for user-provided data with low computational resources. It supports both classical machine learning models and deep neural networks, including large language models such as the OpenAI GPT-3 models.
-1. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., scikit-style learner, search space and metric), or full customization (arbitrary training and evaluation code).
-1. It supports fast automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a new, [cost-effective
+* For foundation models like the GPT models, it automates the experimentation and optimization of their performance to maximize the effectiveness for applications and minimize the inference cost. FLAML enables users to build and use adaptive AI agents with minimal effort.
+* For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It is easy to customize or extend. Users can find their desired customizability from a smooth range: minimal customization (computational resource budget), medium customization (e.g., search space and metric), or full customization (arbitrary training/inference/evaluation code).
+* It supports fast and economical automatic tuning, capable of handling complex constraints/guidance/early stopping. FLAML is powered by a [cost-effective
 hyperparameter optimization](https://microsoft.github.io/FLAML/docs/Use-Cases/Tune-User-Defined-Function/#hyperparameter-optimization-algorithm)
 and model selection method invented by Microsoft Research, and many followup [research studies](https://microsoft.github.io/FLAML/docs/Research).
 
@@ -44,12 +45,13 @@ FLAML requires **Python version >= 3.7**. It can be installed from pip:
 pip install flaml
 ```
 
-To run the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook),
-install flaml with the [notebook] option:
-
+Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`autogen`](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package.
 ```bash
-pip install flaml[notebook]
+pip install "flaml[autogen]"
 ```
+
+Find more options in [Installation](Installation).
+Each of the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook) may require a specific option to be installed.
 
 ### .NET
 
@@ -61,6 +63,31 @@ Use the following guides to get started with FLAML in .NET:
 
 ## Quickstart
 
+* (New) The [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Auto-Generation) package can help you maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
+    - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
+    ```python
+    from flaml import oai
+
+    # perform tuning
+    config, analysis = oai.Completion.tune(
+        data=tune_data,
+        metric="success",
+        mode="max",
+        eval_func=eval_func,
+        inference_budget=0.05,
+        optimization_budget=3,
+        num_samples=-1,
+    )
+
+    # perform inference for a test instance
+    response = oai.Completion.create(context=test_instance, **config)
+    ```
+    - LLM-driven intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code.
+    ```python
+    assistant = AssistantAgent("assistant")
+    user = UserProxyAgent("user", human_input_mode="TERMINATE")
+    assistant.receive("Draw a rocket and save to a file named 'rocket.svg'")
+    ```
 * With three lines of code, you can start using this economical and fast
 AutoML engine as a [scikit-learn style estimator](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML).
 
@@ -101,13 +128,11 @@ You can find a detailed documentation about FLAML [here](https://microsoft.githu
 
 In addition, you can find:
 
-- [Talks](https://www.youtube.com/channel/UCfU0zfFXHXdAd5x-WvFBk5A) and [tutorials](https://github.com/microsoft/FLAML/tree/tutorial/tutorial) about FLAML.
+- [Research](https://microsoft.github.io/FLAML/docs/Research) and [blogposts](https://microsoft.github.io/FLAML/blog) around FLAML.
 
-- Research around FLAML [here](https://microsoft.github.io/FLAML/docs/Research).
+- [Discord](https://discord.gg/Cppx2vSPVP).
 
-- FAQ [here](https://microsoft.github.io/FLAML/docs/FAQ).
-
-- Contributing guide [here](https://microsoft.github.io/FLAML/docs/Contribute).
+- [Contributing guide](https://microsoft.github.io/FLAML/docs/Contribute).
 
 - ML.NET documentation and tutorials for [Model Builder](https://learn.microsoft.com/dotnet/machine-learning/tutorials/predict-prices-with-model-builder), [ML.NET CLI](https://learn.microsoft.com/dotnet/machine-learning/tutorials/sentiment-analysis-cli), and [AutoML API](https://learn.microsoft.com/dotnet/machine-learning/how-to-guides/how-to-use-the-automl-api).
 

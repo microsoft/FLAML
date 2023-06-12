@@ -38,9 +38,7 @@ class SearchThread:
         self._is_ls = isinstance(search_alg, FLOW2)
         self._mode = mode
         self._metric_op = 1 if mode == "min" else -1
-        self.cost_best = self.cost_last = self.cost_total = self.cost_best1 = getattr(
-            search_alg, "cost_incumbent", 0
-        )
+        self.cost_best = self.cost_last = self.cost_total = self.cost_best1 = getattr(search_alg, "cost_incumbent", 0)
         self._eps = eps
         self.cost_best2 = 0
         self.lexico_objectives = getattr(self._search_alg, "lexico_objectives", None)
@@ -68,11 +66,7 @@ class SearchThread:
         self.cost_attr = cost_attr
         if search_alg:
             self.space = self._space = search_alg.space  # unflattened space
-            if (
-                self.space
-                and not isinstance(search_alg, FLOW2)
-                and isinstance(search_alg._space, dict)
-            ):
+            if self.space and not isinstance(search_alg, FLOW2) and isinstance(search_alg._space, dict):
                 # remember const config
                 self._const = add_cost_to_space(self.space, {}, {})
 
@@ -89,10 +83,7 @@ class SearchThread:
                     # define by run
                     config, self.space = unflatten_hierarchical(config, self._space)
             except FloatingPointError:
-                logger.warning(
-                    "The global search method raises FloatingPointError. "
-                    "Ignoring for this iteration."
-                )
+                logger.warning("The global search method raises FloatingPointError. " "Ignoring for this iteration.")
                 config = None
         if config is not None:
             self.running += 1
@@ -202,14 +193,6 @@ class SearchThread:
                 / self.running
                 / (max(self.cost_total - self.cost_best2, self._eps))
             )
-        elif self.lexico_objectives != None and self.obj_best2 != self.obj_best1:
-            op_dimension = self._search_alg.op_dimension
-            op_index = self.lexico_objectives["metrics"].index(op_dimension)
-            self.speed[op_dimension] = (
-                (self.obj_best2[op_dimension] - self.obj_best1[op_dimension])
-                / self.running
-                / (max(self.cost_total - self.cost_best2, self._eps))
-            )
             for i in range(0, len(metrics)):
                 if i != op_index:
                     self.speed[self.lexico_objectives["metrics"][i]] = 0
@@ -220,24 +203,18 @@ class SearchThread:
                 for i in range(0, len(metrics)):
                     self.speed[self.lexico_objectives["metrics"][i]] = 0
 
-    def on_trial_complete(
-        self, trial_id: str, result: Optional[Dict] = None, error: bool = False
-    ):
+    def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """Update the statistics of the thread."""
         if not self._search_alg:
             return
-        if not hasattr(self._search_alg, "_ot_trials") or (
-            not error and trial_id in self._search_alg._ot_trials
-        ):
+        if not hasattr(self._search_alg, "_ot_trials") or (not error and trial_id in self._search_alg._ot_trials):
             # optuna doesn't handle error
             if self._is_ls or not self._init_config:
                 try:
                     self._search_alg.on_trial_complete(trial_id, result, error)
                 except RuntimeError as e:
                     # rs is used in place of optuna sometimes
-                    if not str(e).endswith(
-                        "has already finished and can not be updated."
-                    ):
+                    if not str(e).endswith("has already finished and can not be updated."):
                         raise e
             else:
                 # init config is not proposed by self._search_alg
@@ -275,9 +252,7 @@ class SearchThread:
         # TODO update the statistics of the thread with partial result?
         if not self._search_alg:
             return
-        if not hasattr(self._search_alg, "_ot_trials") or (
-            trial_id in self._search_alg._ot_trials
-        ):
+        if not hasattr(self._search_alg, "_ot_trials") or (trial_id in self._search_alg._ot_trials):
             try:
                 self._search_alg.on_trial_result(trial_id, result)
             except RuntimeError as e:

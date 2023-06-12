@@ -115,9 +115,9 @@ The estimator list can contain one or more estimator names, each corresponding t
     - 'xgboost': XGBoostSkLearnEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
     - 'xgb_limitdepth': XGBoostLimitDepthEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators,  max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
     - 'rf': RandomForestEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
-    it uses a fixed ranndom_state by default.
+    it uses a fixed random_state by default.
     - 'extra_tree': ExtraTreesEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
-    it uses a fixed ranndom_state by default.
+    it uses a fixed random_state by default.
     - 'lrl1': LRL1Classifier (sklearn.LogisticRegression with L1 regularization) for task "classification". Hyperparameters: C.
     - 'lrl2': LRL2Classifier (sklearn.LogisticRegression with L2 regularization) for task "classification". Hyperparameters: C.
     - 'catboost': CatBoostEstimator for task "classification" and "regression". Hyperparameters: early_stopping_rounds, learning_rate, n_estimators.
@@ -125,6 +125,7 @@ The estimator list can contain one or more estimator names, each corresponding t
     - 'prophet': Prophet for task "ts_forecast". Hyperparameters: changepoint_prior_scale, seasonality_prior_scale, holidays_prior_scale, seasonality_mode.
     - 'arima': ARIMA for task "ts_forecast". Hyperparameters: p, d, q.
     - 'sarimax': SARIMAX for task "ts_forecast". Hyperparameters: p, d, q, P, D, Q, s.
+    - 'holt-winters': Holt-Winters (triple exponential smoothing) model for task "ts_forecast". Hyperparameters: seasonal_perdiods, seasonal, use_boxcox, trend, damped_trend.
     - 'transformer': Huggingface transformer models for task "seq-classification", "seq-regression", "multichoice-classification", "token-classification" and "summarization". Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
     - 'temporal_fusion_transformer': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate. There is a [known issue](https://github.com/jdb78/pytorch-forecasting/issues/1145) with pytorch-forecast logging.
 * Custom estimator. Use custom estimator for:
@@ -144,36 +145,36 @@ import rgf
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
-  def __init__(self, task="binary", **config):
-    super().__init__(task, **config)
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
 
-    if task in CLASSIFICATION:
-      from rgf.sklearn import RGFClassifier
+        if task in CLASSIFICATION:
+        from rgf.sklearn import RGFClassifier
 
-      self.estimator_class = RGFClassifier
-    else:
-      from rgf.sklearn import RGFRegressor
+        self.estimator_class = RGFClassifier
+        else:
+        from rgf.sklearn import RGFRegressor
 
-      self.estimator_class = RGFRegressor
+        self.estimator_class = RGFRegressor
 
-  @classmethod
-  def search_space(cls, data_size, task):
-    space = {
-      "max_leaf": {
-        "domain": tune.lograndint(lower=4, upper=data_size),
-        "low_cost_init_value": 4,
-      },
-      "n_iter": {
-        "domain": tune.lograndint(lower=1, upper=data_size),
-        "low_cost_init_value": 1,
-      },
-      "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-      "min_samples_leaf": {
-        "domain": tune.lograndint(lower=1, upper=20),
-        "init_value": 20,
-      },
-    }
-    return space
+    @classmethod
+    def search_space(cls, data_size, task):
+        space = {
+        "max_leaf": {
+            "domain": tune.lograndint(lower=4, upper=data_size),
+            "low_cost_init_value": 4,
+        },
+        "n_iter": {
+            "domain": tune.lograndint(lower=1, upper=data_size),
+            "low_cost_init_value": 1,
+        },
+        "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
+        "min_samples_leaf": {
+            "domain": tune.lograndint(lower=1, upper=20),
+            "init_value": 20,
+        },
+        }
+        return space
 ```
 
 In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](../reference/automl/model#xgboostestimator-objects). Importantly, we also add the `task="binary"` parameter in the signature of `__init__` so that it doesn't get grouped together with the `**config` kwargs that determines the parameters with which the underlying estimator (`self.estimator_class`) is constructed. If your estimator doesn't use one of the parameters that it is passed, for example some regressors in `scikit-learn` don't use the `n_jobs` parameter, it is enough to add `n_jobs=None` to the signature so that it is ignored by the `**config` dict.
@@ -208,18 +209,18 @@ from flaml.automl.model import XGBoostEstimator
 
 
 def logregobj(preds, dtrain):
-  labels = dtrain.get_label()
-  preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
-  grad = preds - labels
-  hess = preds * (1.0 - preds)
-  return grad, hess
+    labels = dtrain.get_label()
+    preds = 1.0 / (1.0 + np.exp(-preds))  # transform raw leaf weight
+    grad = preds - labels
+    hess = preds * (1.0 - preds)
+    return grad, hess
 
 
 class MyXGB1(XGBoostEstimator):
-  """XGBoostEstimator with logregobj as the objective function"""
+    """XGBoostEstimator with logregobj as the objective function"""
 
-  def __init__(self, **config):
-    super().__init__(objective=logregobj, **config)
+    def __init__(self, **config):
+        super().__init__(objective=logregobj, **config)
 ```
 
 We override the constructor and set the training objective as a custom function `logregobj`. The hyperparameters and their search range do not change. For another example,
@@ -413,7 +414,7 @@ To do parallel tuning with Spark, install the `spark` and `blendsearch` options:
 pip install flaml[spark,blendsearch]>=1.1.0
 ```
 
-For more details about installing Spark, please refer to [Installation](../Installation#Distributed-tuning).
+For more details about installing Spark, please refer to [Installation](../Installation#distributed-tuning).
 
 An example of using Spark for parallel tuning is:
 ```python
@@ -476,6 +477,18 @@ with mlflow.start_run():
     automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
 
+To disable mlflow logging pre-configured in FLAML, set `mlflow_logging=False`:
+```python
+automl = AutoML(mlflow_logging=False)
+```
+or
+```python
+automl.fit(X_train=X_train, y_train=y_train, mlflow_logging=False, **settings)
+```
+
+Setting `mlflow_logging=False` in the constructor will disable mlflow logging for all the `fit()` calls.
+Setting `mlflow_logging=False` in `fit()` will disable mlflow logging for that `fit()` call only.
+
 ### Extra fit arguments
 
 Extra fit arguments that are needed by the estimators can be passed to `AutoML.fit()`. For example, if there is a weight associated with each training example, they can be passed via `sample_weight`. For another example, `period` can be passed for time series forecaster. For any extra keywork argument passed to `AutoML.fit()` which has not been explicitly listed in the function signature, it will be passed to the underlying estimators' `fit()` as is. For another example, you can set the number of gpus used by each trial with the `gpu_per_trial` argument, which is only used by TransformersEstimator and XGBoostSklearnEstimator.
@@ -502,7 +515,7 @@ automl_settings = {
 automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 ```
 
-## Retrieve and analyze the outcomes of AutoML.fit()
+## Retrieve the Outcomes
 
 ### Get best model
 
