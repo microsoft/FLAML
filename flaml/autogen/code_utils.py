@@ -260,7 +260,7 @@ def execute_code(
         container.remove()
         if original_filename is None:
             os.remove(filepath)
-        return 1, "Timeout", image
+        return 1, bytes("Timeout", "utf-8"), image
     # try:
     #     container.wait(timeout=timeout)
     # except (ReadTimeout, ConnectionError):
