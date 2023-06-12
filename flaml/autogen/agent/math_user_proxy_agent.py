@@ -80,6 +80,15 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
 Problem: """,
 }
 
+def is_termination_msg(x):
+    """Check if a message is a termination message."""
+    cb = extract_code(x)
+    contain_code = False
+    for c in cb:
+        if c[0] == "python" or c[0] == "wolfram":
+            contain_code = True
+            break
+    return not contain_code and get_answer(x) is not None and get_answer(x) != ""
 
 class MathUserProxyAgent(UserProxyAgent):
     """(Experimental) A MathChat agent that can handle math problems."""
@@ -93,7 +102,7 @@ class MathUserProxyAgent(UserProxyAgent):
         work_dir=None,
         human_input_mode="NEVER",  # Fully automated
         max_consecutive_auto_reply=None,
-        is_termination_msg=None,
+        is_termination_msg=is_termination_msg,
         use_docker=True,
         max_invalid_q_per_step=3,  # a parameter needed in MathChat
         **config,
@@ -111,7 +120,7 @@ class MathUserProxyAgent(UserProxyAgent):
                 (2) When "TERMINATE", the agent only prompts for human input only when a termination message is received or
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
-                    when the number of auto reply reaches the max_consecutive_auto_reply or or when is_termination_msg is True.
+                    when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -120,17 +129,6 @@ class MathUserProxyAgent(UserProxyAgent):
             use_docker (bool): whether to use docker to execute the code.
             **config (dict): other configurations.
         """
-        if is_termination_msg is None:
-
-            def is_termination_msg(x):
-                cb = extract_code(x)
-                contain_code = False
-                for c in cb:
-                    if c[0] == "python" or c[0] == "wolfram":
-                        contain_code = True
-                        break
-                return not contain_code and get_answer(x) is not None and get_answer(x) != ""
-
         super().__init__(
             name=name,
             system_message=system_message,
@@ -152,7 +150,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self._previous_code = ""
         self.last_reply = None
 
-    def init_chat(self, problem, prompt_type="default", customized_prompt=None):
+    def generate_prompt(self, problem, prompt_type="default", customized_prompt=None):
         self._reset()
         if customized_prompt is not None:
             return customized_prompt + problem
@@ -193,7 +191,7 @@ class MathUserProxyAgent(UserProxyAgent):
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
         pycode = self._previous_code + self._add_print_to_last_line(pycode)
 
-        return_code, output, _ = execute_code(pycode, use_docker=False, timeout=5)
+        return_code, output, _ = execute_code(pycode, use_docker=self._use_docker, timeout=5)
         is_success = return_code == 0
 
         # Decode the output
@@ -229,14 +227,14 @@ class MathUserProxyAgent(UserProxyAgent):
         if is_success:
             # remove print and check if it still works
             tmp = self._previous_code + "\n" + self._remove_print(pycode) + "\n"
-            rcode, _, _ = execute_code(tmp, use_docker=False)
+            rcode, _, _ = execute_code(tmp, use_docker=self._use_docker)
         else:
             # only add imports and check if it works
             tmp = self._previous_code + "\n"
             for line in pycode.split("\n"):
                 if "import" in line:
                     tmp += line + "\n"
-            rcode, _, _ = execute_code(tmp, use_docker=False)
+            rcode, _, _ = execute_code(tmp, use_docker=self._use_docker)
 
         if rcode == 0:
             self._previous_code = tmp
@@ -301,7 +299,29 @@ class MathUserProxyAgent(UserProxyAgent):
             self._send(reply, sender)
 
 
-# Imported from langchain
+# Imported from langchain. Langchain is licensed under MIT License:
+# The MIT License
+
+# Copyright (c) Harrison Chase
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 def get_from_dict_or_env(data: Dict[str, Any], key: str, env_key: str, default: Optional[str] = None) -> str:
     """Get a value from a dictionary or an environment variable."""
     if key in data and data[key]:
