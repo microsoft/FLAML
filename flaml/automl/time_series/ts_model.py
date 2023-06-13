@@ -698,7 +698,7 @@ class TS_SKLearn(TimeSeriesEstimator):
             horizon=horizon,
             lags=lags,
             init_params=est_params,
-            pca_features=self.params["pca_features"],
+            pca_features=self.params.get("pca_features", False),
         )
         self._model.fit(X_train[self.regressors], y_train)
 

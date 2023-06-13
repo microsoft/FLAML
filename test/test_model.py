@@ -108,6 +108,28 @@ def test_prep():
     except ValueError:
         # X_test needs to be either a pandas Dataframe with dates as the first column or an int number of periods for predict().
         pass
+    lgbm = LGBM_TS(lags=1)
+    X = DataFrame(
+        {
+            "A": [
+                datetime(1900, 3, 1),
+                datetime(1900, 3, 2),
+                datetime(1900, 3, 3),
+                datetime(1900, 3, 4),
+                datetime(1900, 3, 5),
+                datetime(1900, 3, 6),
+            ],
+        }
+    )
+    y = np.array([0, 1, 0, 1, 0, 0])
+    lgbm.predict(X[:2])
+    df = X.copy()
+    df["y"] = y
+    tsds = TimeSeriesDataset(df, time_col="A", target_names="y")
+    lgbm.fit(tsds, period=2)
+    lgbm.predict(X[:2])
+    print(lgbm.feature_names_in_)
+    print(lgbm.feature_importances_)
 
 
 if __name__ == "__main__":
