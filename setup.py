@@ -43,8 +43,6 @@ setuptools.setup(
         ],
         "notebook": [
             "jupyter",
-            "matplotlib",
-            "openml",
         ],
         "spark": [
             "pyspark>=3.2.0",
@@ -131,7 +129,7 @@ setuptools.setup(
             "pytorch-lightning==1.9.0",
             "tensorboardX==2.6",
         ],
-        "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3"],
+        "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
         "openai": ["openai==0.27.4", "diskcache"],
         "autogen": ["openai==0.27.4", "diskcache", "docker"],
         "synapse": [
