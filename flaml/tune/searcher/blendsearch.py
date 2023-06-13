@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 from typing import Dict, Optional, List, Tuple, Callable, Union
+from collections import defaultdict
 import numpy as np
 import time
 import pickle
@@ -165,7 +166,6 @@ class BlendSearch(Searcher):
         self.lexico_objectives = lexico_objectives
         self._histories = None
         self._f_best = None
-        self._f_worst = None
         init_config = low_cost_partial_config or {}
         if not init_config:
             logger.info(
@@ -277,7 +277,6 @@ class BlendSearch(Searcher):
             k_values = np.array(self._histories[k_metric])
             feasible_value = k_values.take(feasible_index)
             self._f_best[k_metric] = np.min(feasible_value)
-            self._f_worst[k_metric] = np.max(feasible_value)
             if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
                 tolerance_bound = (
                     self._f_best[k_metric]
@@ -386,8 +385,6 @@ class BlendSearch(Searcher):
         self._subspace = {}  # the subspace for each trial id
         if self.lexico_objectives is None:
             self._metric_target = np.inf * self._ls.metric_op
-        else:
-            self._metric_target = {k: np.inf * self._ls.metric_op for k_metric self.lexico_objectives["metrics"]}
         self._search_thread_pool = {
             # id: int -> thread: SearchThread
             0: SearchThread(self._ls.mode, self._gs, self.cost_attr, self._eps)
@@ -412,7 +409,7 @@ class BlendSearch(Searcher):
         self._gs_admissible_min = self._ls_bound_min.copy()
         self._gs_admissible_max = self._ls_bound_max.copy()
 
-        if self._metric_constraints:  # check: remove
+        if self._metric_constraints:  
             self._metric_constraint_satisfied = False
             self._metric_constraint_penalty = [self.penalty for _ in self._metric_constraints]
         else:
@@ -454,7 +451,7 @@ class BlendSearch(Searcher):
         )
         if not isinstance(self.lexico_objectives["tolerances"][metric], str):
             tolerance_bound = (
-                self.f_best[metric]
+                self._f_best[metric]
                 + self.lexico_objectives["tolerances"][metric]
             )
         else:
@@ -515,7 +512,7 @@ class BlendSearch(Searcher):
         if result:
             if self.lexico_objectives:
                 if self._histories is None:
-                    self._histories, self._f_best, self._f_worst = defaultdict(list), {}, {}
+                    self._histories, self._f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                     self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -result[k_metric])
                 self.update_fbest()
@@ -533,27 +530,10 @@ class BlendSearch(Searcher):
                 self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
-                objective = result[self._ls.metric]
-                if self.lexico_objectives is None and (objective - self._metric_target) * self._ls.metric_op < 0:
-                    self._metric_target = objective
-                else:
-                    for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                        bound = _get_lexico_bound(k_metric, k_mode)
-                        if (objective[k_metric] * self._ls.metric_op < bound) and (self._metric_target[k_metric] * self._ls.metric_op < bound):
-                            continue
-                        elif objective[k_metric] * self._ls.metric_op < self._metric_target[k_metric] * self._ls.metric_op:
-                            self._metric_target = objective
-                            break
-                        else:
-                            break
-                    for k_metr in self.lexico_objectives["metrics"]:
-                        if objective[k_metr] == self._metric_target[k_metr]:
-                            continue
-                        elif objective[k_metr] * self._ls.metric_op < self._metric_target[k_metr] * self._ls.metric_op:
-                            self._metric_target = objective
-                            break
-                        else:
-                            break
+                if self.lexico_objectives is None:
+                    objective = result[self._ls.metric]
+                    if (objective - self._metric_target) * self._ls.metric_op < 0:
+                        self._metric_target = objective
                 if self._ls.resource:
                     self._best_resource = config[self._ls.resource_attr]
                 if thread_id:
@@ -740,35 +720,31 @@ class BlendSearch(Searcher):
                 upper[key] += self._ls.STEPSIZE
                 lower[key] -= self._ls.STEPSIZE
 
-    def _lexico_inferior(self, objective_1: Union[dict, float], objective_2: Union[dict, float]) -> bool:
-        if isinstance(objective_1, dict) and isinstance(objective_2, dict):
+    def _priority_inferior(self, priority_1: Union[dict, float], priority_2: Union[dict, float]) -> bool:
+        if self.lexico_objectives:
             for k_metric, k_mode in zip(
                 self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
             ):
-                bound = _get_lexico_bound(k_metric, k_mode):
-                if (objective_1[k_metric] < bound) and (self.objective_2[k_metric] < bound):
+                bound = self._get_lexico_bound(k_metric, k_mode)
+                if (priority_1[k_metric] < bound) and (priority_2[k_metric] < bound):
                     continue
-                elif objective_1[k_metric] < self.objective_2[k_metric]:
+                elif priority_1[k_metric] < priority_2[k_metric]:
                     return True
                 else:
                     return False
             for k_metr in self.lexico_objectives["metrics"]:
-                if objective_1[k_metr] == self.objective_2[k_metr]:
+                if priority_1[k_metr] == priority_2[k_metr]:
                     continue
-                elif objective_1[k_metr] < self.objective_2[k_metr]:
+                elif priority_1[k_metr] < priority_2[k_metr]:
                     return True
                 else:
                     return False
         else:
-            priority_1 = - objective_1[self.lexico_objectives[self.lexico_objectives["metrics"]
-                                                              [0]]] if isinstance(objective_1, dict) else objective_1
-            priority_2 = - objective_2[self.lexico_objectives[self.lexico_objectives["metrics"]
-                                                              [0]]] if isinstance(objective_2, dict) else objective_2
-            if priority_1 > priority_2:
+            if priority_1 > priority_2: 
                 return True
             else:
                 return False
-
+            
     def _inferior(self, id1: int, id2: int) -> bool:  # check
         """whether thread id1 is inferior to id2"""
         t1 = self._search_thread_pool[id1]
@@ -792,7 +768,7 @@ class BlendSearch(Searcher):
             result[self._metric + self.lagrange] = result[self._metric]
             if self.lexico_objectives:
                 if self._histories is None:
-                    self._histories, self._f_best, self._f_worst = defaultdict(list), {}, {}
+                    self._histories, self._f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                     self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -result[k_metric])
                 self.update_fbest()
@@ -998,19 +974,31 @@ class BlendSearch(Searcher):
             num_proposed = num_finished + len(self._trial_proposed_by)
             min_eci = max(self._num_samples - num_proposed, 0)
         # update priority
-        if self.lexico_objectives is not None:
+        if self.lexico_objectives is None:
             max_speed = 0
+            min_speed = float("inf")
             for thread in self._search_thread_pool.values():
                 if thread.speed > max_speed:
                     max_speed = thread.speed
+                if thread.speed < min_speed:
+                    min_speed = thread.speed
         else:
-            max_speed = {k: 0, for k in self.lexico_objectives["metrics"]}
+            max_speed = {k: 0 for k in self.lexico_objectives["metrics"]}
+            min_speed = {k: float("inf") for k in self.lexico_objectives["metrics"]}
             for k_metric in self.lexico_objectives["metrics"]:
                 for thread in self._search_thread_pool.values():
                     if thread.speed[k_metric] > max_speed[k_metric]:
                         max_speed[k_metric] = thread.speed[k_metric]
+                    if thread.speed[k_metric] < min_speed[k_metric]:
+                        min_speed[k_metric] = thread.speed[k_metric]
         for thread in self._search_thread_pool.values():
-            thread.update_eci(self._metric_target, max_speed)
+            if self.lexico_objectives is None:
+                thread.update_eci(self._metric_target, max_speed, min_speed)
+            else: 
+                _metric_1st = self.lexico_objectives["metrics"][0]
+                _op_1st = self.lexico_objectives["modes"][_metric_1st]
+                _lexico_target = self._f_best[_metric_1st] if _op_1st == "min" else -1 * self._f_best[_metric_1st]
+                thread.update_eci(_lexico_target, max_speed, min_speed)
             if thread.eci < min_eci:
                 min_eci = thread.eci
         for thread in self._search_thread_pool.values():
@@ -1021,14 +1009,10 @@ class BlendSearch(Searcher):
         for thread_id, thread in self._search_thread_pool.items():
             if thread_id and thread.can_suggest:
                 priority = thread.priority
-                inferior_condition1 = (self.lexico_objectives and _lexico_inferior(priority, priority1)) or (
-                    self.lexico_objectives is None and priority > priority1)
-                inferior_condition2 = (self.lexico_objectives and _lexico_inferior(priority, priority2)) or (
-                    self.lexico_objectives is None and priority > priority2)
-                if inferior_condition1:
+                if self._priority_inferior(priority, priority1):
                     priority1 = priority
                     top_thread_id = thread_id
-                if inferior_condition2 or backup_thread_id == 0:
+                if self._priority_inferior(priority, priority2) or backup_thread_id == 0:
                     priority2 = priority
                     backup_thread_id = thread_id
         return top_thread_id, backup_thread_id

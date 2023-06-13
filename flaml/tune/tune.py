@@ -83,7 +83,7 @@ class ExperimentAnalysis(EA):
             k_values = np.array(histories[k_metric])
             k_target = (
                 -self.lexico_objectives["targets"][k_metric]
-                if k_mode == "max"
+                if  == "max"
                 else self.lexico_objectives["targets"][k_metric]
             )
             feasible_value = k_values.take(feasible_index)
