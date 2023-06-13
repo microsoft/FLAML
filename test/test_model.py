@@ -116,6 +116,8 @@ def test_prep():
                 datetime(1900, 3, 2),
                 datetime(1900, 3, 3),
                 datetime(1900, 3, 4),
+                datetime(1900, 3, 4),
+                datetime(1900, 3, 4),
                 datetime(1900, 3, 5),
                 datetime(1900, 3, 6),
             ],
