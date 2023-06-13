@@ -403,9 +403,9 @@ assistant = AssistantAgent(name="assistant")
 # create a UserProxyAgent instance named "user_proxy"
 user_proxy = UserProxyAgent(
     name="user_proxy",
-    human_input_mode="NEVER", # in this mode, the agent never solicit human input but always auto reply
-    max_consecutive_auto_reply=10, # the maximum number of consecutive auto replies
-    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'), # the function to determine whether a message is a termination message
+    human_input_mode="NEVER",  # in this mode, the agent will never solicit human input but always auto reply
+    max_consecutive_auto_reply=10,  # the maximum number of consecutive auto replies
+    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'),  # the function to determine whether a message is a termination message
     work_dir=".",
 )
 
@@ -419,10 +419,9 @@ In the example above, we create an AssistantAgent named "assistant" to serve as 
 1. The assistant receives a message from the user_proxy, which contains the task description.
 2. The assistant then tries to write Python code to solve the task and sends the response to the user_proxy.
 3. Once the user_proxy receives a response from the assistant, it tries to reply by either soliciting human input or preparing an automatically generated reply. In this specific example, since `human_input_mode` is set to `"NEVER"`, the user_proxy will not solicit human input but prepare an automatically generated reply (auto reply). More specifically, the user_proxy executes the code and uses the result as the auto-reply.
-4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation or continue to request more information. If the latter, steps 3 and 4 are repeated.
+4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation. If not, steps 3 and 4 are repeated.
 
-Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops
-when the number of auto-reply reaches the upper limit specified by `max_consecutive_auto_reply` or when `is_termination_msg` is True.
+Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops when the number of auto-reply reaches the upper limit specified by `max_consecutive_auto_reply` or the received message is a termination message according to `is_termination_msg`. When `human_input_mode` is set to `"ALWAYS"`, the user proxy agent solicits human input every time a message is received; and the conversation stops when the human input is "exit", or when the received message is a termination message and no human input is provided.  When `human_input_mode` is set to `"TERMINATE"`, the user proxy agent solicits human input only when a termination message is received or the number of auto reply reaches `max_consecutive_auto_reply`.
 
 *Interested in trying it yourself? Please check the following notebook examples:*
 * [Interactive LLM Agent with Auto Feedback from Code Execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
