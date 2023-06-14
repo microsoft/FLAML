@@ -2,11 +2,15 @@ import torch
 import thop
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 from flaml import tune
 from collections import defaultdict
 import math
 import numpy as np
+
+try:
+    import torchvision
+except ImportError:
+    torchvision = None
 
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128
@@ -33,6 +37,9 @@ def _BraninCurrin(config):
 
 
 def test_lexiflow():
+    if torchvision is None:
+        return False
+
     train_dataset = torchvision.datasets.FashionMNIST(
         "test/data",
         train=True,
