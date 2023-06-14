@@ -411,7 +411,7 @@ user_proxy = UserProxyAgent(
 
 # the assistant receives a message from the user, which contains the task description
 assistant.receive(
-    """What date is today? How much % has NVDA stock price changed in 2023?""",
+    """What date is today? Which big tech stock has the largest year-to-date gain this year? How much is the gain?""",
     user_proxy,
 )
 ```
