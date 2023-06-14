@@ -421,6 +421,9 @@ In the example above, we create an AssistantAgent named "assistant" to serve as 
 3. Once the user_proxy receives a response from the assistant, it tries to reply by either soliciting human input or preparing an automatically generated reply. In this specific example, since `human_input_mode` is set to `"NEVER"`, the user_proxy will not solicit human input but prepare an automatically generated reply (auto reply). More specifically, the user_proxy executes the code and uses the result as the auto-reply.
 4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation. If not, steps 3 and 4 are repeated.
 
+Please find a visual illustration of how UserProxyAgent and AssistantAgent collaboratively solve the above task below:
+![AgentDesign](images/agent_design.png)
+
 Notes:
 - Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops when the number of auto-reply reaches the upper limit specified by `max_consecutive_auto_reply` or the received message is a termination message according to `is_termination_msg`.
 - When `human_input_mode` is set to `"ALWAYS"`, the user proxy agent solicits human input every time a message is received; and the conversation stops when the human input is "exit", or when the received message is a termination message and no human input is provided.
