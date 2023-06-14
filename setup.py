@@ -73,7 +73,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
+            "pytorch-forecasting>=0.9.0",
             "mlflow",
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
