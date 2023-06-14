@@ -480,7 +480,7 @@ class BlendSearch(Searcher):
     def is_ls_ever_converged(self):
         return self._is_ls_ever_converged
 
-    def on_trial_complete(  # check
+    def on_trial_complete(  
         self, trial_id: str, result: Optional[Dict] = None, error: bool = False
     ):
         """search thread updater and cleaner."""
@@ -637,14 +637,21 @@ class BlendSearch(Searcher):
                 elif value < admissible_min[key]:
                     admissible_min[key] = value
 
-    def _create_condition(self, result: Dict) -> bool:  # check
+    def _create_condition(self, result: Dict) -> bool:  
         """create thread condition"""
         if len(self._search_thread_pool) < 2:
             return True
-        obj_median = np.median([thread.obj_best1 for id, thread in self._search_thread_pool.items() if id])
-        return result[self._ls.metric] * self._ls.metric_op < obj_median
+        if not self.lexico_objectives:
+            obj_median = np.median([thread.obj_best1 for id, thread in self._search_thread_pool.items() if id])
+            return result[self._ls.metric] * self._ls.metric_op < obj_median
+        else:
+            thread_pools = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
+            self._lexico_sort(thread_pools)
+            obj_median = thread_pools[round(len(thread_pools)/2)]
+            result = self._unify_op(result)
+            return self._lexico_inferior(obj_median, result)
 
-    def _clean(self, thread_id: int):  # check
+    def _clean(self, thread_id: int):  
         """delete thread and increase admissible region if converged,
         merge local threads if they are close
         """
@@ -668,7 +675,7 @@ class BlendSearch(Searcher):
                 self._ls_bound_max,
                 self._search_thread_pool[thread_id].space,
             )
-            if self._candidate_start_points:
+            if self._candidate_start_points and not self.lexico_objectives:
                 if not self._started_from_given:
                     # remove start points whose perf is worse than the converged
                     obj = self._search_thread_pool[thread_id].obj_best1
@@ -687,14 +694,16 @@ class BlendSearch(Searcher):
         if create_new:
             self._create_thread_from_best_candidate()
 
-    def _create_thread_from_best_candidate(self):  # check
+    def _create_thread_from_best_candidate(self):  
         # find the best start point
         best_trial_id = None
         obj_best = None
         for trial_id, r in self._candidate_start_points.items():
-            if r and (best_trial_id is None or r[self._ls.metric] * self._ls.metric_op < obj_best):
-                best_trial_id = trial_id
-                obj_best = r[self._ls.metric] * self._ls.metric_op
+            if r: 
+                r = self._unify_op(r)
+                if best_trial_id is None or self._lexico_inferior(obj_best, r):
+                    best_trial_id = trial_id
+                    obj_best = r
         if best_trial_id:
             # create a new thread
             config = {}
@@ -720,36 +729,54 @@ class BlendSearch(Searcher):
                 upper[key] += self._ls.STEPSIZE
                 lower[key] -= self._ls.STEPSIZE
 
-    def _priority_inferior(self, priority_1: Union[dict, float], priority_2: Union[dict, float]) -> bool:
+    def _lexico_inferior(self, obj_1: Union[dict, float], obj_2: Union[dict, float]) -> bool:
         if self.lexico_objectives:
             for k_metric, k_mode in zip(
                 self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
             ):
                 bound = self._get_lexico_bound(k_metric, k_mode)
-                if (priority_1[k_metric] < bound) and (priority_2[k_metric] < bound):
+                if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
-                elif priority_1[k_metric] < priority_2[k_metric]:
-                    return True
-                else:
+                elif obj_1[k_metric] < obj_2[k_metric]:
                     return False
+                else:
+                    return True
             for k_metr in self.lexico_objectives["metrics"]:
-                if priority_1[k_metr] == priority_2[k_metr]:
+                if obj_1[k_metr] == obj_2[k_metr]:
                     continue
-                elif priority_1[k_metr] < priority_2[k_metr]:
-                    return True
-                else:
+                elif obj_1[k_metr] < obj_2[k_metr]:
                     return False
+                else:
+                    return True
         else:
-            if priority_1 > priority_2: 
+            if obj_1 > obj_2: 
                 return True
             else:
                 return False
+    
+    def _unify_op(self, result: Union[dict, float]):
+        if isinstance(result, dict):
+            for k_metric, k_mode in zip(
+                self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
+            ):
+                result[k_metric] = -1 * result[k_metric] if k_mode == "max" else result[k_metric]
+        else:
+            result[self._ls.metric] = result[self._ls.metric] * self._ls.metric_op
+        return result
+
+    
+    def _lexico_sort(self, arr: list):
+        n = len(arr)
+        for i in range(n):
+            for j in range(0, n - i - 1):
+                if self._lexico_(arr[j], arr[j + 1]):
+                    arr[j], arr[j + 1] = arr[j + 1], arr[j]
             
-    def _inferior(self, id1: int, id2: int) -> bool:  # check
+    def _inferior(self, id1: int, id2: int) -> bool:  
         """whether thread id1 is inferior to id2"""
         t1 = self._search_thread_pool[id1]
         t2 = self._search_thread_pool[id2]
-        if t1.obj_best1 < t2.obj_best2:
+        if self._lexico_inferior(t2.obj_best2, t1.obj_best1):
             return False
         elif t1.resource and t1.resource < t2.resource:
             return False
@@ -1009,10 +1036,10 @@ class BlendSearch(Searcher):
         for thread_id, thread in self._search_thread_pool.items():
             if thread_id and thread.can_suggest:
                 priority = thread.priority
-                if self._priority_inferior(priority, priority1):
+                if not self._lexico_inferior(priority, priority1):
                     priority1 = priority
                     top_thread_id = thread_id
-                if self._priority_inferior(priority, priority2) or backup_thread_id == 0:
+                if not self._lexico_inferior(priority, priority2) or backup_thread_id == 0:
                     priority2 = priority
                     backup_thread_id = thread_id
         return top_thread_id, backup_thread_id

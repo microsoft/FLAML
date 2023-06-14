@@ -296,7 +296,7 @@ class FLOW2(Searcher):
             flow2.best_obj = {}
             for k, v in obj.items():
                 flow2.best_obj[k] = (
-                    -v if self.lexico_objectives["modes"][self.lexico_objectives["metrics"].index(k)] == "max" else v
+                    -1 * v if self.lexico_objectives["modes"][self.lexico_objectives["metrics"].index(k)] == "max" else v
                 )
         else:
             flow2.best_obj = obj * self.metric_op  # minimize internally

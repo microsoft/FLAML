@@ -194,7 +194,7 @@ class SearchThread:
                 # init config is not proposed by self._search_alg
                 # under this thread
                 self._init_config = False
-        if result: # check
+        if result: 
             self.cost_last = result.get(self.cost_attr, 1)
             self.cost_total += self.cost_last
             if self._search_alg.metric in result:
