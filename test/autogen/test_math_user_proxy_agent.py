@@ -2,7 +2,9 @@ from flaml import oai
 from flaml.autogen.agent.math_user_proxy_agent import MathUserProxyAgent
 import pytest
 import sys
+
 KEY_LOC = "test/autogen"
+
 
 @pytest.mark.skipif(
     sys.platform in ["darwin", "win32"],
@@ -53,6 +55,7 @@ def test_add_remove_print():
     # test remove print. Only remove prints without indentation
     code = "if 4 > 5:\n\tprint('True')"
     assert mathproxyagent._remove_print(code) == code
+
 
 @pytest.mark.skipif(
     sys.platform in ["darwin", "win32"],
