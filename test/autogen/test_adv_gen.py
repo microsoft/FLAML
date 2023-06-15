@@ -61,15 +61,17 @@ class SimpleArith:
 
     @staticmethod
     def test_func(example, eval_out):
-        lhs = eval(re.findall(r"^(.*?)=", example["input"])[0].strip())
+        logger.info(f"example input = {example['input']}")
         try:
-            rhs = int(eval_out)
+            lhs = eval(re.findall(r"^(.*?)=", example["input"])[0].strip())
+            logger.info(f"example={example}, llm_response={eval_out}")
+            rhs = float(eval_out)
+            return lhs == rhs
         except:
-            rhs = 0
+            logger.info('eval was unsuccessful due to errors')
+            return -1
 
-        logger.info(f"example={example}, llm_response={eval_out}")
 
-        return lhs == rhs
 
     def eval_func(self, example):
         base_prompt = "{input}"
@@ -79,8 +81,7 @@ class SimpleArith:
             "top_p": 1,
             "n": 1,
             "stream": False,
-            "model": "text-davinci-003",
-            "stop": "\n"
+            "model": "text-davinci-003"
         }
         # query['prompt'] = base_prompt.format(example['input'])
         # resp = oai.Completion.create(**query)
