@@ -74,15 +74,15 @@ jobs:
           pip install pyspark==3.3.1
           pip list | grep "pyspark"
       - name: If linux and python < 3.11, install ray 2
-        if: matrix.os == 'Ubuntu-latest' && matrix.python-version != '3.11'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.11'
         run: |
           pip install "ray[tune]<2.5.0"
       - name: If mac and python < 3.11, install ray
-        if: matrix.os == 'macOS-latest' && matrix.python-version != '3.11'
+        if: matrix.os == 'macos-latest' && matrix.python-version != '3.11'
         run: |
           pip install -e .[ray]
       - name: If linux or mac, install prophet on python < 3.9
-        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version == '3.8'
+        if: (matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest') && (matrix.python-version == '3.8' || matrix.python-version == '3.7')
         run: |
           pip install -e .[forecast]
       - name: Install vw on python < 3.10
