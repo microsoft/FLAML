@@ -1,9 +1,13 @@
 from flaml import oai
 from flaml.autogen.agent.math_user_proxy_agent import MathUserProxyAgent
-
+import pytest
+import sys
 KEY_LOC = "test/autogen"
 
-
+@pytest.mark.skipif(
+    sys.platform in ["darwin", "win32"],
+    reason="do not run on MacOS or windows",
+)
 def test_math_user_proxy_agent():
     try:
         import openai
@@ -50,8 +54,11 @@ def test_add_remove_print():
     code = "if 4 > 5:\n\tprint('True')"
     assert mathproxyagent._remove_print(code) == code
 
-
-def test_execution_code():
+@pytest.mark.skipif(
+    sys.platform in ["darwin", "win32"],
+    reason="do not run on MacOS or windows",
+)
+def test_execute_one_python_code():
     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
     # no output found 1
@@ -69,11 +76,10 @@ def test_execution_code():
 
     # save previous status
     mathproxyagent._execute_one_python_code("x=3\ny=x*2")
-    print(mathproxyagent._execute_one_python_code("print(y)")[0])
     assert mathproxyagent._execute_one_python_code("print(y)")[0].strip() == "6"
 
 
 if __name__ == "__main__":
     test_add_remove_print()
-    test_execution_code()
+    test_execute_one_python_code()
     test_math_user_proxy_agent()
