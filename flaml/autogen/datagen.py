@@ -7,18 +7,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def generate_adversarial_examples(data, verif_func, eval_func, num_examples=5, **config):
+def generate_adversarial_examples(data, test_func, eval_func, num_examples=5, **config):
     base_prompt = """ 
-    # Instructions
-    - Generate adversarial versions of the examples in the following task.
-    - Make sure that the input would result in the same target as specified. 
-    - Make sure that the inputs are of the same types that are specified in the examples. 
-    - Generate parsable json with double quotes. 
-    - Do not replace integers with words.
-    <|start|>(example)
-    {example}
-    <|end|>
-    <|start|>(answer)
+# Instructions
+- Generate a complex version of the example in the following task.
+- Make sure that the inputs are of the same types that are specified in the examples. 
+- Generate a json with double quotes. 
+- Do not replace integers with words.
+- For mathematical examples use programmatic syntax. For example, use '*' instead of 'x' for multiplication
+<|start|>(example)
+{example}
+<|end|>
+<|start|>(answer)
     """
 
     # base_settings = {
@@ -33,17 +33,20 @@ def generate_adversarial_examples(data, verif_func, eval_func, num_examples=5, *
     adv_examples = []
 
     def group_check(candidate): # replace with loss function
-        verif = verif_func(candidate)
-        cand_test = eval_func(candidate)
-        return verif and not cand_test
+        eval_cands = eval_func(candidate)
+        test_cands = test_func(candidate, eval_cands)
+        return not test_cands
 
+    ii = 0
     while len(adv_examples) < num_examples and iteration < max_iter:
         # query = base_settings
         # query["prompt"] = base_prompt.format(examples=str(data))
-        # time.sleep(62)
-        response = oai.Completion.create({"example": str(data)}, prompt=base_prompt, **config)
+        print(f"iteration={iteration}")
+        sample = data[ii % len(data)]
+        response = oai.Completion.create({"example": sample}, prompt=base_prompt, **config)
         resp_candidates = re.findall(r"(?={).*(?<=})", oai.Completion.extract_text(response)[0])
         adv_candidates = list(map(eval, resp_candidates))
+        time.sleep(17)
         eval_candidates = list(map(group_check, adv_candidates))
         valid_candidates = list(compress(adv_candidates, eval_candidates))
         if len(valid_candidates) > 0:
@@ -51,6 +54,8 @@ def generate_adversarial_examples(data, verif_func, eval_func, num_examples=5, *
             iteration = 0
         else:
             iteration += 1
+        time.sleep(17)
+        ii += 1
 
     return adv_examples
 

@@ -5,11 +5,11 @@ import logging
 import hydra
 import wikipedia
 
-KEY_LOC = "test/autogen"
+KEY_LOC = "./test/autogen"
 logger = logging.getLogger(__name__)
 
 
-@hydra.main(config_path="configs", config_name="config")
+@hydra.main(config_path="configs", config_name="config-srsharm")
 def test_adv_gen(cfg):
     try:
         import openai
@@ -17,25 +17,25 @@ def test_adv_gen(cfg):
         return
 
     # config_list_adv = oai.config_list_gpt4_gpt35(KEY_LOC)
-    config_list_adv = oai.config_list_openai_aoai(KEY_LOC)[1:]
-    # config_list_adv[0].update(cfg.openai.adv)
+    config_list_adv = oai.config_list_openai_aoai(KEY_LOC) # [1:]
+    config_list_adv[0].update(cfg.openai.adv)
     config_list_eval = oai.config_list_openai_aoai(KEY_LOC)
-    # config_list_eval[0].update(cfg.openai.eval)
+    config_list_eval[0].update(cfg.openai.eval)
 
-    test_cases = [  # SimpleArith(config_list=config_list_eval)
-        WikipediaQGen(
-            config_list_adv=config_list_adv,
-            config_adv=cfg.openai.adv,
-            config_list_eval=config_list_eval,
-            config_eval=cfg.openai.eval,
-        )
+    test_cases = [  SimpleArith(config_list=config_list_eval)
+        # WikipediaQGen(
+        #     config_list_adv=config_list_adv,
+        #     config_adv=cfg.openai.adv,
+        #     config_list_eval=config_list_eval,
+        #     config_eval=cfg.openai.eval,
+        # )
     ]
 
     for case in test_cases:
         adv_examples = generate_adversarial_examples(
             data=case.input_examples,
-            verif_func=case.verif_func,
-            eval_func=case.test_func,
+            test_func=case.test_func,
+            eval_func=case.eval_func,
             num_examples=5,
             # reduction=np.mean,
             config_list=config_list_adv,
@@ -60,26 +60,32 @@ class SimpleArith:
         self.config_list = config_list
 
     @staticmethod
-    def verif_func(example):
+    def test_func(example, eval_out):
         lhs = eval(re.findall(r"^(.*?)=", example["input"])[0].strip())
-        rhs = int(example["target"])
+        try:
+            rhs = int(eval_out)
+        except:
+            rhs = 0
+
+        logger.info(f"example={example}, llm_response={eval_out}")
 
         return lhs == rhs
 
-    def test_func(self, example):
+    def eval_func(self, example):
         base_prompt = "{input}"
         config = {
-            "max_tokens": 64,
+            "max_tokens": 5,
             "temperature": 0,
             "top_p": 1,
             "n": 1,
             "stream": False,
             "model": "text-davinci-003",
+            "stop": "\n"
         }
         # query['prompt'] = base_prompt.format(example['input'])
         # resp = oai.Completion.create(**query)
         response = oai.Completion.create(example, prompt=base_prompt, config_list=self.config_list, **config)
-        return example["target"] == oai.Completion.extract_text(response)[0].strip()
+        return oai.Completion.extract_text(response)[0].strip()
 
 
 class WikipediaQGen:
