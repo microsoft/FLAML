@@ -1012,7 +1012,10 @@ class Completion(openai_Completion):
         choices = response["choices"]
         if "text" in choices[0]:
             return [choice["text"] for choice in choices]
-        return [choice["message"].get("content") or choice["message"].get("function_call", "") for choice in choices]
+        return [
+            choice["message"] if "function_call" in choice["message"] else choice["message"].get("content", "")
+            for choice in choices
+        ]
 
     @classmethod
     @property
