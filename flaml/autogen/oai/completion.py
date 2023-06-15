@@ -1007,7 +1007,7 @@ class Completion(openai_Completion):
             response (dict): The response from OpenAI API.
 
         Returns:
-            A list of function calls in the responses.
+            A list of text or function calls in the responses.
         """
         choices = response["choices"]
         if "text" in choices[0]:
