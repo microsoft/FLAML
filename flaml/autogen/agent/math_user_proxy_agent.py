@@ -32,6 +32,7 @@ Case 3: If the problem cannot be handled in the above two ways, please follow th
 
 After all the queries are run and you get the answer, put the answer in \\boxed{}.
 
+Problem:
 """,
     # select python or wolfram
     "two_tools": """Let's use two tools (Python and Wolfram alpha) to solve a math problem.
@@ -80,6 +81,7 @@ After all the queries are run and you get the answer, put the answer in \\boxed{
 Problem: """,
 }
 
+
 def is_termination_msg(x):
     """Check if a message is a termination message."""
     cb = extract_code(x)
@@ -89,6 +91,7 @@ def is_termination_msg(x):
             contain_code = True
             break
     return not contain_code and get_answer(x) is not None and get_answer(x) != ""
+
 
 class MathUserProxyAgent(UserProxyAgent):
     """(Experimental) A MathChat agent that can handle math problems."""
@@ -173,7 +176,9 @@ class MathUserProxyAgent(UserProxyAgent):
         # 2. extract the last line, enclose it in print() and return the new string
         lines = s.splitlines()
         last_line = lines[-1]
-        if " = " in last_line:
+        if "\t" in last_line or "=" in last_line:
+            return s
+        if "=" in last_line:
             last_line = "print(" + last_line.split(" = ")[0] + ")"
             lines.append(last_line)
         else:
@@ -184,7 +189,7 @@ class MathUserProxyAgent(UserProxyAgent):
     def _remove_print(self, s):
         """remove all print statements from a string."""
         lines = s.splitlines()
-        lines = [line for line in lines if "print(" not in line]
+        lines = [line for line in lines if not line.startswith("print(")]
         return "\n".join(lines)
 
     def _execute_one_python_code(self, pycode):
@@ -321,6 +326,7 @@ class MathUserProxyAgent(UserProxyAgent):
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
 
 def get_from_dict_or_env(data: Dict[str, Any], key: str, env_key: str, default: Optional[str] = None) -> str:
     """Get a value from a dictionary or an environment variable."""
