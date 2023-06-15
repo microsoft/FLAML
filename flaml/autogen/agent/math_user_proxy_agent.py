@@ -130,6 +130,7 @@ class MathUserProxyAgent(UserProxyAgent):
             is_termination_msg (function): a function that takes a message and returns a boolean value.
                 This function is used to determine if a received message is a termination message.
             use_docker (bool): whether to use docker to execute the code.
+            max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
             **config (dict): other configurations.
         """
         super().__init__(
@@ -143,7 +144,7 @@ class MathUserProxyAgent(UserProxyAgent):
             **config,
         )
 
-        # fixed
+        # fixed var
         self._max_invalid_q_per_step = max_invalid_q_per_step
 
         # mutable
@@ -204,11 +205,8 @@ class MathUserProxyAgent(UserProxyAgent):
             try:
                 output = output.decode("utf-8")
             except Exception:
-                try:
-                    output = output.decode("ascii")
-                except Exception:
-                    is_success = False
-                    output = "The return cannot be decoded."
+                is_success = False
+                output = "The return cannot be decoded."
 
         if not is_success:
             # Remove the file information from the error string
