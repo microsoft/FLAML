@@ -77,6 +77,10 @@ jobs:
         if: (matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest') && (matrix.python-version == '3.8' || matrix.python-version == '3.7')
         run: |
           pip install -e .[forecast]
+      - name: Install prophet on python 3.11
+        if: matrix.python-version == '3.11'
+        run: |
+          pip install prophet>=1.0.1
       - name: Install vw on python < 3.10
         if: matrix.python-version != '3.10' && matrix.python-version != '3.11'
         run: |
