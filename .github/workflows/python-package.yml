@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2019]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -68,17 +68,19 @@ jobs:
         run: |
           pip install pyspark==3.2.3
           pip list | grep "pyspark"
-      - name: If linux install ray 2
+      - name: On Ubuntu python 3.10, install pyspark 3.3.1
+        if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install pyspark==3.3.1
+          pip list | grep "pyspark"
+      - name: If linux and python < 3.11, install ray 2
+        if: matrix.os == 'Ubuntu-latest' && matrix.python-version != '3.11'
         run: |
           pip install "ray[tune]<2.5.0"
       - name: If mac and python < 3.11, install ray
         if: matrix.os == 'macOS-latest' && matrix.python-version != '3.11'
         run: |
           pip install -e .[ray]
-      - name: If mac and python == 3.11, install ray
-        if: matrix.os == 'macOS-latest' && matrix.python-version == '3.11'
-        run: |
-          pip install ray[tune]
       - name: If linux or mac, install prophet on python < 3.9
         if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version == '3.8'
         run: |
@@ -93,17 +95,17 @@ jobs:
           # Uninstall pyspark to test env without pyspark
           pip uninstall -y pyspark
       - name: Test with pytest
-        if: (matrix.python-version != '3.11' || matrix.os == 'macos-latest') && matrix.python-version != '3.10'
+        if: (matrix.python-version != '3.7' || matrix.os == 'macos-latest') && matrix.python-version != '3.10'
         run: |
           pytest test
       - name: Coverage
-        if: (matrix.python-version == '3.11') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
+        if: (matrix.python-version == '3.7') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
         run: |
           pip install coverage
           coverage run -a -m pytest test
           coverage xml
       - name: Upload coverage to Codecov
-        if: (matrix.python-version == '3.11') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
+        if: (matrix.python-version == '3.7') && matrix.os != 'macos-latest' || matrix.python-version == '3.10'
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
