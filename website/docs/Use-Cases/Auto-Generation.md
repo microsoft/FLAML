@@ -109,7 +109,7 @@ The returned `config` contains the optimized configuration and `analysis` contai
 The tuend config can be used to perform inference.
 
 *Refer to this [page](../Examples/AutoGen-OpenAI) for a full example. Or check the following notebook examples:*
-* [Optimize for Code Gen](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
+* [Optimize for Code Generation](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
 * [Optimize for Math](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_chatgpt_gpt4.ipynb)
 
 
