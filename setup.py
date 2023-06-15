@@ -60,7 +60,8 @@ setuptools.setup(
             "pre-commit",
             "torch",
             "torchvision",
-            "catboost>=0.26,<1.2",
+            "catboost>=0.26,<1.2; python_version<'3.11'",
+            "catboost>=0.26; python_version>='3.11'",
             "rgf-python",
             "optuna==2.8.0",
             "openml",
@@ -73,7 +74,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
+            "pytorch-forecasting>=0.9.0,<=0.10.1; python_version<'3.11'",
             "mlflow",
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
@@ -84,7 +85,10 @@ setuptools.setup(
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
             "packaging",
         ],
-        "catboost": ["catboost>=0.26"],
+        "catboost": [
+            "catboost>=0.26,<1.2; python_version<'3.11'",
+            "catboost>=0.26; python_version>='3.11'",
+        ],
         "blendsearch": ["optuna==2.8.0"],
         "ray": [
             "ray[tune]~=1.13",
@@ -114,19 +118,24 @@ setuptools.setup(
             "seqeval",
         ],
         "ts_forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
+            "holidays",
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
         ],
         "forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
+            "holidays",
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
         ],
-        "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
+        "benchmark": [
+            "catboost>=0.26",
+            "psutil==5.8.0",
+            "xgboost==1.3.3",
+            "pandas==1.1.4",
+        ],
         "openai": ["openai==0.27.4", "diskcache"],
         "autogen": ["openai==0.27.4", "diskcache", "docker"],
         "synapse": [

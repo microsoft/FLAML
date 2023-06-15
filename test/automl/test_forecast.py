@@ -1,5 +1,7 @@
 import numpy as np
 from flaml import AutoML
+import sys
+import pytest
 
 
 def test_forecast_automl(budget=5, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
@@ -463,6 +465,10 @@ def get_stalliion_data():
     return data, special_days
 
 
+@pytest.mark.skipif(
+    "3.11" in sys.version,
+    reason="do not run on py 3.11",
+)
 def test_forecast_panel(budget=5):
     data, special_days = get_stalliion_data()
     time_horizon = 6  # predict six months
