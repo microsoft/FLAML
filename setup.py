@@ -58,9 +58,8 @@ setuptools.setup(
             "pytest>=6.1.1",
             "coverage>=5.3",
             "pre-commit",
-            "torch; python_version<'3.11'",
-            "torch<2.0.0; python_version=='3.11'",
-            "torchvision; python_version<'3.11'",
+            "torch",
+            "torchvision",
             "catboost>=0.26,<1.2; python_version<'3.11'",
             "catboost>=0.26; python_version>='3.11'",
             "rgf-python",
@@ -75,7 +74,7 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
+            "pytorch-forecasting>=0.9.0,<=0.10.1; python_version<'3.11'",
             "mlflow",
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
@@ -119,13 +118,13 @@ setuptools.setup(
             "seqeval",
         ],
         "ts_forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
+            "holidays",
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
         ],
         "forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
+            "holidays",
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",

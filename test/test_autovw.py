@@ -350,8 +350,8 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
 
 
 @pytest.mark.skipif(
-    "3.10" in sys.version,
-    reason="do not run on py 3.10",
+    "3.10" in sys.version or "3.11" in sys.version,
+    reason="do not run on py >= 3.10",
 )
 class TestAutoVW(unittest.TestCase):
     def test_vw_oml_problem_and_vanilla_vw(self):
