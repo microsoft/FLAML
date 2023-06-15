@@ -21,6 +21,7 @@ try:
 except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
+from .suggestion import LexiGlobalSearch as LexiGlobalSearch
 from ..trial import unflatten_dict, flatten_dict
 from .. import INCUMBENT_RESULT
 from .search_thread import SearchThread
@@ -33,22 +34,6 @@ import logging
 SEARCH_THREAD_EPS = 1.0
 PENALTY = 1e10  # penalty term for constraints
 logger = logging.getLogger(__name__)
-
-
-class Lexico_GlobalSearch(GlobalSearch):
-    def set_search_properties(
-        self, metric: Optional[Union[str, List[str]]], mode: Optional[Union[str, List[str]]], config: Dict
-    ) -> bool:
-        if self._space:
-            return False
-        space = self.convert_search_space(config)
-        self._space = space
-        if metric:
-            self._metric = metric
-        if mode:
-            self._mode = mode
-        self._setup_study(mode)
-        return True
 
 
 class BlendSearch(Searcher):
@@ -276,7 +261,7 @@ class BlendSearch(Searcher):
             try:
                 assert evaluated_rewards
                 if self.lexico_objectives:
-                    self._gs = Lexico_GlobalSearch(
+                    self._gs = LexiGlobalSearch(
                         space=gs_space,
                         metric=metric,
                         mode=mode,
@@ -285,7 +270,7 @@ class BlendSearch(Searcher):
                         points_to_evaluate=self._evaluated_points,
                         evaluated_rewards=evaluated_rewards,
                     )
-                    Lexico_GlobalSearch.lexico_objectives = self.lexico_objective
+                    LexiGlobalSearch.lexico_objectives = self.lexico_objective
                 else:
                     self._gs = GlobalSearch(
                         space=gs_space,
@@ -298,14 +283,14 @@ class BlendSearch(Searcher):
                     )
             except (AssertionError, ValueError):
                 if self.lexico_objectives:
-                    self._gs = Lexico_GlobalSearch(
+                    self._gs = LexiGlobalSearch(
                         space=gs_space,
                         metric=metric,
                         mode=mode,
                         seed=gs_seed,
                         sampler=sampler,
                     )
-                    Lexico_GlobalSearch.lexico_objectives = self.lexico_objectives
+                    LexiGlobalSearch.lexico_objectives = self.lexico_objectives
                 else:
                     self._gs = GlobalSearch(
                         space=gs_space,
@@ -391,7 +376,7 @@ class BlendSearch(Searcher):
                 self._ls.set_search_properties(metric, mode)
                 if self._gs is not None:
                     if self.lexico_objectives:
-                        self._gs = Lexico_GlobalSearch(
+                        self._gs = LexiGlobalSearch(
                             space=self._gs._space,
                             metric=metric,
                             mode=mode,
@@ -560,7 +545,7 @@ class BlendSearch(Searcher):
                 if self._histories is None:
                     self._histories, self._f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -result[k_metric])
+                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
                 self.update_fbest()
             config = result.get("config", {})
             if not config:
@@ -838,7 +823,7 @@ class BlendSearch(Searcher):
                 if self._histories is None:
                     self._histories, self._f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -result[k_metric])
+                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
                 self.update_fbest()
         self._search_thread_pool[thread_id].on_trial_result(trial_id, result)
 
@@ -1255,7 +1240,7 @@ class BlendSearchTuner(BlendSearch, NNITuner):
         )
         if self._gs is not None:
             if self.lexico_objectives:
-                self._gs = Lexico_GlobalSearch(
+                self._gs = LexiGlobalSearch(
                     space=config,
                     metric=self._metric,
                     mode=self._mode,

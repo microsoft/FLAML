@@ -82,7 +82,7 @@ class ExperimentAnalysis(EA):
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
             k_values = np.array(histories[k_metric])
             k_target = (
-                -self.lexico_objectives["targets"][k_metric]
+                -1 * self.lexico_objectives["targets"][k_metric]
                 if k_mode == "max"
                 else self.lexico_objectives["targets"][k_metric]
             )
@@ -492,6 +492,10 @@ def run(
                 logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             metric = metric or DEFAULT_METRIC
         else:
+            assert "lexico_algorithm" in lexico_objectives and lexico_objectives["lexico_algorithm"] in [
+                "CFO",
+                "BlendSearch",
+            ], 'When performing lexicographic optimization, "lexico_algorithm" should be provided in lexicographic objectives (CFO or BlendSearch).'
             SearchAlgorithm = CFO if lexico_objectives["lexico_algorithm"] == "CFO" else BlendSearch
             logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
             metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
