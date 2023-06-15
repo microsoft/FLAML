@@ -24,7 +24,7 @@ def test_math_user_proxy_agent():
         config_list=config_list,
     )
 
-    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER", use_docker=False)
+    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
     assistant.reset()
 
     math_problem = "$x^3=125$. What is x?"
@@ -36,7 +36,7 @@ def test_math_user_proxy_agent():
 
 
 def test_add_remove_print():
-    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER", use_docker=False)
+    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
     # test add print
     code = "a = 4\nb = 5\na,b"
@@ -52,7 +52,7 @@ def test_add_remove_print():
 
 
 def test_execution_code():
-    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER", use_docker=False)
+    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
     # no output found 1
     code = "x=3"
