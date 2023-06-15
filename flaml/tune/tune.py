@@ -83,7 +83,7 @@ class ExperimentAnalysis(EA):
             k_values = np.array(histories[k_metric])
             k_target = (
                 -self.lexico_objectives["targets"][k_metric]
-                if  == "max"
+                if k_mode == "max"
                 else self.lexico_objectives["targets"][k_metric]
             )
             feasible_value = k_values.take(feasible_index)
@@ -465,9 +465,7 @@ def run(
     from .searcher.blendsearch import BlendSearch, CFO
 
     if lexico_objectives is not None:
-        logger.warning(
-            "If lexico_objectives is not None, search_alg is forced to be CFO or Blendsearch" 
-        )
+        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or Blendsearch")
         search_alg = None
     if search_alg is None:
         flaml_scheduler_resource_attr = (
