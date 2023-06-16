@@ -52,14 +52,14 @@ class ExperimentAnalysis(EA):
 
     @property
     def best_trial(self) -> Trial:
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             return super().best_trial
         else:
             return self.get_best_trial(self.default_metric, self.default_mode)
 
     @property
     def best_config(self) -> Dict:
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             return super().best_config
         else:
             return self.get_best_config(self.default_metric, self.default_mode)
@@ -110,7 +110,7 @@ class ExperimentAnalysis(EA):
         scope: str = "last",
         filter_nan_and_inf: bool = True,
     ) -> Optional[Trial]:
-        if self.lexico_objectives is not None:
+        if self.lexico_objectives:
             best_trial = self.lexico_best(self.trials)
         else:
             best_trial = super().get_best_trial(metric, mode, scope, filter_nan_and_inf)

@@ -169,7 +169,6 @@ class BlendSearch(Searcher):
             self._metric = self.lexico_objectives["metrics"][0]
             self._mode = self.lexico_objectives["modes"][0]
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
-        self.lexico_objectives = lexico_objectives
         self._histories = None
         self._f_best = None
         init_config = low_cost_partial_config or {}
@@ -254,10 +253,7 @@ class BlendSearch(Searcher):
             else:
                 sampler = None
             if self.lexico_objectives:
-                metric, mode = [], []
-                for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                    metric.append(k_metric)
-                    mode.append(k_mode)
+                metric, mode = self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
             try:
                 assert evaluated_rewards
                 if self.lexico_objectives:
@@ -270,7 +266,6 @@ class BlendSearch(Searcher):
                         points_to_evaluate=self._evaluated_points,
                         evaluated_rewards=evaluated_rewards,
                     )
-                    LexiGlobalSearch.lexico_objectives = self.lexico_objective
                 else:
                     self._gs = GlobalSearch(
                         space=gs_space,
@@ -290,7 +285,6 @@ class BlendSearch(Searcher):
                         seed=gs_seed,
                         sampler=sampler,
                     )
-                    LexiGlobalSearch.lexico_objectives = self.lexico_objectives
                 else:
                     self._gs = GlobalSearch(
                         space=gs_space,
@@ -299,6 +293,8 @@ class BlendSearch(Searcher):
                         seed=gs_seed,
                         sampler=sampler,
                     )
+            if isinstance(self._gs, LexiGlobalSearch):
+                self._gs.lexico_objectives = self.lexico_objectives
             self._gs.space = space
         else:
             self._gs = None
@@ -389,6 +385,8 @@ class BlendSearch(Searcher):
                             mode=mode,
                             seed=self._gs_seed,
                         )
+                    if isinstance(self._gs, LexiGlobalSearch):
+                        self._gs.lexico_objectives = self.lexico_objective
                     self._gs.space = self._ls.space
                 self._init_search()
         if spec:
@@ -401,7 +399,7 @@ class BlendSearch(Searcher):
                 self._set_deadline()
                 if self._input_cost_attr == "auto" and self._time_budget_s:
                     self.cost_attr = self._ls.cost_attr = TIME_TOTAL_S
-            if "metric_target" in spec:  # works only in online_searcher
+            if "metric_target" in spec:
                 self._metric_target = spec.get("metric_target")
             num_samples = spec.get("num_samples")
             if num_samples is not None:
@@ -430,7 +428,7 @@ class BlendSearch(Searcher):
         self._set_deadline()
         self._is_ls_ever_converged = False
         self._subspace = {}  # the subspace for each trial id
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             self._metric_target = np.inf * self._ls.metric_op
         self._search_thread_pool = {
             # id: int -> thread: SearchThread
@@ -491,7 +489,9 @@ class BlendSearch(Searcher):
 
     def _get_lexico_bound(self, metric, mode):
         k_target = (
-            self.lexico_objectives["targets"][metric] if mode == "min" else -self.lexico_objectives["targets"][metric]
+            self.lexico_objectives["targets"][metric]
+            if mode == "min"
+            else -1 * self.lexico_objectives["targets"][metric]
         )
         if not isinstance(self.lexico_objectives["tolerances"][metric], str):
             tolerance_bound = self._f_best[metric] + self.lexico_objectives["tolerances"][metric]
@@ -561,7 +561,7 @@ class BlendSearch(Searcher):
                 self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
-                if self.lexico_objectives is None:
+                if not self.lexico_objectives:
                     objective = result[self._ls.metric]
                     if (objective - self._metric_target) * self._ls.metric_op < 0:
                         self._metric_target = objective
@@ -603,7 +603,7 @@ class BlendSearch(Searcher):
             del self._subspace[trial_id]
 
     def _create_thread(self, config, result, space):
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             obj = result[self._ls.metric]
         else:
             obj = {k: result[k] for k in self.lexico_objectives["metrics"]}
@@ -1039,7 +1039,7 @@ class BlendSearch(Searcher):
             num_proposed = num_finished + len(self._trial_proposed_by)
             min_eci = max(self._num_samples - num_proposed, 0)
         # update priority
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             max_speed = 0
             min_speed = float("inf")
             for thread in self._search_thread_pool.values():
@@ -1057,7 +1057,7 @@ class BlendSearch(Searcher):
                     if thread.speed[k_metric] < min_speed[k_metric]:
                         min_speed[k_metric] = thread.speed[k_metric]
         for thread in self._search_thread_pool.values():
-            if self.lexico_objectives is None:
+            if not self.lexico_objectives:
                 thread.update_eci(self._metric_target, max_speed, min_speed)
             else:
                 _metric_1st = self.lexico_objectives["metrics"][0]

@@ -121,7 +121,7 @@ class FLOW2(Searcher):
         self.resource_attr = resource_attr
         self.min_resource = min_resource
         self.lexico_objectives = lexico_objectives
-        if self.lexico_objectives is not None:
+        if self.lexico_objectives:
             if "modes" not in self.lexico_objectives.keys():
                 self.lexico_objectives["modes"] = ["min"] * len(self.lexico_objectives["metrics"])
             for t_metric, t_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
@@ -292,7 +292,7 @@ class FLOW2(Searcher):
             self.seed + 1,
             self.lexico_objectives,
         )
-        if self.lexico_objectives is not None:
+        if self.lexico_objectives:
             flow2.best_obj = {}
             for k, v in obj.items():
                 flow2.best_obj[k] = (
@@ -313,6 +313,24 @@ class FLOW2(Searcher):
     def denormalize(self, config):
         """denormalize each dimension in config from [0,1]."""
         return denormalize(config, self._space, self.best_config, self.incumbent, self._random)
+
+    def _get_lexico_bound(self, metric, mode):
+        k_target = (
+            self.lexico_objectives["targets"][metric]
+            if mode == "min"
+            else -1 * self.lexico_objectives["targets"][metric]
+        )
+        if not isinstance(self.lexico_objectives["tolerances"][metric], str):
+            tolerance_bound = self._f_best[metric] + self.lexico_objectives["tolerances"][metric]
+        else:
+            assert (
+                self.lexico_objectives["tolerances"][metric][-1] == "%"
+            ), "String tolerance of {} should use %% as the suffix".format(metric)
+            tolerance_bound = self._f_best[metric] * (
+                1 + 0.01 * float(self.lexico_objectives["tolerances"][metric].replace("%", ""))
+            )
+        bound = max(tolerance_bound, k_target)
+        return bound
 
     def set_search_properties(
         self,
@@ -374,27 +392,8 @@ class FLOW2(Searcher):
                 self._histories[k].append(result[k])
             self.update_fbest()
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                k_target = (
-                    self.lexico_objectives["targets"][k_metric]
-                    if k_mode == "min"
-                    else -1 * self.lexico_objectives["targets"][k_metric]
-                )
-                if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                    tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                else:
-                    assert (
-                        self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                    ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                    tolerance_bound = self._f_best[k_metric] * (
-                        1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                    )
-                if (result[k_metric] < max(tolerance_bound, k_target)) and (
-                    self.best_obj[k_metric]
-                    < max(
-                        tolerance_bound,
-                        k_target,
-                    )
-                ):
+                bound = self._get_lexico_bound(k_metric, k_mode)
+                if (result[k_metric] < bound) and (self.best_obj[k_metric] < bound):
                     continue
                 elif result[k_metric] < self.best_obj[k_metric]:
                     self.op_dimension = k_metric
@@ -420,7 +419,7 @@ class FLOW2(Searcher):
         if not error and result:
             obj = (
                 result.get(self._metric)
-                if self.lexico_objectives is None
+                if not self.lexico_objectives
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
             if obj:
@@ -478,7 +477,7 @@ class FLOW2(Searcher):
         if result:
             obj = (
                 result.get(self._metric)
-                if self.lexico_objectives is None
+                if not self.lexico_objectives
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
             if obj:

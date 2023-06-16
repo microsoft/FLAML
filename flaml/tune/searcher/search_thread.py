@@ -100,7 +100,7 @@ class SearchThread:
 
     def update_eci(self, metric_target: float, max_speed: Optional[float] = np.inf, min_speed: Optional[float] = 1e-9):
         # calculate eci: estimated cost for improvement over metric_target
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             _metric_op = self._metric_op
             if not self.speed:
                 self.speed = max_speed
@@ -118,7 +118,7 @@ class SearchThread:
         if obj_best1 > best_obj and speed > 0:
             self.eci = max(self.eci, 2 * (self.obj_best1 - best_obj) / self.speed)
 
-    def _better(self, obj_1: Union[dict, float], obj_2: Union[dict, float]) -> bool:
+    def _better(self, obj_1: Union[dict, float], obj_2: Union[dict, float]):
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                 bound = self._search_alg._get_lexico_bound(k_metric, k_mode)
@@ -143,7 +143,7 @@ class SearchThread:
 
     def _update_speed(self):
         # calculate speed; use 0 for invalid speed temporarily
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             if self._better(self.obj_best1, self.obj_best2):
                 self.speed = (
                     (self.obj_best2 - self.obj_best1)
@@ -152,13 +152,13 @@ class SearchThread:
                 )
             else:
                 self.speed = 0
-        else:
+        elif self._search_alg._histories:
             compare_tuple = self._better(self.obj_best1, self.obj_best2)
             if compare_tuple[0]:
                 if self._is_ls:
                     op_dimension = self._search_alg.op_dimension
                 else:
-                    op_dimension = self._better(self.obj_best1, self.obj_best2)[1]
+                    op_dimension = compare_tuple[1]
                 op_index = self.lexico_objectives["metrics"].index(op_dimension)
                 metrics_length = len(self.lexico_objectives["metrics"])
                 self.speed[op_dimension] = (
@@ -172,8 +172,8 @@ class SearchThread:
                     elif i > op_index:
                         self.speed[self.lexico_objectives["metrics"][i]] = 0
             else:
-                for i in range(0, len(self.lexico_objectives["metrics"])):
-                    self.speed[self.lexico_objectives["metrics"][i]] = 0
+                for k_metric in self.lexico_objectives["metrics"]:
+                    self.speed[k_metric] = 0
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """Update the statistics of the thread."""
@@ -195,23 +195,23 @@ class SearchThread:
         if result:
             self.cost_last = result.get(self.cost_attr, 1)
             self.cost_total += self.cost_last
-            if self.lexico_objectives is None:
+            if not self.lexico_objectives:
                 feasible_condition = self._search_alg.metric in result
             else:
                 feasible_condition = all(x in result for x in self._search_alg.metric)
             if feasible_condition:
-                if self.lexico_objectives is None:
+                if not self.lexico_objectives:
                     obj = result[self._search_alg.metric] * self._metric_op
                 else:
                     obj = {}
                     for k, m in zip(
                         self._search_alg.lexico_objectives["metrics"], self._search_alg.lexico_objectives["modes"]
                     ):
-                        obj[k] = -result[k] if m == "max" else result[k]
+                        obj[k] = -1 * result[k] if m == "max" else result[k]
                 if self.best_result is None or self._better(obj, self.obj_best1):
                     self.cost_best2 = self.cost_best1
                     self.cost_best1 = self.cost_total
-                    if self.lexico_objectives is None:
+                    if not self.lexico_objectives:
                         self.obj_best2 = obj if np.isinf(self.obj_best1) else self.obj_best1
                     else:
                         self.obj_best2 = (
