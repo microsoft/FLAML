@@ -677,7 +677,7 @@ class BlendSearch(Searcher):
             return result[self._ls.metric] * self._ls.metric_op < obj_median
         else:
             thread_pools = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
-            self._lexico_sort(thread_pools)
+            thread_pools = self._lexico_sort(thread_pools)
             obj_median = thread_pools[round(len(thread_pools) / 2)]
             result = self._unify_op(result)
             return self._lexico_inferior(obj_median, result)
@@ -797,6 +797,7 @@ class BlendSearch(Searcher):
             for j in range(0, n - i - 1):
                 if self._lexico_(arr[j], arr[j + 1]):
                     arr[j], arr[j + 1] = arr[j + 1], arr[j]
+        return arr
 
     def _inferior(self, id1: int, id2: int) -> bool:
         """whether thread id1 is inferior to id2"""

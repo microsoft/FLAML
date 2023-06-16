@@ -34,7 +34,6 @@ from ..sample import (
     Uniform,
 )
 from ..trial import flatten_dict, unflatten_dict
-
 from ray import __version__ as ray_version
 
 assert ray_version >= "1.10.0"

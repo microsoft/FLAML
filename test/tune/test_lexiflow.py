@@ -103,6 +103,7 @@ def test_lexiflow():
 
     lexico_objectives = {}
     lexico_objectives["metrics"] = ["error_rate", "flops"]
+    lexico_objectives["algorithm"] = ["CFO"]
 
     search_space = {
         "n_layers": tune.randint(lower=1, upper=3),
@@ -178,6 +179,7 @@ def test_lexiflow_performance():
     lexico_objectives["tolerances"] = {"brain": 10.0, "currin": 0.0}
     lexico_objectives["targets"] = {"brain": 0.0, "currin": 0.0}
     lexico_objectives["modes"] = ["min", "min"]
+    lexico_objectives["algorithm"] = ["CFO"]
 
     search_space = {
         "x1": tune.uniform(lower=0.000001, upper=1.0),
