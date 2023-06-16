@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 
 
 class Agent:
@@ -30,19 +31,49 @@ class Agent:
         """Remember something."""
         self._memory.append(memory)
 
-    def _send(self, message, recipient):
-        """Send a message to another agent."""
-        self._conversations[recipient.name].append({"content": message, "role": "assistant"})
+    def _send(self, message: dict, recipient: str):
+        """Send a message to another agent.
+
+        An agent always assumes itself as the "assistant", and the message it receives is from the "user`".
+
+        roles: 
+            assistant: the LLM
+            user: the user
+            function: the result from a function call
+
+        Q:
+            1. what if the LLM does not make a function call but the user appends a function call and result to the message?
+            2. what if two messages are sent? for example, "function" and "user" meassages.
+            3. alow retry if returned function call is invalid
+        """
+        # message["role"] can be "assistant" or "function"
+        self._conversations[recipient.name].append(copy.deepcopy(message))
+
+        # The agent position iteself as the "user" instead of "assistant" and sends the message to the recipient.
+        if message["role"] == "assistant":
+            message["role"] = "user"
         recipient.receive(message, self)
 
-    def _receive(self, message, sender):
-        """Receive a message from another agent."""
-        print("\n", "-" * 80, "\n", flush=True)
+    def _receive(self, message: dict, sender: str):
+        """Receive a message from another agent.
+        """
         print(sender.name, "(to", f"{self.name}):", flush=True)
-        print(message, flush=True)
-        self._conversations[sender.name].append({"content": message, "role": "user"})
 
-    def receive(self, message, sender):
+        if message["role"] == "function":
+            print(f"*****Response from calling function: {message['name']}*****", flush=True)
+            print(message["content"], flush=True)
+            print("*" * 40, "\n", flush=True)
+        else:
+            if "content" in message and message["content"] is not None:
+                print(message["content"], flush=True)
+            if "function_call" in message:
+                print(f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****", flush=True)
+                print("with arguments: ", message['function_call'].get('arguments', '(No arguments found)'), flush=True)
+                print("*" * 40, flush=True)
+        print("\n", "-" * 80, flush=True, sep="")
+        self._conversations[sender.name].append(message)
+
+    def receive(self, message: dict, sender: str):
         """Receive a message from another agent.
         This method is called by the sender.
         It needs to be overriden by the subclass to perform followup actions.
