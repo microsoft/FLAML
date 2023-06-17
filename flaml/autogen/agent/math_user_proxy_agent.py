@@ -155,6 +155,26 @@ class MathUserProxyAgent(UserProxyAgent):
         self.last_reply = None
 
     def generate_prompt(self, problem, prompt_type="default", customized_prompt=None):
+        """Generate a prompt for the assitant agent with the given problem and prompt.
+
+        Args:
+            problem (str): the problem to be solved.
+            prompt_type (str): the type of the prompt. Possible values are "default", "python", "wolfram".
+                (1) "default": the prompt that allows the agent to choose between 3 ways to solve a problem:
+                    1. write a python program to solve it directly.
+                    2. solve it directly without python.
+                    3. solve it step by step with python.
+                (2) "python":
+                    a simplified prompt from the third way of the "default" prompt, that asks the assistant
+                    to solve the pr step by step with python.
+                (3) "two_tools":
+                    a simplified prompt similar to the "python" prompt, but allows the model to choose between
+                    Python and Wolfram Alpha to solve the problem.
+            customized_prompt (str): a customized prompt to be used. If it is not None, the prompt_type will be ignored.
+
+        Returns:
+            str: the generated prompt ready to be sent to the assistant agent.
+        """
         self._reset()
         if customized_prompt is not None:
             return customized_prompt + problem
