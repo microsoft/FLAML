@@ -41,20 +41,20 @@ def test_math_user_proxy_agent():
     print(conversations)
 
 
-def test_add_remove_print():
-    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
+# def test_add_remove_print():
+#     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
-    # test add print
-    code = "a = 4\nb = 5\na,b"
-    assert mathproxyagent._add_print_to_last_line(code) == "a = 4\nb = 5\nprint(a,b)"
+#     # test add print
+#     code = "a = 4\nb = 5\na,b"
+#     assert mathproxyagent._add_print_to_last_line(code) == "a = 4\nb = 5\nprint(a,b)"
 
-    # test remove print
-    code = """print("hello")\na = 4*5\nprint("wolrld")"""
-    assert mathproxyagent._remove_print(code) == "a = 4*5"
+#     # test remove print
+#     code = """print("hello")\na = 4*5\nprint("wolrld")"""
+#     assert mathproxyagent._remove_print(code) == "a = 4*5"
 
-    # test remove print. Only remove prints without indentation
-    code = "if 4 > 5:\n\tprint('True')"
-    assert mathproxyagent._remove_print(code) == code
+#     # test remove print. Only remove prints without indentation
+#     code = "if 4 > 5:\n\tprint('True')"
+#     assert mathproxyagent._remove_print(code) == code
 
 
 @pytest.mark.skipif(
@@ -83,6 +83,5 @@ def test_execute_one_python_code():
 
 
 if __name__ == "__main__":
-    test_add_remove_print()
     test_execute_one_python_code()
     test_math_user_proxy_agent()

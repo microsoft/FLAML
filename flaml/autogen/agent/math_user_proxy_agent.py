@@ -169,9 +169,9 @@ class MathUserProxyAgent(UserProxyAgent):
         self._previous_code = ""
         self.last_reply = None
 
-
     def _execute_one_python_code(self, pycode):
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
+
         def add_print_to_last_line(s):
             """Add print() to the last line of a string."""
             # 1. check if there is already a print statement
@@ -227,7 +227,7 @@ class MathUserProxyAgent(UserProxyAgent):
             lines = s.splitlines()
             lines = [line for line in lines if not line.startswith("print(")]
             return "\n".join(lines)
-        
+
         if is_success:
             # remove print and check if it still works
             tmp = self._previous_code + "\n" + remove_print(pycode) + "\n"
