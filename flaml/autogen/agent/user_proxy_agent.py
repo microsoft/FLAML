@@ -1,7 +1,7 @@
 from .agent import Agent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
-import json, regex
+import json
 
 
 class UserProxyAgent(Agent):
@@ -173,7 +173,9 @@ class UserProxyAgent(Agent):
             # try to execute the code
             exitcode, logs = self._execute_code(code_blocks)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self._send({"role": "user", "content": f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"}, sender)
+            self._send(
+                {"role": "user", "content": f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"}, sender
+            )
 
     def receive(self, message, sender):
         """Receive a message from the sender agent.
@@ -189,7 +191,7 @@ class UserProxyAgent(Agent):
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
-        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message['content']):
+        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message["content"]):
             if self._human_input_mode == "TERMINATE":
                 reply = input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
@@ -198,7 +200,7 @@ class UserProxyAgent(Agent):
             else:
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
-        if reply == "exit" or (self._is_termination_msg(message['content']) and not reply):
+        if reply == "exit" or (self._is_termination_msg(message["content"]) and not reply):
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             return

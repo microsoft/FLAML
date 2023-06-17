@@ -42,9 +42,7 @@ class AssistantAgent(Agent):
             message = {"content": message, "role": "user"}
         super().receive(message, sender)
         responses = oai.ChatCompletion.create(messages=self._conversations[sender.name], **self._config)
-        self._send(responses["choices"][0]['message'], sender)
-
-
+        self._send(responses["choices"][0]["message"], sender)
 
     def reset(self):
         self._sender_dict.clear()
