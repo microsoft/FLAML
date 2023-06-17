@@ -190,6 +190,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self.last_reply = None
 
     def _execute_one_python_code(self, pycode):
+        # Need to replace all "; " with "\n" to avoid syntax error when adding `print` to the last line, 
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
 
         def add_print_to_last_line(s):
