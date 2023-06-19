@@ -93,6 +93,32 @@ def is_termination_msg(x):
     return not contain_code and get_answer(x) is not None and get_answer(x) != ""
 
 
+def add_print_to_last_line(s):
+    """Add print() to the last line of a string."""
+    # 1. check if there is already a print statement
+    if "print(" in s:
+        return s
+    # 2. extract the last line, enclose it in print() and return the new string
+    lines = s.splitlines()
+    last_line = lines[-1]
+    if "\t" in last_line or "=" in last_line:
+        return s
+    if "=" in last_line:
+        last_line = "print(" + last_line.split(" = ")[0] + ")"
+        lines.append(last_line)
+    else:
+        lines[-1] = "print(" + last_line + ")"
+    # 3. join the lines back together
+    return "\n".join(lines)
+
+
+def remove_print(s):
+    """remove all print statements from a string."""
+    lines = s.splitlines()
+    lines = [line for line in lines if not line.startswith("print(")]
+    return "\n".join(lines)
+
+
 class MathUserProxyAgent(UserProxyAgent):
     """(Experimental) A MathChat agent that can handle math problems."""
 
@@ -190,27 +216,13 @@ class MathUserProxyAgent(UserProxyAgent):
         self.last_reply = None
 
     def _execute_one_python_code(self, pycode):
+        """Execute python code blocks.
+
+        Previous python code will be saved and executed together with the new code.
+        the "print" function will also be added to the last line of the code if needed
+        """
         # Need to replace all "; " with "\n" to avoid syntax error when adding `print` to the last line
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
-
-        def add_print_to_last_line(s):
-            """Add print() to the last line of a string."""
-            # 1. check if there is already a print statement
-            if "print(" in s:
-                return s
-            # 2. extract the last line, enclose it in print() and return the new string
-            lines = s.splitlines()
-            last_line = lines[-1]
-            if "\t" in last_line or "=" in last_line:
-                return s
-            if "=" in last_line:
-                last_line = "print(" + last_line.split(" = ")[0] + ")"
-                lines.append(last_line)
-            else:
-                lines[-1] = "print(" + last_line + ")"
-            # 3. join the lines back together
-            return "\n".join(lines)
-
         pycode = self._previous_code + add_print_to_last_line(pycode)
 
         return_code, output, _ = execute_code(pycode, use_docker=self._use_docker, timeout=5)
@@ -242,12 +254,6 @@ class MathUserProxyAgent(UserProxyAgent):
         if len(output) > 2000:
             output = "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
             is_success = False
-
-        def remove_print(s):
-            """remove all print statements from a string."""
-            lines = s.splitlines()
-            lines = [line for line in lines if not line.startswith("print(")]
-            return "\n".join(lines)
 
         if is_success:
             # remove print and check if it still works
