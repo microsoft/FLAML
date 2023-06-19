@@ -166,7 +166,7 @@ class MathUserProxyAgent(UserProxyAgent):
                     3. solve it step by step with python.
                 (2) "python":
                     a simplified prompt from the third way of the "default" prompt, that asks the assistant
-                    to solve the pr step by step with python.
+                    to solve the problem step by step with python.
                 (3) "two_tools":
                     a simplified prompt similar to the "python" prompt, but allows the model to choose between
                     Python and Wolfram Alpha to solve the problem.
