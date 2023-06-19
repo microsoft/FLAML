@@ -123,7 +123,7 @@ def test_prep():
             ],
         }
     )
-    y = np.array([0, 1, 0, 1, 0, 0])
+    y = np.array([0, 1, 0, 1, 1, 1, 0, 0])
     lgbm.predict(X[:2])
     df = X.copy()
     df["y"] = y
