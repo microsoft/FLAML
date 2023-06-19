@@ -182,6 +182,8 @@ class UserProxyAgent(Agent):
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
         """
+        if type(message) is str:
+            message = {"content": message, "role": "user"}
         super().receive(message, sender)
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""

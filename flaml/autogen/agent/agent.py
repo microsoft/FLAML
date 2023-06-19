@@ -1,6 +1,5 @@
 from collections import defaultdict
-import copy
-
+from typing import Dict, Optional, Union
 
 class Agent:
     """(Experimental) An abstract class for AI agent.
@@ -36,44 +35,61 @@ class Agent:
 
         An agent always assumes itself as the "assistant", and the message it receives is from the "user`".
         """
-        # message["role"] can be "assistant" or "function"
-        self._conversations[recipient.name].append(copy.deepcopy(message))
 
-        # The agent position iteself as the "user" instead of "assistant" and sends the message to the recipient.
-        if message["role"] == "assistant":
-            message["role"] = "user"
+        # create openai message to be appended to the conversation
+        oai_message = {k: message[k] for k in ('content', 'function_call', 'name') if k in message}
+        oai_message['role'] = "function" if message.get("role") == "function" else "assistant"
+        self._conversations[recipient.name].append(oai_message)
+
         recipient.receive(message, self)
 
     def _receive(self, message: dict, sender):
         """Receive a message from another agent.
 
         Args:
-            message (dict): message from the sender.
-                It contains two reserved keys: "content" and "function_call".
+            message (dict): message from the sender. It can contain at most 4 fields: 
+                1. "content": content of the message, can be None.
+                2. "function_call": a dictionary containing the function name and arguments.
+                3. "role": role of the message, can be "assistant", "user", "function". 
+                    This field is only needed to distinguish between "function" or "assistant"/"user".
+                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
+        # print the message received
         print(sender.name, "(to", f"{self.name}):", flush=True)
-        if "content" in message and message["content"] is not None:
+        if message.get("role") == "function":
+            print(f"*****Response from calling function: {message['name']}*****", flush=True)
             print(message["content"], flush=True)
-        if "function_call" in message:
-            print(
-                f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****",
-                flush=True,
-            )
-            print("with arguments: ", message["function_call"].get("arguments", "(No arguments found)"), flush=True)
-            print("*" * 40, flush=True)
+            print("*" * 40, "\n", flush=True)
+        else:
+            if message.get("content") is not None:
+                print(message["content"], flush=True)
+            if "function_call" in message:
+                print(f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****", flush=True)
+                print("with arguments: ", message['function_call'].get('arguments', '(No arguments found)'), flush=True)
+                print("*" * 40, flush=True)
         print("\n", "-" * 80, flush=True, sep="")
-        self._conversations[sender.name].append(message)
 
-    def receive(self, message: dict, sender):
+        # create openai message to be appended to the conversation
+        oai_message = {k: message[k] for k in ('content', 'function_call', 'name') if k in message}
+        oai_message['role'] = "function" if message.get("role") == "function" else "user"
+        self._conversations[sender.name].append(oai_message)
+
+    def receive(self, message: Union[Dict, str], sender):
         """Receive a message from another agent.
         This method is called by the sender.
         It needs to be overriden by the subclass to perform followup actions.
 
         Args:
-            message (dict): message from the sender.
-                It contains two reserved keys: "content" and "function_call".
+            message (dict or str): message from the sender. If the type is dict, it can contain at most 4 fields: 
+                1. "content": content of the message, can be None.
+                2. "function_call": a dictionary containing the function name and arguments.
+                3. "role": role of the message, can be "assistant", "user", "function". 
+                    This field is only needed to distinguish between "function" or "assistant"/"user".
+                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
+        if type(message) is str:
+            message = {"content": message, "role": "user"}
         self._receive(message, sender)
         # perform actions based on the message
