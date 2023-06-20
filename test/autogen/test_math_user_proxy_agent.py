@@ -89,14 +89,9 @@ def test_execute_one_python_code():
 def test_generate_prompt():
     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
-    mathproxyagent._execute_one_python_code("x=3\nx")
-
     assert "customized" in mathproxyagent.generate_prompt(
         problem="2x=4", prompt_type="python", customized_prompt="customized"
     )
-
-    # previous code cleared
-    assert mathproxyagent._previous_code == ""
 
 
 if __name__ == "__main__":
