@@ -89,13 +89,11 @@ def test_execute_one_python_code():
 def test_execute_one_wolfram_query():
     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
     code = "2x=3"
-    
+
     try:
         mathproxyagent._execute_one_wolfram_query(code)[0]
     except ValueError:
         print("Wolfrma API key not found. Skip test.")
-
-
 
 
 def test_generate_prompt():
