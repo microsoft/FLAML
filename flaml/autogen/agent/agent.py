@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Dict, Optional, Union
 
+
 class Agent:
     """(Experimental) An abstract class for AI agent.
     An agent can communicate with other agents and perform actions.
@@ -37,8 +38,8 @@ class Agent:
         """
 
         # create openai message to be appended to the conversation
-        oai_message = {k: message[k] for k in ('content', 'function_call', 'name') if k in message}
-        oai_message['role'] = "function" if message.get("role") == "function" else "assistant"
+        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
         self._conversations[recipient.name].append(oai_message)
 
         recipient.receive(message, self)
@@ -47,10 +48,10 @@ class Agent:
         """Receive a message from another agent.
 
         Args:
-            message (dict): message from the sender. It can contain at most 4 fields: 
+            message (dict): message from the sender. It can contain at most 4 fields:
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
-                3. "role": role of the message, can be "assistant", "user", "function". 
+                3. "role": role of the message, can be "assistant", "user", "function".
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
@@ -65,14 +66,17 @@ class Agent:
             if message.get("content") is not None:
                 print(message["content"], flush=True)
             if "function_call" in message:
-                print(f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****", flush=True)
-                print("with arguments: ", message['function_call'].get('arguments', '(No arguments found)'), flush=True)
+                print(
+                    f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****",
+                    flush=True,
+                )
+                print("with arguments: ", message["function_call"].get("arguments", "(No arguments found)"), flush=True)
                 print("*" * 40, flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
         # create openai message to be appended to the conversation
-        oai_message = {k: message[k] for k in ('content', 'function_call', 'name') if k in message}
-        oai_message['role'] = "function" if message.get("role") == "function" else "user"
+        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        oai_message["role"] = "function" if message.get("role") == "function" else "user"
         self._conversations[sender.name].append(oai_message)
 
     def receive(self, message: Union[Dict, str], sender):
@@ -81,10 +85,10 @@ class Agent:
         It needs to be overriden by the subclass to perform followup actions.
 
         Args:
-            message (dict or str): message from the sender. If the type is dict, it can contain at most 4 fields: 
+            message (dict or str): message from the sender. If the type is dict, it can contain at most 4 fields:
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
-                3. "role": role of the message, can be "assistant", "user", "function". 
+                3. "role": role of the message, can be "assistant", "user", "function".
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
