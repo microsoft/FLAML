@@ -180,7 +180,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self._previous_code = ""
         self.last_reply = None
 
-    def generate_prompt(self, problem, prompt_type="default", customized_prompt=None):
+    def generate_init_prompt(self, problem, prompt_type="default", customized_prompt=None):
         """Generate a prompt for the assitant agent with the given problem and prompt.
 
         Args:

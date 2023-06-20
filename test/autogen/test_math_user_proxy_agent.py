@@ -35,7 +35,7 @@ def test_math_user_proxy_agent():
 
     math_problem = "$x^3=125$. What is x?"
     assistant.receive(
-        message=mathproxyagent.generate_prompt(math_problem),
+        message=mathproxyagent.generate_init_prompt(math_problem),
         sender=mathproxyagent,
     )
     print(conversations)
@@ -89,7 +89,7 @@ def test_execute_one_python_code():
 def test_generate_prompt():
     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
 
-    assert "customized" in mathproxyagent.generate_prompt(
+    assert "customized" in mathproxyagent.generate_init_prompt(
         problem="2x=4", prompt_type="python", customized_prompt="customized"
     )
 
