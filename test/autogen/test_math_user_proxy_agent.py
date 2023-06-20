@@ -1,5 +1,5 @@
 from flaml import oai
-from flaml.autogen.agent.math_user_proxy_agent import MathUserProxyAgent
+from flaml.autogen.agent.math_user_proxy_agent import MathUserProxyAgent, remove_print, add_print_to_last_line
 import pytest
 import sys
 
@@ -41,20 +41,18 @@ def test_math_user_proxy_agent():
     print(conversations)
 
 
-# def test_add_remove_print():
-#     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
+def test_add_remove_print():
+    # test add print
+    code = "a = 4\nb = 5\na,b"
+    assert add_print_to_last_line(code) == "a = 4\nb = 5\nprint(a,b)"
 
-#     # test add print
-#     code = "a = 4\nb = 5\na,b"
-#     assert mathproxyagent._add_print_to_last_line(code) == "a = 4\nb = 5\nprint(a,b)"
+    # test remove print
+    code = """print("hello")\na = 4*5\nprint("wolrld")"""
+    assert remove_print(code) == "a = 4*5"
 
-#     # test remove print
-#     code = """print("hello")\na = 4*5\nprint("wolrld")"""
-#     assert mathproxyagent._remove_print(code) == "a = 4*5"
-
-#     # test remove print. Only remove prints without indentation
-#     code = "if 4 > 5:\n\tprint('True')"
-#     assert mathproxyagent._remove_print(code) == code
+    # test remove print. Only remove prints without indentation
+    code = "if 4 > 5:\n\tprint('True')"
+    assert remove_print(code) == code
 
 
 @pytest.mark.skipif(
@@ -81,7 +79,28 @@ def test_execute_one_python_code():
     mathproxyagent._execute_one_python_code("x=3\ny=x*2")
     assert mathproxyagent._execute_one_python_code("print(y)")[0].strip() == "6"
 
+    code = "print('*'*2001)"
+    assert (
+        mathproxyagent._execute_one_python_code(code)[0]
+        == "Your requested query response is too long. You might have made a mistake. Please revise your reasoning and query."
+    )
+
+
+def test_generate_prompt():
+    mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")
+
+    mathproxyagent._execute_one_python_code("x=3\nx")
+
+    assert "customized" in mathproxyagent.generate_prompt(
+        problem="2x=4", prompt_type="python", customized_prompt="customized"
+    )
+
+    # previous code cleared
+    assert mathproxyagent._previous_code == ""
+
 
 if __name__ == "__main__":
+    test_add_remove_print()
     test_execute_one_python_code()
+    test_generate_prompt()
     test_math_user_proxy_agent()
