@@ -86,6 +86,7 @@ setuptools.setup(
             "packaging",
             "pydantic",
             "sympy",
+            "wolframalpha",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": ["optuna==2.8.0"],
