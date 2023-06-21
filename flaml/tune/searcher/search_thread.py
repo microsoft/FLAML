@@ -5,6 +5,7 @@
 from typing import Dict, Optional, Union
 import numpy as np
 
+
 try:
     from ray import __version__ as ray_version
 
@@ -18,6 +19,7 @@ except (ImportError, AssertionError):
 from .flow2 import FLOW2
 from ..space import add_cost_to_space, unflatten_hierarchical
 from ..result import TIME_TOTAL_S
+from ..utils import get_lexico_bound
 import logging
 
 logger = logging.getLogger(__name__)
@@ -121,7 +123,7 @@ class SearchThread:
     def _better(self, obj_1: Union[dict, float], obj_2: Union[dict, float]):
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                bound = self._search_alg._get_lexico_bound(k_metric, k_mode)
+                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._search_alg._f_best)
                 if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
                 elif obj_1[k_metric] < obj_2[k_metric]:

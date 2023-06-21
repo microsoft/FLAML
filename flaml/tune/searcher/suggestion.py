@@ -34,6 +34,7 @@ from ..sample import (
     Uniform,
 )
 from ..trial import flatten_dict, unflatten_dict
+from packaging import version
 
 logger = logging.getLogger(__name__)
 
@@ -640,9 +641,11 @@ class OptunaSearch(Searcher):
 
         if self._sampler:
             sampler = self._sampler
-        elif isinstance(mode, list):
+        elif isinstance(mode, list) and version.parse(ot.__version__) < version.parse("2.9.0"):
             # MOTPESampler deprecated in Optuna>=2.9.0
             sampler = ot.samplers.MOTPESampler(seed=self._seed)
+        else:
+            sampler = ot.samplers.TPESampler(seed=self._seed)
 
         if isinstance(mode, list):
             study_direction_args = dict(
@@ -984,24 +987,6 @@ class LexiGlobalSearch(OptunaSearch):
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
-
-    def _get_lexico_bound(self, metric, mode):
-        k_target = (
-            self.lexico_objectives["targets"][metric]
-            if mode == "min"
-            else -1 * self.lexico_objectives["targets"][metric]
-        )
-        if not isinstance(self.lexico_objectives["tolerances"][metric], str):
-            tolerance_bound = self._f_best[metric] + self.lexico_objectives["tolerances"][metric]
-        else:
-            assert (
-                self.lexico_objectives["tolerances"][metric][-1] == "%"
-            ), "String tolerance of {} should use %% as the suffix".format(metric)
-            tolerance_bound = self._f_best[metric] * (
-                1 + 0.01 * float(self.lexico_objectives["tolerances"][metric].replace("%", ""))
-            )
-        bound = max(tolerance_bound, k_target)
-        return bound
 
     def on_trial_result(self, trial_id: str, result: Dict):
         super.on_trial_result(trial_id, result)

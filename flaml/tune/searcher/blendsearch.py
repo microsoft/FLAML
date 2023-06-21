@@ -8,6 +8,7 @@ import numpy as np
 import time
 import pickle
 
+
 try:
     from ray import __version__ as ray_version
 
@@ -28,6 +29,7 @@ from .search_thread import SearchThread
 from .flow2 import FLOW2
 from ..space import add_cost_to_space, indexof, normalize, define_by_run_func
 from ..result import TIME_TOTAL_S
+from ..utils import get_lexico_bound
 
 import logging
 
@@ -487,24 +489,6 @@ class BlendSearch(Searcher):
         self._start_time = time.time()
         self._set_deadline()
 
-    def _get_lexico_bound(self, metric, mode):
-        k_target = (
-            self.lexico_objectives["targets"][metric]
-            if mode == "min"
-            else -1 * self.lexico_objectives["targets"][metric]
-        )
-        if not isinstance(self.lexico_objectives["tolerances"][metric], str):
-            tolerance_bound = self._f_best[metric] + self.lexico_objectives["tolerances"][metric]
-        else:
-            assert (
-                self.lexico_objectives["tolerances"][metric][-1] == "%"
-            ), "String tolerance of {} should use %% as the suffix".format(metric)
-            tolerance_bound = self._f_best[metric] * (
-                1 + 0.01 * float(self.lexico_objectives["tolerances"][metric].replace("%", ""))
-            )
-        bound = max(tolerance_bound, k_target)
-        return bound
-
     @property
     def metric_target(self):
         return self._metric_target
@@ -763,7 +747,7 @@ class BlendSearch(Searcher):
     def _lexico_inferior(self, obj_1: Union[dict, float], obj_2: Union[dict, float]) -> bool:
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                bound = self._get_lexico_bound(k_metric, k_mode)
+                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._f_best)
                 if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
                 elif obj_1[k_metric] < obj_2[k_metric]:
