@@ -38,12 +38,12 @@ class AssistantAgent(Agent):
             message = {"content": message, "role": "user"}
         if sender.name not in self._sender_dict:
             self._sender_dict[sender.name] = sender
-            self._conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
+            self._oai_conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
 
         super().receive(message, sender)
-        responses = oai.ChatCompletion.create(messages=self._conversations[sender.name], **self._config)
-        self._send(responses["choices"][0]["message"], sender)
+        responses = oai.ChatCompletion.create(messages=self._oai_conversations[sender.name], **self._config)
+        self._send(oai.ChatCompletion.extract_text_or_function_call(responses)[0], sender)
 
     def reset(self):
         self._sender_dict.clear()
-        self._conversations.clear()
+        self._oai_conversations.clear()

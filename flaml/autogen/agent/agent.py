@@ -18,7 +18,7 @@ class Agent:
         # empty memory
         self._memory = []
         # a dictionary of conversations, default value is list
-        self._conversations = defaultdict(list)
+        self._oai_conversations = defaultdict(list)
         self._name = name
         self._system_message = system_message
 
@@ -32,15 +32,13 @@ class Agent:
         self._memory.append(memory)
 
     def _send(self, message: dict, recipient):
-        """Send a message to another agent.
-
-        An agent always assumes itself as the "assistant", and the message it receives is from the "user`".
-        """
+        """Send a message to another agent."""
 
         # create openai message to be appended to the conversation
         oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        # When the agent composes and sends the message, the role of the message is "assistant". The role of 'function' will remain unchanged.
         oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
-        self._conversations[recipient.name].append(oai_message)
+        self._oai_conversations[recipient.name].append(oai_message)
 
         recipient.receive(message, self)
 
@@ -48,7 +46,7 @@ class Agent:
         """Receive a message from another agent.
 
         Args:
-            message (dict): message from the sender. It can contain at most 4 fields:
+            message (dict): message from the sender. It can contain the following fields:
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
                 3. "role": role of the message, can be "assistant", "user", "function".
@@ -67,7 +65,7 @@ class Agent:
                 print(message["content"], flush=True)
             if "function_call" in message:
                 print(
-                    f"*****Calling function: {message['function_call'].get('name', '(No function name found)')}*****",
+                    f"*****Suggested function Call: {message['function_call'].get('name', '(No function name found)')}*****",
                     flush=True,
                 )
                 print("with arguments: ", message["function_call"].get("arguments", "(No arguments found)"), flush=True)
@@ -77,7 +75,7 @@ class Agent:
         # create openai message to be appended to the conversation
         oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
         oai_message["role"] = "function" if message.get("role") == "function" else "user"
-        self._conversations[sender.name].append(oai_message)
+        self._oai_conversations[sender.name].append(oai_message)
 
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from another agent.
