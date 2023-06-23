@@ -1,16 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
-
 import numpy as np
-import pandas as pd
+from flaml.automl.data import DataFrame, Series, psDataFrame, psSeries
 
 if TYPE_CHECKING:
     import flaml
-
-try:
-    import ray
-except ImportError:
-    ray = None
 
 # TODO: if your task is not specified in here, define your task as an all-capitalized word
 SEQCLASSIFICATION = "seq-classification"
@@ -75,13 +69,11 @@ class Task(ABC):
     operations which vary between tasks.
     """
 
-    estimators = {}
-
     def __init__(
         self,
         task_name: str,
-        X_train: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        y_train: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
+        X_train: Optional[Union[np.ndarray, DataFrame, psDataFrame]] = None,
+        y_train: Optional[Union[np.ndarray, DataFrame, Series, psSeries]] = None,
     ):
         """Constructor.
 
@@ -94,6 +86,7 @@ class Task(ABC):
                 such as in binary vs multilabel classification.
         """
         self.name = task_name
+        self._estimators = None
 
     def __str__(self) -> str:
         """Name of this task type."""
@@ -104,8 +97,8 @@ class Task(ABC):
         self,
         config: dict,
         estimator: "flaml.automl.ml.BaseEstimator",
-        X_train_all: Union[np.ndarray, pd.DataFrame],
-        y_train_all: Union[np.ndarray, pd.DataFrame, pd.Series],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries],
         budget: int,
         kf,
         eval_metric: str,
@@ -136,12 +129,12 @@ class Task(ABC):
         self,
         automl: "flaml.automl.automl.AutoML",
         state: "flaml.automl.state.AutoMLState",
-        X_train_all: Union[np.ndarray, pd.DataFrame, None],
-        y_train_all: Union[np.ndarray, pd.DataFrame, pd.Series, None],
-        dataframe: Union[pd.DataFrame, None],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame, None],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
+        dataframe: Union[DataFrame, None],
         label: str,
-        X_val: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        y_val: Optional[Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
+        X_val: Optional[Union[np.ndarray, DataFrame, psDataFrame]] = None,
+        y_val: Optional[Union[np.ndarray, DataFrame, Series, psSeries]] = None,
         groups_val: Optional[List[str]] = None,
         groups: Optional[List[str]] = None,
     ):
@@ -169,8 +162,8 @@ class Task(ABC):
     def prepare_data(
         self,
         state: "flaml.automl.state.AutoMLState",
-        X_train_all: Union[np.ndarray, pd.DataFrame],
-        y_train_all: Union[np.ndarray, pd.DataFrame, pd.Series, None],
+        X_train_all: Union[np.ndarray, DataFrame, psDataFrame],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
         auto_augment: bool,
         eval_method: str,
         split_type: str,
@@ -203,7 +196,7 @@ class Task(ABC):
                 For ranking task, must be "auto" or 'group'.
             split_ratio: A float of the valiation data percentage for holdout.
             n_splits: An integer of the number of folds for cross - validation.
-            data_is_df: True if the data was provided as a pd.DataFrame else False.
+            data_is_df: True if the data was provided as a DataFrame else False.
             sample_weight_full: A 1d arraylike of the sample weight.
 
         Raises:
@@ -214,7 +207,7 @@ class Task(ABC):
     def decide_split_type(
         self,
         split_type: str,
-        y_train_all: Union[np.ndarray, pd.DataFrame, pd.Series, None],
+        y_train_all: Union[np.ndarray, DataFrame, Series, psSeries, None],
         fit_kwargs: dict,
         groups: Optional[List[str]] = None,
     ) -> str:
@@ -240,9 +233,9 @@ class Task(ABC):
     @abstractmethod
     def preprocess(
         self,
-        X: Union[np.ndarray, pd.DataFrame],
+        X: Union[np.ndarray, DataFrame, psDataFrame],
         transformer: Optional["flaml.automl.data.DataTransformer"] = None,
-    ) -> Union[np.ndarray, pd.DataFrame]:
+    ) -> Union[np.ndarray, DataFrame]:
         """Preprocess the data ready for fitting or inference with this task type.
 
         Args:
@@ -332,8 +325,7 @@ class Task(ABC):
         """For backward compatibility with all the string comparisons to task"""
         return self.name == other
 
-    @classmethod
-    def estimator_class_from_str(cls, estimator_name: str) -> "flaml.automl.ml.BaseEstimator":
+    def estimator_class_from_str(self, estimator_name: str) -> "flaml.automl.ml.BaseEstimator":
         """Determine the estimator class corresponding to the provided name.
 
         Args:
@@ -345,11 +337,11 @@ class Task(ABC):
         Raises:
             ValueError: The provided estimator_name has not been registered for this task type.
         """
-        if estimator_name in cls.estimators:
-            return cls.estimators[estimator_name]
+        if estimator_name in self.estimators:
+            return self.estimators[estimator_name]
         else:
             raise ValueError(
                 f"{estimator_name} is not a built-in learner for this task type, "
-                f"only {list(cls.estimators.keys())} are supported."
+                f"only {list(self.estimators.keys())} are supported."
                 "Please use AutoML.add_learner() to add a customized learner."
             )

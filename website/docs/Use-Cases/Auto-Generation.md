@@ -1,11 +1,17 @@
 # Auto Generation
 
-`flaml.autogen` is a package for automating generation tasks (in preview). It uses [`flaml.tune`](../reference/tune/tune) to find good hyperparameter configurations under budget constraints.
-Such optimization has several benefits:
-* Maximize the utility out of using expensive foundation models.
-* Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
+`flaml.autogen` is a package for automating generation tasks (in preview), featuring:
+* Leveraging [`flaml.tune`](../reference/tune/tune) to adapt LLMs to applications, such that:
+  - Maximize the utility out of using expensive foundation models.
+  - Reduce the inference cost by using cheaper models or configurations which achieve equal or better performance.
+* An enhanced inference API as a drop-in replacement of `openai.Completion.create` or `openai.ChatCompletion.create` with utilities like API unification, caching, error handling, multi-config inference, context programming etc.
+* Higher-level components like LLM-based intelligent agents which can perform tasks autonomously or with human feedback, including tasks that require using tools via code.
 
-## Choices to Optimize
+The package is under active development with more features upcoming.
+
+## Tune Inference Parameters
+
+### Choices to optimize
 
 The cost of using foundation models for text generation is typically measured in terms of the number of tokens in the input and output combined. From the perspective of an application builder using foundation models, the use case is to maximize the utility of the generated text under an inference budget constraint (e.g., measured by the average dollar cost needed to solve a coding problem). This can be achieved by optimizing the hyperparameters of the inference,
 which can significantly affect both the utility and the cost of the generated text.
@@ -26,12 +32,10 @@ There are also complex interactions among subsets of the hyperparameters. For ex
 the temperature and top_p are not recommended to be altered from their default values together because they both control the randomness of the generated text, and changing both at the same time can result in conflicting effects; n and best_of are rarely tuned together because if the application can process multiple outputs, filtering on the server side causes unnecessary information loss; both n and max_tokens will affect the total number of tokens generated, which in turn will affect the cost of the request.
 These interactions and trade-offs make it difficult to manually determine the optimal hyperparameter settings for a given text generation task.
 
-*Do the choices matter? Check this [blog post](/blog/2023/04/21/LLM-tuning-math) for a case study.*
+*Do the choices matter? Check this [blogpost](/blog/2023/04/21/LLM-tuning-math) to find example tuning results about gpt-3.5-turbo and gpt-4.*
 
 
-## Tune Hyperparameters
-
-The tuning can be performed with the following information:
+With `flaml.autogen`, the tuning can be performed with the following information:
 1. Validation data.
 1. Evaluation function.
 1. Metric to optimize.
@@ -104,7 +108,10 @@ The returned `config` contains the optimized configuration and `analysis` contai
 
 The tuend config can be used to perform inference.
 
-*Refer to this [page](../Examples/AutoGen-OpenAI) for a full example.*
+*Refer to this [page](../Examples/AutoGen-OpenAI) for a full example. Or check the following notebook examples:*
+* [Optimize for Code Generation](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
+* [Optimize for Math](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_chatgpt_gpt4.ipynb)
+
 
 ## Perform Inference
 
@@ -185,6 +192,8 @@ response = oai.Completion.create(
 ```
 
 The example above will try to use text-ada-001, gpt-3.5-turbo, and text-davinci-003 iteratively, until a valid json string is returned or the last config is used. One can also repeat the same model in the list for multiple times to try one model multiple times for increasing the robustness of the final response.
+
+*Advanced use case: Check this [blogpost](/blog/2023/05/18/GPT-adaptive-humaneval) to find how to improve GPT-4's coding performance from 68% to 90% while reducing the inference cost.*
 
 ### Templating
 
@@ -362,18 +371,75 @@ Set `compact=False` in `start_logging()` to switch.
     },
 }
 ```
-It can be seen that the individual API call history contain redundant information of the conversation. For a long conversation the degree of redundancy is high.
+It can be seen that the individual API call history contains redundant information of the conversation. For a long conversation the degree of redundancy is high.
 The compact history is more efficient and the individual API call history contains more details.
 
-## Other Utilities
+### Other Utilities
 
-### Completion
-
-[`flaml.oai.Completion`](../reference/autogen/oai/completion) also offers some additional utilities, such as:
 - a [`cost`](../reference/autogen/oai/completion#cost) function to calculate the cost of an API call.
 - a [`test`](../reference/autogen/oai/completion#test) function to conveniently evaluate the configuration over test data.
-- a [`extract_text`](../reference/autogen/oai/completion#extract_text) function to extract the text from a completion or chat response.
-- a [`set_cache`](../reference/autogen/oai/completion#extract_text) function to set the seed and cache path. The caching is introduced in the section above, with the benefit of cost saving, reproducibility, and controlled randomness.
+- an [`extract_text_or_function_call`](../reference/autogen/oai/completion#extract_text_or_function_call) function to extract the text or function call from a completion or chat response.
+
+
+## Agents (Experimental)
+
+[`flaml.autogen.agents`](../reference/autogen/agent/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
+
+We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform in the `receive` method.
+
+### `AssistantAgent`
+
+`AssistantAgent` is an Agent class designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (e.g., GPT-4).
+
+### `UserProxyAgent`
+`UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
+
+Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. We plan to add more capabilities in `UserProxyAgent` beyond code execution. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message. For example, one can easily extend it to execute function calls to external API, which is especially useful with the newly added [function calling capability of OpenAI's Chat Completions API](https://openai.com/blog/function-calling-and-other-api-updates?ref=upstract.com).  This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
+
+Example usage of the agents to solve a task with code:
+```python
+from flaml.autogen.agent import AssistantAgent, UserProxyAgent
+
+# create an AssistantAgent instance named "assistant"
+assistant = AssistantAgent(name="assistant")
+
+# create a UserProxyAgent instance named "user_proxy"
+user_proxy = UserProxyAgent(
+    name="user_proxy",
+    human_input_mode="NEVER",  # in this mode, the agent will never solicit human input but always auto reply
+    max_consecutive_auto_reply=10,  # the maximum number of consecutive auto replies
+    is_termination_msg=lambda x: x.rstrip().endswith("TERMINATE") or x.rstrip().endswith('"TERMINATE".'),  # the function to determine whether a message is a termination message
+    work_dir=".",
+)
+
+# the assistant receives a message from the user, which contains the task description
+assistant.receive(
+    """What date is today? Which big tech stock has the largest year-to-date gain this year? How much is the gain?""",
+    user_proxy,
+)
+```
+In the example above, we create an AssistantAgent named "assistant" to serve as the assistant and a UserProxyAgent named "user_proxy" to serve as a proxy for the human user.
+1. The assistant receives a message from the user_proxy, which contains the task description.
+2. The assistant then tries to write Python code to solve the task and sends the response to the user_proxy.
+3. Once the user_proxy receives a response from the assistant, it tries to reply by either soliciting human input or preparing an automatically generated reply. In this specific example, since `human_input_mode` is set to `"NEVER"`, the user_proxy will not solicit human input but prepare an automatically generated reply (auto reply). More specifically, the user_proxy executes the code and uses the result as the auto-reply.
+4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation. If not, steps 3 and 4 are repeated.
+
+Please find a visual illustration of how UserProxyAgent and AssistantAgent collaboratively solve the above task below:
+![Agent Example](images/agent_example.png)
+
+Notes:
+- Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops when the number of auto-reply reaches the upper limit specified by `max_consecutive_auto_reply` or the received message is a termination message according to `is_termination_msg`.
+- When `human_input_mode` is set to `"ALWAYS"`, the user proxy agent solicits human input every time a message is received; and the conversation stops when the human input is "exit", or when the received message is a termination message and no human input is provided.
+- When `human_input_mode` is set to `"TERMINATE"`, the user proxy agent solicits human input only when a termination message is received or the number of auto reply reaches `max_consecutive_auto_reply`.
+
+*Interested in trying it yourself? Please check the following notebook examples:*
+* [Interactive LLM Agent with Auto Feedback from Code Execution](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_auto_feedback_from_code_execution.ipynb)
+
+* [Interactive LLM Agent with Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_human_feedback.ipynb)
+
+* [Interactive LLM Agent Dealing with Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_web_info.ipynb)
+
+## Utilities for Applications
 
 ### Code
 
@@ -389,6 +455,6 @@ The compact history is more efficient and the individual API call history contai
 - a [eval_math_responses](../reference/autogen/math_utils#eval_math_responses) function to select a response using voting, and check if the final answer is correct if the canonical solution is provided.
 
 
-*Interested in trying it yourself? Please check the following notebook examples:*
-* [Optimize for Code Gen](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_openai_completion.ipynb)
-* [Optimize for Math](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_chatgpt_gpt4.ipynb)
+*Interested in the research that leads to this package? Please check the following papers.*
+* [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673). Chi Wang, Susan Xueqing Liu, Ahmed H. Awadallah. ArXiv preprint arXiv:2303.04673 (2023).
+* [An Empirical Study on Challenging Math Problem Solving with GPT-4](https://arxiv.org/abs/2306.01337). Yiran Wu, Feiran Jia, Shaokun Zhang, Hangyu Li, Erkang Zhu, Yue Wang, Yin Tat Lee, Richard Peng, Qingyun Wu, Chi Wang. ArXiv preprint arXiv:2306.01337 (2023).
