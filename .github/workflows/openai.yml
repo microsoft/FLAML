@@ -31,7 +31,7 @@ jobs:
         run: |
           docker --version
           python -m pip install --upgrade pip wheel
-          pip install -e .[autogen,blendsearch]
+          pip install -e .[mathchat,blendsearch]
           python -c "import flaml"
           pip install coverage pytest datasets
       - name: Coverage
