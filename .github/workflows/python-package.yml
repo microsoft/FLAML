@@ -82,7 +82,7 @@ jobs:
           # Uninstall pyspark to test env without pyspark
           pip uninstall -y pyspark
       - name: Test with pytest
-        if: matrix.os == 'macos-latest' && matrix.python-version != '3.10'
+        if: matrix.python-version != '3.10'
         run: |
           pytest test
       - name: Coverage
