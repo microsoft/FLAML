@@ -2,6 +2,7 @@ from .agent import Agent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
 import json
+from typing import Dict, Union
 
 
 class UserProxyAgent(Agent):
@@ -94,40 +95,44 @@ class UserProxyAgent(Agent):
                 return exitcode, logs_all
         return exitcode, logs_all
 
-    def _extractArgs(self, input_string: str):
-        """Extract arguements as a dict from a string.
-        Args:
-            input_string: string to extract arguements from
-        Returns:
-            a dictionary or None
-        """
+    @staticmethod
+    def _remove_newlines_outside_quotes(jstr):
+        """Remove newlines outside of quotes, and hanlde JSON escape sequences.
 
-        def _remove_newlines_outside_quotes(s):
-            """Remove newlines outside of quotes.
-
-            if calling json.loads(s), it will throw an error because of the newline in the query.
-            So this function removes the newline in the query outside of quotes.
-
+        1. this function removes the newline in the query outside of quotes otherwise json.loads(s) will fail.
             Ex 1:
             "{\n"tool": "python",\n"query": "print('hello')\nprint('world')"\n}" -> "{"tool": "python","query": "print('hello')\nprint('world')"}"
             Ex 2:
             "{\n  \"location\": \"Boston, MA\"\n}" -> "{"location": "Boston, MA"}"
-            """
-            result = []
-            inside_quotes = False
-            for c in s:
-                if c == '"':
-                    inside_quotes = not inside_quotes
-                if not inside_quotes and c == "\n":
-                    continue
-                if inside_quotes and c == "\n":
-                    c = "\\n"
-                if inside_quotes and c == "\t":
-                    c = "\\t"
-                result.append(c)
-            return "".join(result)
 
-        input_string = _remove_newlines_outside_quotes(input_string)
+        2. this function also handles JSON escape sequences inside quotes,
+            Ex 1:
+            '{"args": "a\na\na\ta"}' -> '{"args": "a\\na\\na\\ta"}'
+        """
+        result = []
+        inside_quotes = False
+        for char in jstr:
+            if char == '"':
+                inside_quotes = not inside_quotes
+            if not inside_quotes and char == "\n":
+                continue
+            if inside_quotes and char == "\n":
+                char = "\\n"
+            if inside_quotes and char == "\t":
+                char = "\\t"
+            result.append(char)
+        return "".join(result)
+
+    def _extract_args(self, input_string: str):
+        """Extract arguements from a json-like string and put it into a dict.
+
+        Args:
+            input_string: string to extract arguements from.
+
+        Returns:
+            a dictionary or None.
+        """
+        input_string = self._remove_newlines_outside_quotes(input_string)
         try:
             args = json.loads(input_string)
             return args
@@ -135,12 +140,22 @@ class UserProxyAgent(Agent):
             return None
 
     def _execute_function(self, func_call):
+        """Execute a function call and return the result.
+
+        Args:
+            func_call: a dictionary extracted from openai message at key "function_call" with keys "name" and "arguments".
+
+        Returns:
+            A tuple of (is_exec_success, result_dict).
+            is_exec_success (boolean): whether the execution is successful.
+            result_dict: a dictionary with keys "name", "role", and "content". Value of "role" is "function".
+        """
         func_name = func_call.get("name", "")
         func = self._functions.get(func_name, None)
 
         is_exec_success = False
         if func is not None:
-            arguments = self._extractArgs(func_call.get("arguments", ""))
+            arguments = self._extract_args(func_call.get("arguments", ""))
             if arguments is not None:
                 try:
                     content = func(**arguments)
@@ -167,17 +182,15 @@ class UserProxyAgent(Agent):
 
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
-            # no code block is found, lang should be `UNKNOWN``
-            self._send({"role": "user", "content": default_reply}, sender)
+            # no code block is found, lang should be `UNKNOWN`
+            self._send(default_reply, sender)
         else:
             # try to execute the code
             exitcode, logs = self._execute_code(code_blocks)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self._send(
-                {"role": "user", "content": f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"}, sender
-            )
+            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
 
-    def receive(self, message, sender):
+    def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
@@ -209,7 +222,7 @@ class UserProxyAgent(Agent):
         if reply:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
-            self._send({"role": "user", "content": reply}, sender)
+            self._send(reply, sender)
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1

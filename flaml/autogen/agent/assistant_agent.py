@@ -1,6 +1,7 @@
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL
 from flaml import oai
+from typing import Dict, Union
 
 
 class AssistantAgent(Agent):
@@ -33,9 +34,7 @@ class AssistantAgent(Agent):
         self._config.update(config)
         self._sender_dict = {}
 
-    def receive(self, message, sender):
-        if type(message) is str:
-            message = {"content": message, "role": "user"}
+    def receive(self, message: Union[Dict, str], sender):
         if sender.name not in self._sender_dict:
             self._sender_dict[sender.name] = sender
             self._oai_conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
