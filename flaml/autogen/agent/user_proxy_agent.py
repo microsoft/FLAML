@@ -49,7 +49,9 @@ class UserProxyAgent(Agent):
         self._work_dir = work_dir
         self._human_input_mode = human_input_mode
         self._is_termination_msg = (
-            is_termination_msg if is_termination_msg is not None else (lambda x: x == "TERMINATE")
+            is_termination_msg
+            if is_termination_msg is not None
+            else (lambda x: x == "TERMINATE" if type(x) is str else x["content"] == "TERMINATE")
         )
         self._config = config
         self._max_consecutive_auto_reply = (
@@ -120,6 +122,8 @@ class UserProxyAgent(Agent):
                 char = "\\n"
             if inside_quotes and char == "\t":
                 char = "\\t"
+            if inside_quotes and char == "\\":
+                char = "\\\\"
             result.append(char)
         return "".join(result)
 

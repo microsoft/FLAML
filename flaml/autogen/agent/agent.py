@@ -48,7 +48,7 @@ class Agent:
         """Receive a message from another agent.
 
         Args:
-            message (dict or str): message from the sender. If the type is dict, it can contain at most 4 fields:
+            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
                 3. "role": role of the message, can be "assistant", "user", "function".
