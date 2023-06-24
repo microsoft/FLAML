@@ -28,6 +28,9 @@ def choice(categories: Sequence, order=None):
 
 
 def get_lexico_bound(metric, mode, lexico_objectives, f_best):
+    """Get targeted vector according to the historical points.
+    LexiFlow uses targeted vector to justify the order of different configurations.
+    """
     k_target = lexico_objectives["targets"][metric] if mode == "min" else -1 * lexico_objectives["targets"][metric]
     if not isinstance(lexico_objectives["tolerances"][metric], str):
         tolerance_bound = f_best[metric] + lexico_objectives["tolerances"][metric]

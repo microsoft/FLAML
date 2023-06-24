@@ -15,13 +15,13 @@ try:
     assert ray_version >= "1.10.0"
     if ray_version.startswith("1."):
         from ray.tune.suggest import Searcher
-        from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
+        from ray.tune.suggest.optuna import OptunaSearch as NormalGlobalSearch
     else:
         from ray.tune.search import Searcher
-        from ray.tune.search.optuna import OptunaSearch as GlobalSearch
+        from ray.tune.search.optuna import OptunaSearch as NormalGlobalSearch
 except (ImportError, AssertionError):
     from .suggestion import Searcher
-    from .suggestion import OptunaSearch as GlobalSearch
+    from .suggestion import OptunaSearch as NormalGlobalSearch
 from .suggestion import LexiGlobalSearch as LexiGlobalSearch
 from ..trial import unflatten_dict, flatten_dict
 from .. import INCUMBENT_RESULT
@@ -36,6 +36,7 @@ import logging
 SEARCH_THREAD_EPS = 1.0
 PENALTY = 1e10  # penalty term for constraints
 logger = logging.getLogger(__name__)
+GlobalSearch = NormalGlobalSearch
 
 
 class BlendSearch(Searcher):
@@ -165,14 +166,7 @@ class BlendSearch(Searcher):
             self.cost_attr = cost_attr
             self._cost_budget = cost_budget
         self.penalty = PENALTY  # penalty term for constraints
-        if not self.lexico_objectives:
-            self._metric, self._mode = metric, mode
-        else:
-            self._metric = self.lexico_objectives["metrics"][0]
-            self._mode = self.lexico_objectives["modes"][0]
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
-        self._histories = None
-        self._f_best = None
         init_config = low_cost_partial_config or {}
         if not init_config:
             logger.info(
@@ -203,16 +197,10 @@ class BlendSearch(Searcher):
             self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
-        if metric_constraints:
-            if self.lexico_objectives:
-                self._metric_constraints = None
-                logger.info("Do not support providing metric_constraints in lexicographic optimization for now.")
-            else:
-                assert all(
-                    x[1] in ["<=", ">="] for x in metric_constraints
-                ), "sign of metric constraints must be <= or >=."
-                # metric modified by lagrange
-                metric += self.lagrange
+        if metric_constraints and not self.lexico_objectives:
+            assert all(x[1] in ["<=", ">="] for x in metric_constraints), "sign of metric constraints must be <= or >=."
+            # metric modified by lagrange
+            metric += self.lagrange
         self._cat_hp_cost = cat_hp_cost or {}
         if space:
             add_cost_to_space(space, init_config, self._cat_hp_cost)
@@ -241,6 +229,9 @@ class BlendSearch(Searcher):
                 gs_space = space
             gs_seed = seed - 10 if (seed - 10) >= 0 else seed - 11 + (1 << 32)
             self._gs_seed = gs_seed
+            if self.lexico_objectives:
+                metric, mode = self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
+            self.init_lexicographic_obj()
             if experimental:
                 import optuna as ot
 
@@ -251,50 +242,27 @@ class BlendSearch(Searcher):
                     sampler = ot.samplers.MOTPESampler(
                         seed=gs_seed, n_startup_trials=n_startup_trials, n_ehvi_candidates=24
                     )
-
             else:
                 sampler = None
-            if self.lexico_objectives:
-                metric, mode = self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
             try:
                 assert evaluated_rewards
-                if self.lexico_objectives:
-                    self._gs = LexiGlobalSearch(
-                        space=gs_space,
-                        metric=metric,
-                        mode=mode,
-                        seed=gs_seed,
-                        sampler=sampler,
-                        points_to_evaluate=self._evaluated_points,
-                        evaluated_rewards=evaluated_rewards,
-                    )
-                else:
-                    self._gs = GlobalSearch(
-                        space=gs_space,
-                        metric=metric,
-                        mode=mode,
-                        seed=gs_seed,
-                        sampler=sampler,
-                        points_to_evaluate=self._evaluated_points,
-                        evaluated_rewards=evaluated_rewards,
-                    )
+                self._gs = GlobalSearch(
+                    space=gs_space,
+                    metric=metric,
+                    mode=mode,
+                    seed=gs_seed,
+                    sampler=sampler,
+                    points_to_evaluate=self._evaluated_points,
+                    evaluated_rewards=evaluated_rewards,
+                )
             except (AssertionError, ValueError):
-                if self.lexico_objectives:
-                    self._gs = LexiGlobalSearch(
-                        space=gs_space,
-                        metric=metric,
-                        mode=mode,
-                        seed=gs_seed,
-                        sampler=sampler,
-                    )
-                else:
-                    self._gs = GlobalSearch(
-                        space=gs_space,
-                        metric=metric,
-                        mode=mode,
-                        seed=gs_seed,
-                        sampler=sampler,
-                    )
+                self._gs = GlobalSearch(
+                    space=gs_space,
+                    metric=metric,
+                    mode=mode,
+                    seed=gs_seed,
+                    sampler=sampler,
+                )
             if isinstance(self._gs, LexiGlobalSearch):
                 self._gs.lexico_objectives = self.lexico_objectives
             self._gs.space = space
@@ -311,6 +279,20 @@ class BlendSearch(Searcher):
         self._allow_empty_config = allow_empty_config
         if space is not None:
             self._init_search()
+
+    def init_lexicographic_obj(
+        self,
+    ):
+        self._f_best = None
+        self._histories = None
+        if self.lexico_objectives:
+            global GlobalSearch
+            GlobalSearch = LexiGlobalSearch
+            self._metric = self.lexico_objectives["metrics"][0]
+            self._mode = self.lexico_objectives["modes"][0]
+            if self._metric_constraints:
+                self._metric_constraints = None
+                logger.info("Do not support providing metric_constraints in lexicographic optimization for now.")
 
     def update_fbest(
         self,
@@ -373,20 +355,12 @@ class BlendSearch(Searcher):
                 # reset search when metric or mode changed
                 self._ls.set_search_properties(metric, mode)
                 if self._gs is not None:
-                    if self.lexico_objectives:
-                        self._gs = LexiGlobalSearch(
-                            space=self._gs._space,
-                            metric=metric,
-                            mode=mode,
-                            seed=self._gs_seed,
-                        )
-                    else:
-                        self._gs = GlobalSearch(
-                            space=self._gs._space,
-                            metric=metric,
-                            mode=mode,
-                            seed=self._gs_seed,
-                        )
+                    self._gs = GlobalSearch(
+                        space=self._gs._space,
+                        metric=metric,
+                        mode=mode,
+                        seed=self._gs_seed,
+                    )
                     if isinstance(self._gs, LexiGlobalSearch):
                         self._gs.lexico_objectives = self.lexico_objective
                     self._gs.space = self._ls.space
@@ -956,19 +930,17 @@ class BlendSearch(Searcher):
                 or sign == "<"
                 and value > threshold
             ):
-                if not self.lexico_objectives:
+                if self.lexico_objectives:
+                    for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
+                        self._result[config_signature] = {}
+                        self._result[config_signature][k_metric] = np.inf * -1 if k_mode == "max" else np.inf
+                        self._result[config_signature]["time_total_s"] = 1
+                else:
                     self._result[config_signature] = {
                         self._metric: np.inf * self._ls.metric_op,
                         "time_total_s": 1,
                     }
-                else:
-                    for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                        self._result[config_signature] = {}
-                        self._result[config_signature][k_metric] = {
-                            self._metric: np.inf * -1 if k_mode == "max" else np.inf
-                        }
-                        self._result[config_signature]["time_total_s"] = 1
-                return True
+                    return True
         return False
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
@@ -1224,20 +1196,14 @@ class BlendSearchTuner(BlendSearch, NNITuner):
             lexico_objectives=self.lexico_objectives,
         )
         if self._gs is not None:
-            if self.lexico_objectives:
-                self._gs = LexiGlobalSearch(
-                    space=config,
-                    metric=self._metric,
-                    mode=self._mode,
-                    sampler=self._gs._sampler,
-                )
-            else:
-                self._gs = GlobalSearch(
-                    space=config,
-                    metric=self._metric,
-                    mode=self._mode,
-                    sampler=self._gs._sampler,
-                )
+            self._gs = GlobalSearch(
+                space=config,
+                metric=self._metric,
+                mode=self._mode,
+                sampler=self._gs._sampler,
+            )
+            if isinstance(self._gs, LexiGlobalSearch):
+                self._gs.lexico_objectives = self.lexico_objectives
             self._gs.space = config
         self._init_search()
 
