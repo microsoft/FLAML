@@ -31,9 +31,12 @@ jobs:
         run: |
           docker --version
           python -m pip install --upgrade pip wheel
-          pip install -e .[mathchat,blendsearch]
+          pip install -e .[autogen,blendsearch]
           python -c "import flaml"
           pip install coverage pytest datasets
+        if: matrix.python-version != '3.11':
+        run: |
+          pip install -e .[mathchat]
       - name: Coverage
         if: matrix.python-version == '3.9'
         env:
