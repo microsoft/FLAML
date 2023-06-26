@@ -208,7 +208,7 @@ class MathUserProxyAgent(UserProxyAgent):
             return PROMPTS[prompt_type] + problem
 
     def _reset(self):
-        self._conversations.clear()
+        self._oai_conversations.clear()
         self._valid_q_count = 0
         self._total_q_count = 0
         self._accum_invalid_q_per_step = 0
