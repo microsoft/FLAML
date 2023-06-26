@@ -311,6 +311,7 @@ def validate_warmstart(
 
 class _OptunaTrialSuggestCaptor:
     """Utility to capture returned values from Optuna's suggest_ methods.
+
     This will wrap around the ``optuna.Trial` object and decorate all
     `suggest_` callables with a function capturing the returned value,
     which will be saved in the ``captured_values`` dict.
@@ -365,7 +366,7 @@ class OptunaSearch(Searcher):
             .. warning::
                 No actual computation should take place in the define-by-run
                 function. Instead, put the training logic inside the function
-                or class trainable passed to ``tune.Tuner()``.
+                or class trainable passed to ``tune.run``.
 
         metric: The training result objective value attribute. If
             None but a mode was passed, the anonymous metric ``_metric``
@@ -384,8 +385,6 @@ class OptunaSearch(Searcher):
             draw hyperparameter configurations. Defaults to ``MOTPESampler``
             for multi-objective optimization with Optuna<2.9.0, and
             ``TPESampler`` in every other case.
-            See https://optuna.readthedocs.io/en/stable/reference/samplers/index.html
-            for available Optuna samplers.
 
             .. warning::
                 Please note that with Optuna 2.10.0 and earlier
@@ -417,7 +416,7 @@ class OptunaSearch(Searcher):
 
     .. code-block:: python
 
-        from ray.tune.search.optuna import OptunaSearch
+        from ray.tune.suggest.optuna import OptunaSearch
 
         config = {
             "a": tune.uniform(6, 8)
@@ -428,21 +427,14 @@ class OptunaSearch(Searcher):
             metric="loss",
             mode="min")
 
-        tuner = tune.Tuner(
-            trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
-            param_space=config,
-        )
-        tuner.fit()
+        tune.run(trainable, config=config, search_alg=optuna_search)
 
     If you would like to pass the search space manually, the code would
     look like this:
 
     .. code-block:: python
 
-        from ray.tune.search.optuna import OptunaSearch
+        from ray.tune.suggest.optuna import OptunaSearch
         import optuna
 
         space = {
@@ -455,13 +447,7 @@ class OptunaSearch(Searcher):
             metric="loss",
             mode="min")
 
-        tuner = tune.Tuner(
-            trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
-        )
-        tuner.fit()
+        tune.run(trainable, search_alg=optuna_search)
 
         # Equivalent Optuna define-by-run function approach:
 
@@ -476,19 +462,13 @@ class OptunaSearch(Searcher):
             metric="loss",
             mode="min")
 
-        tuner = tune.Tuner(
-            trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
-        )
-        tuner.fit()
+        tune.run(trainable, search_alg=optuna_search)
 
     Multi-objective optimization is supported:
 
     .. code-block:: python
 
-        from ray.tune.search.optuna import OptunaSearch
+        from ray.tune.suggest.optuna import OptunaSearch
         import optuna
 
         space = {
@@ -497,27 +477,24 @@ class OptunaSearch(Searcher):
         }
 
         # Note you have to specify metric and mode here instead of
-        # in tune.TuneConfig
+        # in tune.run
         optuna_search = OptunaSearch(
             space,
             metric=["loss1", "loss2"],
             mode=["min", "max"])
 
         # Do not specify metric and mode here!
-        tuner = tune.Tuner(
+        tune.run(
             trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
+            search_alg=optuna_search
         )
-        tuner.fit()
 
     You can pass configs that will be evaluated first using
     ``points_to_evaluate``:
 
     .. code-block:: python
 
-        from ray.tune.search.optuna import OptunaSearch
+        from ray.tune.suggest.optuna import OptunaSearch
         import optuna
 
         space = {
@@ -531,20 +508,14 @@ class OptunaSearch(Searcher):
             metric="loss",
             mode="min")
 
-        tuner = tune.Tuner(
-            trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
-        )
-        tuner.fit()
+        tune.run(trainable, search_alg=optuna_search)
 
     Avoid re-running evaluated trials by passing the rewards together with
     `points_to_evaluate`:
 
     .. code-block:: python
 
-        from ray.tune.search.optuna import OptunaSearch
+        from ray.tune.suggest.optuna import OptunaSearch
         import optuna
 
         space = {
@@ -559,13 +530,7 @@ class OptunaSearch(Searcher):
             metric="loss",
             mode="min")
 
-        tuner = tune.Tuner(
-            trainable,
-            tune_config=tune.TuneConfig(
-                search_alg=optuna_search,
-            ),
-        )
-        tuner.fit()
+        tune.run(trainable, search_alg=optuna_search)
 
     .. versionadded:: 0.8.8
 
@@ -707,7 +672,7 @@ class OptunaSearch(Searcher):
                 f"took {time_taken} seconds to "
                 "run. Ensure that actual computation, training takes "
                 "place inside Tune's train functions or Trainables "
-                "passed to `tune.Tuner()`."
+                "passed to `tune.run`."
             )
         if ret is not None:
             if not isinstance(ret, dict):
@@ -812,7 +777,7 @@ class OptunaSearch(Searcher):
                 "Define-by-run function passed in `space` argument is not "
                 "yet supported when using `evaluated_rewards`. Please provide "
                 "an `OptunaDistribution` dict or pass a Ray Tune "
-                "search space to `tune.Tuner()`."
+                "search space to `tune.run()`."
             )
 
         ot_trial_state = OptunaTrialState.COMPLETE
@@ -837,15 +802,27 @@ class OptunaSearch(Searcher):
         self._ot_study.add_trial(trial)
 
     def save(self, checkpoint_path: str):
-        save_object = self.__dict__.copy()
+        save_object = (
+            self._sampler,
+            self._ot_trials,
+            self._ot_study,
+            self._points_to_evaluate,
+            self._evaluated_rewards,
+        )
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
 
     def restore(self, checkpoint_path: str):
         with open(checkpoint_path, "rb") as inputFile:
             save_object = pickle.load(inputFile)
-        if isinstance(save_object, dict):
-            self.__dict__.update(save_object)
+        if len(save_object) == 5:
+            (
+                self._sampler,
+                self._ot_trials,
+                self._ot_study,
+                self._points_to_evaluate,
+                self._evaluated_rewards,
+            ) = save_object
         else:
             # Backwards compatibility
             (
@@ -853,7 +830,6 @@ class OptunaSearch(Searcher):
                 self._ot_trials,
                 self._ot_study,
                 self._points_to_evaluate,
-                self._evaluated_rewards,
             ) = save_object
 
     @staticmethod
@@ -926,7 +902,22 @@ class OptunaSearch(Searcher):
         return values
 
 
-class LexiGlobalSearch(OptunaSearch):
+try:
+    from ray import __version__ as ray_version
+
+    assert ray_version >= "1.10.0"
+    if ray_version.startswith("1."):
+        from ray.tune.suggest import Searcher as Searcher_inherited
+        from ray.tune.suggest.optuna import OptunaSearch as OptunaSearch_inherited
+    else:
+        from ray.tune.search import Searcher as Searcher_inherited
+        from ray.tune.search.optuna import OptunaSearch as OptunaSearch_inherited
+except (ImportError, AssertionError):
+    Searcher_inherited = Searcher
+    OptunaSearch_inherited = OptunaSearch
+
+
+class LexiGlobalSearch(OptunaSearch_inherited):
     def __init__(
         self,
         space: Optional[

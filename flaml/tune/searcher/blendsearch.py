@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 import time
 import pickle
-
+from typing import Any
 
 try:
     from ray import __version__ as ray_version
@@ -22,7 +22,7 @@ try:
 except (ImportError, AssertionError):
     from .suggestion import Searcher
     from .suggestion import OptunaSearch as NormalGlobalSearch
-from .suggestion import LexiGlobalSearch as LexiGlobalSearch
+from .suggestion import LexiGlobalSearch
 from ..trial import unflatten_dict, flatten_dict
 from .. import INCUMBENT_RESULT
 from .search_thread import SearchThread
@@ -30,7 +30,6 @@ from .flow2 import FLOW2
 from ..space import add_cost_to_space, indexof, normalize, define_by_run_func
 from ..result import TIME_TOTAL_S
 from ..utils import get_lexico_bound
-
 import logging
 
 SEARCH_THREAD_EPS = 1.0
