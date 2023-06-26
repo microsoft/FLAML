@@ -16,7 +16,7 @@ class UserProxyAgent(Agent):
         system_message="",
         work_dir=None,
         human_input_mode="ALWAYS",
-        functions=defaultdict(callable),
+        functions=defaultdict(dict),
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
@@ -36,12 +36,30 @@ class UserProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            functions (dict[str, callable]): a dictionary of functions that can be called by the assistant.
+            functions (dict[str, dict]): a dictionary of dictionaries.
+                the outer dictionary maps function names corresponding to exact names passed to openai configs.
+                the inner dict can have two formats:
+                    (1) {
+                            "function" (Required, callable): a callable function that will be called
+                            "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
+                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
+                                index of the return: name of argument to be updated with this returned value in "args".
+                    }
+                    (2) { 
+                            "class" (Required): an instance of a class.
+                            "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
+                            "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
+                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
+                                index of the return: name of argument to be updated with this returned value in "args".
+                    }
+                Caution: arguments stored in 'args' will overwritten any given arguments passed back from the LLM assistant. 
+                You may choose to not pass the argument field to the LLM assistant, or tell the assistant to ignore the argument.
+
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            is_termination_msg (function): a function that takes a message and returns a boolean value.
-                This function is used to determine if a received message is a termination message.
+            is_termination_msg (function): a function that takes a dictionary (a message) and determine if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call". 
             use_docker (bool): whether to use docker to execute the code.
             **config (dict): other configurations.
         """
@@ -51,7 +69,7 @@ class UserProxyAgent(Agent):
         self._is_termination_msg = (
             is_termination_msg
             if is_termination_msg is not None
-            else (lambda x: x == "TERMINATE" if type(x) is str else x["content"] == "TERMINATE")
+            else (lambda x: x == "TERMINATE" if type(x) is str else x.get("content") == "TERMINATE")
         )
         self._config = config
         self._max_consecutive_auto_reply = (
@@ -59,6 +77,10 @@ class UserProxyAgent(Agent):
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._use_docker = use_docker
+
+        # 'class' and 'function' cannot exist at the same time.
+        for f in functions:
+            assert ("class" in functions[f] or "function" in functions[f]) and ("class" in functions[f]) != ("function" in functions[f]), "only one of 'class' and 'function' can exist in a function config."
         self._functions = functions
 
     def _execute_code(self, code_blocks):
@@ -118,20 +140,20 @@ class UserProxyAgent(Agent):
                 inside_quotes = not inside_quotes
             if not inside_quotes and char == "\n":
                 continue
-            if inside_quotes and char == "\n":
-                char = "\\n"
-            if inside_quotes and char == "\t":
-                char = "\\t"
-            if inside_quotes and char == "\\":
-                char = "\\\\"
+            # if inside_quotes and char == "\n":
+            #     char = "\\n"
+            # if inside_quotes and char == "\t":
+            #     char = "\\t"
+            # if inside_quotes and char == "\\":
+            #     char = "\\\\"
             result.append(char)
         return "".join(result)
 
     def _extract_args(self, input_string: str):
-        """Extract arguements from a json-like string and put it into a dict.
+        """Extract arguments from a json-like string and put it into a dict.
 
         Args:
-            input_string: string to extract arguements from.
+            input_string: string to extract arguments from.
 
         Returns:
             a dictionary or None.
@@ -155,19 +177,28 @@ class UserProxyAgent(Agent):
             result_dict: a dictionary with keys "name", "role", and "content". Value of "role" is "function".
         """
         func_name = func_call.get("name", "")
-        func = self._functions.get(func_name, None)
+        func_dict = self._functions.get(func_name, None)
 
         is_exec_success = False
-        if func is not None:
-            arguments = self._extract_args(func_call.get("arguments", ""))
-            if arguments is not None:
-                try:
-                    content = func(**arguments)
-                    is_exec_success = True
-                except Exception as e:
-                    content = f"Error: {e}"
-            else:
-                content = f"Error: Invalid arguments for function {func_name}."
+        if func_dict is not None:
+            arguments = self._extract_args(func_call.get("arguments", None))
+            arguments.update(func_dict.get("args", {}))
+            print(arguments, flush=True)
+            try:
+                func = getattr(func_dict["class"], func_dict.get("func_name", None), func_dict["class"]) if "class" in func_dict else func_dict["function"]
+                content = func(**arguments)
+
+                content = (content,) if not isinstance(content, (list, tuple)) else content
+                if "args_to_update" in func_dict:
+                    for index, arg_name in func_dict["args_to_update"].items():
+                        if arg_name in func_dict['args'] and index < len(content):
+                            func_dict['args'][arg_name] = content[index]
+                    self._functions[func_name] = func_dict
+                is_exec_success = True
+                content = content[0] if len(content) == 1 else content
+            except Exception as e:
+                content = f"Error: {e}"
+
         else:
             content = f"Error: Function {func_name} not found."
 
@@ -177,7 +208,7 @@ class UserProxyAgent(Agent):
             "content": content,
         }
 
-    def auto_reply(self, message, sender, default_reply=""):
+    def auto_reply(self, message: dict, sender, default_reply=""):
         """Generate an auto reply."""
         if "function_call" in message:
             is_exec_success, func_return = self._execute_function(message["function_call"])
@@ -210,7 +241,7 @@ class UserProxyAgent(Agent):
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
-        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message["content"]):
+        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
             if self._human_input_mode == "TERMINATE":
                 reply = input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
@@ -219,7 +250,7 @@ class UserProxyAgent(Agent):
             else:
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
-        if reply == "exit" or (self._is_termination_msg(message["content"]) and not reply):
+        if reply == "exit" or (self._is_termination_msg(message) and not reply):
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             return
