@@ -104,19 +104,6 @@ def test_execute_function():
     wrong_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5, "given_num": 10 }'}
     assert "Error" in user._execute_function(func_call=wrong_args)[1]["content"]
 
-    user = UserProxyAgent(
-        name="test",
-        functions={
-            "add_num": {
-                "function": add_num,
-                "args": {"given_num": 10},
-                "args_to_update": {
-                    0: "given_num"
-                },  # the first return value will be used to update the "given_num" argument stored.
-            }
-        },
-    )
-
     # 2. test passing in pre-defined args for a function and update stored args
     def add_num(num_to_be_added, given_num):
         return num_to_be_added + given_num
