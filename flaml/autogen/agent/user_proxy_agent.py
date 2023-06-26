@@ -45,21 +45,21 @@ class UserProxyAgent(Agent):
                             "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
                                 index of the return: name of argument to be updated with this returned value in "args".
                     }
-                    (2) { 
+                    (2) {
                             "class" (Required): an instance of a class.
                             "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
                             "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
                             "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
                                 index of the return: name of argument to be updated with this returned value in "args".
                     }
-                Caution: arguments stored in 'args' will overwritten any given arguments passed back from the LLM assistant. 
+                Caution: arguments stored in 'args' will overwritten any given arguments passed back from the LLM assistant.
                 You may choose to not pass the argument field to the LLM assistant, or tell the assistant to ignore the argument.
 
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
             is_termination_msg (function): a function that takes a dictionary (a message) and determine if this received message is a termination message.
-                The dict can contain the following keys: "content", "role", "name", "function_call". 
+                The dict can contain the following keys: "content", "role", "name", "function_call".
             use_docker (bool): whether to use docker to execute the code.
             **config (dict): other configurations.
         """
@@ -80,7 +80,9 @@ class UserProxyAgent(Agent):
 
         # 'class' and 'function' cannot exist at the same time.
         for f in functions:
-            assert ("class" in functions[f] or "function" in functions[f]) and ("class" in functions[f]) != ("function" in functions[f]), "only one of 'class' and 'function' can exist in a function config."
+            assert ("class" in functions[f] or "function" in functions[f]) and ("class" in functions[f]) != (
+                "function" in functions[f]
+            ), "only one of 'class' and 'function' can exist in a function config."
         self._functions = functions
 
     def _execute_code(self, code_blocks):
@@ -120,7 +122,7 @@ class UserProxyAgent(Agent):
         return exitcode, logs_all
 
     @staticmethod
-    def _remove_newlines_outside_quotes(jstr):
+    def _format_json_str(jstr):
         """Remove newlines outside of quotes, and hanlde JSON escape sequences.
 
         1. this function removes the newline in the query outside of quotes otherwise json.loads(s) will fail.
@@ -140,12 +142,10 @@ class UserProxyAgent(Agent):
                 inside_quotes = not inside_quotes
             if not inside_quotes and char == "\n":
                 continue
-            # if inside_quotes and char == "\n":
-            #     char = "\\n"
-            # if inside_quotes and char == "\t":
-            #     char = "\\t"
-            # if inside_quotes and char == "\\":
-            #     char = "\\\\"
+            if inside_quotes and char == "\n":
+                char = "\\n"
+            if inside_quotes and char == "\t":
+                char = "\\t"
             result.append(char)
         return "".join(result)
 
@@ -158,12 +158,12 @@ class UserProxyAgent(Agent):
         Returns:
             a dictionary or None.
         """
-        input_string = self._remove_newlines_outside_quotes(input_string)
+        input_string = self._format_json_str(input_string)
         try:
             args = json.loads(input_string)
             return args
         except json.JSONDecodeError:
-            return None
+            return {}
 
     def _execute_function(self, func_call):
         """Execute a function call and return the result.
@@ -181,18 +181,22 @@ class UserProxyAgent(Agent):
 
         is_exec_success = False
         if func_dict is not None:
-            arguments = self._extract_args(func_call.get("arguments", None))
+            arguments = self._extract_args(func_call.get("arguments", ""))
             arguments.update(func_dict.get("args", {}))
-            print(arguments, flush=True)
+
             try:
-                func = getattr(func_dict["class"], func_dict.get("func_name", None), func_dict["class"]) if "class" in func_dict else func_dict["function"]
+                func = (
+                    getattr(func_dict["class"], func_dict.get("func_name", None), func_dict["class"])
+                    if "class" in func_dict
+                    else func_dict["function"]
+                )
                 content = func(**arguments)
 
                 content = (content,) if not isinstance(content, (list, tuple)) else content
                 if "args_to_update" in func_dict:
                     for index, arg_name in func_dict["args_to_update"].items():
-                        if arg_name in func_dict['args'] and index < len(content):
-                            func_dict['args'][arg_name] = content[index]
+                        if arg_name in func_dict["args"] and index < len(content):
+                            func_dict["args"][arg_name] = content[index]
                     self._functions[func_name] = func_dict
                 is_exec_success = True
                 content = content[0] if len(content) == 1 else content
@@ -205,7 +209,7 @@ class UserProxyAgent(Agent):
         return is_exec_success, {
             "name": func_name,
             "role": "function",
-            "content": content,
+            "content": str(content),
         }
 
     def auto_reply(self, message: dict, sender, default_reply=""):
