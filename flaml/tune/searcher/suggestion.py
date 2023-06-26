@@ -35,6 +35,7 @@ from ..sample import (
 )
 from ..trial import flatten_dict, unflatten_dict
 from packaging import version
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -900,97 +901,3 @@ class OptunaSearch(Searcher):
         values = {"/".join(path): resolve_value(domain) for path, domain in domain_vars}
 
         return values
-
-
-try:
-    from ray import __version__ as ray_version
-
-    assert ray_version >= "1.10.0"
-    if ray_version.startswith("1."):
-        from ray.tune.suggest import Searcher as Searcher_inherited
-        from ray.tune.suggest.optuna import OptunaSearch as OptunaSearch_inherited
-    else:
-        from ray.tune.search import Searcher as Searcher_inherited
-        from ray.tune.search.optuna import OptunaSearch as OptunaSearch_inherited
-except (ImportError, AssertionError):
-    Searcher_inherited = Searcher
-    OptunaSearch_inherited = OptunaSearch
-
-
-class LexiGlobalSearch(OptunaSearch_inherited):
-    def __init__(
-        self,
-        space: Optional[
-            Union[
-                Dict[str, "OptunaDistribution"],
-                List[Tuple],
-                Callable[["OptunaTrial"], Optional[Dict[str, Any]]],
-            ]
-        ] = None,
-        metric: Optional[Union[str, List[str]]] = None,
-        mode: Optional[Union[str, List[str]]] = None,
-        points_to_evaluate: Optional[List[Dict]] = None,
-        sampler: Optional["BaseSampler"] = None,
-        seed: Optional[int] = None,
-        evaluated_rewards: Optional[List] = None,
-    ):
-        super().__init__(space, metric, mode, points_to_evaluate, sampler, seed, evaluated_rewards)
-        self.f_best = None  # only use for lexico_comapre. It represent the best value achieved by the algorithm.
-        self.histories = None  # only use for lexico_comapre. It records the result of historical configurations.
-
-    def set_search_properties(
-        self, metric: Optional[Union[str, List[str]]], mode: Optional[Union[str, List[str]]], config: Dict
-    ) -> bool:
-        if self._space:
-            return False
-        space = self.convert_search_space(config)
-        self._space = space
-        if metric:
-            self._metric = metric
-        if mode:
-            self._mode = mode
-        self._setup_study(mode)
-        return True
-
-    def update_fbest(
-        self,
-    ):
-        obj_initial = self.lexico_objectives["metrics"][0]
-        feasible_index = np.array([*range(len(self.histories[obj_initial]))])
-        for k_metric in self.lexico_objectives["metrics"]:
-            k_values = np.array(self.histories[k_metric])
-            feasible_value = k_values.take(feasible_index)
-            self.f_best[k_metric] = np.min(feasible_value)
-            if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-            else:
-                assert (
-                    self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                tolerance_bound = self.f_best[k_metric] * (
-                    1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                )
-            feasible_index_filter = np.where(
-                feasible_value
-                <= max(
-                    tolerance_bound,
-                    self.lexico_objectives["targets"][k_metric],
-                )
-            )[0]
-            feasible_index = feasible_index.take(feasible_index_filter)
-
-    def on_trial_result(self, trial_id: str, result: Dict):
-        super.on_trial_result(trial_id, result)
-        for k_metric, k_mode in zip(self.lexico_objectives["metrics"]):
-            self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[k_metric].append(
-                result[k_metric] * -1
-            )
-        self.update_fbest()
-
-    def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
-        super.on_trial_complete(trial_id, result, error)
-        for k_metric, k_mode in zip(self.lexico_objectives["metrics"]):
-            self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[k_metric].append(
-                result[k_metric] * -1
-            )
-        self.update_fbest()

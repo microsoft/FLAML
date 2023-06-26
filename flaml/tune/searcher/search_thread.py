@@ -21,6 +21,7 @@ from ..space import add_cost_to_space, unflatten_hierarchical
 from ..result import TIME_TOTAL_S
 from ..utils import get_lexico_bound
 import logging
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -44,26 +45,9 @@ class SearchThread:
         self._eps = eps
         self.cost_best2 = 0
         self.lexico_objectives = getattr(self._search_alg, "lexico_objectives", None)
-
-        if self.lexico_objectives:
-            # set 1st to 0 others to -1?
-            self.obj_best1 = self.obj_best2 = {}
-            for k_metric in self.lexico_objectives["metrics"]:
-                self.obj_best1[k_metric] = self.obj_best2[k_metric] = (
-                    np.inf if getattr(search_alg, "best_obj", None) is None else search_alg.best_obj[k_metric]
-                )
-        else:
-            self.obj_best1 = self.obj_best2 = getattr(search_alg, "best_obj", np.inf)  # inherently minimize
-
         self.best_result = None
         # eci: estimated cost for improvement
         self.eci = self.cost_best
-        if self.lexico_objectives:
-            self.priority, self.speed = {}, {}
-            for k_metric in self.lexico_objectives["metrics"]:
-                self.priority[k_metric] = self.speed[k_metric] = 0
-        else:
-            self.priority = self.speed = 0
         self._init_config = True
         self.running = 0  # the number of running trials from the thread
         self.cost_attr = cost_attr
@@ -72,6 +56,23 @@ class SearchThread:
             if self.space and not isinstance(search_alg, FLOW2) and isinstance(search_alg._space, dict):
                 # remember const config
                 self._const = add_cost_to_space(self.space, {}, {})
+
+        if self.lexico_objectives:
+            # lexicographic tuning setting
+            self.obj_best1 = self.obj_best2 = {}
+            for k_metric in self.lexico_objectives["metrics"]:
+                self.obj_best1[k_metric] = self.obj_best2[k_metric] = (
+                    np.inf if getattr(search_alg, "best_obj", None) is None else search_alg.best_obj[k_metric]
+                )
+            self.priority, self.speed = {}, {}
+            for k_metric in self.lexico_objectives["metrics"]:
+                self.priority[k_metric] = self.speed[k_metric] = 0
+        else:
+            # normal tuning setting
+            self.obj_best1 = self.obj_best2 = getattr(search_alg, "best_obj", np.inf)  # inherently minimize
+            self.priority = self.speed = 0
+        if self.lexico_objectives:
+            self.f_best, self.histories = {}, defaultdict(list)  # only use for lexico_comapre.
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         """Use the suggest() of the underlying search algorithm."""
@@ -92,6 +93,36 @@ class SearchThread:
             self.running += 1
         return config
 
+    def update_lexicoinfo(self, result):
+        if self.lexico_objectives:
+            for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
+                self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[
+                    k_metric
+                ].append(result[k_metric] * -1)
+            obj_initial = self.lexico_objectives["metrics"][0]
+            feasible_index = np.array([*range(len(self.histories[obj_initial]))])
+            for k_metric in self.lexico_objectives["metrics"]:
+                k_values = np.array(self.histories[k_metric])
+                feasible_value = k_values.take(feasible_index)
+                self.f_best[k_metric] = np.min(feasible_value)
+                if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
+                    tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                else:
+                    assert (
+                        self.lexico_objectives["tolerances"][k_metric][-1] == "%"
+                    ), "String tolerance of {} should use %% as the suffix".format(k_metric)
+                    tolerance_bound = self.f_best[k_metric] * (
+                        1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
+                    )
+                feasible_index_filter = np.where(
+                    feasible_value
+                    <= max(
+                        tolerance_bound,
+                        self.lexico_objectives["targets"][k_metric],
+                    )
+                )[0]
+                feasible_index = feasible_index.take(feasible_index_filter)
+
     def update_priority(self, eci: Optional[float] = 0):
         # optimistic projection
         if self.lexico_objectives:
@@ -110,43 +141,45 @@ class SearchThread:
             _metric_1st = self.lexico_objectives["metrics"][0]
             _metric_op = 1 if self.lexico_objectives["modes"][0] == "min" else -1
             if self.speed[_metric_1st] == 0:
-                self.speed = max_speed
+                self.speed[_metric_1st] = max_speed[_metric_1st]
             elif self.speed[_metric_1st] == -1:
-                self.speed = min_speed
+                self.speed[_metric_1st] = min_speed[_metric_1st]
         best_obj = metric_target * _metric_op
         self.eci = max(self.cost_total - self.cost_best1, self.cost_best1 - self.cost_best2)
         obj_best1 = self.obj_best1 if not self.lexico_objectives else self.obj_best1[_metric_1st]
         speed = self.speed if not self.lexico_objectives else self.speed[_metric_1st]
         if obj_best1 > best_obj and speed > 0:
-            self.eci = max(self.eci, 2 * (self.obj_best1 - best_obj) / self.speed)
+            self.eci = max(self.eci, 2 * (obj_best1 - best_obj) / speed)
 
     def _better(self, obj_1: Union[dict, float], obj_2: Union[dict, float]):
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._search_alg.f_best)
+                _f_best = self._search_alg.f_best if self._is_ls else self.f_best
+                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, _f_best)
                 if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
                 elif obj_1[k_metric] < obj_2[k_metric]:
-                    return (True, k_metric)
+                    return True, k_metric
                 else:
-                    return (False, None)
+                    return False, None
             for k_metr in self.lexico_objectives["metrics"]:
                 if obj_1[k_metr] == obj_2[k_metr]:
                     continue
                 elif obj_1[k_metr] < obj_2[k_metr]:
-                    return (True, k_metric)
+                    return True, k_metric
                 else:
-                    return (False, None)
+                    return False, None
+            return False, None
         else:
             if obj_1 < obj_2:
-                return True
+                return True, None
             else:
-                return False
+                return False, None
 
     def _update_speed(self):
         # calculate speed; use 0 for invalid speed temporarily
         if not self.lexico_objectives:
-            if self._better(self.obj_best1, self.obj_best2):
+            if self.obj_best1 < self.obj_best2:
                 self.speed = (
                     (self.obj_best2 - self.obj_best1)
                     / self.running
@@ -154,21 +187,16 @@ class SearchThread:
                 )
             else:
                 self.speed = 0
-        elif self._search_alg.histories:
-            compare_tuple = self._better(self.obj_best1, self.obj_best2)
-            if compare_tuple[0]:
-                if self._is_ls:
-                    op_dimension = self._search_alg.op_dimension
-                else:
-                    op_dimension = compare_tuple[1]
-                op_index = self.lexico_objectives["metrics"].index(op_dimension)
-                metrics_length = len(self.lexico_objectives["metrics"])
-                self.speed[op_dimension] = (
-                    (self.obj_best2[op_dimension] - self.obj_best1[op_dimension])
+        elif (self._is_ls and self._search_alg.histories) or (not self._is_ls and self.histories):
+            _is_better, _op_dimension = self._better(self.obj_best1, self.obj_best2)
+            if _is_better:
+                op_index = self.lexico_objectives["metrics"].index(_op_dimension)
+                self.speed[_op_dimension] = (
+                    (self.obj_best2[_op_dimension] - self.obj_best1[_op_dimension])
                     / self.running
                     / (max(self.cost_total - self.cost_best2, self._eps))
                 )
-                for i in range(0, metrics_length):
+                for i in range(0, len(self.lexico_objectives["metrics"])):
                     if i < op_index:
                         self.speed[self.lexico_objectives["metrics"][i]] = -1
                     elif i > op_index:
@@ -176,6 +204,8 @@ class SearchThread:
             else:
                 for k_metric in self.lexico_objectives["metrics"]:
                     self.speed[k_metric] = 0
+        else:
+            return
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """Update the statistics of the thread."""
@@ -186,6 +216,8 @@ class SearchThread:
             if self._is_ls or not self._init_config:
                 try:
                     self._search_alg.on_trial_complete(trial_id, result, error)
+                    if not self._is_ls:
+                        self.update_lexicoinfo(result)
                 except RuntimeError as e:
                     # rs is used in place of optuna sometimes
                     if not str(e).endswith("has already finished and can not be updated."):
@@ -197,11 +229,12 @@ class SearchThread:
         if result:
             self.cost_last = result.get(self.cost_attr, 1)
             self.cost_total += self.cost_last
-            if not self.lexico_objectives:
-                feasible_condition = self._search_alg.metric in result
-            else:
-                feasible_condition = all(x in result for x in self._search_alg.metric)
-            if feasible_condition:
+            _metric_exists = (
+                self._search_alg.metric in result
+                if not self.lexico_objectives
+                else all(x in result for x in self.lexico_objectives["metrics"])
+            )
+            if _metric_exists:
                 if not self.lexico_objectives:
                     obj = result[self._search_alg.metric] * self._metric_op
                 else:
@@ -210,7 +243,7 @@ class SearchThread:
                         self._search_alg.lexico_objectives["metrics"], self._search_alg.lexico_objectives["modes"]
                     ):
                         obj[k] = -1 * result[k] if m == "max" else result[k]
-                if self.best_result is None or self._better(obj, self.obj_best1):
+                if self.best_result is None or self._better(obj, self.obj_best1)[0]:
                     self.cost_best2 = self.cost_best1
                     self.cost_best1 = self.cost_total
                     if not self.lexico_objectives:
@@ -233,6 +266,8 @@ class SearchThread:
         if not hasattr(self._search_alg, "_ot_trials") or (trial_id in self._search_alg._ot_trials):
             try:
                 self._search_alg.on_trial_result(trial_id, result)
+                if not self._is_ls:
+                    self.update_lexicoinfo(result)
             except RuntimeError as e:
                 # rs is used in place of optuna sometimes
                 if not str(e).endswith("has already finished and can not be updated."):

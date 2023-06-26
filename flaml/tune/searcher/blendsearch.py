@@ -15,14 +15,13 @@ try:
     assert ray_version >= "1.10.0"
     if ray_version.startswith("1."):
         from ray.tune.suggest import Searcher
-        from ray.tune.suggest.optuna import OptunaSearch as NormalGlobalSearch
+        from ray.tune.suggest.optuna import OptunaSearch as GlobalSearch
     else:
         from ray.tune.search import Searcher
-        from ray.tune.search.optuna import OptunaSearch as NormalGlobalSearch
+        from ray.tune.search.optuna import OptunaSearch as GlobalSearch
 except (ImportError, AssertionError):
     from .suggestion import Searcher
-    from .suggestion import OptunaSearch as NormalGlobalSearch
-from .suggestion import LexiGlobalSearch
+    from .suggestion import OptunaSearch as GlobalSearch
 from ..trial import unflatten_dict, flatten_dict
 from .. import INCUMBENT_RESULT
 from .search_thread import SearchThread
@@ -35,7 +34,6 @@ import logging
 SEARCH_THREAD_EPS = 1.0
 PENALTY = 1e10  # penalty term for constraints
 logger = logging.getLogger(__name__)
-GlobalSearch = NormalGlobalSearch
 
 
 class BlendSearch(Searcher):
@@ -238,9 +236,6 @@ class BlendSearch(Searcher):
             self._gs_seed = gs_seed
             if self.lexico_objectives:
                 metric, mode = self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
-            if self.lexico_objectives:
-                global GlobalSearch
-                GlobalSearch = LexiGlobalSearch
             if experimental:
                 import optuna as ot
 
@@ -272,7 +267,7 @@ class BlendSearch(Searcher):
                     seed=gs_seed,
                     sampler=sampler,
                 )
-            if isinstance(self._gs, LexiGlobalSearch):
+            if self.lexico_objectives:
                 self._gs.lexico_objectives = self.lexico_objectives
             self._gs.space = space
         else:
@@ -356,7 +351,7 @@ class BlendSearch(Searcher):
                         mode=mode,
                         seed=self._gs_seed,
                     )
-                    if isinstance(self._gs, LexiGlobalSearch):
+                    if self.lexico_objectives:
                         self._gs.lexico_objectives = self.lexico_objective
                     self._gs.space = self._ls.space
                 self._init_search()
@@ -629,8 +624,10 @@ class BlendSearch(Searcher):
             obj_median = np.median([thread.obj_best1 for id, thread in self._search_thread_pool.items() if id])
             return result[self._ls.metric] * self._ls.metric_op < obj_median
         else:
-            thread_pools = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
-            thread_pools = sorted(thread_pools, key=cmp_to_key(self._lexico_inferior))
+            thread_pools = sorted(
+                [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id],
+                key=cmp_to_key(self._lexico_inferior),
+            )
             obj_median = thread_pools[round(len(thread_pools) / 2)]
             result = self._unify_op(result)
             return self._lexico_inferior(obj_median, result)
@@ -989,8 +986,9 @@ class BlendSearch(Searcher):
                 if thread.speed < min_speed:
                     min_speed = thread.speed
         else:
-            max_speed = {k: 0 for k in self.lexico_objectives["metrics"]}
-            min_speed = {k: float("inf") for k in self.lexico_objectives["metrics"]}
+            max_speed, min_speed = {k: 0 for k in self.lexico_objectives["metrics"]}, {
+                k: float("inf") for k in self.lexico_objectives["metrics"]
+            }
             for k_metric in self.lexico_objectives["metrics"]:
                 for thread in self._search_thread_pool.values():
                     if thread.speed[k_metric] > max_speed[k_metric]:
@@ -1186,7 +1184,7 @@ class BlendSearchTuner(BlendSearch, NNITuner):
                 mode=self._mode,
                 sampler=self._gs._sampler,
             )
-            if isinstance(self._gs, LexiGlobalSearch):
+            if self.lexico_objectives:
                 self._gs.lexico_objectives = self.lexico_objectives
             self._gs.space = config
         self._init_search()
