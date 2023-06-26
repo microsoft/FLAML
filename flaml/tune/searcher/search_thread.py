@@ -59,6 +59,7 @@ class SearchThread:
 
         if self.lexico_objectives:
             # lexicographic tuning setting
+            self.f_best, self.histories = {}, defaultdict(list)  # only use for lexico_comapre.
             self.obj_best1 = self.obj_best2 = {}
             for k_metric in self.lexico_objectives["metrics"]:
                 self.obj_best1[k_metric] = self.obj_best2[k_metric] = (
@@ -71,8 +72,6 @@ class SearchThread:
             # normal tuning setting
             self.obj_best1 = self.obj_best2 = getattr(search_alg, "best_obj", np.inf)  # inherently minimize
             self.priority = self.speed = 0
-        if self.lexico_objectives:
-            self.f_best, self.histories = {}, defaultdict(list)  # only use for lexico_comapre.
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         """Use the suggest() of the underlying search algorithm."""
@@ -93,7 +92,8 @@ class SearchThread:
             self.running += 1
         return config
 
-    def update_lexicoinfo(self, result):
+    def update_lexicoPara(self, result):
+        # update histories, f_best
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                 self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[
@@ -217,7 +217,7 @@ class SearchThread:
                 try:
                     self._search_alg.on_trial_complete(trial_id, result, error)
                     if not self._is_ls:
-                        self.update_lexicoinfo(result)
+                        self.update_lexicoPara(result)
                 except RuntimeError as e:
                     # rs is used in place of optuna sometimes
                     if not str(e).endswith("has already finished and can not be updated."):
@@ -267,7 +267,7 @@ class SearchThread:
             try:
                 self._search_alg.on_trial_result(trial_id, result)
                 if not self._is_ls:
-                    self.update_lexicoinfo(result)
+                    self.update_lexicoPara(result)
             except RuntimeError as e:
                 # rs is used in place of optuna sometimes
                 if not str(e).endswith("has already finished and can not be updated."):

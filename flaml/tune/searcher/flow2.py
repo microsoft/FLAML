@@ -135,7 +135,6 @@ class FLOW2(Searcher):
         self.max_resource = max_resource
         self._resource = None
         self.f_best = None  # only use for lexico_comapre. It represent the best value achieved by lexico_flow.
-        self.op_dimension = None
         self._step_lb = np.Inf
         self.histories = None  # only use for lexico_comapre. It records the result of historical configurations.
         if space is not None:
@@ -396,7 +395,6 @@ class FLOW2(Searcher):
                 ):
                     continue
                 elif result[k_metric] < self.best_obj[k_metric]:
-                    self.op_dimension = k_metric
                     return True
                 else:
                     return False
@@ -404,7 +402,6 @@ class FLOW2(Searcher):
                 if result[k_metr] == self.best_obj[k_metr]:
                     continue
                 elif result[k_metr] < self.best_obj[k_metr]:
-                    self.op_dimension = k_metric
                     return True
                 else:
                     return False

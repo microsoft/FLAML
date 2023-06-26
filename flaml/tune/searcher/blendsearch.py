@@ -321,7 +321,7 @@ class BlendSearch(Searcher):
         metric_changed = mode_changed = False
         if metric and self._metric != metric:
             metric_changed = True
-            # self._metric = metric
+            self._metric = metric
             if self._metric_constraints:
                 # metric modified by lagrange
                 metric += self.lagrange
