@@ -134,10 +134,10 @@ class FLOW2(Searcher):
         self.cost_attr = cost_attr
         self.max_resource = max_resource
         self._resource = None
-        self._f_best = None  # only use for lexico_comapre. It represent the best value achieved by lexico_flow.
+        self.f_best = None  # only use for lexico_comapre. It represent the best value achieved by lexico_flow.
         self.op_dimension = None
         self._step_lb = np.Inf
-        self._histories = None  # only use for lexico_comapre. It records the result of historical configurations.
+        self.histories = None  # only use for lexico_comapre. It records the result of historical configurations.
         if space is not None:
             self._init_search()
 
@@ -338,18 +338,18 @@ class FLOW2(Searcher):
         self,
     ):
         obj_initial = self.lexico_objectives["metrics"][0]
-        feasible_index = np.array([*range(len(self._histories[obj_initial]))])
+        feasible_index = np.array([*range(len(self.histories[obj_initial]))])
         for k_metric in self.lexico_objectives["metrics"]:
-            k_values = np.array(self._histories[k_metric])
+            k_values = np.array(self.histories[k_metric])
             feasible_value = k_values.take(feasible_index)
-            self._f_best[k_metric] = np.min(feasible_value)
+            self.f_best[k_metric] = np.min(feasible_value)
             if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
             else:
                 assert (
                     self.lexico_objectives["tolerances"][k_metric][-1] == "%"
                 ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                tolerance_bound = self._f_best[k_metric] * (
+                tolerance_bound = self.f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
             feasible_index_filter = np.where(
@@ -362,15 +362,15 @@ class FLOW2(Searcher):
             feasible_index = feasible_index.take(feasible_index_filter)
 
     def lexico_compare(self, result) -> bool:
-        if self._histories is None:
-            self._histories, self._f_best = defaultdict(list), {}
+        if self.histories is None:
+            self.histories, self.f_best = defaultdict(list), {}
             for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
+                self.histories[k].append(result[k])
             self.update_fbest()
             return True
         else:
             for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
+                self.histories[k].append(result[k])
             self.update_fbest()
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                 k_target = (
@@ -379,12 +379,12 @@ class FLOW2(Searcher):
                     else -self.lexico_objectives["targets"][k_metric]
                 )
                 if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                    tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                    tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
                 else:
                     assert (
                         self.lexico_objectives["tolerances"][k_metric][-1] == "%"
                     ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                    tolerance_bound = self._f_best[k_metric] * (
+                    tolerance_bound = self.f_best[k_metric] * (
                         1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                     )
                 if (result[k_metric] < max(tolerance_bound, k_target)) and (

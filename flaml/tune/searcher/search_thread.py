@@ -123,7 +123,7 @@ class SearchThread:
     def _better(self, obj_1: Union[dict, float], obj_2: Union[dict, float]):
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._search_alg._f_best)
+                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._search_alg.f_best)
                 if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
                 elif obj_1[k_metric] < obj_2[k_metric]:
@@ -154,7 +154,7 @@ class SearchThread:
                 )
             else:
                 self.speed = 0
-        elif self._search_alg._histories:
+        elif self._search_alg.histories:
             compare_tuple = self._better(self.obj_best1, self.obj_best2)
             if compare_tuple[0]:
                 if self._is_ls:

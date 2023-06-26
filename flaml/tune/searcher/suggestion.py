@@ -927,16 +927,16 @@ class LexiGlobalSearch(OptunaSearch_inherited):
                 Callable[["OptunaTrial"], Optional[Dict[str, Any]]],
             ]
         ] = None,
-        metric: Optional[str] = None,
-        mode: Optional[str] = None,
+        metric: Optional[Union[str, List[str]]] = None,
+        mode: Optional[Union[str, List[str]]] = None,
         points_to_evaluate: Optional[List[Dict]] = None,
         sampler: Optional["BaseSampler"] = None,
         seed: Optional[int] = None,
         evaluated_rewards: Optional[List] = None,
     ):
         super().__init__(space, metric, mode, points_to_evaluate, sampler, seed, evaluated_rewards)
-        self._f_best = None  # only use for lexico_comapre. It represent the best value achieved by the algorithm.
-        self._histories = None  # only use for lexico_comapre. It records the result of historical configurations.
+        self.f_best = None  # only use for lexico_comapre. It represent the best value achieved by the algorithm.
+        self.histories = None  # only use for lexico_comapre. It records the result of historical configurations.
 
     def set_search_properties(
         self, metric: Optional[Union[str, List[str]]], mode: Optional[Union[str, List[str]]], config: Dict
@@ -956,18 +956,18 @@ class LexiGlobalSearch(OptunaSearch_inherited):
         self,
     ):
         obj_initial = self.lexico_objectives["metrics"][0]
-        feasible_index = np.array([*range(len(self._histories[obj_initial]))])
+        feasible_index = np.array([*range(len(self.histories[obj_initial]))])
         for k_metric in self.lexico_objectives["metrics"]:
-            k_values = np.array(self._histories[k_metric])
+            k_values = np.array(self.histories[k_metric])
             feasible_value = k_values.take(feasible_index)
-            self._f_best[k_metric] = np.min(feasible_value)
+            self.f_best[k_metric] = np.min(feasible_value)
             if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
             else:
                 assert (
                     self.lexico_objectives["tolerances"][k_metric][-1] == "%"
                 ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                tolerance_bound = self._f_best[k_metric] * (
+                tolerance_bound = self.f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
             feasible_index_filter = np.where(
@@ -982,7 +982,7 @@ class LexiGlobalSearch(OptunaSearch_inherited):
     def on_trial_result(self, trial_id: str, result: Dict):
         super.on_trial_result(trial_id, result)
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"]):
-            self._histories[k_metric].append(result[k_metric]) if k_mode == "min" else self._histories[k_metric].append(
+            self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[k_metric].append(
                 result[k_metric] * -1
             )
         self.update_fbest()
@@ -990,7 +990,7 @@ class LexiGlobalSearch(OptunaSearch_inherited):
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         super.on_trial_complete(trial_id, result, error)
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"]):
-            self._histories[k_metric].append(result[k_metric]) if k_mode == "min" else self._histories[k_metric].append(
+            self.histories[k_metric].append(result[k_metric]) if k_mode == "min" else self.histories[k_metric].append(
                 result[k_metric] * -1
             )
         self.update_fbest()

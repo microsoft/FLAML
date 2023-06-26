@@ -4,10 +4,10 @@
 #  * project root for license information.
 from typing import Dict, Optional, List, Tuple, Callable, Union
 from collections import defaultdict
+from functools import cmp_to_key
 import numpy as np
 import time
 import pickle
-from typing import Any
 
 try:
     from ray import __version__ as ray_version
@@ -165,6 +165,9 @@ class BlendSearch(Searcher):
             self.cost_attr = cost_attr
             self._cost_budget = cost_budget
         self.penalty = PENALTY  # penalty term for constraints
+        self._metric, self._mode = metric, mode
+        self.f_best = None
+        self.histories = None
         self._use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         init_config = low_cost_partial_config or {}
         if not init_config:
@@ -196,10 +199,15 @@ class BlendSearch(Searcher):
             self._evaluated_rewards = evaluated_rewards or []
         self._config_constraints = config_constraints
         self._metric_constraints = metric_constraints
-        if metric_constraints and not self.lexico_objectives:
-            assert all(x[1] in ["<=", ">="] for x in metric_constraints), "sign of metric constraints must be <= or >=."
-            # metric modified by lagrange
-            metric += self.lagrange
+        if metric_constraints:
+            if self.lexico_objectives:
+                raise ValueError("Metric constraints should be provided via targets in lexicographic objectives.")
+            else:
+                assert all(
+                    x[1] in ["<=", ">="] for x in metric_constraints
+                ), "sign of metric constraints must be <= or >=."
+                # metric modified by lagrange
+                metric += self.lagrange
         self._cat_hp_cost = cat_hp_cost or {}
         if space:
             add_cost_to_space(space, init_config, self._cat_hp_cost)
@@ -230,7 +238,9 @@ class BlendSearch(Searcher):
             self._gs_seed = gs_seed
             if self.lexico_objectives:
                 metric, mode = self.lexico_objectives["metrics"], self.lexico_objectives["modes"]
-            self.init_lexicographic_obj()
+            if self.lexico_objectives:
+                global GlobalSearch
+                GlobalSearch = LexiGlobalSearch
             if experimental:
                 import optuna as ot
 
@@ -279,36 +289,22 @@ class BlendSearch(Searcher):
         if space is not None:
             self._init_search()
 
-    def init_lexicographic_obj(
-        self,
-    ):
-        self._f_best = None
-        self._histories = None
-        if self.lexico_objectives:
-            global GlobalSearch
-            GlobalSearch = LexiGlobalSearch
-            self._metric = self.lexico_objectives["metrics"][0]
-            self._mode = self.lexico_objectives["modes"][0]
-            if self._metric_constraints:
-                self._metric_constraints = None
-                logger.info("Do not support providing metric_constraints in lexicographic optimization for now.")
-
     def update_fbest(
         self,
     ):
         obj_initial = self.lexico_objectives["metrics"][0]
-        feasible_index = np.array([*range(len(self._histories[obj_initial]))])
+        feasible_index = np.array([*range(len(self.histories[obj_initial]))])
         for k_metric in self.lexico_objectives["metrics"]:
-            k_values = np.array(self._histories[k_metric])
+            k_values = np.array(self.histories[k_metric])
             feasible_value = k_values.take(feasible_index)
-            self._f_best[k_metric] = np.min(feasible_value)
+            self.f_best[k_metric] = np.min(feasible_value)
             if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                tolerance_bound = self.f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
             else:
                 assert (
                     self.lexico_objectives["tolerances"][k_metric][-1] == "%"
                 ), "String tolerance of {} should use %% as the suffix".format(k_metric)
-                tolerance_bound = self._f_best[k_metric] * (
+                tolerance_bound = self.f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
             feasible_index_filter = np.where(
@@ -330,7 +326,7 @@ class BlendSearch(Searcher):
         metric_changed = mode_changed = False
         if metric and self._metric != metric:
             metric_changed = True
-            self._metric = metric
+            # self._metric = metric
             if self._metric_constraints:
                 # metric modified by lagrange
                 metric += self.lagrange
@@ -499,10 +495,10 @@ class BlendSearch(Searcher):
             del self._trial_proposed_by[trial_id]
         if result:
             if self.lexico_objectives:
-                if self._histories is None:
-                    self._histories, self._f_best = defaultdict(list), {}
+                if self.histories is None:
+                    self.histories, self.f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
+                    self.histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
                 self.update_fbest()
             config = result.get("config", {})
             if not config:
@@ -634,7 +630,7 @@ class BlendSearch(Searcher):
             return result[self._ls.metric] * self._ls.metric_op < obj_median
         else:
             thread_pools = [thread.obj_best1 for id, thread in self._search_thread_pool.items() if id]
-            thread_pools = self._lexico_sort(thread_pools)
+            thread_pools = sorted(thread_pools, key=cmp_to_key(self._lexico_inferior))
             obj_median = thread_pools[round(len(thread_pools) / 2)]
             result = self._unify_op(result)
             return self._lexico_inferior(obj_median, result)
@@ -720,7 +716,7 @@ class BlendSearch(Searcher):
     def _lexico_inferior(self, obj_1: Union[dict, float], obj_2: Union[dict, float]) -> bool:
         if self.lexico_objectives:
             for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self._f_best)
+                bound = get_lexico_bound(k_metric, k_mode, self.lexico_objectives, self.f_best)
                 if (obj_1[k_metric] < bound) and (obj_2[k_metric] < bound):
                     continue
                 elif obj_1[k_metric] < obj_2[k_metric]:
@@ -735,10 +731,7 @@ class BlendSearch(Searcher):
                 else:
                     return True
         else:
-            if obj_1 > obj_2:
-                return True
-            else:
-                return False
+            return obj_1 > obj_2
 
     def _unify_op(self, result: Union[dict, float]):
         if isinstance(result, dict):
@@ -747,14 +740,6 @@ class BlendSearch(Searcher):
         else:
             result[self._ls.metric] = result[self._ls.metric] * self._ls.metric_op
         return result
-
-    def _lexico_sort(self, arr: list):
-        n = len(arr)
-        for i in range(n):
-            for j in range(0, n - i - 1):
-                if self._lexico_(arr[j], arr[j + 1]):
-                    arr[j], arr[j + 1] = arr[j + 1], arr[j]
-        return arr
 
     def _inferior(self, id1: int, id2: int) -> bool:
         """whether thread id1 is inferior to id2"""
@@ -778,10 +763,10 @@ class BlendSearch(Searcher):
         if result and self._metric_constraints:
             result[self._metric + self.lagrange] = result[self._metric]
             if self.lexico_objectives:
-                if self._histories is None:
-                    self._histories, self._f_best = defaultdict(list), {}
+                if self.histories is None:
+                    self.histories, self.f_best = defaultdict(list), {}
                 for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                    self._histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
+                    self.histories[k_metric].append(result[k_metric] if k_mode == "min" else -1 * result[k_metric])
                 self.update_fbest()
         self._search_thread_pool[thread_id].on_trial_result(trial_id, result)
 
@@ -868,8 +853,8 @@ class BlendSearch(Searcher):
         else:  # use init config
             if self._candidate_start_points is not None and self._points_to_evaluate:
                 if self.lexico_objectives:
-                    raise NotImplementedError(
-                        "It doesn't support providing points_to_evaluate in lexicographic optimization for now."
+                    raise ValueError(
+                        "Providing points_to_evaluate in lexicographic optimization is not supported for now."
                     )
                 self._candidate_start_points[trial_id] = None
             reward = None
@@ -933,7 +918,7 @@ class BlendSearch(Searcher):
                     for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
                         self._result[config_signature] = {}
                         self._result[config_signature][k_metric] = np.inf * -1 if k_mode == "max" else np.inf
-                        self._result[config_signature]["time_total_s"] = 1
+                    self._result[config_signature]["time_total_s"] = 1
                 else:
                     self._result[config_signature] = {
                         self._metric: np.inf * self._ls.metric_op,
@@ -1018,7 +1003,7 @@ class BlendSearch(Searcher):
             else:
                 _metric_1st = self.lexico_objectives["metrics"][0]
                 _op_1st = self.lexico_objectives["modes"][0]
-                _lexico_target = self._f_best[_metric_1st] if _op_1st == "min" else -1 * self._f_best[_metric_1st]
+                _lexico_target = self.f_best[_metric_1st] if _op_1st == "min" else -1 * self.f_best[_metric_1st]
                 thread.update_eci(_lexico_target, max_speed, min_speed)
             if thread.eci < min_eci:
                 min_eci = thread.eci
