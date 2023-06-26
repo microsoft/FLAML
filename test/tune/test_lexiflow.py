@@ -103,6 +103,7 @@ def test_lexiflow():
 
     lexico_objectives = {}
     lexico_objectives["metrics"] = ["error_rate", "flops"]
+    lexico_objectives["lexico_algorithm"] = "CFO"
 
     search_space = {
         "n_layers": tune.randint(lower=1, upper=3),
@@ -145,6 +146,7 @@ def test_lexiflow():
 
     # 1. lexico tune: absolute tolerance
     lexico_objectives["tolerances"] = {"error_rate": 0.02, "flops": 0.0}
+    lexico_objectives["lexico_algorithm"] = "CFO"
     analysis = tune.run(
         evaluate_function,
         num_samples=5,
@@ -159,6 +161,22 @@ def test_lexiflow():
 
     # 2. lexico tune: percentage tolerance
     lexico_objectives["tolerances"] = {"error_rate": "10%", "flops": "0%"}
+    lexico_objectives["lexico_algorithm"] = "CFO"
+    analysis = tune.run(
+        evaluate_function,
+        num_samples=5,
+        config=search_space,
+        use_ray=False,
+        lexico_objectives=lexico_objectives,
+        low_cost_partial_config=low_cost_partial_config,
+    )
+    print(analysis.best_trial)
+    print(analysis.best_config)
+    print(analysis.best_result)
+
+    # 3. lexico tune - blendsearch: percentage tolerance
+    lexico_objectives["tolerances"] = {"error_rate": "10%", "flops": "0%"}
+    lexico_objectives["lexico_algorithm"] = "BlendSearch"
     analysis = tune.run(
         evaluate_function,
         num_samples=5,
@@ -178,6 +196,7 @@ def test_lexiflow_performance():
     lexico_objectives["tolerances"] = {"brain": 10.0, "currin": 0.0}
     lexico_objectives["targets"] = {"brain": 0.0, "currin": 0.0}
     lexico_objectives["modes"] = ["min", "min"]
+    lexico_objectives["lexico_algorithm"] = "CFO"
 
     search_space = {
         "x1": tune.uniform(lower=0.000001, upper=1.0),

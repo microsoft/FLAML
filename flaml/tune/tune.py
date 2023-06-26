@@ -52,14 +52,14 @@ class ExperimentAnalysis(EA):
 
     @property
     def best_trial(self) -> Trial:
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             return super().best_trial
         else:
             return self.get_best_trial(self.default_metric, self.default_mode)
 
     @property
     def best_config(self) -> Dict:
-        if self.lexico_objectives is None:
+        if not self.lexico_objectives:
             return super().best_config
         else:
             return self.get_best_config(self.default_metric, self.default_mode)
@@ -82,7 +82,7 @@ class ExperimentAnalysis(EA):
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
             k_values = np.array(histories[k_metric])
             k_target = (
-                -self.lexico_objectives["targets"][k_metric]
+                -1 * self.lexico_objectives["targets"][k_metric]
                 if k_mode == "max"
                 else self.lexico_objectives["targets"][k_metric]
             )
@@ -110,7 +110,7 @@ class ExperimentAnalysis(EA):
         scope: str = "last",
         filter_nan_and_inf: bool = True,
     ) -> Optional[Trial]:
-        if self.lexico_objectives is not None:
+        if self.lexico_objectives:
             best_trial = self.lexico_best(self.trials)
         else:
             best_trial = super().get_best_trial(metric, mode, scope, filter_nan_and_inf)
@@ -127,19 +127,15 @@ class ExperimentAnalysis(EA):
 def report(_metric=None, **kwargs):
     """A function called by the HPO application to report final or intermediate
     results.
-
     Example:
-
     ```python
     import time
     from flaml import tune
-
     def compute_with_config(config):
         current_time = time.time()
         metric2minimize = (round(config['x'])-95000)**2
         time2eval = time.time() - current_time
         tune.report(metric2minimize=metric2minimize, time2eval=time2eval)
-
     analysis = tune.run(
         compute_with_config,
         config={
@@ -148,15 +144,12 @@ def report(_metric=None, **kwargs):
         },
         metric='metric2minimize', mode='min',
         num_samples=1000000, time_budget_s=60, use_ray=False)
-
     print(analysis.trials[-1].last_result)
     ```
-
     Args:
         _metric: Optional default anonymous metric for ``tune.report(value)``.
             (For compatibility with ray.tune.report)
         **kwargs: Any key value pair to be reported.
-
     Raises:
         StopIteration (when not using ray, i.e., _use_ray=False):
             A StopIteration exception is raised if the trial has been signaled to stop.
@@ -234,11 +227,9 @@ def run(
     """The function-based way of performing HPO.
 
     Example:
-
     ```python
     import time
     from flaml import tune
-
     def compute_with_config(config):
         current_time = time.time()
         metric2minimize = (round(config['x'])-95000)**2
@@ -250,7 +241,6 @@ def run(
         # if the failure indicates a config is bad,
         # report a bad metric value like np.inf or -np.inf
         # depending on metric mode being min or max
-
     analysis = tune.run(
         compute_with_config,
         config={
@@ -259,10 +249,8 @@ def run(
         },
         metric='metric2minimize', mode='min',
         num_samples=-1, time_budget_s=60, use_ray=False)
-
     print(analysis.trials[-1].last_result)
     ```
-
     Args:
         evaluation_function: A user-defined evaluation function.
             It takes a configuration as input, outputs a evaluation
@@ -274,7 +262,6 @@ def run(
         low_cost_partial_config: A dictionary from a subset of
             controlled dimensions to the initial low-cost values.
             e.g., ```{'n_estimators': 4, 'max_leaves': 4}```
-
         cat_hp_cost: A dictionary from a subset of categorical dimensions
             to the relative cost of each choice.
             e.g., ```{'tree_method': [1, 1, 2]}```
@@ -293,7 +280,6 @@ def run(
             needing to re-compute the trial. Must be the same or shorter length than
             points_to_evaluate.
             e.g.,
-
     ```python
     points_to_evaluate = [
         {"b": .99, "cost_related": {"a": 3}},
@@ -301,10 +287,8 @@ def run(
     ]
     evaluated_rewards = [3.0]
     ```
-
             means that you know the reward for the first config in
             points_to_evaluate is 3.0 and want to inform run().
-
         resource_attr: A string to specify the resource dimension used by
             the scheduler via "scheduler".
         min_resource: A float of the minimal resource to use for the resource_attr.
@@ -347,7 +331,6 @@ def run(
         search_alg: An instance of BlendSearch as the search algorithm
             to be used. The same instance can be used for iterative tuning.
             e.g.,
-
     ```python
     from flaml import BlendSearch
     algo = BlendSearch(metric='val_loss', mode='min',
@@ -358,7 +341,6 @@ def run(
             search_alg=algo, use_ray=False)
         print(analysis.trials[-1].last_result)
     ```
-
         verbose: 0, 1, 2, or 3. If ray or spark backend is used, their verbosity will be
             affected by this argument. 0 = silent, 1 = only status updates,
             2 = status and brief trial results, 3 = status and detailed trial results.
@@ -372,7 +354,6 @@ def run(
             [parallel tuning](../../Use-Cases/Tune-User-Defined-Function#parallel-tuning).
         config_constraints: A list of config constraints to be satisfied.
             e.g., ```config_constraints = [(mem_size, '<=', 1024**3)]```
-
             mem_size is a function which produces a float number for the bytes
             needed for a config.
             It is used to skip configs which do not fit in memory.
@@ -484,7 +465,7 @@ def run(
     from .searcher.blendsearch import BlendSearch, CFO
 
     if lexico_objectives is not None:
-        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO")
+        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or Blendsearch")
         search_alg = None
     if search_alg is None:
         flaml_scheduler_resource_attr = (
@@ -511,7 +492,11 @@ def run(
                 logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             metric = metric or DEFAULT_METRIC
         else:
-            SearchAlgorithm = CFO
+            assert "lexico_algorithm" in lexico_objectives and lexico_objectives["lexico_algorithm"] in [
+                "CFO",
+                "BlendSearch",
+            ], 'When performing lexicographic optimization, "lexico_algorithm" should be provided in lexicographic objectives (CFO or BlendSearch).'
+            SearchAlgorithm = CFO if lexico_objectives["lexico_algorithm"] == "CFO" else BlendSearch
             logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
             metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
@@ -633,11 +618,9 @@ def run(
         launch one trial per executor. However, sometimes we can launch more trials than
         the number of executors (e.g., local mode). In this case, we can set the environment
         variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
-
         `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
         `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
         is not an instance of `ConcurrencyLimiter`.
-
         The final number of concurrent trials is the minimum of `max_concurrent` and
         `num_executors` if `n_concurrent_trials<=0` (default, automl cases), otherwise the
         minimum of `max_concurrent` and `n_concurrent_trials` (tuning cases).
