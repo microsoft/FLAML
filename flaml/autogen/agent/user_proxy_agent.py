@@ -69,7 +69,7 @@ class UserProxyAgent(Agent):
         self._is_termination_msg = (
             is_termination_msg
             if is_termination_msg is not None
-            else (lambda x: x == "TERMINATE" if type(x) is str else x.get("content") == "TERMINATE")
+            else (lambda x: x == "TERMINATE" if isinstance(x, str) else x.get("content") == "TERMINATE")
         )
         self._config = config
         self._max_consecutive_auto_reply = (
@@ -265,5 +265,5 @@ class UserProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        print(">>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
+        print("\n>>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
         self.auto_reply(message, sender, default_reply=reply)

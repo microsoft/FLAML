@@ -56,7 +56,7 @@ class Agent:
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
-        if type(message) is str:
+        if isinstance(message, str):
             message = {"content": message, "role": "user"}
         # print the message received
         print(sender.name, "(to", f"{self.name}):\n", flush=True)
