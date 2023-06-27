@@ -49,7 +49,7 @@ class UserProxyAgent(Agent):
                             "class" (Required): an instance of a class.
                             "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
                             "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
-                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
+                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated by the return of the function each time.
                                 index of the return: name of argument to be updated with this returned value in "args".
                     }
                 Caution: arguments stored in 'args' will overwritten any given arguments passed back from the LLM assistant.
