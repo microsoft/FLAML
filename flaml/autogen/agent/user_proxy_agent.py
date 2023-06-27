@@ -16,7 +16,7 @@ class UserProxyAgent(Agent):
         system_message="",
         work_dir=None,
         human_input_mode="ALWAYS",
-        functions=defaultdict(dict),
+        function_map=defaultdict(dict),
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
@@ -36,25 +36,49 @@ class UserProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            functions (dict[str, dict]): a dictionary of dictionaries.
-                the outer dictionary maps function names corresponding to exact names passed to openai configs.
-                the inner dict can have two formats:
-                    (1) {
-                            "function" (Required, callable): a callable function that will be called
-                            "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
-                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated be the return of the function each time.
-                                index of the return: name of argument to be updated with this returned value in "args".
+            function_map (dict[str, dict]): a dictionary of dictionaries.
+                the outer dictionary maps function names (passed to openai) to two types of functions:
+                    (1) A function to be called directly: {
+                        "function" (Required, callable): a callable function that will be called
                     }
-                    (2) {
-                            "class" (Required): an instance of a class.
-                            "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
-                            "args" (Optional, dict): dict of stored arguments to be passed to the function each time.
-                            "args_to_update" (Optional, dict[int, str]): dict of arguments to be updated by the return of the function each time.
-                                index of the return: name of argument to be updated with this returned value in "args".
+                    (2) A function in a class to be called: {
+                        "class" (Required): an instance of a class.
+                        "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
                     }
-                Caution: arguments stored in 'args' will overwritten any given arguments passed back from the LLM assistant.
-                You may choose to not pass the argument field to the LLM assistant, or tell the assistant to ignore the argument.
 
+                Example 1: 
+                def add_num_func(num_to_be_added):
+                    given_num = 10
+                    return num_to_be_added + given_num
+                oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
+                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}}) 
+
+                func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a function call passed from the LLM assistant
+                user._execute_function(func_call) # this will call add_num_func(5) and return 15
+
+                Example 2:
+                oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
+
+                class AddNum:
+                    def __init__(self, given_num):
+                        self.given_num = given_num
+
+                    def add(self, num_to_be_added):
+                        self.given_num = num_to_be_added + self.given_num
+                        return self.given_num
+
+                            user = UserProxyAgent(
+                                name="test",
+                                function_map={
+                                    "add_num": {
+                                        "class": AddNum(given_num=10),
+                                        "func_name": "add",
+                                    }
+                                },
+                            )
+                func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'} # assume this is a function call passed from the LLM assistant
+                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 15
+                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 20. The same class instance is used.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -79,11 +103,11 @@ class UserProxyAgent(Agent):
         self._use_docker = use_docker
 
         # 'class' and 'function' cannot exist at the same time.
-        for f in functions:
-            assert ("class" in functions[f] or "function" in functions[f]) and ("class" in functions[f]) != (
-                "function" in functions[f]
+        for f in function_map:
+            assert ("class" in function_map[f] or "function" in function_map[f]) and ("class" in function_map[f]) != (
+                "function" in function_map[f]
             ), "only one of 'class' and 'function' can exist in a function config."
-        self._functions = functions
+        self._function_map = function_map
 
     def _execute_code(self, code_blocks):
         """Execute the code and return the result."""
@@ -137,9 +161,11 @@ class UserProxyAgent(Agent):
         """
         result = []
         inside_quotes = False
+        last_char = ' '
         for char in jstr:
-            if char == '"':
+            if last_char != '\\' and char == '"':
                 inside_quotes = not inside_quotes
+            last_char = char
             if not inside_quotes and char == "\n":
                 continue
             if inside_quotes and char == "\n":
@@ -177,7 +203,7 @@ class UserProxyAgent(Agent):
             result_dict: a dictionary with keys "name", "role", and "content". Value of "role" is "function".
         """
         func_name = func_call.get("name", "")
-        func_dict = self._functions.get(func_name, None)
+        func_dict = self._function_map.get(func_name, None)
 
         is_exec_success = False
         if func_dict is not None:
@@ -191,15 +217,7 @@ class UserProxyAgent(Agent):
                     else func_dict["function"]
                 )
                 content = func(**arguments)
-
-                content = (content,) if not isinstance(content, (list, tuple)) else content
-                if "args_to_update" in func_dict:
-                    for index, arg_name in func_dict["args_to_update"].items():
-                        if arg_name in func_dict["args"] and index < len(content):
-                            func_dict["args"][arg_name] = content[index]
-                    self._functions[func_name] = func_dict
                 is_exec_success = True
-                content = content[0] if len(content) == 1 else content
             except Exception as e:
                 content = f"Error: {e}"
 

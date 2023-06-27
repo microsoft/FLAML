@@ -88,7 +88,7 @@ def test_execute_function():
 
     user = UserProxyAgent(
         name="test",
-        functions={
+        function_map={
             "add_num": {
                 "function": add_num,
             }
@@ -104,28 +104,7 @@ def test_execute_function():
     wrong_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5, "given_num": 10 }'}
     assert "Error" in user._execute_function(func_call=wrong_args)[1]["content"]
 
-    # 2. test passing in pre-defined args for a function and update stored args
-    def add_num(num_to_be_added, given_num):
-        return num_to_be_added + given_num
-
-    user = UserProxyAgent(
-        name="test",
-        functions={
-            "add_num": {
-                "function": add_num,
-                "args": {"given_num": 10},
-                "args_to_update": {
-                    0: "given_num"
-                },  # the first return value will be used to update the "given_num" argument stored.
-            }
-        },
-    )
-
-    func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
-    assert user._execute_function(func_call=func_call)[1]["content"] == "15"
-    assert user._execute_function(func_call=func_call)[1]["content"] == "20"
-
-    # 3. test calling a class method
+    # 2. test calling a class method
     class AddNum:
         def __init__(self, given_num):
             self.given_num = given_num
@@ -136,7 +115,7 @@ def test_execute_function():
 
     user = UserProxyAgent(
         name="test",
-        functions={
+        function_map={
             "add_num": {
                 "class": AddNum(given_num=10),
                 "func_name": "add",
