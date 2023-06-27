@@ -46,12 +46,12 @@ class UserProxyAgent(Agent):
                         "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
                     }
 
-                Example 1: 
+                Example 1:
                 def add_num_func(num_to_be_added):
                     given_num = 10
                     return num_to_be_added + given_num
                 oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
-                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}}) 
+                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}})
 
                 func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a function call passed from the LLM assistant
                 user._execute_function(func_call) # this will call add_num_func(5) and return 15
@@ -161,9 +161,9 @@ class UserProxyAgent(Agent):
         """
         result = []
         inside_quotes = False
-        last_char = ' '
+        last_char = " "
         for char in jstr:
-            if last_char != '\\' and char == '"':
+            if last_char != "\\" and char == '"':
                 inside_quotes = not inside_quotes
             last_char = char
             if not inside_quotes and char == "\n":

@@ -459,7 +459,7 @@ user = UserProxyAgent(
 # below is for demonstration only. In practice, the function call is triggered by the assistant agent.
 func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
 
-user._execute_function(func_call) # this will call AddNumClass.add_num_func(5) and return 15 
+user._execute_function(func_call) # this will call AddNumClass.add_num_func(5) and return 15
 user._execute_function(func_call) # this will call AddNumClass.add_num_func(5) and return 20. The same class instance is used, and the state is preserved.
 ```
 
