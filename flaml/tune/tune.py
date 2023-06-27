@@ -344,8 +344,8 @@ def run(
                 # do cleanup operation here
                 return
     ```
-        search_alg: An instance of BlendSearch as the search algorithm
-            to be used. The same instance can be used for iterative tuning.
+        search_alg: An instance/string of the search algorithm
+            to be used. The same instance/string can be used for iterative tuning.
             e.g.,
 
     ```python
@@ -481,12 +481,11 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from .searcher.blendsearch import BlendSearch, CFO
+    from .searcher.blendsearch import BlendSearch, CFO, RandomSearch
 
     if lexico_objectives is not None:
-        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO")
-        search_alg = None
-    if search_alg is None:
+        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or BlendSearch.")
+    if search_alg is None or isinstance(search_alg, str):
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
@@ -504,7 +503,7 @@ def run(
             try:
                 import optuna as _
 
-                SearchAlgorithm = BlendSearch
+                SearchAlgorithm = BlendSearch if not search_alg else eval(search_alg)
                 logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
             except ImportError:
                 SearchAlgorithm = CFO
@@ -512,7 +511,11 @@ def run(
             metric = metric or DEFAULT_METRIC
         else:
             SearchAlgorithm = CFO
-            logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+            logger.info(
+                "Using search algorithm {} for lexicographic optimization. Note that when providing BlendSearch, we use CFO instead temporarily.".format(
+                    SearchAlgorithm.__name__
+                )
+            )
             metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
             metric=metric,
@@ -564,6 +567,12 @@ def run(
             searcher.set_search_properties(metric, mode, config, **setting)
         else:
             searcher.set_search_properties(metric, mode, config)
+        if lexico_objectives:
+            assert search_alg.__class__.__name__ in [
+                "BlendSearch",
+                "CFO",
+            ], "If lexico_objectives is not None, search_alg must be CFO or BlendSearch."
+            search_alg.lexico_objectives = lexico_objectives
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):
         params = {}
         # scheduler resource_dimension=resource_attr
