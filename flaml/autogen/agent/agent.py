@@ -33,7 +33,7 @@ class Agent:
 
     def _send(self, message: Union[Dict, str], recipient):
         """Send a message to another agent."""
-        if type(message) is str:
+        if isinstance(message, str):
             oai_message = {"content": message, "role": "assistant"}
         else:
             # create openai message to be appended to the conversation
