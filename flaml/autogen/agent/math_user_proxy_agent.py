@@ -133,6 +133,7 @@ class MathUserProxyAgent(UserProxyAgent):
         name="MathChatAgent",  # default set to MathChatAgent
         system_message="",
         work_dir=None,
+        function_map=defaultdict(dict),
         human_input_mode="NEVER",  # Fully automated
         max_consecutive_auto_reply=None,
         is_termination_msg=is_termination_msg,
@@ -157,8 +158,8 @@ class MathUserProxyAgent(UserProxyAgent):
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            is_termination_msg (function): a function that takes a message and returns a boolean value.
-                This function is used to determine if a received message is a termination message.
+            is_termination_msg (function): a function that takes a dictionary (a message) and determine if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call".
             use_docker (bool): whether to use docker to execute the code.
             max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
             **config (dict): other configurations.
@@ -167,6 +168,7 @@ class MathUserProxyAgent(UserProxyAgent):
             name=name,
             system_message=system_message,
             work_dir=work_dir,
+            function_map=function_map,
             human_input_mode=human_input_mode,
             max_consecutive_auto_reply=max_consecutive_auto_reply,
             is_termination_msg=is_termination_msg,
@@ -292,6 +294,7 @@ class MathUserProxyAgent(UserProxyAgent):
 
     def auto_reply(self, message, sender, default_reply=""):
         """Generate an auto reply."""
+        message = message.get("content", "")
         code_blocks = extract_code(message)
 
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:

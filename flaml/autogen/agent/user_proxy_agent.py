@@ -36,12 +36,11 @@ class UserProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            function_map (dict[str, dict]): a dictionary of dictionaries.
-                the outer dictionary maps function names (passed to openai) to two types of functions:
-                    (1) A function to be called directly: {
+            function_map (dict[str, dict]): Mapping function names (passed to openai) to two types of functions:
+                    (1) A function to be called directly (dict): {
                         "function" (Required, callable): a callable function that will be called
                     }
-                    (2) A function in a class to be called: {
+                    (2) A function in a class to be called (dict): {
                         "class" (Required): an instance of a class.
                         "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
                     }
