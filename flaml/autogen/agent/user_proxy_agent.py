@@ -16,7 +16,7 @@ class UserProxyAgent(Agent):
         system_message="",
         work_dir=None,
         human_input_mode="ALWAYS",
-        functions=defaultdict(callable),
+        function_map=defaultdict(dict),
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
@@ -36,12 +36,51 @@ class UserProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            functions (dict[str, callable]): a dictionary of functions that can be called by the assistant.
+            function_map (dict[str, dict]): Mapping function names (passed to openai) to two types of functions:
+                    (1) A function to be called directly (dict): {
+                        "function" (Required, callable): a callable function that will be called
+                    }
+                    (2) A function in a class to be called (dict): {
+                        "class" (Required): an instance of a class.
+                        "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
+                    }
+
+                Example 1:
+                def add_num_func(num_to_be_added):
+                    given_num = 10
+                    return num_to_be_added + given_num
+                oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
+                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}}) # pass in the function to the agent
+                func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a potential function call passed from the LLM assistant
+                user._execute_function(func_call) # this will call add_num_func(5) and return 15
+
+                Example 2:
+                oai_config = {"functions": [{"name": "add_num",...}]}
+                # create the class instance and pass it to the agent
+                class AddNum:
+                    def __init__(self, given_num):
+                        self.given_num = given_num
+
+                    def add(self, num_to_be_added):
+                        self.given_num = num_to_be_added + self.given_num
+                        return self.given_num
+                user = UserProxyAgent(
+                    name="test",
+                    function_map={
+                        "add_num": {
+                            "class": AddNum(given_num=10),
+                            "func_name": "add",
+                        }
+                    },
+                )
+                func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'} # assume this is a function call passed from the LLM assistant
+                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 15
+                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 20. The same class instance is used.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            is_termination_msg (function): a function that takes a message and returns a boolean value.
-                This function is used to determine if a received message is a termination message.
+            is_termination_msg (function): a function that takes a dictionary (a message) and determine if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call".
             use_docker (bool): whether to use docker to execute the code.
             **config (dict): other configurations.
         """
@@ -51,7 +90,7 @@ class UserProxyAgent(Agent):
         self._is_termination_msg = (
             is_termination_msg
             if is_termination_msg is not None
-            else (lambda x: x == "TERMINATE" if type(x) is str else x["content"] == "TERMINATE")
+            else (lambda x: x == "TERMINATE" if isinstance(x, str) else x.get("content") == "TERMINATE")
         )
         self._config = config
         self._max_consecutive_auto_reply = (
@@ -59,7 +98,13 @@ class UserProxyAgent(Agent):
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._use_docker = use_docker
-        self._functions = functions
+
+        # 'class' and 'function' cannot exist at the same time.
+        for f in function_map:
+            assert ("class" in function_map[f] or "function" in function_map[f]) and ("class" in function_map[f]) != (
+                "function" in function_map[f]
+            ), "only one of 'class' and 'function' can exist in a function config."
+        self._function_map = function_map
 
     def _execute_code(self, code_blocks):
         """Execute the code and return the result."""
@@ -98,7 +143,7 @@ class UserProxyAgent(Agent):
         return exitcode, logs_all
 
     @staticmethod
-    def _remove_newlines_outside_quotes(jstr):
+    def _format_json_str(jstr):
         """Remove newlines outside of quotes, and hanlde JSON escape sequences.
 
         1. this function removes the newline in the query outside of quotes otherwise json.loads(s) will fail.
@@ -113,35 +158,35 @@ class UserProxyAgent(Agent):
         """
         result = []
         inside_quotes = False
+        last_char = " "
         for char in jstr:
-            if char == '"':
+            if last_char != "\\" and char == '"':
                 inside_quotes = not inside_quotes
+            last_char = char
             if not inside_quotes and char == "\n":
                 continue
             if inside_quotes and char == "\n":
                 char = "\\n"
             if inside_quotes and char == "\t":
                 char = "\\t"
-            if inside_quotes and char == "\\":
-                char = "\\\\"
             result.append(char)
         return "".join(result)
 
     def _extract_args(self, input_string: str):
-        """Extract arguements from a json-like string and put it into a dict.
+        """Extract arguments from a json-like string and put it into a dict.
 
         Args:
-            input_string: string to extract arguements from.
+            input_string: string to extract arguments from.
 
         Returns:
             a dictionary or None.
         """
-        input_string = self._remove_newlines_outside_quotes(input_string)
+        input_string = self._format_json_str(input_string)
         try:
             args = json.loads(input_string)
             return args
         except json.JSONDecodeError:
-            return None
+            return {}
 
     def _execute_function(self, func_call):
         """Execute a function call and return the result.
@@ -155,29 +200,34 @@ class UserProxyAgent(Agent):
             result_dict: a dictionary with keys "name", "role", and "content". Value of "role" is "function".
         """
         func_name = func_call.get("name", "")
-        func = self._functions.get(func_name, None)
+        func_dict = self._function_map.get(func_name, None)
 
         is_exec_success = False
-        if func is not None:
+        if func_dict is not None:
             arguments = self._extract_args(func_call.get("arguments", ""))
-            if arguments is not None:
-                try:
-                    content = func(**arguments)
-                    is_exec_success = True
-                except Exception as e:
-                    content = f"Error: {e}"
-            else:
-                content = f"Error: Invalid arguments for function {func_name}."
+            arguments.update(func_dict.get("args", {}))
+
+            try:
+                func = (
+                    getattr(func_dict["class"], func_dict.get("func_name", None), func_dict["class"])
+                    if "class" in func_dict
+                    else func_dict["function"]
+                )
+                content = func(**arguments)
+                is_exec_success = True
+            except Exception as e:
+                content = f"Error: {e}"
+
         else:
             content = f"Error: Function {func_name} not found."
 
         return is_exec_success, {
             "name": func_name,
             "role": "function",
-            "content": content,
+            "content": str(content),
         }
 
-    def auto_reply(self, message, sender, default_reply=""):
+    def auto_reply(self, message: dict, sender, default_reply=""):
         """Generate an auto reply."""
         if "function_call" in message:
             is_exec_success, func_return = self._execute_function(message["function_call"])
@@ -199,8 +249,7 @@ class UserProxyAgent(Agent):
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
         """
-        if type(message) is str:
-            message = {"content": message, "role": "user"}
+        message = self._message_to_dict(message)
         super().receive(message, sender)
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
@@ -210,7 +259,7 @@ class UserProxyAgent(Agent):
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
-        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message["content"]):
+        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
             if self._human_input_mode == "TERMINATE":
                 reply = input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
@@ -219,9 +268,7 @@ class UserProxyAgent(Agent):
             else:
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
-        if reply == "exit" or (
-            message.get("content", None) and self._is_termination_msg(message["content"]) and not reply
-        ):
+        if reply == "exit" or (self._is_termination_msg(message) and not reply):
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             return
@@ -232,5 +279,5 @@ class UserProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        print(">>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
+        print("\n>>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
         self.auto_reply(message, sender, default_reply=reply)

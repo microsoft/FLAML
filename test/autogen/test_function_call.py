@@ -60,5 +60,74 @@ def test_eval_math_responses():
     print(eval_math_responses(**arguments))
 
 
+def test_json_extraction():
+    from flaml.autogen.agent import UserProxyAgent
+
+    user = UserProxyAgent(name="test", use_docker=False)
+
+    jstr = '{\n"location": "Boston, MA"\n}'
+    assert user._format_json_str(jstr) == '{"location": "Boston, MA"}'
+    assert user._extract_args(jstr) == {"location": "Boston, MA"}
+
+    jstr = '{\n"code": "python",\n"query": "x=3\nprint(x)"}'
+    assert user._format_json_str(jstr) == '{"code": "python","query": "x=3\\nprint(x)"}'
+    assert user._extract_args(jstr) == {"code": "python", "query": "x=3\nprint(x)"}
+
+    jstr = '{"code": "a=\\"hello\\""}'
+    assert user._format_json_str(jstr) == '{"code": "a=\\"hello\\""}'
+    assert user._extract_args(jstr) == {"code": 'a="hello"'}
+
+
+def test_execute_function():
+    from flaml.autogen.agent import UserProxyAgent
+
+    # 1. test basic functionality
+    def add_num(num_to_be_added):
+        given_num = 10
+        return num_to_be_added + given_num
+
+    user = UserProxyAgent(
+        name="test",
+        function_map={
+            "add_num": {
+                "function": add_num,
+            }
+        },
+    )
+
+    correct_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
+    assert user._execute_function(func_call=correct_args)[1]["content"] == "15"
+
+    wrong_func_name = {"name": "subtract_num", "arguments": '{ "num_to_be_added": 5 }'}
+    assert "Error: Function" in user._execute_function(func_call=wrong_func_name)[1]["content"]
+
+    wrong_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5, "given_num": 10 }'}
+    assert "Error" in user._execute_function(func_call=wrong_args)[1]["content"]
+
+    # 2. test calling a class method
+    class AddNum:
+        def __init__(self, given_num):
+            self.given_num = given_num
+
+        def add(self, num_to_be_added):
+            self.given_num = num_to_be_added + self.given_num
+            return self.given_num
+
+    user = UserProxyAgent(
+        name="test",
+        function_map={
+            "add_num": {
+                "class": AddNum(given_num=10),
+                "func_name": "add",
+            }
+        },
+    )
+    func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
+    assert user._execute_function(func_call=func_call)[1]["content"] == "15"
+    assert user._execute_function(func_call=func_call)[1]["content"] == "20"
+
+
 if __name__ == "__main__":
+    test_json_extraction()
+    test_execute_function()
     test_eval_math_responses()

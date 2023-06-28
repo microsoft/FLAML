@@ -31,15 +31,20 @@ class Agent:
         """Remember something."""
         self._memory.append(memory)
 
+    def _message_to_dict(message: Union[Dict, str]):
+        """Convert a message to a dictionary."""
+        if isinstance(message, str):
+            return {"content": message}
+        else:
+            return message
+
     def _send(self, message: Union[Dict, str], recipient):
         """Send a message to another agent."""
-        if type(message) is str:
-            oai_message = {"content": message, "role": "assistant"}
-        else:
-            # create openai message to be appended to the conversation
-            oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
-            # When the agent composes and sends the message, the role of the message is "assistant". The role of 'function' will remain unchanged.
-            oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
+        message = self._message_to_dict(message)
+        # create openai message to be appended to the conversation
+        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        # When the agent composes and sends the message, the role of the message is "assistant". The role of 'function' will remain unchanged.
+        oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
         self._oai_conversations[recipient.name].append(oai_message)
 
         recipient.receive(message, self)
@@ -56,8 +61,7 @@ class Agent:
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
-        if type(message) is str:
-            message = {"content": message, "role": "user"}
+        self._message_to_dict(message)
         # print the message received
         print(sender.name, "(to", f"{self.name}):\n", flush=True)
         if message.get("role") == "function":
@@ -96,7 +100,7 @@ class Agent:
         It needs to be overriden by the subclass to perform followup actions.
 
         Args:
-            message (dict or str): message from the sender. If the type is dict, it can contain at most 4 fields:
+            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
                 3. "role": role of the message, can be "assistant", "user", "function".

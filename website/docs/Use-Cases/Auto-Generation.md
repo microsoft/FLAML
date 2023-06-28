@@ -394,7 +394,7 @@ We have designed different classes of Agents that are capable of communicating w
 ### `UserProxyAgent`
 `UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
 
-Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. We plan to add more capabilities in `UserProxyAgent` beyond code execution. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message. For example, one can easily extend it to execute function calls to external API, which is especially useful with the newly added [function calling capability of OpenAI's Chat Completions API](https://openai.com/blog/function-calling-and-other-api-updates?ref=upstract.com).  This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
+Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. We plan to add more capabilities in `UserProxyAgent` beyond code execution. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message. This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
 
 Example usage of the agents to solve a task with code:
 ```python
@@ -424,6 +424,47 @@ In the example above, we create an AssistantAgent named "assistant" to serve as 
 3. Once the user_proxy receives a response from the assistant, it tries to reply by either soliciting human input or preparing an automatically generated reply. In this specific example, since `human_input_mode` is set to `"NEVER"`, the user_proxy will not solicit human input but prepare an automatically generated reply (auto reply). More specifically, the user_proxy executes the code and uses the result as the auto-reply.
 4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation. If not, steps 3 and 4 are repeated.
 
+`UserProxyAgent` can be used to handle function calls to external API, corresponding to the newly added [function calling capability of OpenAI's Chat Completions API](https://openai.com/blog/function-calling-and-other-api-updates?ref=upstract.com). It also allows calling to a function from a class instance. The following code snippet shows how to use `UserProxyAgent` to call a function from a class instance:
+```python
+# define a class
+class AddNum:
+    def __init__(self, given_num):
+        self.given_num = given_num
+
+    def add(self, num_to_be_added):
+        self.given_num = num_to_be_added + self.given_num
+        return self.given_num
+
+# pass in the corresponding class instance and function name
+user = UserProxyAgent(
+    name="test",
+    function_map={
+        "add_num": # this name should match the name in the OpenAI config
+        {
+            "class": AddNum(given_num=10), # initialize the class instance
+            "func_name": "add", # the actual function name in the class
+        }
+    },
+)
+
+# oai_config = {
+#     "function": [
+#         {
+#             name: "add_num",
+#             ...
+#         }
+#     ]
+# }
+
+# below is for demonstration only. In practice, the function call is triggered by the assistant agent.
+func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
+
+user._execute_function(func_call) # this will call AddNumClass.add_num_func(5) and return 15
+user._execute_function(func_call) # this will call AddNumClass.add_num_func(5) and return 20. The same class instance is used, and the state is preserved.
+```
+
+The code above is used to demonstrate the function calling feature of `UserProxyAgent`. In practice, the function call is triggered by the assistant agent. The assistant agent will send a message to the user proxy agent, which contains the function call information. The user proxy agent will then call the function and return the result to the assistant agent. Please find practical examples in the function call notebook below.
+
 Please find a visual illustration of how UserProxyAgent and AssistantAgent collaboratively solve the above task below:
 ![Agent Example](images/agent_example.png)
 
@@ -438,6 +479,8 @@ Notes:
 * [Interactive LLM Agent with Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_human_feedback.ipynb)
 
 * [Interactive LLM Agent Dealing with Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_web_info.ipynb)
+
+* [Interative LLM Agent with Function Calls](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_function_call.ipynb)
 
 ## Utilities for Applications
 
