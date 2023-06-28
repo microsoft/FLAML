@@ -480,6 +480,8 @@ Notes:
 
 * [Interactive LLM Agent Dealing with Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_web_info.ipynb)
 
+* [Use MathChat to Solve Math Problems](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_MathChat.ipynb)
+
 * [Interative LLM Agent with Function Calls](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_function_call.ipynb)
 
 ## Utilities for Applications
