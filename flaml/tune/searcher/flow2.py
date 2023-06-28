@@ -317,6 +317,7 @@ class FLOW2(Searcher):
         metric: Optional[str] = None,
         mode: Optional[str] = None,
         config: Optional[Dict] = None,
+        lexico_objectives: Optional[Dict] = None,
     ) -> bool:
         if metric:
             self._metric = metric
@@ -331,6 +332,14 @@ class FLOW2(Searcher):
             self.space = config
             self._space = flatten_dict(self.space)
             self._init_search()
+        if lexico_objectives:
+            if "modes" not in lexico_objectives.keys():
+                self.lexico_objectives["modes"] = ["min"] * len(self.lexico_objectives["metrics"])
+            for t_metric, t_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
+                if t_metric not in self.lexico_objectives["tolerances"].keys():
+                    self.lexico_objectives["tolerances"][t_metric] = 0
+                if t_metric not in self.lexico_objectives["targets"].keys():
+                    self.lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
         return True
 
     def update_fbest(

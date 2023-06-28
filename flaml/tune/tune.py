@@ -345,7 +345,7 @@ def run(
                 return
     ```
         search_alg: An instance/string of the search algorithm
-            to be used. The same instance/string can be used for iterative tuning.
+            to be used. The same instance can be used for iterative tuning.
             e.g.,
 
     ```python
@@ -486,6 +486,13 @@ def run(
     if lexico_objectives is not None:
         logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or BlendSearch.")
     if search_alg is None or isinstance(search_alg, str):
+        if isinstance(search_alg, str):
+            assert search_alg in [
+                "BlendSearch",
+                "CFO",
+                "CFOCat",
+                "RandomSearch",
+            ], "The string of the search_alg must be feasible."
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
@@ -537,7 +544,10 @@ def run(
             lexico_objectives=lexico_objectives,
         )
     else:
-        if metric is None or mode is None:
+        if lexico_objectives:
+            metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
+            mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+        elif metric is None or mode is None:
             metric = metric or search_alg.metric or DEFAULT_METRIC
             mode = mode or search_alg.mode
         if ray_available and use_ray:
@@ -558,6 +568,11 @@ def run(
         ):
             search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
+        if lexico_objectives:
+            assert search_alg.__class__.__name__ in [
+                "CFO",
+            ], "If lexico_objectives is not None, the instance of search_alg must be CFO for now."
+
         if isinstance(searcher, BlendSearch):
             setting = {}
             if time_budget_s:
@@ -565,14 +580,10 @@ def run(
             if num_samples > 0:
                 setting["num_samples"] = num_samples
             searcher.set_search_properties(metric, mode, config, **setting)
+        elif isinstance(search_alg, CFO):
+            searcher.set_search_properties(metric, mode, config, lexico_objectives)
         else:
             searcher.set_search_properties(metric, mode, config)
-        if lexico_objectives:
-            assert search_alg.__class__.__name__ in [
-                "BlendSearch",
-                "CFO",
-            ], "If lexico_objectives is not None, search_alg must be CFO or BlendSearch."
-            search_alg.lexico_objectives = lexico_objectives
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):
         params = {}
         # scheduler resource_dimension=resource_attr
