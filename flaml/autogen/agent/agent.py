@@ -78,6 +78,11 @@ class Agent:
                     sep="",
                 )
                 print("*" * len(func_print), flush=True)
+            if message.get("learning_results") is not None:
+                print("*********Current learning results*********\n", message["learning_results"], flush=True)
+            if message.get("data4learning") is not None:
+                print("*********New data for learning*********\n", message["data4learning"], flush=True)
+
         print("\n", "-" * 80, flush=True, sep="")
 
         # create openai message to be appended to the conversation
