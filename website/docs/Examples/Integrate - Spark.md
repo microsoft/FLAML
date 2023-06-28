@@ -1,8 +1,8 @@
-# Integrate Spark for Distributed Training
+# Integrate - Spark
 
 FLAML has integrated Spark for distributed training. There are two main aspects of integration with Spark:
 - Use Spark ML estimators for AutoML.
-- Use Spark to run training in parallel spark jobs. 
+- Use Spark to run training in parallel spark jobs.
 
 ## Spark ML Estimators
 
@@ -14,7 +14,7 @@ For Spark estimators, AutoML only consumes Spark data. FLAML provides a convenie
 
 This utility function takes data in the form of a `pandas.Dataframe` or `pyspark.sql.Dataframe` and converts it into a pandas-on-spark dataframe. It also takes `pandas.Series` or `pyspark.sql.Dataframe` and converts it into a pandas-on-spark series. If you pass in a `pyspark.pandas.Dataframe`, it will not make any changes, so don't worry about multiple calls with the same data.
 
-This function also accepts optional arguments `index_col` and `default_index_type`. 
+This function also accepts optional arguments `index_col` and `default_index_type`.
 - `index_col` is the column name to use as the index, default is None.
 - `default_index_type` is the default index type, default is "distributed-sequence".
 
@@ -52,7 +52,7 @@ Later in conducting the experiment, use your pandas-on-spark data like regular d
 ### Estimators
 #### Model List
 - `lgbm_spark`: The class for fine-tuning Spark version LightGBM models, using [SynapseML](https://microsoft.github.io/SynapseML/docs/features/lightgbm/about/) API.
-  
+
 #### Usage
 First, prepare your data in the required format as described in the previous section.
 
@@ -68,10 +68,10 @@ import flaml
 
 automl = flaml.AutoML()
 settings = {
-    "time_budget": 30,  
+    "time_budget": 30,
     "metric": "r2",
     "estimator_list": ["lgbm_spark"],
-    "task": "regression", 
+    "task": "regression",
 }
 
 automl.fit(
@@ -108,6 +108,3 @@ automl_settings = {
 
 automl_experiment.fit(X_train=train_x, y_train=train_y, **automl_settings)
 ```
-
-
-
