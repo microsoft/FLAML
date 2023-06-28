@@ -16,7 +16,7 @@ This utility function takes data in the form of a `pandas.Dataframe` or `pyspark
 
 This function also accepts optional arguments `index_col` and `default_index_type`.
 - `index_col` is the column name to use as the index, default is None.
-- `default_index_type` is the default index type, default is "distributed-sequence".
+- `default_index_type` is the default index type, default is "distributed-sequence". More info about default index type could be found on Spark official [documentation](https://spark.apache.org/docs/latest/api/python/user_guide/pandas_on_spark/options.html#default-index-type)
 
 Here is an example code snippet for Spark Data:
 
