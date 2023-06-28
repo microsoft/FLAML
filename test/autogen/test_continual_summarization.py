@@ -14,7 +14,7 @@ def test_continual_summarization():
     research_teacher = TeachingAgent(name="research_teacher")
     research_teacher.setup_learning(
         learning_constraints={"learning_trigger": True, "cpu": 1},
-        learning_objectives="Summarize the latest research trends.",
+        learning_objectives="Briefly summarize what research topics researchers are working on.",
         learning_results=" ",
     )
     # get data and add to research_teacher
@@ -28,9 +28,6 @@ def test_continual_summarization():
     research_teacher.add_data(ml_data)
     for entry in ai_feed.entries[0:3]:
         ai_data.append(entry.summary)
-    print(len(ml_data), len(ai_data))
-    print("ML data", ml_data[0])
-    print("AI data", ai_data[0])
     research_teacher.add_data(ai_data)
 
     research_learner = LearningAgent(name="research_learner", model="gpt-3.5-turbo")  # model="gpt-3.5-turbo"
