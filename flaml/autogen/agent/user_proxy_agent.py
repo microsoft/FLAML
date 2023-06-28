@@ -50,14 +50,13 @@ class UserProxyAgent(Agent):
                     given_num = 10
                     return num_to_be_added + given_num
                 oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
-                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}})
-
-                func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a function call passed from the LLM assistant
+                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}}) # pass in the function to the agent
+                func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a potential function call passed from the LLM assistant
                 user._execute_function(func_call) # this will call add_num_func(5) and return 15
 
                 Example 2:
-                oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
-
+                oai_config = {"functions": [{"name": "add_num",...}]}
+                # create the class instance and pass it to the agent
                 class AddNum:
                     def __init__(self, given_num):
                         self.given_num = given_num
@@ -65,16 +64,15 @@ class UserProxyAgent(Agent):
                     def add(self, num_to_be_added):
                         self.given_num = num_to_be_added + self.given_num
                         return self.given_num
-
-                            user = UserProxyAgent(
-                                name="test",
-                                function_map={
-                                    "add_num": {
-                                        "class": AddNum(given_num=10),
-                                        "func_name": "add",
-                                    }
-                                },
-                            )
+                user = UserProxyAgent(
+                    name="test",
+                    function_map={
+                        "add_num": {
+                            "class": AddNum(given_num=10),
+                            "func_name": "add",
+                        }
+                    },
+                )
                 func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'} # assume this is a function call passed from the LLM assistant
                 user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 15
                 user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 20. The same class instance is used.

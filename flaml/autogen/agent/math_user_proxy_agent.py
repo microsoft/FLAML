@@ -155,6 +155,15 @@ class MathUserProxyAgent(UserProxyAgent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
+            function_map (dict[str, dict]): Mapping function names (passed to openai) to two types of functions:
+                    (1) A function to be called directly (dict): {
+                        "function" (Required, callable): a callable function that will be called
+                    }
+                    (2) A function in a class to be called (dict): {
+                        "class" (Required): an instance of a class.
+                        "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
+                    }
+                    See the examples in docstr of UserProxyAgent for more details.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
