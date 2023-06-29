@@ -12,7 +12,7 @@ FLAML integrates estimators based on Spark ML models. These models are trained i
 
 For Spark estimators, AutoML only consumes Spark data. FLAML provides a convenient function `to_pandas_on_spark` in the `flaml.automl.spark.utils` module to convert your data into a pandas-on-spark (`pyspark.pandas`) dataframe/series, which Spark estimators require.
 
-This utility function takes data in the form of a `pandas.Dataframe` or `pyspark.sql.Dataframe` and converts it into a pandas-on-spark dataframe. It also takes `pandas.Series` or `pyspark.sql.Dataframe` and converts it into a pandas-on-spark series. If you pass in a `pyspark.pandas.Dataframe`, it will not make any changes, so don't worry about multiple calls with the same data.
+This utility function takes data in the form of a `pandas.Dataframe` or `pyspark.sql.Dataframe` and converts it into a pandas-on-spark dataframe. It also takes `pandas.Series` or `pyspark.sql.Dataframe` and converts it into a [pandas-on-spark](https://spark.apache.org/docs/latest/api/python/user_guide/pandas_on_spark/index.html) series. If you pass in a `pyspark.pandas.Dataframe`, it will not make any changes, so don't worry about multiple calls with the same data.
 
 This function also accepts optional arguments `index_col` and `default_index_type`.
 - `index_col` is the column name to use as the index, default is None.
@@ -47,7 +47,7 @@ featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
 psdf = featurizer.transform(psdf.to_spark(index_col="index"))["index", "features"]
 ```
 
-Later in conducting the experiment, use your pandas-on-spark data like regular data and pass them using `X_train, y_train` or `dataframe, label`.
+Later in conducting the experiment, use your pandas-on-spark data like non-spark data and pass them using `X_train, y_train` or `dataframe, label`.
 
 ### Estimators
 #### Model List
@@ -61,16 +61,14 @@ By including the models you intend to try in the `estimators_list` argument to `
 Here is an example code snippet using SparkML models in AutoML:
 
 ```python
-from flaml.automl.spark.utils import to_pandas_on_spark
 import flaml
-# prepare train_data, test_data in pandas.Dataframe here
-# use thie tool function to transform your dataframe into apyspark.pandas.DataFrame
+# prepare your data in pandas-on-spark format as we previously mentioned
 
 automl = flaml.AutoML()
 settings = {
     "time_budget": 30,
     "metric": "r2",
-    "estimator_list": ["lgbm_spark"],
+    "estimator_list": ["lgbm_spark"],  # this setting is optional
     "task": "regression",
 }
 
@@ -82,7 +80,7 @@ automl.fit(
 ```
 
 ## Parallel Spark Jobs
-You can use Spark as a parallel backend by setting `use_spark` to `true` in both Hyperparameter Tuning and AutoML. FLAML will dispatch your job to the distributed Spark backend using [`joblib-spark`](https://github.com/joblib/joblib-spark).
+In [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning), you can use Spark as the parallel backend by setting `use_spark` to `true` in both Hyperparameter Tuning and AutoML. FLAML will dispatch your job to the distributed Spark backend using [`joblib-spark`](https://github.com/joblib/joblib-spark).
 
 Please note that you should not set `use_spark` to `true` when applying AutoML and Tuning for Spark Data. This is because only SparkML models will be used for Spark Data in AutoML and Tuning. As SparkML models run in parallel, there is no need to distribute them with `use_spark` again.
 
@@ -90,7 +88,7 @@ All the Spark-related arguments are stated below. These arguments are available 
 
 
 - `use_spark`: boolean, default=False | Whether to use spark to run the training in parallel spark jobs. This can be used to accelerate training on large models and large datasets, but will incur more overhead in time and thus slow down training in some cases. GPU training is not supported yet when use_spark is True. For Spark clusters, by default, we will launch one trial per executor. However, sometimes we want to launch more trials than the number of executors (e.g., local mode). In this case, we can set the environment variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`. The final number of concurrent trials will be the minimum of `n_concurrent_trials` and `num_executors`.
-- `n_concurrent_trials`: int, default=1 | The number of concurrent trials. When n_concurrent_trials > 1, FLAML performes [parallel tuning](../Use-Cases/Task-Oriented-AutoML#parallel-tuning).
+- `n_concurrent_trials`: int, default=1 | The number of concurrent trials. When n_concurrent_trials > 1, FLAML performes parallel tuning.
 - `force_cancel`: boolean, default=False | Whether to forcely cancel Spark jobs if the search time exceeded the time budget. Spark jobs include parallel tuning jobs and Spark-based model training jobs.
 
 An example code snippet for using parallel Spark jobs:
@@ -106,5 +104,9 @@ automl_settings = {
     "force_cancel": True, # Activating the force_cancel option can immediately halt Spark jobs once they exceed the allocated time_budget.
 }
 
-automl_experiment.fit(X_train=train_x, y_train=train_y, **automl_settings)
+automl.fit(
+    dataframe=dataframe,
+    label=label,
+    **automl_settings,
+)
 ```
