@@ -15,6 +15,7 @@ __version__ = version["__version__"]
 
 install_requires = [
     "NumPy>=1.17.0rc1",
+    "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
 ]
 
 
