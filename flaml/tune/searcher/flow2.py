@@ -333,6 +333,7 @@ class FLOW2(Searcher):
             self._space = flatten_dict(self.space)
             self._init_search()
         if lexico_objectives:
+            self.lexico_objectives = lexico_objectives
             if "modes" not in lexico_objectives.keys():
                 self.lexico_objectives["modes"] = ["min"] * len(self.lexico_objectives["metrics"])
             for t_metric, t_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
