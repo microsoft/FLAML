@@ -44,7 +44,7 @@ def _easy_objective(config):
     width, height, step = config["width"], config["height"], config["steps"]
 
     # get_result
-    return (0.1 + width * step / 100) ** (-1) + height * 0.1
+    return {"mean_loss": (0.1 + width * step / 100) ** (-1) + height * 0.1}
 
 
 def test_nested_run():
@@ -413,6 +413,13 @@ def test_passing_search_alg():
     # lexico tune
     tune.run(
         _BraninCurrin, search_alg="CFO", num_samples=10, config=mo_search_space, lexico_objectives=lexico_objectives
+    )
+    tune.run(
+        _BraninCurrin,
+        search_alg="BlendSearch",
+        num_samples=10,
+        config=mo_search_space,
+        lexico_objectives=lexico_objectives,
     )
 
     ## Passing search_alg through instance

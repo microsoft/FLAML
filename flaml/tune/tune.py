@@ -484,7 +484,6 @@ def run(
     from .searcher.blendsearch import BlendSearch, CFO, RandomSearch
 
     if lexico_objectives is not None:
-        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO for now.")
         if "modes" not in lexico_objectives.keys():
             lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
         for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
@@ -515,6 +514,7 @@ def run(
             flaml_scheduler_reduction_factor = reduction_factor
             scheduler = None
         if lexico_objectives:
+            # TODO: Modify after supporting BlendSearch in lexicographic optimization
             SearchAlgorithm = CFO
             logger.info(
                 f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
@@ -528,8 +528,11 @@ def run(
                     SearchAlgorithm = BlendSearch
                     logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
                 except ImportError:
-                    SearchAlgorithm = CFO
-                    logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
+                    if search_alg == "BlendSearch":
+                        raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
+                    else:
+                        SearchAlgorithm = CFO
+                        logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             else:
                 SearchAlgorithm = locals()[search_alg]
                 logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
@@ -580,6 +583,7 @@ def run(
             search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
         searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
         if lexico_objectives:
+            # TODO: Modify after supporting BlendSearch in lexicographic optimization
             assert search_alg.__class__.__name__ in [
                 "CFO",
             ], "If lexico_objectives is not None, the search_alg must be CFO for now."
