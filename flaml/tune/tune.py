@@ -484,7 +484,7 @@ def run(
     from .searcher.blendsearch import BlendSearch, CFO, RandomSearch
 
     if lexico_objectives is not None:
-        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or BlendSearch.")
+        logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO for now.")
         if "modes" not in lexico_objectives.keys():
             lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
         for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
@@ -499,10 +499,8 @@ def run(
                 "CFO",
                 "CFOCat",
                 "RandomSearch",
-            ], (
-                "search_alg={search_alg} is not recognized. "
-                "'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
-            )
+            ], f"search_alg={search_alg} is not recognized. 'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
+
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
@@ -516,24 +514,26 @@ def run(
             flaml_scheduler_max_resource = max_resource
             flaml_scheduler_reduction_factor = reduction_factor
             scheduler = None
-        if lexico_objectives is None:
-            try:
-                import optuna as _
-
-                SearchAlgorithm = BlendSearch if not search_alg else locals()[search_alg]
-                logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
-            except ImportError:
-                SearchAlgorithm = CFO if not search_alg else locals()[search_alg]
-                logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
-            metric = metric or DEFAULT_METRIC
-        else:
+        if lexico_objectives:
             SearchAlgorithm = CFO
             logger.info(
-                "Using search algorithm {} for lexicographic optimization. Note that when providing BlendSearch, we use CFO instead temporarily.".format(
-                    SearchAlgorithm.__name__
-                )
+                f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
             )
             metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
+        else:
+            if not search_alg or search_alg == "BlendSearch":
+                try:
+                    import optuna as _
+
+                    SearchAlgorithm = BlendSearch
+                    logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+                except ImportError:
+                    SearchAlgorithm = CFO
+                    logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
+            else:
+                SearchAlgorithm = locals()[search_alg]
+                logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+            metric = metric or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
             metric=metric,
             mode=mode,
@@ -554,12 +554,13 @@ def run(
             lexico_objectives=lexico_objectives,
         )
     else:
-        if lexico_objectives:
-            metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
-            mode = lexico_objectives["modes"][0] or mode or search_alg.mode
-        elif metric is None or mode is None:
-            metric = metric or search_alg.metric or DEFAULT_METRIC
-            mode = mode or search_alg.mode
+        if metric is None or mode is None:
+            if lexico_objectives:
+                metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
+                mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+            else:
+                metric = metric or search_alg.metric or DEFAULT_METRIC
+                mode = mode or search_alg.mode
         if ray_available and use_ray:
             if ray_version.startswith("1."):
                 from ray.tune.suggest import ConcurrencyLimiter
@@ -581,7 +582,8 @@ def run(
         if lexico_objectives:
             assert search_alg.__class__.__name__ in [
                 "CFO",
-            ], "If lexico_objectives is not None, the instance of search_alg must be CFO for now."
+            ], "If lexico_objectives is not None, the search_alg must be CFO for now."
+            search_alg.lexico_objective = lexico_objectives
 
         if isinstance(searcher, BlendSearch):
             setting = {}
