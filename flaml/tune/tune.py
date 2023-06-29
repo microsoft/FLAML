@@ -485,6 +485,13 @@ def run(
 
     if lexico_objectives is not None:
         logger.warning("If lexico_objectives is not None, search_alg is forced to be CFO or BlendSearch.")
+        if "modes" not in lexico_objectives.keys():
+            lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
+        for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
+            if t_metric not in lexico_objectives["tolerances"].keys():
+                lexico_objectives["tolerances"][t_metric] = 0
+            if t_metric not in lexico_objectives["targets"].keys():
+                lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
     if search_alg is None or isinstance(search_alg, str):
         if isinstance(search_alg, str):
             assert search_alg in [
@@ -492,7 +499,10 @@ def run(
                 "CFO",
                 "CFOCat",
                 "RandomSearch",
-            ], "The string of the search_alg must be feasible."
+            ], (
+                "search_alg={search_alg} is not recognized. "
+                "'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
+            )
         flaml_scheduler_resource_attr = (
             flaml_scheduler_min_resource
         ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
@@ -510,10 +520,10 @@ def run(
             try:
                 import optuna as _
 
-                SearchAlgorithm = BlendSearch if not search_alg else eval(search_alg)
+                SearchAlgorithm = BlendSearch if not search_alg else locals()[search_alg]
                 logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
             except ImportError:
-                SearchAlgorithm = CFO
+                SearchAlgorithm = CFO if not search_alg else locals()[search_alg]
                 logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             metric = metric or DEFAULT_METRIC
         else:
@@ -581,7 +591,7 @@ def run(
                 setting["num_samples"] = num_samples
             searcher.set_search_properties(metric, mode, config, **setting)
         elif isinstance(search_alg, CFO):
-            searcher.set_search_properties(metric, mode, config, lexico_objectives)
+            searcher.set_search_properties(metric, mode, config)
         else:
             searcher.set_search_properties(metric, mode, config)
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):

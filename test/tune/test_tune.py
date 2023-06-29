@@ -39,19 +39,12 @@ def _BraninCurrin(config):
     return {"brain": brain_result, "currin": currin_result}
 
 
-def _evaluation_fn(step, width, height):
-    return (0.1 + width * step / 100) ** (-1) + height * 0.1
-
-
 def _easy_objective(config):
     # Hyperparameters
-    width, height = config["width"], config["height"]
+    width, height, step = config["width"], config["height"], config["steps"]
 
-    for step in range(config["steps"]):
-        # Iterative training function - can be any arbitrary training procedure
-        _evaluation_fn(step, width, height)
-        # Feed the score back back to Tune.
-        print("Trial stopped", step)
+    # get_result
+    return (0.1 + width * step / 100) ** (-1) + height * 0.1
 
 
 def test_nested_run():
@@ -424,6 +417,7 @@ def test_passing_search_alg():
 
     ## Passing search_alg through instance
     so_bs = BlendSearch(time_budget_s=5, metric="mean_loss", mode="min")
+    # TODO: we will change CFO to blendsearch for lexicographic multiple objectives HPO in the future.
     mo_bs = CFO(time_budget_s=5)
     # Non lexico tune
     tune.run(
