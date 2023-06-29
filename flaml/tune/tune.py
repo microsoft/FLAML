@@ -592,8 +592,6 @@ def run(
             if num_samples > 0:
                 setting["num_samples"] = num_samples
             searcher.set_search_properties(metric, mode, config, **setting)
-        elif isinstance(search_alg, CFO):
-            searcher.set_search_properties(metric, mode, config)
         else:
             searcher.set_search_properties(metric, mode, config)
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):

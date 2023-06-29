@@ -417,7 +417,7 @@ def test_passing_search_alg():
 
     ## Passing search_alg through instance
     so_bs = BlendSearch(time_budget_s=5, metric="mean_loss", mode="min")
-    # TODO: we will change CFO to blendsearch for lexicographic multiple objectives HPO in the future.
+    # TODO: We will change CFO into blendsearch in the future
     mo_bs = CFO(time_budget_s=5)
     # Non lexico tune
     tune.run(
