@@ -30,7 +30,7 @@ def test_continual_summarization():
         ai_data.append(entry.summary)
     research_teacher.add_data(ai_data)
 
-    research_learner = LearningAgent(name="research_learner", model="gpt-3.5-turbo")  # model="gpt-3.5-turbo"
+    research_learner = LearningAgent(name="research_learner")  # model="gpt-3.5-turbo"
     research_learner.receive(research_teacher.generate_init_prompt(), research_teacher)
 
 
