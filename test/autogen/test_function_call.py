@@ -106,10 +106,7 @@ def test_execute_function():
             self.given_num = num_to_be_added + self.given_num
             return self.given_num
 
-    user = UserProxyAgent(
-        name="test",
-        function_map={"add_num": AddNum(given_num=10).add}
-    )
+    user = UserProxyAgent(name="test", function_map={"add_num": AddNum(given_num=10).add})
     func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
     assert user._execute_function(func_call=func_call)[1]["content"] == "15"
     assert user._execute_function(func_call=func_call)[1]["content"] == "20"
