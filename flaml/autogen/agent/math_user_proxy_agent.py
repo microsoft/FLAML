@@ -85,9 +85,9 @@ Problem: """,
 def is_termination_msg(x):
     """Check if a message is a termination message."""
     if isinstance(x, dict):
-        if x.get("content", None) is None:
+        x = x.get("content")
+        if x is None:
             return False
-        x = x["content"]
     cb = extract_code(x)
     contain_code = False
     for c in cb:
@@ -133,7 +133,7 @@ class MathUserProxyAgent(UserProxyAgent):
         name="MathChatAgent",  # default set to MathChatAgent
         system_message="",
         work_dir=None,
-        function_map=defaultdict(dict),
+        function_map=defaultdict(callable),
         human_input_mode="NEVER",  # Fully automated
         max_consecutive_auto_reply=None,
         is_termination_msg=is_termination_msg,
@@ -155,19 +155,11 @@ class MathUserProxyAgent(UserProxyAgent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            function_map (dict[str, dict]): Mapping function names (passed to openai) to two types of functions:
-                    (1) A function to be called directly (dict): {
-                        "function" (Required, callable): a callable function that will be called
-                    }
-                    (2) A function in a class to be called (dict): {
-                        "class" (Required): an instance of a class.
-                        "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
-                    }
-                    See the examples in docstr of UserProxyAgent for more details.
+            function_map (dict[str, callable]): Mapping function names (passed to openai) to callable functions.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            is_termination_msg (function): a function that takes a dictionary (a message) and determine if this received message is a termination message.
+            is_termination_msg (function): a function that takes a message in the form of a dictionary and returns a boolean value indicating if this received message is a termination message.
                 The dict can contain the following keys: "content", "role", "name", "function_call".
             use_docker (bool): whether to use docker to execute the code.
             max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
@@ -407,7 +399,7 @@ class WolframAlphaAPIWrapper(BaseModel):
 
         extra = Extra.forbid
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that api key and python package exists in environment."""
         wolfram_alpha_appid = get_from_dict_or_env(values, "wolfram_alpha_appid", "WOLFRAM_ALPHA_APPID")
