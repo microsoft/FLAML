@@ -31,6 +31,7 @@ class Agent:
         """Remember something."""
         self._memory.append(memory)
 
+    @staticmethod
     def _message_to_dict(message: Union[Dict, str]):
         """Convert a message to a dictionary."""
         if isinstance(message, str):
