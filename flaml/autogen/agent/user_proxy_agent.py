@@ -49,9 +49,7 @@ class UserProxyAgent(Agent):
         self._work_dir = work_dir
         self._human_input_mode = human_input_mode
         self._is_termination_msg = (
-            is_termination_msg
-            if is_termination_msg is not None
-            else (lambda x: x == "TERMINATE" if isinstance(x, str) else x.get("content") == "TERMINATE")
+            is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
         )
         self._config = config
         self._max_consecutive_auto_reply = (
