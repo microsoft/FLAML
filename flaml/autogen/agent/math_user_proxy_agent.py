@@ -85,9 +85,9 @@ Problem: """,
 def is_termination_msg(x):
     """Check if a message is a termination message."""
     if isinstance(x, dict):
-        if x.get("content", None) is None:
+        x = x.get("content")
+        if x is None:
             return False
-        x = x["content"]
     cb = extract_code(x)
     contain_code = False
     for c in cb:
