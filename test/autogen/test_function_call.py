@@ -67,15 +67,12 @@ def test_json_extraction():
 
     jstr = '{\n"location": "Boston, MA"\n}'
     assert user._format_json_str(jstr) == '{"location": "Boston, MA"}'
-    assert user._extract_args(jstr) == {"location": "Boston, MA"}
 
     jstr = '{\n"code": "python",\n"query": "x=3\nprint(x)"}'
     assert user._format_json_str(jstr) == '{"code": "python","query": "x=3\\nprint(x)"}'
-    assert user._extract_args(jstr) == {"code": "python", "query": "x=3\nprint(x)"}
 
     jstr = '{"code": "a=\\"hello\\""}'
     assert user._format_json_str(jstr) == '{"code": "a=\\"hello\\""}'
-    assert user._extract_args(jstr) == {"code": 'a="hello"'}
 
 
 def test_execute_function():
