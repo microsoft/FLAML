@@ -30,13 +30,14 @@ class LearningAgent(AssistantAgent):
         """
         super().__init__(name, system_message, **config)
         self._system_message_learning = """You are a helpful AI assistant."""
+        self._learning_objectives = ""
 
-    def _generate_task_prompt(self, learning_objectives, learning_results, learning_data):
+    def _generate_task_prompt(self, learning_results, learning_data):
         """
         Process the message using NLP.
         """
         task_prompt = f"""Update {learning_results} based on the following information: {learning_data}.
-            You goal is to: {learning_objectives}.
+            You goal is to: {self._learning_objectives}.
             Only report the updated result without saying anything else.
             """
         return task_prompt
@@ -69,6 +70,8 @@ class LearningAgent(AssistantAgent):
             learning_constraints = message.get("learning_constraints", None)
             learning_results = message.get("learning_results", None)
             data4learning = message.get("data4learning", None)
+            if learning_objectives:
+                self._learning_objectives = learning_objectives
             # when data is available, perform the learning task when learning_constraints are satisfied
             if self._validate_learning_constraints(learning_constraints):
                 # perform learning
@@ -80,7 +83,7 @@ class LearningAgent(AssistantAgent):
                 else:
                     is_data_size_feasible_func = self._is_data_size_feasible_oai
                     if data4learning:
-                        task_prompt = self._generate_task_prompt(learning_objectives, learning_results, data4learning)
+                        task_prompt = self._generate_task_prompt(learning_results, data4learning)
                         learning_msg = [
                             {"content": self._system_message_learning, "role": "system"},
                             {"role": "user", "content": task_prompt},
