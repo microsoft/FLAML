@@ -31,6 +31,7 @@ class Agent:
         """Remember something."""
         self._memory.append(memory)
 
+    @staticmethod
     def _message_to_dict(message: Union[Dict, str]):
         """Convert a message to a dictionary."""
         if isinstance(message, str):
@@ -43,6 +44,7 @@ class Agent:
         message = self._message_to_dict(message)
         # create openai message to be appended to the conversation
         oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        assert oai_message, "Message must contain at least one of the following fields: content, function_call, name."
         # When the agent composes and sends the message, the role of the message is "assistant". The role of 'function' will remain unchanged.
         oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
         self._oai_conversations[recipient.name].append(oai_message)
@@ -61,7 +63,7 @@ class Agent:
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
-        self._message_to_dict(message)
+        message = self._message_to_dict(message)
         # print the message received
         print(sender.name, "(to", f"{self.name}):\n", flush=True)
         if message.get("role") == "function":

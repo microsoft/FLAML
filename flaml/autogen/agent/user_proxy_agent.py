@@ -16,7 +16,7 @@ class UserProxyAgent(Agent):
         system_message="",
         work_dir=None,
         human_input_mode="ALWAYS",
-        function_map=defaultdict(dict),
+        function_map=defaultdict(callable),
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
@@ -36,46 +36,7 @@ class UserProxyAgent(Agent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            function_map (dict[str, dict]): Mapping function names (passed to openai) to two types of functions:
-                    (1) A function to be called directly (dict): {
-                        "function" (Required, callable): a callable function that will be called
-                    }
-                    (2) A function in a class to be called (dict): {
-                        "class" (Required): an instance of a class.
-                        "func_name" (Optional, str): name of the function in the class. If not given the class will be called directly.
-                    }
-
-                Example 1:
-                def add_num_func(num_to_be_added):
-                    given_num = 10
-                    return num_to_be_added + given_num
-                oai_config = {"functions": [{"name": "add_num",...}]} # oai config, this will be passed to AssistantAgent
-                user = UserProxyAgent(name="test", function_map={"add_num": {"function": add_num_func}}) # pass in the function to the agent
-                func_call = {"name": "add_num", "args": {"num_to_be_added": 5}} # this is a potential function call passed from the LLM assistant
-                user._execute_function(func_call) # this will call add_num_func(5) and return 15
-
-                Example 2:
-                oai_config = {"functions": [{"name": "add_num",...}]}
-                # create the class instance and pass it to the agent
-                class AddNum:
-                    def __init__(self, given_num):
-                        self.given_num = given_num
-
-                    def add(self, num_to_be_added):
-                        self.given_num = num_to_be_added + self.given_num
-                        return self.given_num
-                user = UserProxyAgent(
-                    name="test",
-                    function_map={
-                        "add_num": {
-                            "class": AddNum(given_num=10),
-                            "func_name": "add",
-                        }
-                    },
-                )
-                func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'} # assume this is a function call passed from the LLM assistant
-                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 15
-                user._execute_function(func_call) # this will call AddNum.add_num_func(5) and return 20. The same class instance is used.
+            function_map (dict[str, callable]): Mapping function names (passed to openai) to callable functions.
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
@@ -99,11 +60,6 @@ class UserProxyAgent(Agent):
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._use_docker = use_docker
 
-        # 'class' and 'function' cannot exist at the same time.
-        for f in function_map:
-            assert ("class" in function_map[f] or "function" in function_map[f]) and ("class" in function_map[f]) != (
-                "function" in function_map[f]
-            ), "only one of 'class' and 'function' can exist in a function config."
         self._function_map = function_map
 
     def _execute_code(self, code_blocks):
@@ -200,24 +156,19 @@ class UserProxyAgent(Agent):
             result_dict: a dictionary with keys "name", "role", and "content". Value of "role" is "function".
         """
         func_name = func_call.get("name", "")
-        func_dict = self._function_map.get(func_name, None)
+        func = self._function_map.get(func_name, None)
 
         is_exec_success = False
-        if func_dict is not None:
+        if func is not None:
             arguments = self._extract_args(func_call.get("arguments", ""))
-            arguments.update(func_dict.get("args", {}))
-
-            try:
-                func = (
-                    getattr(func_dict["class"], func_dict.get("func_name", None), func_dict["class"])
-                    if "class" in func_dict
-                    else func_dict["function"]
-                )
-                content = func(**arguments)
-                is_exec_success = True
-            except Exception as e:
-                content = f"Error: {e}"
-
+            if arguments is not None:
+                try:
+                    content = func(**arguments)
+                    is_exec_success = True
+                except Exception as e:
+                    content = f"Error: {e}"
+            else:
+                content = f"Error: Invalid arguments for function {func_name}."
         else:
             content = f"Error: Function {func_name} not found."
 

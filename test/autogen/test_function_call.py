@@ -81,19 +81,12 @@ def test_json_extraction():
 def test_execute_function():
     from flaml.autogen.agent import UserProxyAgent
 
-    # 1. test basic functionality
+    # 1. test calling a simple function
     def add_num(num_to_be_added):
         given_num = 10
         return num_to_be_added + given_num
 
-    user = UserProxyAgent(
-        name="test",
-        function_map={
-            "add_num": {
-                "function": add_num,
-            }
-        },
-    )
+    user = UserProxyAgent(name="test", function_map={add_num})
 
     correct_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
     assert user._execute_function(func_call=correct_args)[1]["content"] == "15"
@@ -115,12 +108,7 @@ def test_execute_function():
 
     user = UserProxyAgent(
         name="test",
-        function_map={
-            "add_num": {
-                "class": AddNum(given_num=10),
-                "func_name": "add",
-            }
-        },
+        function_map={"add_num": AddNum(given_num=10).add}
     )
     func_call = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
     assert user._execute_function(func_call=func_call)[1]["content"] == "15"
