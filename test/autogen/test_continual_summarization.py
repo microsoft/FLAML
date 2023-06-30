@@ -11,7 +11,7 @@ from flaml.autogen.agent import LearningAgent, TeachingAgent
 def test_continual_summarization():
     import feedparser
 
-    research_teacher = TeachingAgent(name="research_teacher")
+    research_teacher = TeachingAgent(name="research_teacher", human_input_mode="NEVER")
     research_teacher.setup_learning(
         learning_constraints={"learning_trigger": True, "cpu": 1},
         learning_objectives="Briefly summarize what research topics researchers are working on.",

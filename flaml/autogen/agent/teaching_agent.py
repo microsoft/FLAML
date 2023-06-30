@@ -130,10 +130,10 @@ class TeachingAgent(UserProxyAgent):
                 "learning_results": learning_results,
                 "data4learning": current_data4learning,
             }
-            if response.get("learning_results") is not None:
-                print("*********Old learning results*********\n", response["learning_results"], flush=True)
-            if response.get("data4learning") is not None:
-                print("*********New data for learning*********\n", response["data4learning"], flush=True)
+            # if response.get("learning_results") is not None:
+            #     print("*********Old learning results*********\n", response["learning_results"], flush=True)
+            # if response.get("data4learning") is not None:
+            #     print("*********New data for learning*********\n", response["data4learning"], flush=True)
             self._send(response, sender)
         else:
             print("no data for learning and thus terminate the conversation")

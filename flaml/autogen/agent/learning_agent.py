@@ -35,9 +35,9 @@ class LearningAgent(AssistantAgent):
         """
         Process the message using NLP.
         """
-        task_prompt = f"""You should: {learning_objectives} \n
-            based on old results {learning_results} and the latest learning data: {learning_data}.
-            You should only return the new learning results without any other information.
+        task_prompt = f"""Update {learning_results} based on the following information: {learning_data}.
+            You goal is to: {learning_objectives}.
+            Only report the updated result without saying anything else.
             """
         return task_prompt
 
@@ -57,6 +57,7 @@ class LearningAgent(AssistantAgent):
     def receive(self, message, sender):
         """Receive a message from another agent."""
         content = message.get("content", None) if isinstance(message, dict) else message
+        self._receive(message, sender)
         # NOTE: content and learning settings are mutually exclusive
         if content is not None:
             # if content is provided, perform the default receive function
@@ -78,7 +79,7 @@ class LearningAgent(AssistantAgent):
                     new_learning_results, is_data_size_feasible_func = learning_func(learning_results, data4learning)
                 else:
                     is_data_size_feasible_func = self._is_data_size_feasible_oai
-                    if data4learning is not None:
+                    if data4learning:
                         task_prompt = self._generate_task_prompt(learning_objectives, learning_results, data4learning)
                         learning_msg = [
                             {"content": self._system_message_learning, "role": "system"},
