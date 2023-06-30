@@ -86,16 +86,28 @@ def test_execute_function():
         given_num = 10
         return num_to_be_added + given_num
 
-    user = UserProxyAgent(name="test", function_map={add_num})
+    user = UserProxyAgent(name="test", function_map={"add_num": add_num})
 
+    # correct execution
     correct_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}
     assert user._execute_function(func_call=correct_args)[1]["content"] == "15"
 
+    # function name called is wrong or doesn't exist
     wrong_func_name = {"name": "subtract_num", "arguments": '{ "num_to_be_added": 5 }'}
     assert "Error: Function" in user._execute_function(func_call=wrong_func_name)[1]["content"]
 
+    # arguments passed is not in correct json format
+    wrong_json_format = {
+        "name": "add_num",
+        "arguments": '{ "num_to_be_added": 5, given_num: 10 }',
+    }  # should be "given_num" with quotes
+    assert (
+        "You argument should follow json format." in user._execute_function(func_call=wrong_json_format)[1]["content"]
+    )
+
+    # function execution error with wrong arguments passed
     wrong_args = {"name": "add_num", "arguments": '{ "num_to_be_added": 5, "given_num": 10 }'}
-    assert "Error" in user._execute_function(func_call=wrong_args)[1]["content"]
+    assert "Error: " in user._execute_function(func_call=wrong_args)[1]["content"]
 
     # 2. test calling a class method
     class AddNum:

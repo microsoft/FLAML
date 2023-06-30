@@ -16,7 +16,7 @@ class UserProxyAgent(Agent):
         system_message="",
         work_dir=None,
         human_input_mode="ALWAYS",
-        function_map=defaultdict(callable),
+        function_map={},
         max_consecutive_auto_reply=None,
         is_termination_msg=None,
         use_docker=True,
@@ -126,22 +126,6 @@ class UserProxyAgent(Agent):
             result.append(char)
         return "".join(result)
 
-    def _extract_args(self, input_string: str):
-        """Extract arguments from a json-like string and put it into a dict.
-
-        Args:
-            input_string: string to extract arguments from.
-
-        Returns:
-            a dictionary or None.
-        """
-        input_string = self._format_json_str(input_string)
-        try:
-            args = json.loads(input_string)
-            return args
-        except json.JSONDecodeError:
-            return {}
-
     def _execute_function(self, func_call):
         """Execute a function call and return the result.
 
@@ -158,15 +142,21 @@ class UserProxyAgent(Agent):
 
         is_exec_success = False
         if func is not None:
-            arguments = self._extract_args(func_call.get("arguments", ""))
-            if arguments is not None:
+            # Extract arguments from a json-like string and put it into a dict.
+            input_string = self._format_json_str(func_call.get("arguments", "{}"))
+            try:
+                arguments = json.loads(input_string)
+            except json.JSONDecodeError as e:
+                arguments = None
+                content = f"Error: {e}\n You argument should follow json format."
+
+            # Try to execute the function
+            if arguments:
                 try:
                     content = func(**arguments)
                     is_exec_success = True
                 except Exception as e:
                     content = f"Error: {e}"
-            else:
-                content = f"Error: Invalid arguments for function {func_name}."
         else:
             content = f"Error: Function {func_name} not found."
 

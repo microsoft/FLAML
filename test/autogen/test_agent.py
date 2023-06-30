@@ -11,7 +11,8 @@ def test_agent():
         },
         dummy_agent_2,
     )  # receive a dict
-    # receive dict with wrong field, there should be no error raised
+
+    # receive dict without openai fields to be printed, such as "content", 'function_call'. There should be no error raised.
     dummy_agent_1.receive({"message": "hello"}, dummy_agent_2)
 
     dummy_agent_1._send("hello", dummy_agent_2)  # send a str
@@ -21,11 +22,12 @@ def test_agent():
         },
         dummy_agent_2,
     )  # send a dict
-    try:
-        dummy_agent_1._send({"message": "hello"}, dummy_agent_2)  # send dict with wrong field
-    except AssertionError:
-        print("AssertionError caught")
-        pass
+
+    dummy_agent_1._send({"message": "hello"}, dummy_agent_2)  # send dict with wrong field
+
+    assert (
+        dummy_agent_1._oai_conversations["dummy_agent_2"][-1]["content"] == ""
+    ), "When the message is a dict without any openai fields, the content will be set to empty string."
 
 
 if __name__ == "__main__":

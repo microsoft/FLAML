@@ -33,22 +33,40 @@ class Agent:
 
     @staticmethod
     def _message_to_dict(message: Union[Dict, str]):
-        """Convert a message to a dictionary."""
+        """Convert a message to a dictionary.
+
+        The message can be a string or a dictionary. The string with be put in the "content" field of the new dictionary.
+        """
         if isinstance(message, str):
             return {"content": message}
         else:
             return message
 
+    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id):
+        """Append a message to the openai conversation.
+
+        If the message received is a string, it will be put in the "content" field of the new dictionary.
+        If the message received is a dictionary and does not have any of the two fields "content" or "function_call",
+            the "content" field will be set to empty string for valid openai message.
+
+        Args:
+            message (dict or str): message to be appended to the openai conversation.
+            role (str): role of the message, can be "assistant" or "function".
+            conversation_id (str): id of the conversation, should be the name of the recipient or sender.
+        """
+        message = self._message_to_dict(message)
+        # create openai message to be appended to the openai conversation that can be passed to oai directly.
+        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        if "content" not in oai_message and "function_call" not in oai_message:
+            oai_message["content"] = ""
+
+        oai_message["role"] = "function" if message.get("role") == "function" else role
+        self._oai_conversations[conversation_id].append(oai_message)
+
     def _send(self, message: Union[Dict, str], recipient):
         """Send a message to another agent."""
-        message = self._message_to_dict(message)
-        # create openai message to be appended to the conversation
-        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
-        assert oai_message, "Message must contain at least one of the following fields: content, function_call, name."
-        # When the agent composes and sends the message, the role of the message is "assistant". The role of 'function' will remain unchanged.
-        oai_message["role"] = "function" if message.get("role") == "function" else "assistant"
-        self._oai_conversations[recipient.name].append(oai_message)
-
+        # When the agent composes and sends the message, the role of the message is "assistant". (If 'role' exists and is 'function', it will remain unchanged.)
+        self._append_oai_message(message, "assistant", recipient.name)
         recipient.receive(message, self)
 
     def _receive(self, message: Union[Dict, str], sender):
@@ -86,10 +104,8 @@ class Agent:
                 print("*" * len(func_print), flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
-        # create openai message to be appended to the conversation
-        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
-        oai_message["role"] = "function" if message.get("role") == "function" else "user"
-        self._oai_conversations[sender.name].append(oai_message)
+        # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
+        self._append_oai_message(message, "user", sender.name)
 
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from another agent.
