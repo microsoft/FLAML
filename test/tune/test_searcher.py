@@ -70,7 +70,7 @@ def test_searchers():
     searcher = OptunaSearch(["a", config["a"]], metric="m", mode="max")
     try:
         searcher.suggest("t0")
-    except ValueError:
+    except AttributeError:
         # not enough values to unpack (expected 3, got 1)
         pass
     searcher = OptunaSearch(
