@@ -31,7 +31,7 @@ The proxy agent first presents a math problem to the LLM assistant, framed by an
 
 - **Final Answer Encapsulation Prompt:** This part instructs the assistant to put the final answer in *\boxed*{}.
 
-The prompt design in MathChat is flexible and can easily be refined to include other tools, such as Wolfram Alpha. 
+The prompt design in MathChat is flexible and can easily be refined to include other tools, such as Wolfram Alpha.
 
 Let's take a look at an example between the **User Proxy Agent** and the **LLM Assistant** (GPT-4). The conversation focuses on how to solve inequality using Python.
 (The conversation is modified for readability.)
@@ -83,7 +83,7 @@ We now provide an implementation of MathChat using the interactive agents in FLA
 
 ## Future Directions
 
-Despite MathChat's improvements over previous methods, the results show that complex math problem is still challenging for recent powerful LLMs, like GPT-4, even with help from external tools. 
+Despite MathChat's improvements over previous methods, the results show that complex math problem is still challenging for recent powerful LLMs, like GPT-4, even with help from external tools.
 
 Further work can be done to enhance this framework or math problem-solving in general:
 - Although enabling the model to use tools like Python can reduce calculation errors, LLMs are still prone to logic errors. Methods like self-consistency (Sample several solutions and take a major vote on the final answer), or self-verification (use another LLM instance to check whether an answer is correct) might improve the performance.
