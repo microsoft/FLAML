@@ -46,8 +46,8 @@ class Agent:
         """Append a message to the openai conversation.
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
-        If the message received is a dictionary and does not have any of the two fields "content" or "function_call",
-            the "content" field will be set to empty string for valid openai message.
+        If the message received is a dictionary but does not have any of the two fields "content" or "function_call",
+            this message is not a valid openai message and will be ignored.
 
         Args:
             message (dict or str): message to be appended to the openai conversation.
@@ -58,7 +58,7 @@ class Agent:
         # create openai message to be appended to the openai conversation that can be passed to oai directly.
         oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
         if "content" not in oai_message and "function_call" not in oai_message:
-            oai_message["content"] = ""
+            return
 
         oai_message["role"] = "function" if message.get("role") == "function" else role
         self._oai_conversations[conversation_id].append(oai_message)
