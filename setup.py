@@ -15,6 +15,7 @@ __version__ = version["__version__"]
 
 install_requires = [
     "NumPy>=1.17.0rc1",
+    "packaging",
 ]
 
 
@@ -50,7 +51,6 @@ setuptools.setup(
             "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "test": [
-            "packaging",
             "lightgbm>=2.3.1",
             "xgboost>=0.90",
             "scipy>=1.4.1",
