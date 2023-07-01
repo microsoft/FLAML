@@ -50,6 +50,7 @@ setuptools.setup(
             "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "test": [
+            "packaging",
             "lightgbm>=2.3.1",
             "xgboost>=0.90",
             "scipy>=1.4.1",
