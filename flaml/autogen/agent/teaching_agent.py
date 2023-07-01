@@ -1,6 +1,6 @@
 from .user_proxy_agent import UserProxyAgent
 from typing import Optional, Callable
-
+from transformers import AutoTokenizer
 
 # def my_obj_func(learning_results, learning_data):
 
@@ -121,11 +121,16 @@ class TeachingAgent(UserProxyAgent):
 
         if self._data4learning:
             current_data4learning = [self._data4learning.pop(0)]  # pop the first element
-            # # need to re-visit this part
-            # temp = current_data4learning + [self._data4learning[0]]
-            # while self._data4learning and is_data_size_feasible(learning_results, temp):
-            #     current_data4learning.append(self._data4learning.pop(0))
-            # print('current_data4learning', current_data4learning)
+            # TODO: need to re-visit this part to include more than one item of data for learning depending
+            # on the returned "is_data_size_feasible" function
+
+            # TODO: there could be more efficient ways to implement this,
+            # e.g., only send the learning setting when there are changes in the learning setting.
+            # response = self._learning_settings.copy()
+            # response.update({
+            #     "learning_results": learning_results,
+            #     "data4learning": current_data4learning,
+            # })
             response = {
                 "learning_results": learning_results,
                 "data4learning": current_data4learning,

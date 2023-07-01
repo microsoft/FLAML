@@ -36,10 +36,13 @@ class LearningAgent(AssistantAgent):
         """
         Process the message using NLP.
         """
-        task_prompt = f"""Update {learning_results} based on the following information: {learning_data}.
-            You goal is to: {self._learning_objectives}.
-            Only report the updated result without saying anything else.
-            """
+        task_prompt = f"""
+        {self._learning_objectives}.
+        This is the latest data entry: {learning_data}.
+        Renew the current result:
+        {learning_results}
+        You can try to condense the current result and add a new bullet point to the result.
+        """
         return task_prompt
 
     @staticmethod
@@ -47,8 +50,21 @@ class LearningAgent(AssistantAgent):
         """
         Check if the learning data is feasible.
         """
-        max_token_size = 1024
-        return len(learning_results) + len(learning_data) < max_token_size
+
+        def _token_counter(input_string):
+            # from transformers import AutoTokenizer
+
+            # # Load a pre-trained tokenizer
+            # tokenizer = AutoTokenizer.from_pretrained("gpt2")
+            # # Tokenize the string
+            # tokens = tokenizer.tokenize(input_string)
+            # # Count the number of tokens
+
+            # return len(tokens)
+            return len(input_string.split())
+
+        max_token_size = 4096
+        return _token_counter(learning_results) + _token_counter(learning_data) < max_token_size
 
     def _validate_learning_constraints(self, learning_constraints):
         # check if the learning constraints are satisfied
@@ -85,13 +101,19 @@ class LearningAgent(AssistantAgent):
                     if data4learning:
                         task_prompt = self._generate_task_prompt(learning_results, data4learning)
                         learning_msg = [
-                            {"content": self._system_message_learning, "role": "system"},
+                            # {"content": self._system_message_learning, "role": "system"},
                             {"role": "user", "content": task_prompt},
                         ]
                         responses = oai.ChatCompletion.create(messages=learning_msg, **self._config)
                         new_learning_results = oai.ChatCompletion.extract_text(responses)[0]
+                        # sleep for 20 seconds to avoid the rate limit
+                        # import time
+                        # time.sleep(20)
                     else:
                         new_learning_results = learning_results
+                # if message.get("learning_results") is not None:
+                print("*********Current learning results of the learner*********\n", new_learning_results, flush=True)
+                print("*" * 50, flush=True)
                 self._send(
                     {"learning_results": new_learning_results, "is_data_size_feasible": is_data_size_feasible_func},
                     sender,
