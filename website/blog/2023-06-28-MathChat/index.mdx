@@ -19,7 +19,7 @@ In this blog post, we introduce MathChat, a conversational framework designed fo
 
 At the heart of MathChat is a conversation that starts with the user proxy agent. The proxy agent presents a math problem to the LLM assistant, framed by an initial prompt that guides the assistant in how it should work collaboratively to solve the problem. Notably, the assistant is directed to solve the problem in a specific way, leveraging existing effective prompting methods and tool-using techniques.
 
-Effective prompting methods such as CoT and tool-using are incorporated in the intial prompt. Key components of the prompt include:
+Effective prompting methods such as CoT (chain-of-thought) and tool-using are incorporated in the initial prompt. Key components of the prompt include:
 
 - **Tool-using Prompt:** This guides the LLM assistant to use Python code in the correct format to address the problem, allowing the user proxy agent to parse the code and provide the appropriate results.
 
