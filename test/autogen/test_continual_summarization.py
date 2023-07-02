@@ -45,8 +45,8 @@ def test_continual_summarization():
             ai_data.append(entry.summary)
     research_teacher.add_data(ai_data)
 
-    # config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo-0613"])
-    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-4"])
+    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo-0613"], exclude="aoai")
+    # config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-4"])
     research_learner = LearningAgent(name="research_learner", config_list=config_list)
     research_learner.receive(research_teacher.generate_init_prompt(), research_teacher)
 
