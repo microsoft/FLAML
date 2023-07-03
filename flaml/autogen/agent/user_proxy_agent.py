@@ -87,8 +87,8 @@ class UserProxyAgent(Agent):
                 )
                 logs = logs.decode("utf-8")
             else:
-                # TODO: could this happen?
-                exitcode, logs, image = 1, f"unknown language {lang}"
+                # In case the language is not supported, we return an error message.
+                exitcode, logs, image = 1, f"unknown language {lang}", self._use_docker
                 # raise NotImplementedError
             self._use_docker = image
             logs_all += "\n" + logs
