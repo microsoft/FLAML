@@ -33,7 +33,7 @@ def test_agent():
 
     assert pre_len == len(
         dummy_agent_1._oai_conversations["dummy_agent_2"]
-    ), "When the message is not an valid openai message, it should not be appended to the oai conversation."
+    ), "When the message is not a valid openai message, it should not be appended to the oai conversation."
 
 
 if __name__ == "__main__":
