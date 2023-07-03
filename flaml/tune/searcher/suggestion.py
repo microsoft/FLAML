@@ -34,7 +34,6 @@ from ..sample import (
     Uniform,
 )
 from ..trial import flatten_dict, unflatten_dict
-from packaging import version
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -262,14 +261,11 @@ except ImportError:
     OptunaTrialState = None
     OptunaTrial = None
 
-# (Optional) Default (anonymous) metric when using tune.report(x)
 DEFAULT_METRIC = "_metric"
 
-# (Auto-filled) The index of this training iteration.
 TRAINING_ITERATION = "training_iteration"
 
-# print a warning if define by run function takes longer than this to execute
-DEFINE_BY_RUN_WARN_THRESHOLD_S = 1  # 1 is arbitrary
+DEFINE_BY_RUN_WARN_THRESHOLD_S = 1
 
 
 def validate_warmstart(
@@ -355,19 +351,18 @@ class OptunaSearch(Searcher):
 
     Args:
         space: Hyperparameter search space definition for
-            Optuna's sampler. This can be either a :class:`dict` with
+            Optuna's sampler. This can be either a dict with
             parameter names as keys and ``optuna.distributions`` as values,
             or a Callable - in which case, it should be a define-by-run
             function using ``optuna.trial`` to obtain the hyperparameter
-            values. The function should return either a :class:`dict` of
+            values. The function should return either a dict of
             constant values with names as keys, or None.
             For more information, see https://optuna.readthedocs.io\
 /en/stable/tutorial/10_key_features/002_configurations.html.
 
-            .. warning::
-                No actual computation should take place in the define-by-run
-                function. Instead, put the training logic inside the function
-                or class trainable passed to ``tune.run``.
+            Warning - No actual computation should take place in the define-by-run
+            function. Instead, put the training logic inside the function
+            or class trainable passed to ``tune.run``.
 
         metric: The training result objective value attribute. If
             None but a mode was passed, the anonymous metric ``_metric``
@@ -387,8 +382,7 @@ class OptunaSearch(Searcher):
             for multi-objective optimization with Optuna<2.9.0, and
             ``TPESampler`` in every other case.
 
-            .. warning::
-                Please note that with Optuna 2.10.0 and earlier
+            Warning: Please note that with Optuna 2.10.0 and earlier
                 default ``MOTPESampler``/``TPESampler`` suffer
                 from performance issues when dealing with a large number of
                 completed trials (approx. >100). This will manifest as
@@ -406,134 +400,131 @@ class OptunaSearch(Searcher):
             needing to re-compute the trial. Must be the same length as
             points_to_evaluate.
 
-            .. warning::
-                When using ``evaluated_rewards``, the search space ``space``
-                must be provided as a :class:`dict` with parameter names as
-                keys and ``optuna.distributions`` instances as values. The
-                define-by-run search space definition is not yet supported with
-                this functionality.
+            Warning - When using ``evaluated_rewards``, the search space ``space``
+            must be provided as a dict with parameter names as
+            keys and ``optuna.distributions`` instances as values. The
+            define-by-run search space definition is not yet supported with
+            this functionality.
 
     Tune automatically converts search spaces to Optuna's format:
 
-    .. code-block:: python
+    ```python
+    from ray.tune.suggest.optuna import OptunaSearch
 
-        from ray.tune.suggest.optuna import OptunaSearch
+    config = {
+        "a": tune.uniform(6, 8)
+        "b": tune.loguniform(1e-4, 1e-2)
+    }
 
-        config = {
-            "a": tune.uniform(6, 8)
-            "b": tune.loguniform(1e-4, 1e-2)
-        }
+    optuna_search = OptunaSearch(
+        metric="loss",
+        mode="min")
 
-        optuna_search = OptunaSearch(
-            metric="loss",
-            mode="min")
-
-        tune.run(trainable, config=config, search_alg=optuna_search)
+    tune.run(trainable, config=config, search_alg=optuna_search)
+    ```
 
     If you would like to pass the search space manually, the code would
     look like this:
 
-    .. code-block:: python
+    ```python
+    from ray.tune.suggest.optuna import OptunaSearch
+    import optuna
 
-        from ray.tune.suggest.optuna import OptunaSearch
-        import optuna
+    space = {
+        "a": optuna.distributions.UniformDistribution(6, 8),
+        "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
+    }
 
-        space = {
-            "a": optuna.distributions.UniformDistribution(6, 8),
-            "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
-        }
+    optuna_search = OptunaSearch(
+        space,
+        metric="loss",
+        mode="min")
 
-        optuna_search = OptunaSearch(
-            space,
-            metric="loss",
-            mode="min")
+    tune.run(trainable, search_alg=optuna_search)
 
-        tune.run(trainable, search_alg=optuna_search)
+    # Equivalent Optuna define-by-run function approach:
 
-        # Equivalent Optuna define-by-run function approach:
+    def define_search_space(trial: optuna.Trial):
+        trial.suggest_float("a", 6, 8)
+        trial.suggest_float("b", 1e-4, 1e-2, log=True)
+        # training logic goes into trainable, this is just
+        # for search space definition
 
-        def define_search_space(trial: optuna.Trial):
-            trial.suggest_float("a", 6, 8)
-            trial.suggest_float("b", 1e-4, 1e-2, log=True)
-            # training logic goes into trainable, this is just
-            # for search space definition
+    optuna_search = OptunaSearch(
+        define_search_space,
+        metric="loss",
+        mode="min")
 
-        optuna_search = OptunaSearch(
-            define_search_space,
-            metric="loss",
-            mode="min")
-
-        tune.run(trainable, search_alg=optuna_search)
+    tune.run(trainable, search_alg=optuna_search)
+    ```
 
     Multi-objective optimization is supported:
 
-    .. code-block:: python
+    ```python
+    from ray.tune.suggest.optuna import OptunaSearch
+    import optuna
 
-        from ray.tune.suggest.optuna import OptunaSearch
-        import optuna
+    space = {
+        "a": optuna.distributions.UniformDistribution(6, 8),
+        "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
+    }
 
-        space = {
-            "a": optuna.distributions.UniformDistribution(6, 8),
-            "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
-        }
+    # Note you have to specify metric and mode here instead of
+    # in tune.run
+    optuna_search = OptunaSearch(
+        space,
+        metric=["loss1", "loss2"],
+        mode=["min", "max"])
 
-        # Note you have to specify metric and mode here instead of
-        # in tune.run
-        optuna_search = OptunaSearch(
-            space,
-            metric=["loss1", "loss2"],
-            mode=["min", "max"])
-
-        # Do not specify metric and mode here!
-        tune.run(
-            trainable,
-            search_alg=optuna_search
-        )
+    # Do not specify metric and mode here!
+    tune.run(
+        trainable,
+        search_alg=optuna_search
+    )
+    ```
 
     You can pass configs that will be evaluated first using
     ``points_to_evaluate``:
 
-    .. code-block:: python
+    ```python
+    from ray.tune.suggest.optuna import OptunaSearch
+    import optuna
 
-        from ray.tune.suggest.optuna import OptunaSearch
-        import optuna
+    space = {
+        "a": optuna.distributions.UniformDistribution(6, 8),
+        "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
+    }
 
-        space = {
-            "a": optuna.distributions.UniformDistribution(6, 8),
-            "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
-        }
+    optuna_search = OptunaSearch(
+        space,
+        points_to_evaluate=[{"a": 6.5, "b": 5e-4}, {"a": 7.5, "b": 1e-3}]
+        metric="loss",
+        mode="min")
 
-        optuna_search = OptunaSearch(
-            space,
-            points_to_evaluate=[{"a": 6.5, "b": 5e-4}, {"a": 7.5, "b": 1e-3}]
-            metric="loss",
-            mode="min")
-
-        tune.run(trainable, search_alg=optuna_search)
+    tune.run(trainable, search_alg=optuna_search)
+    ```
 
     Avoid re-running evaluated trials by passing the rewards together with
     `points_to_evaluate`:
 
-    .. code-block:: python
+    ```python
+    from ray.tune.suggest.optuna import OptunaSearch
+    import optuna
 
-        from ray.tune.suggest.optuna import OptunaSearch
-        import optuna
+    space = {
+        "a": optuna.distributions.UniformDistribution(6, 8),
+        "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
+    }
 
-        space = {
-            "a": optuna.distributions.UniformDistribution(6, 8),
-            "b": optuna.distributions.LogUniformDistribution(1e-4, 1e-2),
-        }
+    optuna_search = OptunaSearch(
+        space,
+        points_to_evaluate=[{"a": 6.5, "b": 5e-4}, {"a": 7.5, "b": 1e-3}]
+        evaluated_rewards=[0.89, 0.42]
+        metric="loss",
+        mode="min")
 
-        optuna_search = OptunaSearch(
-            space,
-            points_to_evaluate=[{"a": 6.5, "b": 5e-4}, {"a": 7.5, "b": 1e-3}]
-            evaluated_rewards=[0.89, 0.42]
-            metric="loss",
-            mode="min")
-
-        tune.run(trainable, search_alg=optuna_search)
-
-    .. versionadded:: 0.8.8
+    tune.run(trainable, search_alg=optuna_search)
+    ```
 
     """
 
@@ -604,7 +595,10 @@ class OptunaSearch(Searcher):
 
         pruner = ot.pruners.NopPruner()
         storage = ot.storages.InMemoryStorage()
-
+        try:
+            from packaging import version
+        except ImportError:
+            raise ImportError("To use BlendSearch, run: pip install flaml[blendsearch]")
         if self._sampler:
             sampler = self._sampler
         elif isinstance(mode, list) and version.parse(ot.__version__) < version.parse("2.9.0"):
