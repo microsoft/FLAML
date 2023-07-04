@@ -53,8 +53,6 @@ async def test_continual_summarization():
             ai_data.append(title_and_abstract)
     print("adding AI data...")
     await research_teacher.add_data(ai_data)
-    ai_data.append(entry.summary)
-    research_teacher.add_data(ai_data)
 
 
 if __name__ == "__main__":
