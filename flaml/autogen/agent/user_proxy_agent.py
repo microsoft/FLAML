@@ -3,6 +3,7 @@ from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_
 from collections import defaultdict
 import json
 from typing import Dict, Union
+import asyncio
 
 
 class UserProxyAgent(Agent):
@@ -166,24 +167,24 @@ class UserProxyAgent(Agent):
             "content": str(content),
         }
 
-    def auto_reply(self, message: dict, sender, default_reply=""):
+    async def auto_reply(self, message: dict, sender, default_reply=""):
         """Generate an auto reply."""
         if "function_call" in message:
             is_exec_success, func_return = self._execute_function(message["function_call"])
-            self._send(func_return, sender)
+            await self._send(func_return, sender)
             return
 
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
-            self._send(default_reply, sender)
+            await self._send(default_reply, sender)
         else:
             # try to execute the code
             exitcode, logs = self._execute_code(code_blocks)
             exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
+            await self._send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
 
-    def receive(self, message: Union[Dict, str], sender):
+    async def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
@@ -214,9 +215,9 @@ class UserProxyAgent(Agent):
         if reply:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
-            self._send(reply, sender)
+            await self._send(reply, sender)
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
         print("\n>>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
-        self.auto_reply(message, sender, default_reply=reply)
+        await self.auto_reply(message, sender, default_reply=reply)

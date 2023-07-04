@@ -1,15 +1,7 @@
 from .user_proxy_agent import UserProxyAgent
 from typing import Optional, Callable
 from transformers import AutoTokenizer
-
-# def my_obj_func(learning_results, learning_data):
-
-#     new_learning_results = learning_results[100:] + learning_data[0:100]
-
-#     def is_data_size_feasible(new_learning_results, learning_data):
-#         max_token = 4096
-#         return len(new_learning_results) + len(learning_data) <= max_token
-#     return new_learning_results, is_data_size_feasible
+import asyncio
 
 
 class TeachingAgent(UserProxyAgent):
@@ -63,6 +55,8 @@ class TeachingAgent(UserProxyAgent):
         self._learning_objectives = None
         self._learning_results = None
         self._learning_func = None
+        self._can_handle_data_volume = lambda *args: True
+        self._data_available_event = asyncio.Event()
 
     def setup_learning(
         self,
@@ -100,10 +94,6 @@ class TeachingAgent(UserProxyAgent):
             "data4learning": [],
         }
 
-    def add_data(self, data4learning):
-        """Add data for learning."""
-        self._data4learning += data4learning
-
     def generate_init_prompt(self):
         """
         When generating the init prompt, we need to distinguish the two cases where learning_func or learning_objectives is provided.
@@ -112,35 +102,36 @@ class TeachingAgent(UserProxyAgent):
 
         return self._init_prompt
 
-    def auto_reply(self, message, sender, default_reply=""):
+    async def add_data(self, data4learning):
+        """Add data for learning."""
+        self._data4learning += data4learning
+        print(f"{len(data4learning)} data entries added for learning!")
+        self._data_available_event.set()
+
+    async def auto_reply(self, message, sender, default_reply=""):
         """
         Need to distinguish if the sender is requesting for learning data or not
         """
         learning_results = message.get("learning_results", "")
-        message.get("is_data_size_feasible", lambda x: True)
-
-        if self._data4learning:
-            current_data4learning = [self._data4learning.pop(0)]  # pop the first element
-            # TODO: need to re-visit this part to include more than one item of data for learning depending
-            # on the returned "is_data_size_feasible" function
-
-            # TODO: there could be more efficient ways to implement this,
-            # e.g., only send the learning setting when there are changes in the learning setting.
-            # response = self._learning_settings.copy()
-            # response.update({
-            #     "learning_results": learning_results,
-            #     "data4learning": current_data4learning,
-            # })
+        can_handle_data_volume = message.get("can_handle_data_volume") or self._can_handle_data_volume
+        current_data4learning = []
+        # Wait here if no data is available
+        while not self._data4learning:
+            print("waiting for data...")
+            await self._data_available_event.wait()
+        # Reset the event as we are going to consume data
+        self._data_available_event.clear()
+        while self._data4learning:
+            combined_data_str = "\n".join(current_data4learning + [self._data4learning[0]])
+            if can_handle_data_volume(learning_results, combined_data_str):
+                current_data4learning.append(self._data4learning.pop(0))
+            else:
+                break
+        if current_data4learning:
             response = {
                 "learning_results": learning_results,
                 "data4learning": current_data4learning,
             }
-            # if response.get("learning_results") is not None:
-            #     print("*********Old learning results*********\n", response["learning_results"], flush=True)
-            # if response.get("data4learning") is not None:
-            #     print("*********New data for learning*********\n", response["data4learning"], flush=True)
-            self._send(response, sender)
+            await self._send(response, sender)
         else:
             print("no data for learning and thus terminate the conversation")
-            # no data for learning and thus terminate the conversation
-            return

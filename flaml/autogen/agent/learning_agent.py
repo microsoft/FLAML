@@ -1,6 +1,7 @@
 from .assistant_agent import AssistantAgent
 from flaml.autogen.code_utils import DEFAULT_MODEL
 from flaml import oai
+import asyncio
 
 
 class LearningAgent(AssistantAgent):
@@ -31,6 +32,7 @@ class LearningAgent(AssistantAgent):
         super().__init__(name, system_message, **config)
         self._system_message_learning = """You are a helpful AI assistant."""
         self._learning_objectives = ""
+        self._can_handle_data_volume = lambda *args: True
 
     def _generate_task_prompt(self, learning_results, learning_data):
         """
@@ -46,32 +48,30 @@ class LearningAgent(AssistantAgent):
         return task_prompt
 
     @staticmethod
-    def _is_data_size_feasible_oai(learning_results, learning_data):
+    def is_total_token_count_within_threshold(learning_results, learning_data):
         """
-        Check if the learning data is feasible.
+        Check if the total token count of learning data and learning results
+        is within a specified threshold.
         """
 
         def _token_counter(input_string):
-            # from transformers import AutoTokenizer
+            from transformers import GPT2Tokenizer
 
-            # # Load a pre-trained tokenizer
-            # tokenizer = AutoTokenizer.from_pretrained("gpt2")
-            # # Tokenize the string
-            # tokens = tokenizer.tokenize(input_string)
-            # # Count the number of tokens
+            # Load a pre-trained tokenizer
+            tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            # Tokenize the string
+            tokens = tokenizer.tokenize(input_string)
+            return len(tokens)
 
-            # return len(tokens)
-            return len(input_string.split())
-
-        max_token_size = 4096
-        return _token_counter(learning_results) + _token_counter(learning_data) < max_token_size
+        oai_max_token_size = 4096
+        return _token_counter(learning_results) + _token_counter(learning_data) < oai_max_token_size * 0.8
 
     def _validate_learning_constraints(self, learning_constraints):
         # check if the learning constraints are satisfied
         # do nothing for now
         return True
 
-    def receive(self, message, sender):
+    async def receive(self, message, sender):
         """Receive a message from another agent."""
         content = message.get("content", None) if isinstance(message, dict) else message
         self._receive(message, sender)
@@ -89,15 +89,15 @@ class LearningAgent(AssistantAgent):
             if learning_objectives:
                 self._learning_objectives = learning_objectives
             # when data is available, perform the learning task when learning_constraints are satisfied
-            if self._validate_learning_constraints(learning_constraints):
+            if data4learning and self._validate_learning_constraints(learning_constraints):
                 # perform learning
                 if learning_func:
-                    # assumption: learning_func is a function that takes learning_results and learning_data as input and returns new_learning_results and is_data_size_feasible
+                    # assumption: learning_func is a function that takes learning_results and learning_data as input and returns new_learning_results and can_handle_data_volume
                     # when learning_data is None, the learning_func should work as well, outputting the input learning_results as the
-                    # new_learning_results and is_data_size_feasible function
-                    new_learning_results, is_data_size_feasible_func = learning_func(learning_results, data4learning)
+                    # new_learning_results and can_handle_data_volume function
+                    new_learning_results, self._can_handle_data_volume = learning_func(learning_results, data4learning)
                 else:
-                    is_data_size_feasible_func = self._is_data_size_feasible_oai
+                    self._can_handle_data_volume = self.is_total_token_count_within_threshold
                     if data4learning:
                         task_prompt = self._generate_task_prompt(learning_results, data4learning)
                         learning_msg = [
@@ -106,15 +106,16 @@ class LearningAgent(AssistantAgent):
                         ]
                         responses = oai.ChatCompletion.create(messages=learning_msg, **self._config)
                         new_learning_results = oai.ChatCompletion.extract_text(responses)[0]
-                        # sleep for 20 seconds to avoid the rate limit
-                        # import time
-                        # time.sleep(20)
                     else:
                         new_learning_results = learning_results
-                # if message.get("learning_results") is not None:
                 print("*********Current learning results of the learner*********\n", new_learning_results, flush=True)
                 print("*" * 50, flush=True)
-                self._send(
-                    {"learning_results": new_learning_results, "is_data_size_feasible": is_data_size_feasible_func},
+                await self._send(
+                    {"learning_results": new_learning_results, "can_handle_data_volume": self._can_handle_data_volume},
+                    sender,
+                )
+            else:
+                await self._send(
+                    {"learning_results": learning_results, "can_handle_data_volume": self._can_handle_data_volume},
                     sender,
                 )
