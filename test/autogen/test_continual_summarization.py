@@ -39,7 +39,7 @@ async def test_continual_summarization():
             ml_data.append(title_and_abstract)
     await research_teacher.add_data(ml_data)
 
-    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo-0613"])
+    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo-0613"], exclude="aoai")
     research_learner = LearningAgent(name="research_learner", config_list=config_list)
     asyncio.create_task(research_learner.receive(research_teacher.generate_init_prompt(), research_teacher))
 
