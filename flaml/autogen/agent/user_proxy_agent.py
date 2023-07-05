@@ -1,4 +1,3 @@
-from typing import Union
 from .agent import Agent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
