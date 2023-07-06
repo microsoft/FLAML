@@ -418,10 +418,7 @@ class SparkEstimator(BaseEstimator):
         if isinstance(self.df_train, psDataFrame):
             self.df_train = self.df_train.to_spark(index_col=index_col)
         if return_label:
-            if y_train is not None and y_train.name is not None:
-                return self.df_train, y_train.name
-            else:
-                return self.df_train, "label"
+            return self.df_train, y_train.name
         else:
             return self.df_train
 
