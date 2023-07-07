@@ -57,12 +57,14 @@ In the example above, we create an AssistantAgent named "assistant" to serve as 
 Please find a visual illustration of how UserProxyAgent and AssistantAgent collaboratively solve the above task below:
 ![Agent Example](images/agent_example.png)
 
-Notes:
+#### Human Input Mode
+The `human_input_mode` parameter of `UserProxyAgent` controls the behavior of the agent when it receives a message. It can be set to `"NEVER"`, `"ALWAYS"`, or `"TERMINATE"`.
 - Under the mode `human_input_mode="NEVER"`, the multi-turn conversation between the assistant and the user_proxy stops when the number of auto-reply reaches the upper limit specified by `max_consecutive_auto_reply` or the received message is a termination message according to `is_termination_msg`.
 - When `human_input_mode` is set to `"ALWAYS"`, the user proxy agent solicits human input every time a message is received; and the conversation stops when the human input is "exit", or when the received message is a termination message and no human input is provided.
 - When `human_input_mode` is set to `"TERMINATE"`, the user proxy agent solicits human input only when a termination message is received or the number of auto reply reaches `max_consecutive_auto_reply`.
 
-We also support the newly added [function calling capability of OpenAI's Chat Completions API](https://openai.com/blog/function-calling-and-other-api-updates?ref=upstract.com). One can pass in list of callable functions or class methods to `UserProxyAgent`, which corresponding to the description of functions passed to OpenAI's API.
+#### Function Calling
+We also support the newly added [function calling capability of OpenAI's Chat Completions API](https://openai.com/blog/function-calling-and-other-api-updates?ref=upstract.com). One can pass in a list of callable functions or class methods to `UserProxyAgent`, which corresponds to the description of functions passed to OpenAI's API.
 
 Example usage of the agents to solve a task with function calling feature:
 ```python
