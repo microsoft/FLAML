@@ -103,17 +103,12 @@ class Agent:
                     sep="",
                 )
                 print("*" * len(func_print), flush=True)
-            # print the message which is a dictionary in a pretty format
 
             # print("message = ",  message, flush=True, sep="")
             # format the printing of the message
             print("Message content:", flush=True, sep="")
             for key, value in message.items():
                 print(f"{key}: {value}", flush=True, sep="\n")
-            # if message.get("learning_results") is not None:
-            #     print("*********Current learning results*********\n", message["learning_results"], flush=True)
-            # if message.get("data4learning") is not None:
-            #     print("*********New data for learning*********\n", message["data4learning"], flush=True)
 
         print("\n", "-" * 80, flush=True, sep="")
 
