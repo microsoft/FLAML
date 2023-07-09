@@ -69,7 +69,6 @@ To leverage [function calling capability of OpenAI's Chat Completions API](https
 Example usage of the agents to solve a task with function calling feature:
 ```python
 from flaml.autogen.agent import AssistantAgent, UserProxyAgent
-from functools import partial
 
 # put the descriptions of functions in config to be passed to OpenAI's API
 oai_config = {
@@ -103,14 +102,14 @@ chatbot = AssistantAgent("assistant", config_list=config_list, **oai_config)
 # define your own function. Here we use a pre-defined '_execute_code' function from a UserProxyAgent instance
 # we define a wrapper function to call `exec_func`
 exec_func = UserProxyAgent(name="execute_code", work_dir="coding", use_docker=False)._execute_code
-def execute_code_function(exec_func, code_type, code):
+def execute_code(exec_func, code_type, code):
     return exec_func([(code_type, code)])
 
 # create a UserProxyAgent instance named "user", the execute_code_function is passed
 user = UserProxyAgent(
     "user",
     human_input_mode="NEVER",
-    function_map={"execute_code": partial(execute_code_function, exec_func)},
+    function_map={"execute_code": execute_code},
 )
 
 # start the conversation
