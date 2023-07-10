@@ -130,6 +130,8 @@ chatbot.receive(
 
 * [Interactive LLM Agent with Function Calls](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_function_call.ipynb)
 
+* [Multi-Agent Communication and Planning](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agent_planning.ipynb)
+
 ## Enhanced Inference
 
 One can use [`flaml.oai.Completion.create`](../reference/autogen/oai/completion#create) to perform inference.
