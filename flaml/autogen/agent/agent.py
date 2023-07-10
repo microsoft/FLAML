@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Dict, Union
+import asyncio
 
 
 class Agent:
@@ -63,11 +64,11 @@ class Agent:
         oai_message["role"] = "function" if message.get("role") == "function" else role
         self._oai_conversations[conversation_id].append(oai_message)
 
-    def _send(self, message: Union[Dict, str], recipient):
+    async def _send(self, message: Union[Dict, str], recipient):
         """Send a message to another agent."""
         # When the agent composes and sends the message, the role of the message is "assistant". (If 'role' exists and is 'function', it will remain unchanged.)
         self._append_oai_message(message, "assistant", recipient.name)
-        recipient.receive(message, self)
+        await recipient.receive(message, self)
 
     def _receive(self, message: Union[Dict, str], sender):
         """Receive a message from another agent.
@@ -102,6 +103,13 @@ class Agent:
                     sep="",
                 )
                 print("*" * len(func_print), flush=True)
+
+            # print("message = ",  message, flush=True, sep="")
+            # format the printing of the message
+            print("Message content:", flush=True, sep="")
+            for key, value in message.items():
+                print(f"{key}: {value}", flush=True, sep="\n")
+
         print("\n", "-" * 80, flush=True, sep="")
 
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
