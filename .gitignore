@@ -1,3 +1,9 @@
+wolfram.txt
+*.tar.gz
+key_openai.txt
+results
+*.out
+
 # Project
 /.vs
 .vscode
