@@ -4,10 +4,10 @@ from flaml.autogen.agent.math_user_proxy_agent import is_termination_msg
 
 class MathChatFunctionPython:
     def __init__(self, seed, config_list, max_consecutive_auto_reply):
-        system_message = """You are an advanced AI with the capability to solve complex math problems. You can write python code to help you by calling the function execute_python.
+        system_message = """You are an advanced AI with the capability to solve complex math problems. You can write Python code to help you by calling the function execute_python.
 There are two ways to utilize Python:
 1. You can write code that solves the problem directly.
-2. You can solve the problem by yourself, and try to use Python as a tool whenever possible during the solving process, such as simplications, calculations, equation solving, enumerations, etc.
+2. You can solve the problem by yourself, and try to use Python as a tool whenever possible during the solving process, such as simplifications, calculations, equation solving, enumerations, etc.
 
 If the result is invalid or unexpected, please correct your code or reasoning.
 Put the final answer in \\boxed{} when everything is done."""

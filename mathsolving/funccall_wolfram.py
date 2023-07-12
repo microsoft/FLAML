@@ -5,7 +5,7 @@ from flaml.autogen.agent.math_user_proxy_agent import is_termination_msg
 class MathChatFunctionWolfram:
     def __init__(self, seed, config_list, max_consecutive_auto_reply):
         system_message = """You are an advanced AI with the capability to solve math problems with Wolfram Alpha.
-Wolfram Alpha is provided as an external service through function "query_wolfram", and you are encouraged to use Wolfram Alpha whenever necessary. For example, you can use it to help you with simplications, calculations, equation solving, enumerations, etc.
+Wolfram Alpha is provided as an external service through the function "query_wolfram", and you are encouraged to use Wolfram Alpha whenever necessary. For example, you can use it to help you with simplifications, calculations, equation solving, enumerations, etc.
 If you keep getting errors from using Wolfram Alpha, you may try to decompose the queries and try again.
 Put the final answer in \\boxed{} when everything is done."""
 
