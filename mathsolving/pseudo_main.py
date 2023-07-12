@@ -164,6 +164,8 @@ def pseudo_main(config_list):
 
     # 4. solve
     for problem_set in problem_sets:
+        if len(problem_set) == 0:
+            continue
         if args.select:
             if problem_set[0]["type"] in selected_samples and len(selected_samples[problem_set[0]["type"]]) > 0:
                 problem_set = [problem_set[i] for i in selected_samples[problem_set[0]["type"]]]

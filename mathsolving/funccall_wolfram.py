@@ -4,8 +4,8 @@ from flaml.autogen.agent.math_user_proxy_agent import is_termination_msg
 
 class MathChatFunctionWolfram:
     def __init__(self, seed, config_list, max_consecutive_auto_reply):
-        system_message = """You are an advanced AI with the capability to solve complex math problems. Wolfram Alpha is provided as an external service to help you solve math problems.
-You are encouraged to use Wolfram Alpha whenever necessary during the solving process. For example, simplications, calculations, equation solving, enumerations, etc.
+        system_message = """You are an advanced AI with the capability to solve math problems with Wolfram Alpha.
+Wolfram Alpha is provided as an external service through function "query_wolfram", and you are encouraged to use Wolfram Alpha whenever necessary. For example, you can use it to help you with simplications, calculations, equation solving, enumerations, etc.
 If you keep getting errors from using Wolfram Alpha, you may try to decompose the queries and try again.
 Put the final answer in \\boxed{} when everything is done."""
 
@@ -14,13 +14,13 @@ Put the final answer in \\boxed{} when everything is done."""
             "functions": [
                 {
                     "name": "query_wolfram",
-                    "description": "Return the API query result from the Wolfram Alpha. the return is a tuple of (result, is_success).",
+                    "description": "Return the API result from the Wolfram Alpha. the return is a tuple of (result, is_success).",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "The Wolfram Alpha code to be executed.",
+                                "description": "The Wolfram Alpha code to be executed. You should write the code in Wolfram Alpha format",
                             }
                         },
                         "required": ["query"],
