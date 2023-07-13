@@ -2161,7 +2161,7 @@ class AutoML(BaseEstimator):
                 mlflow.log_param("best_config", search_state.best_config)
                 mlflow.log_param("best_learner", self._best_estimator)
                 mlflow.log_metric(
-                    self._state.error_metric if self._state.error_metric == "customized metric" else self._state.metric,
+                    self._state.metric if isinstance(self._state.metric, str) else self._state.error_metric,
                     1 - search_state.val_loss
                     if self._state.error_metric.startswith("1-")
                     else -search_state.val_loss
