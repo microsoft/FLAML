@@ -91,7 +91,7 @@ class UserProxyAgent(Agent):
                 logs = logs.decode("utf-8")
             elif lang in ["python", "Python"]:
                 if code.startswith("# filename: "):
-                    filename = code[11 : code.find("\n")].strip()
+                    filename = code[11 : code.find(".py")].strip() + '.py'
                 else:
                     filename = None
                 exitcode, logs, image = execute_code(
