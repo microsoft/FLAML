@@ -65,7 +65,34 @@ python -m fastchat.serve.openai_api_server --host localhost --port 8000
 
 ## Interact with model using `oai.Completion`
 
-Now the models can be directly accessed through openai-python library as well as `flaml.oai.Completion`.
+Now the models can be directly accessed through openai-python library as well as `flaml.oai.Completion`. If you are interacting with a chat model, make sure you have added your model name to `oai.Completion.chat_models`.
+
+```python
+class Completion(openai_Completion):
+    """A class for OpenAI completion API.
+
+    It also supports: ChatCompletion, Azure OpenAI API.
+    """
+
+    # set of models that support chat completion
+    chat_models = {
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-0301",  # deprecate in Sep
+        "gpt-3.5-turbo-0613",
+        "gpt-3.5-turbo-16k",
+        "gpt-35-turbo",
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4-32k-0314",  # deprecate in Sep
+        "gpt-4-0314",  # deprecate in Sep
+        "gpt-4-0613",
+        "gpt-4-32k-0613",
+        # Add your chat model here
+        "chatglm2-6b",
+    }
+```
+
+Test if `oai.Completion.create` is working properly.
 
 ```python
 from flaml import oai
