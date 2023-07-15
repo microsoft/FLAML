@@ -1683,7 +1683,7 @@ class AutoML(BaseEstimator):
             self._state.fit_kwargs,
             self._state.groups,
         )
-        if not X_val or not y_val:
+        if X_val is not None or y_val is not None:
             logger.info(f"Data split method: {self._split_type}")
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self._state.eval_method = eval_method
