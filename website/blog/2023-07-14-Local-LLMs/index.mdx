@@ -128,6 +128,44 @@ print(response)
 
 If you would like to switch to different models, download their checkpoints and specify model path when launching model worker(s). 
 
+## interacting with multiple local LLMs
+
+If you would like to interact with multiple LLMs on your local machine, replace the `model_worker` step above with a multi model variant:
+
+```bash
+python -m fastchat.serve.multi_model_worker \
+    --model-path lmsys/vicuna-7b-v1.3 \
+    --model-names vicuna-7b-v1.3 \
+    --model-path chatglm2-6b \
+    --model-names chatglm2-6b
+```
+
+The inference code would be:
+
+```python
+from flaml import oai
+
+# create a chat completion request
+response = oai.Completion.create(
+    config_list=[
+        {
+            "model": "chatglm2-6b",
+            "api_base": "http://localhost:8000/v1",
+            "api_type": "open_ai",
+            "api_key": "NULL",
+        },
+        {
+            "model": "vicuna-7b-v1.3",
+            "api_base": "http://localhost:8000/v1",
+            "api_type": "open_ai",
+            "api_key": "NULL",
+        }
+    ],
+    messages=[{"role": "user", "content": "Hi"}]
+)
+print(response)
+```
+
 ## For Further Reading
 
 * [Documentation](/docs/Use-Cases/Auto-Generation) about `flaml.autogen`
