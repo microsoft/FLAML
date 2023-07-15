@@ -17,7 +17,7 @@ git clone https://github.com/lm-sys/FastChat.git
 cd FastChat
 ```
 
-According to this [issue](https://github.com/lm-sys/FastChat/issues/1641), comment out all the line containing `finish_reason` in `fastchat/protocol/api_protocal.py` and `fastchat/protocol/openai_api_protocol.py` will fix the errors. This is what modified code looks like:
+According to this [issue](https://github.com/lm-sys/FastChat/issues/1641), comment out all the lines containing `finish_reason` in `fastchat/protocol/api_protocal.py` and `fastchat/protocol/openai_api_protocol.py` will fix the errors. The modified code looks like:
 
 ```python
 class CompletionResponseChoice(BaseModel):
