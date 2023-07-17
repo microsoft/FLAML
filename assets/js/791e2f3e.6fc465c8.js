@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkwebsite=self.webpackChunkwebsite||[]).push([[8557],{1681:s=>{s.exports=JSON.parse('{"allTagsPath":"/FLAML/blog/tags","slug":"/FLAML/blog/tags/flam-lv-2","name":"FLAMLv2","count":2,"permalink":"/FLAML/blog/tags/flam-lv-2"}')}}]);
