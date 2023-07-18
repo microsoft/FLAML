@@ -217,7 +217,7 @@ def test_humaneval(num_samples=1):
         prompt="",
         max_tokens=1,
         retry_timeout=0,
-        raise_error=False,
+        raise_on_ratelimit_or_timeout=False,
     )
     # assert response == -1
     # a minimal tuning example
