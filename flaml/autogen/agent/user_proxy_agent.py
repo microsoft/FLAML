@@ -167,7 +167,7 @@ class UserProxyAgent(Agent):
                 content = f"Error: {e}\n You argument should follow json format."
 
             # Try to execute the function
-            if arguments:
+            if arguments is not None:
                 try:
                     content = func(**arguments)
                     is_exec_success = True
