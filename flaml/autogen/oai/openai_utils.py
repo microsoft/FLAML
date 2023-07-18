@@ -233,6 +233,9 @@ def config_list_from_json(
     if json_str:
         config_list = json.loads(json_str)
     else:
-        with open(os.path.join(file_location, env_or_file)) as json_file:
-            config_list = json.load(json_file)
+        try:
+            with open(os.path.join(file_location, env_or_file)) as json_file:
+                config_list = json.load(json_file)
+        except FileNotFoundError:
+            return []
     return filter_config(config_list, filter_dict)
