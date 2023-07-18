@@ -25,7 +25,7 @@ def test_config_list_from_json():
 
 def test_config_list_openai_aoai():
     config_list = oai.config_list_openai_aoai(key_file_path=KEY_LOC)
-    assert all(config.get("api_type") in [None, "openai", "azure"] for config in config_list)
+    assert all(config.get("api_type") in [None, "open_ai", "azure"] for config in config_list)
 
 
 if __name__ == "__main__":

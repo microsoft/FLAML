@@ -210,6 +210,16 @@ def test_humaneval(num_samples=1):
         print(exc)
         return
     oai.Completion.clear_cache(400)
+    # no error should be raised
+    response = oai.Completion.create(
+        context=test_data[0],
+        config_list=[{"model": "gpt-3.5-turbo"}],
+        prompt="",
+        max_tokens=1,
+        retry_timeout=0,
+        raise_error=False,
+    )
+    # assert response == -1
     # a minimal tuning example
     config, _ = oai.Completion.tune(
         data=tune_data,
@@ -219,7 +229,7 @@ def test_humaneval(num_samples=1):
         n=1,
         prompt="{definition}",
     )
-    responses = oai.Completion.create(context=test_data[0], **config)
+    response = oai.Completion.create(context=test_data[0], **config)
     # a minimal tuning example for tuning chat completion models using the Completion class
     config, _ = oai.Completion.tune(
         data=tune_data,
@@ -230,7 +240,7 @@ def test_humaneval(num_samples=1):
         model="text-davinci-003",
         prompt="{definition}",
     )
-    responses = oai.Completion.create(context=test_data[0], **config)
+    response = oai.Completion.create(context=test_data[0], **config)
     # a minimal tuning example for tuning chat completion models using the ChatCompletion class
     config_list = oai.config_list_openai_aoai(KEY_LOC)
     config, _ = oai.ChatCompletion.tune(
@@ -242,8 +252,8 @@ def test_humaneval(num_samples=1):
         messages=[{"role": "user", "content": "{definition}"}],
         config_list=config_list,
     )
-    responses = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
-    print(responses)
+    response = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
+    print(response)
     code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
     print(code)
     print(cost)
@@ -271,8 +281,8 @@ def test_humaneval(num_samples=1):
     print(config2)
     print(analysis.best_result)
     print(test_data[0])
-    responses = oai.Completion.create(context=test_data[0], **config2)
-    print(responses)
+    response = oai.Completion.create(context=test_data[0], **config2)
+    print(response)
     oai.Completion.data = test_data[:num_samples]
     result = oai.Completion._eval(analysis.best_config, prune=False, eval_only=True)
     print("result without pruning", result)

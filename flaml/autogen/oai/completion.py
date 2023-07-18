@@ -197,6 +197,7 @@ class Completion(openai_Completion):
         )
         start_time = time.time()
         request_timeout = cls.request_timeout
+        retry_timeout = config.pop("retry_timeout", cls.retry_timeout)
         while True:
             try:
                 if "request_timeout" in config:
@@ -219,7 +220,7 @@ class Completion(openai_Completion):
                 logger.info(f"retrying in {cls.retry_time} seconds...", exc_info=1)
                 sleep(cls.retry_time)
             except (RateLimitError, Timeout) as err:
-                time_left = cls.retry_timeout - (time.time() - start_time + cls.retry_time)
+                time_left = retry_timeout - (time.time() - start_time + cls.retry_time)
                 if (
                     time_left > 0
                     and isinstance(err, RateLimitError)
@@ -234,7 +235,7 @@ class Completion(openai_Completion):
                     if use_cache and isinstance(err, Timeout):
                         cls._cache.set(key, response)
                     logger.warning(
-                        f"Failed to get response from openai api due to getting RateLimitError or Timeout for {cls.retry_timeout} seconds."
+                        f"Failed to get response from openai api due to getting RateLimitError or Timeout for {retry_timeout} seconds."
                     )
                     return response
                 if isinstance(err, Timeout):

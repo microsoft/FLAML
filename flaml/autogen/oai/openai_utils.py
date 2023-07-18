@@ -221,7 +221,7 @@ def config_list_from_json(
             e.g.,
     ```python
     filter_dict = {
-        "api_type": ["openai", None],  # None means a missing key is acceptable
+        "api_type": ["open_ai", None],  # None means a missing key is acceptable
         "model": ["gpt-3.5-turbo", "gpt-4"],
     }
     ```
