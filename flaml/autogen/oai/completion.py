@@ -386,7 +386,6 @@ class Completion(openai_Completion):
                 for i in range(prev_data_limit, data_limit):
                     logger.debug(f"num_completions={num_completions}, data instance={i}")
                     data_i = data[i]
-                    # params = cls._construct_params(data_i, params, prompt, messages)
                     response = cls.create(data_i, raise_error=eval_only, **params)
                     if response == -1:  # rate limit/timeout error, treat as invalid
                         cls._update_invalid_n(prune, region_key, max_tokens, num_completions)
@@ -759,7 +758,9 @@ class Completion(openai_Completion):
                 try:
                     cls.retry_timeout = 0 if i < last and filter_func is None else retry_timeout
                     # retry_timeout = 0 to avoid retrying when no filter is given
-                    response = cls.create(context, use_cache, **base_config)
+                    response = cls.create(context, use_cache, raise_error=i != last or raise_error, **base_config)
+                    if response == -1:
+                        return response
                     pass_filter = filter_func is None or filter_func(
                         context=context, base_config=config, response=response
                     )
