@@ -3,6 +3,7 @@ from flaml import oai
 from flaml.autogen.agent import AssistantAgent, UserProxyAgent
 
 KEY_LOC = "test/autogen"
+OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 here = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -11,7 +12,19 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
         import openai
     except ImportError:
         return
-    config_list = oai.config_list_from_models(key_file_path=KEY_LOC, model_list=["gpt-3.5-turbo-0613"], exclude="aoai")
+    config_list = oai.config_list_from_json(
+        OAI_CONFIG_LIST,
+        file_location=KEY_LOC,
+        filter_dict={
+            "model": {
+                "gpt-3.5-turbo",
+                "gpt-3.5-turbo-16k",
+                "gpt-3.5-turbo-0301",
+                "chatgpt-35-turbo-0301",
+                "gpt-35-turbo-v0301",
+            },
+        },
+    )
     assistant = AssistantAgent(
         "coding_agent",
         # request_timeout=600,
@@ -44,7 +57,7 @@ def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_re
     except ImportError:
         return
 
-    config_list = oai.config_list_gpt4_gpt35(key_file_path=KEY_LOC)
+    config_list = oai.config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
     assistant = AssistantAgent("assistant", request_timeout=600, seed=42, config_list=config_list)
@@ -79,7 +92,13 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     except ImportError:
         return
 
-    config_list = oai.config_list_openai_aoai(key_file_path=KEY_LOC)
+    config_list = oai.config_list_from_json(
+        OAI_CONFIG_LIST,
+        file_location=KEY_LOC,
+        filter_dict={
+            "model": ["gpt-4", "gpt4", "gpt-4-32k", "gpt-4-32k-0314"],
+        },
+    )
     hard_questions = [
         "What if we must go from node 1 to node 2?",
         "Can we double all distances?",

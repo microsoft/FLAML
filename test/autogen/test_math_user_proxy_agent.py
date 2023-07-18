@@ -4,6 +4,7 @@ import pytest
 import sys
 
 KEY_LOC = "test/autogen"
+OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 
 
 @pytest.mark.skipif(
@@ -21,7 +22,13 @@ def test_math_user_proxy_agent():
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
 
-    config_list = oai.config_list_openai_aoai(key_file_path=KEY_LOC)
+    config_list = oai.config_list_from_json(
+        OAI_CONFIG_LIST,
+        file_location=KEY_LOC,
+        filter_dict={
+            "model": ["gpt-4", "gpt4", "gpt-4-32k", "gpt-4-32k-0314"],
+        },
+    )
     assistant = AssistantAgent(
         "assistant",
         system_message="You are a helpful assistant.",
