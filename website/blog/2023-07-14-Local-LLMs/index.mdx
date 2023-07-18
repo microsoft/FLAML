@@ -17,22 +17,6 @@ git clone https://github.com/lm-sys/FastChat.git
 cd FastChat
 ```
 
-According to this [issue](https://github.com/lm-sys/FastChat/issues/1641), comment out all the lines containing `finish_reason` in `fastchat/protocol/api_protocal.py` and `fastchat/protocol/openai_api_protocol.py` will fix the errors. The modified code looks like:
-
-```python
-class CompletionResponseChoice(BaseModel):
-    index: int
-    text: str
-    logprobs: Optional[int] = None
-    # finish_reason: Optional[Literal["stop", "length"]]
-
-class CompletionResponseStreamChoice(BaseModel):
-    index: int
-    text: str
-    logprobs: Optional[float] = None
-    # finish_reason: Optional[Literal["stop", "length"]] = None
-```
-
 ### Download checkpoint
 
 ChatGLM-6B is an open bilingual language model based on General Language Model (GLM) framework, with 6.2 billion parameters. ChatGLM2-6B is its second-generation version.
@@ -62,6 +46,23 @@ Finally, launch the RESTful API server
 ```bash
 python -m fastchat.serve.openai_api_server --host localhost --port 8000
 ```
+
+Normally this will work. However, if you encounter error like [this](https://github.com/lm-sys/FastChat/issues/1641), comment out all the lines containing `finish_reason` in `fastchat/protocol/api_protocal.py` and `fastchat/protocol/openai_api_protocol.py` will fix the problem. The modified code looks like:
+
+```python
+class CompletionResponseChoice(BaseModel):
+    index: int
+    text: str
+    logprobs: Optional[int] = None
+    # finish_reason: Optional[Literal["stop", "length"]]
+
+class CompletionResponseStreamChoice(BaseModel):
+    index: int
+    text: str
+    logprobs: Optional[float] = None
+    # finish_reason: Optional[Literal["stop", "length"]] = None
+```
+
 
 ## Interact with model using `oai.Completion`
 
