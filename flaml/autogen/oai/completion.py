@@ -749,19 +749,19 @@ class Completion(openai_Completion):
         if ERROR:
             raise ERROR
         if config_list:
-            retry_timeout = cls.retry_timeout
             last = len(config_list) - 1
             cost = 0
             for i, each_config in enumerate(config_list):
                 base_config = config.copy()
                 base_config.update(each_config)
-                try:
-                    cls.retry_timeout = 0 if i < last and filter_func is None else retry_timeout
+                if i < last and filter_func is None and "retry_timeout" not in base_config:
                     # retry_timeout = 0 to avoid retrying when no filter is given
+                    base_config["retry_timeout"] = 0
+                try:
                     response = cls.create(
                         context,
                         use_cache,
-                        raise_on_ratelimit_or_timeout=i != last or raise_on_ratelimit_or_timeout,
+                        raise_on_ratelimit_or_timeout=i < last or raise_on_ratelimit_or_timeout,
                         **base_config,
                     )
                     if response == -1:
@@ -779,8 +779,6 @@ class Completion(openai_Completion):
                     logger.debug(f"failed with config {i}", exc_info=1)
                     if i == last:
                         raise
-                finally:
-                    cls.retry_timeout = retry_timeout
         params = cls._construct_params(context, config)
         if not use_cache:
             return cls._get_response(
