@@ -17,6 +17,7 @@ from flaml.autogen.code_utils import (
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
 KEY_LOC = "test/autogen"
+OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 here = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -144,7 +145,19 @@ def test_nocontext():
     )
     print(response)
     code, _ = generate_code(
-        model="gpt-3.5-turbo",
+        config_list=oai.config_list_from_json(
+            OAI_CONFIG_LIST,
+            file_location=KEY_LOC,
+            filter_dict={
+                "model": {
+                    "gpt-3.5-turbo",
+                    "gpt-3.5-turbo-16k",
+                    "gpt-3.5-turbo-0301",
+                    "chatgpt-35-turbo-0301",
+                    "gpt-35-turbo-v0301",
+                },
+            },
+        ),
         messages=[
             {
                 "role": "system",
@@ -253,6 +266,7 @@ def test_humaneval(num_samples=1):
             "Complete the following Python function:{definition}",
         ],
         stop=[["\nclass", "\ndef", "\nif", "\nprint"], None],  # the stop sequences
+        config_list=config_list,
     )
     print(config2)
     print(analysis.best_result)
