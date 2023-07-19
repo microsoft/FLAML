@@ -121,7 +121,7 @@ def test_mlflow():
 
     try:
         X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
-    except (OpenMLServerException, ChunkedEncodingError, SSLError) as e:
+    except (OpenMLServerException, ChunkedEncodingError, SSLError, ServerError) as e:
         print(e)
         return
     """ import AutoML class from flaml package """
