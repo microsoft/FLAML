@@ -106,13 +106,15 @@ class TestWarmStart(unittest.TestCase):
         print(automl.best_config_per_estimator)
 
     def test_FLAML_sample_size_in_starting_points(self):
-        from sklearn.externals._arff import ArffException
+        from openml.exceptions import OpenMLServerException
+        from requests.exceptions import ChunkedEncodingError, SSLError
+        from minio.error import ServerError
         from flaml.automl.data import load_openml_dataset
         from flaml import AutoML
 
         try:
             X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
-        except (ArffException, ValueError):
+        except (OpenMLServerException, ChunkedEncodingError, SSLError, ServerError):
             from sklearn.datasets import load_wine
 
             X_train, y_train = load_wine(return_X_y=True)
