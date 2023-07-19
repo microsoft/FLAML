@@ -1504,15 +1504,15 @@ class XGBoostEstimator(SKLearnEstimator):
         return 1.6
 
     def config2params(self, config: dict) -> dict:
+        from xgboost import __version__ as xgboost_version
+
         params = super().config2params(config)
         max_depth = params["max_depth"] = params.get("max_depth", 0)
         if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
             params["tree_method"] = params.get("tree_method", "hist")
             # params["booster"] = params.get("booster", "gbtree")
-            # use_label_encoder is deprecated in 1.7.0
-            from xgboost import __version__ as xgboost_version
-
+            # use_label_encoder is deprecated in 1.7.
             if xgboost_version < "1.7.0":
                 params["use_label_encoder"] = params.get("use_label_encoder", False)
         if "n_jobs" in config:
