@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 
 class Agent:
@@ -15,8 +15,6 @@ class Agent:
             name (str): name of the agent
             system_message (str): system message to be sent to the agent
         """
-        # empty memory
-        self._memory = []
         # a dictionary of conversations, default value is list
         self._oai_conversations = defaultdict(list)
         self._name = name
@@ -27,9 +25,10 @@ class Agent:
         """Get the name of the agent."""
         return self._name
 
-    def _remember(self, memory):
-        """Remember something."""
-        self._memory.append(memory)
+    @property
+    def oai_conversations(self) -> Dict[str, List[Dict]]:
+        """a dictionary of conversations from name to list of oai messages"""
+        return self._oai_conversations
 
     @staticmethod
     def _message_to_dict(message: Union[Dict, str]):
