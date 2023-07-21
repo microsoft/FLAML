@@ -2,11 +2,96 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://microsoft.github.io/FLAML/blog</id>
     <title>FLAML Blog</title>
-    <updated>2023-05-18T00:00:00.000Z</updated>
+    <updated>2023-07-14T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://microsoft.github.io/FLAML/blog"/>
     <subtitle>FLAML Blog</subtitle>
     <icon>https://microsoft.github.io/FLAML/img/flaml_logo.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Use flaml.autogen for local LLMs]]></title>
+        <id>Use flaml.autogen for local LLMs</id>
+        <link href="https://microsoft.github.io/FLAML/blog/2023/07/14/Local-LLMs"/>
+        <updated>2023-07-14T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[TL;DR:]]></summary>
+        <content type="html"><![CDATA[<p><strong>TL;DR:</strong>
+We demonstrate how to use flaml.autogen for local LLM application. As an example, we will initiate an endpoint using <a href="https://github.com/lm-sys/FastChat">FastChat</a> and perform inference on <a href="https://github.com/THUDM/ChatGLM2-6B">ChatGLMv2-6b</a>.</p><h2>Preparations</h2><h3>Clone FastChat</h3><p>FastChat provides OpenAI-compatible APIs for its supported models, so you can use FastChat as a local drop-in replacement for OpenAI APIs. However, its code needs minor modification in order to function properly.</p><pre><code class="language-bash">git clone https://github.com/lm-sys/FastChat.git
+cd FastChat
+</code></pre><h3>Download checkpoint</h3><p>ChatGLM-6B is an open bilingual language model based on General Language Model (GLM) framework, with 6.2 billion parameters. ChatGLM2-6B is its second-generation version.</p><p>Before downloading from HuggingFace Hub, you need to have Git LFS <a href="https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage">installed</a>.</p><pre><code class="language-bash">git clone https://huggingface.co/THUDM/chatglm2-6b
+</code></pre><h2>Initiate server</h2><p>First, launch the controller</p><pre><code class="language-bash">python -m fastchat.serve.controller
+</code></pre><p>Then, launch the model worker(s)</p><pre><code class="language-bash">python -m fastchat.serve.model_worker --model-path chatglm2-6b
+</code></pre><p>Finally, launch the RESTful API server</p><pre><code class="language-bash">python -m fastchat.serve.openai_api_server --host localhost --port 8000
+</code></pre><p>Normally this will work. However, if you encounter error like <a href="https://github.com/lm-sys/FastChat/issues/1641">this</a>, commenting out all the lines containing <code>finish_reason</code> in <code>fastchat/protocol/api_protocal.py</code> and <code>fastchat/protocol/openai_api_protocol.py</code> will fix the problem. The modified code looks like:</p><pre><code class="language-python">class CompletionResponseChoice(BaseModel):
+    index: int
+    text: str
+    logprobs: Optional[int] = None
+    # finish_reason: Optional[Literal[&quot;stop&quot;, &quot;length&quot;]]
+
+class CompletionResponseStreamChoice(BaseModel):
+    index: int
+    text: str
+    logprobs: Optional[float] = None
+    # finish_reason: Optional[Literal[&quot;stop&quot;, &quot;length&quot;]] = None
+</code></pre><h2>Interact with model using <code>oai.Completion</code></h2><p>Now the models can be directly accessed through openai-python library as well as <code>flaml.oai.Completion</code> and <code>flaml.oai.ChatCompletion</code>.</p><pre><code class="language-python">from flaml import oai
+
+# create a text completion request
+response = oai.Completion.create(
+    config_list=[
+        {
+            &quot;model&quot;: &quot;chatglm2-6b&quot;,
+            &quot;api_base&quot;: &quot;http://localhost:8000/v1&quot;,
+            &quot;api_type&quot;: &quot;open_ai&quot;,
+            &quot;api_key&quot;: &quot;NULL&quot;, # just a placeholder
+        }
+    ],
+    prompt=&quot;Hi&quot;,
+)
+print(response)
+
+# create a chat completion request
+response = oai.ChatCompletion.create(
+    config_list=[
+        {
+            &quot;model&quot;: &quot;chatglm2-6b&quot;,
+            &quot;api_base&quot;: &quot;http://localhost:8000/v1&quot;,
+            &quot;api_type&quot;: &quot;open_ai&quot;,
+            &quot;api_key&quot;: &quot;NULL&quot;,
+        }
+    ],
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hi&quot;}]
+)
+print(response)
+</code></pre><p>If you would like to switch to different models, download their checkpoints and specify model path when launching model worker(s).</p><h2>interacting with multiple local LLMs</h2><p>If you would like to interact with multiple LLMs on your local machine, replace the <code>model_worker</code> step above with a multi model variant:</p><pre><code class="language-bash">python -m fastchat.serve.multi_model_worker \
+    --model-path lmsys/vicuna-7b-v1.3 \
+    --model-names vicuna-7b-v1.3 \
+    --model-path chatglm2-6b \
+    --model-names chatglm2-6b
+</code></pre><p>The inference code would be:</p><pre><code class="language-python">from flaml import oai
+
+# create a chat completion request
+response = oai.ChatCompletion.create(
+    config_list=[
+        {
+            &quot;model&quot;: &quot;chatglm2-6b&quot;,
+            &quot;api_base&quot;: &quot;http://localhost:8000/v1&quot;,
+            &quot;api_type&quot;: &quot;open_ai&quot;,
+            &quot;api_key&quot;: &quot;NULL&quot;,
+        },
+        {
+            &quot;model&quot;: &quot;vicuna-7b-v1.3&quot;,
+            &quot;api_base&quot;: &quot;http://localhost:8000/v1&quot;,
+            &quot;api_type&quot;: &quot;open_ai&quot;,
+            &quot;api_key&quot;: &quot;NULL&quot;,
+        }
+    ],
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hi&quot;}]
+)
+print(response)
+</code></pre><h2>For Further Reading</h2><ul><li><a href="/docs/Use-Cases/Auto-Generation">Documentation</a> about <code>flaml.autogen</code></li><li><a href="https://github.com/lm-sys/FastChat">Documentation</a> about FastChat.</li></ul>]]></content>
+        <author>
+            <name>Jiale Liu</name>
+            <uri>https://leoljl.github.io</uri>
+        </author>
+    </entry>
     <entry>
         <title type="html"><![CDATA[Achieve More, Pay Less - Use GPT-4 Smartly]]></title>
         <id>Achieve More, Pay Less - Use GPT-4 Smartly</id>
