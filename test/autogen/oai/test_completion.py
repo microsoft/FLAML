@@ -308,7 +308,10 @@ def test_humaneval(num_samples=1):
     print("result without pruning", result)
     result = oai.Completion.test(test_data[:num_samples], **config2)
     print(result)
-    code, cost, selected = implement(tune_data[1], [config2, config])
+    try:
+        code, cost, selected = implement(tune_data[1], [config2, config])
+    except RateLimitError:
+        code, cost, selected = implement(tune_data[1], [config2, {**config, "model": "text-ada-001"}])
     print(code)
     print(cost)
     print(selected)
