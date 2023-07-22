@@ -23,9 +23,6 @@ def test_ai_user_proxy_agent():
     config_list = oai.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
-        filter_dict={
-            "model": ["gpt-4", "gpt4", "gpt-4-32k", "gpt-4-32k-0314"],
-        },
     )
     assistant = AssistantAgent(
         "assistant",

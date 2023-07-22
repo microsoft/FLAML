@@ -269,7 +269,12 @@ def test_humaneval(num_samples=1):
     )
     response = oai.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
     print(response)
-    code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
+    from openai.error import RateLimitError
+
+    try:
+        code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
+    except RateLimitError:
+        code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config, "model": "text-ada-001"}])
     print(code)
     print(cost)
     assert selected == 0
