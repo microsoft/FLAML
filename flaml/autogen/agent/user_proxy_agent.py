@@ -267,6 +267,8 @@ class AIUserProxyAgent(UserProxyAgent):
     """(Experimental) A proxy agent for the user, that can execute code and provide feedback to the other agents.
 
     Compared to UserProxyAgent, this agent can also generate AI replies.
+    Code execution is enabled by default. AI replies are generated only when no code execution is performed.
+    To disable code execution, set code_execution_config to False.
     """
 
     def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):

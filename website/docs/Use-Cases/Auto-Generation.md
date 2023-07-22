@@ -24,7 +24,9 @@ We have designed different classes of Agents that are capable of communicating w
 ### `UserProxyAgent`
 `UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
 
-Currently, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. We plan to add more capabilities in `UserProxyAgent` beyond code execution. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message. This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
+By default, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses to the `AssistantAgent`'s specific type of message.
+For example, `AIUserProxyAgent` is a subclass of `UserProxyAgent` which can generate replies using an LLM when code execution is not performed. code execution can be disabled by setting `code_execution_config` to False.
+This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
 
 Example usage of the agents to solve a task with code:
 ```python
@@ -39,7 +41,7 @@ user_proxy = UserProxyAgent(
     human_input_mode="NEVER",  # in this mode, the agent will never solicit human input but always auto reply
     max_consecutive_auto_reply=10,  # the maximum number of consecutive auto replies
     is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE") or x.get("content", "").rstrip().endswith('"TERMINATE".'),  # the function to determine whether a message is a termination message
-    work_dir=".",
+    code_execution_config={"work_dir": "."},
 )
 
 # the assistant receives a message from the user, which contains the task description
@@ -103,7 +105,7 @@ chatbot = AssistantAgent("assistant", config_list=config_list, **oai_config)
 user = UserProxyAgent(
     "user",
     human_input_mode="NEVER",
-    work_dir="coding",
+    code_execution_config={"work_dir": "coding"},
 )
 
 # define an `execute_code` function according to the function desription
