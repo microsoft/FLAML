@@ -5,7 +5,7 @@ from collections import defaultdict
 import re
 import os
 from pydantic import BaseModel, Extra, root_validator
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from time import sleep
 
 
@@ -211,8 +211,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self._reset()
         if customized_prompt is not None:
             return customized_prompt + problem
-        else:
-            return PROMPTS[prompt_type] + problem
+        return PROMPTS[prompt_type] + problem
 
     def _reset(self):
         self._oai_conversations.clear()
@@ -293,7 +292,7 @@ class MathUserProxyAgent(UserProxyAgent):
             is_success = False
         return output, is_success
 
-    def auto_reply(self, message, sender, default_reply=""):
+    def auto_reply(self, message: dict, default_reply: Union[str, Dict] = ""):
         """Generate an auto reply."""
         message = message.get("content", "")
         code_blocks = extract_code(message)
@@ -302,43 +301,42 @@ class MathUserProxyAgent(UserProxyAgent):
             # no code block is found, lang should be `UNKNOWN``
             if default_reply == "":
                 default_reply = "Continue. Please keep solving the problem until you need to query. (If you get to the answer, put it in \\boxed{}.)"
-            self.send(default_reply, sender)
-        else:
-            is_success, all_success = True, True
-            reply = ""
-            for code_block in code_blocks:
-                lang, code = code_block
-                if not lang:
-                    lang = infer_lang(code)
-                if lang == "python":
-                    output, is_success = self.execute_one_python_code(code)
-                elif lang == "wolfram":
-                    output, is_success = self.execute_one_wolfram_query(code)
-                else:
-                    output = "Error: Unknown language."
-                    is_success = False
+            return default_reply
+        is_success, all_success = True, True
+        reply = ""
+        for code_block in code_blocks:
+            lang, code = code_block
+            if not lang:
+                lang = infer_lang(code)
+            if lang == "python":
+                output, is_success = self.execute_one_python_code(code)
+            elif lang == "wolfram":
+                output, is_success = self.execute_one_wolfram_query(code)
+            else:
+                output = "Error: Unknown language."
+                is_success = False
 
-                reply += output + "\n"
-                if not is_success:
-                    all_success = False
-                    self._valid_q_count -= 1  # count invalid queries
+            reply += output + "\n"
+            if not is_success:
+                all_success = False
+                self._valid_q_count -= 1  # count invalid queries
 
-            reply = reply.strip()
+        reply = reply.strip()
 
-            if self.last_reply == reply:
-                return (
-                    reply + "\nYour query or result is same from the last, please try a new approach.",
-                    False,
-                )
-            self.last_reply = reply
+        if self.last_reply == reply:
+            return (
+                reply + "\nYour query or result is same from the last, please try a new approach.",
+                False,
+            )
+        self.last_reply = reply
 
-            if not all_success:
-                self._accum_invalid_q_per_step += 1
-                if self._accum_invalid_q_per_step > self._max_invalid_q_per_step:
-                    self._accum_invalid_q_per_step = 0
-                    reply = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
+        if not all_success:
+            self._accum_invalid_q_per_step += 1
+            if self._accum_invalid_q_per_step > self._max_invalid_q_per_step:
+                self._accum_invalid_q_per_step = 0
+                reply = "Please revisit the problem statement and your reasoning. If you think this step is correct, solve it yourself and continue the next step. Otherwise, correct this step."
 
-            self.send(reply, sender)
+        return reply
 
 
 # Imported from langchain. Langchain is licensed under MIT License:

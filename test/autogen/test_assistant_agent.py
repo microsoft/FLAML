@@ -34,12 +34,14 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     )
     user = UserProxyAgent(
         "user",
-        work_dir=f"{here}/test_agent_scripts",
         human_input_mode=human_input_mode,
         is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
         max_consecutive_auto_reply=max_consecutive_auto_reply,
-        use_docker="python:3",
-        timeout=60,
+        code_execution_config={
+            "work_dir": f"{here}/test_agent_scripts",
+            "use_docker": "python:3",
+            "timeout": 60,
+        },
     )
     user.initiate_chat(assistant, "TERMINATE")
     # should terminate without sending any message
@@ -122,7 +124,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     assistant = AssistantAgent("assistant", temperature=0, config_list=config_list)
     user = TSPUserProxyAgent(
         "user",
-        work_dir=f"{here}",
+        code_execution_config={"work_dir": here},
         human_input_mode=human_input_mode,
         max_consecutive_auto_reply=max_consecutive_auto_reply,
     )

@@ -15,12 +15,10 @@ class UserProxyAgent(Agent):
         name: str,
         system_message: Optional[str] = "",
         is_termination_msg: Optional[Callable[[Dict], bool]] = None,
-        work_dir: Optional[str] = None,
         human_input_mode: Optional[str] = "ALWAYS",
-        function_map: Optional[Dict[str, Callable]] = {},
+        function_map: Optional[Dict[str, Callable]] = None,
         max_consecutive_auto_reply: Optional[int] = None,
-        use_docker: Optional[Union[List[str], str, bool]] = True,
-        timeout: Optional[int] = 600,
+        code_execution_config: Optional[Dict] = None,
         **config,
     ):
         """
@@ -30,10 +28,6 @@ class UserProxyAgent(Agent):
             is_termination_msg (function): a function that takes a message in the form of a dictionary
                 and returns a boolean value indicating if this received message is a termination message.
                 The dict can contain the following keys: "content", "role", "name", "function_call".
-            work_dir (Optional, str): The working directory for the code execution.
-                If None, a default working directory will be used.
-                The default working directory is the "extensions" directory under
-                "path_to_flaml/autogen".
             human_input_mode (str): whether to ask for human inputs every time a message is received.
                 Possible values are "ALWAYS", "TERMINATE", "NEVER".
                 (1) When "ALWAYS", the agent prompts for human input every time a message is received.
@@ -47,33 +41,37 @@ class UserProxyAgent(Agent):
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            use_docker (Optional, list, str or bool): The docker image to use for code execution.
-                If a list or a str of image name(s) is provided, the code will be executed in a docker container
-                with the first image successfully pulled.
-                If None, False or empty, the code will be executed in the current environment.
-                Default is True, which will be converted into a list.
-                If the code is executed in the current environment,
-                the code must be trusted.
-            timeout (Optional, int): The maximum execution time in seconds.
+            code_execution_config (dict or False): config for the code execution.
+                To disable code execution, set to False. Otherwise, set to a dictionary with the following keys:
+                - work_dir (Optional, str): The working directory for the code execution.
+                    If None, a default working directory will be used.
+                    The default working directory is the "extensions" directory under
+                    "path_to_flaml/autogen".
+                - use_docker (Optional, list, str or bool): The docker image to use for code execution.
+                    If a list or a str of image name(s) is provided, the code will be executed in a docker container
+                    with the first image successfully pulled.
+                    If None, False or empty, the code will be executed in the current environment.
+                    Default is True, which will be converted into a list.
+                    If the code is executed in the current environment,
+                    the code must be trusted.
+                - timeout (Optional, int): The maximum execution time in seconds.
             **config (dict): other configurations.
         """
         super().__init__(name, system_message, is_termination_msg)
-        self._work_dir = work_dir
+        self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self._human_input_mode = human_input_mode
         self._config = config
         self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
-        self._use_docker = use_docker
-        self._time_out = timeout
-        self._function_map = function_map
+        self._function_map = {} if function_map is None else function_map
 
     @property
-    def use_docker(self) -> Union[bool, str]:
+    def use_docker(self) -> Union[bool, str, None]:
         """bool value of whether to use docker to execute the code,
-        or str value of the docker image name to use."""
-        return self._use_docker
+        or str value of the docker image name to use, or None when code execution is disabled."""
+        return None if self._code_execution_config is False else self._code_execution_config.get("use_docker")
 
     def execute_code(self, code_blocks):
         """Execute the code and return the result."""
@@ -83,9 +81,7 @@ class UserProxyAgent(Agent):
             if not lang:
                 lang = infer_lang(code)
             if lang in ["bash", "shell", "sh"]:
-                exitcode, logs, image = execute_code(
-                    code, work_dir=self._work_dir, use_docker=self._use_docker, lang=lang, timeout=self._time_out
-                )
+                exitcode, logs, image = execute_code(code, lang=lang, **self._code_execution_config)
                 logs = logs.decode("utf-8")
             elif lang in ["python", "Python"]:
                 if code.startswith("# filename: "):
@@ -94,17 +90,15 @@ class UserProxyAgent(Agent):
                     filename = None
                 exitcode, logs, image = execute_code(
                     code,
-                    work_dir=self._work_dir,
                     filename=filename,
-                    use_docker=self._use_docker,
-                    timeout=self._time_out,
+                    **self._code_execution_config,
                 )
                 logs = logs.decode("utf-8")
             else:
                 # In case the language is not supported, we return an error message.
-                exitcode, logs, image = 1, f"unknown language {lang}", self._use_docker
+                exitcode, logs, image = 1, f"unknown language {lang}", self._code_execution_config["use_docker"]
                 # raise NotImplementedError
-            self._use_docker = image
+            self._code_execution_config["use_docker"] = image
             logs_all += "\n" + logs
             if exitcode != 0:
                 return exitcode, logs_all
@@ -112,7 +106,7 @@ class UserProxyAgent(Agent):
 
     @staticmethod
     def _format_json_str(jstr):
-        """Remove newlines outside of quotes, and hanlde JSON escape sequences.
+        """Remove newlines outside of quotes, and handle JSON escape sequences.
 
         1. this function removes the newline in the query outside of quotes otherwise json.loads(s) will fail.
             Ex 1:
@@ -180,22 +174,22 @@ class UserProxyAgent(Agent):
             "content": str(content),
         }
 
-    def auto_reply(self, message: dict, sender, default_reply=""):
+    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):
         """Generate an auto reply."""
+        message = self.oai_conversations[sender.name][-1]
         if "function_call" in message:
             _, func_return = self._execute_function(message["function_call"])
-            self.send(func_return, sender)
-            return
-
+            return func_return
+        if self._code_execution_config is False:
+            return default_reply
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
-            self.send(default_reply, sender)
-        else:
-            # try to execute the code
-            exitcode, logs = self.execute_code(code_blocks)
-            exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-            self.send(f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}", sender)
+            return default_reply
+        # try to execute the code
+        exitcode, logs = self.execute_code(code_blocks)
+        exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
+        return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
@@ -232,15 +226,21 @@ class UserProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        print("\n>>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
-        self.auto_reply(message, sender, default_reply=reply)
+        no_human_input = "NO HUMAN INPUT RECEIVED. " if self._human_input_mode != "NEVER" else ""
+        print(f"\n>>>>>>>> {no_human_input}USING AUTO REPLY FOR THE USER...", flush=True)
+        self.send(self.auto_reply(sender, default_reply=reply), sender)
+
+    def reset(self):
+        """Reset the agent."""
+        super().reset()
+        self._consecutive_auto_reply_counter.clear()
 
     def generate_init_prompt(self, *args, **kwargs) -> Union[str, Dict]:
         """Generate the initial prompt for the agent.
 
         Override this function to customize the initial prompt based on user's request.
         """
-        return args[0]
+        return args[0] if args else kwargs["message"]
 
     def initiate_chat(self, recipient, *args, **kwargs):
         """Initiate a chat with the recipient agent.
@@ -261,3 +261,17 @@ class UserProxyAgent(Agent):
             function_map: a dictionary mapping function names to functions.
         """
         self._function_map.update(function_map)
+
+
+class AIUserProxyAgent(UserProxyAgent):
+    """(Experimental) A proxy agent for the user, that can execute code and provide feedback to the other agents.
+
+    Compared to UserProxyAgent, this agent can also generate AI replies.
+    """
+
+    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):
+        reply = super().auto_reply(sender, default_reply)
+        if reply == default_reply:
+            # try to generate AI reply
+            reply = self._ai_reply(sender)
+        return reply

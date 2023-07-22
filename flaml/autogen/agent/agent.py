@@ -1,5 +1,7 @@
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Union
+from flaml import oai
+from flaml.autogen.code_utils import DEFAULT_MODEL
 
 
 class Agent:
@@ -9,11 +11,16 @@ class Agent:
 
     """
 
+    DEFAULT_CONFIG = {
+        "model": DEFAULT_MODEL,
+    }
+
     def __init__(
         self,
         name: str,
         system_message: Optional[str] = "",
         is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        **config,
     ):
         """
         Args:
@@ -30,6 +37,9 @@ class Agent:
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
         )
+        self._config = self.DEFAULT_CONFIG.copy()
+        self._config.update(config)
+        self._sender_dict = {}
 
     @property
     def name(self):
@@ -93,6 +103,9 @@ class Agent:
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
         """
+        if sender.name not in self._sender_dict:
+            self._sender_dict[sender.name] = sender
+            self._oai_conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
         message = self._message_to_dict(message)
         # print the message received
         print(sender.name, "(to", f"{self.name}):\n", flush=True)
@@ -120,3 +133,12 @@ class Agent:
         self._append_oai_message(message, "user", sender.name)
 
         # After the above, perform actions based on the message in a subclass.
+
+    def reset(self):
+        """Reset the agent."""
+        self._sender_dict.clear()
+        self._oai_conversations.clear()
+
+    def _ai_reply(self, sender):
+        response = oai.ChatCompletion.create(messages=self._oai_conversations[sender.name], **self._config)
+        return oai.ChatCompletion.extract_text_or_function_call(response)[0]
