@@ -14,11 +14,11 @@ class UserProxyAgent(Agent):
         self,
         name: str,
         system_message: Optional[str] = "",
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
         work_dir: Optional[str] = None,
         human_input_mode: Optional[str] = "ALWAYS",
         function_map: Optional[Dict[str, Callable]] = {},
         max_consecutive_auto_reply: Optional[int] = None,
-        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
         use_docker: Optional[Union[List[str], str, bool]] = True,
         timeout: Optional[int] = 600,
         **config,
@@ -27,6 +27,9 @@ class UserProxyAgent(Agent):
         Args:
             name (str): name of the agent.
             system_message (str): system message for the agent.
+            is_termination_msg (function): a function that takes a message in the form of a dictionary
+                and returns a boolean value indicating if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call".
             work_dir (Optional, str): The working directory for the code execution.
                 If None, a default working directory will be used.
                 The default working directory is the "extensions" directory under
@@ -44,8 +47,6 @@ class UserProxyAgent(Agent):
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
                 The limit only plays a role when human_input_mode is not "ALWAYS".
-            is_termination_msg (function): a function that takes a message in the form of a dictionary and returns a boolean value indicating if this received message is a termination message.
-                The dict can contain the following keys: "content", "role", "name", "function_call".
             use_docker (Optional, list, str or bool): The docker image to use for code execution.
                 If a list or a str of image name(s) is provided, the code will be executed in a docker container
                 with the first image successfully pulled.
@@ -56,12 +57,9 @@ class UserProxyAgent(Agent):
             timeout (Optional, int): The maximum execution time in seconds.
             **config (dict): other configurations.
         """
-        super().__init__(name, system_message)
+        super().__init__(name, system_message, is_termination_msg)
         self._work_dir = work_dir
         self._human_input_mode = human_input_mode
-        self._is_termination_msg = (
-            is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
-        )
         self._config = config
         self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
@@ -245,12 +243,12 @@ class UserProxyAgent(Agent):
         return args[0]
 
     def initiate_chat(self, recipient, *args, **kwargs):
-        """Initiate a chat with the receiver agent.
+        """Initiate a chat with the recipient agent.
 
         `generate_init_prompt` is called to generate the initial prompt for the agent.
 
         Args:
-            receiver: the receiver agent.
+            recipient: the recipient agent.
             *args: any additional arguments.
             **kwargs: any additional keyword arguments.
         """

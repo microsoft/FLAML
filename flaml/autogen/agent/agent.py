@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 
 class Agent:
@@ -9,16 +9,27 @@ class Agent:
 
     """
 
-    def __init__(self, name, system_message=""):
+    def __init__(
+        self,
+        name: str,
+        system_message: Optional[str] = "",
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+    ):
         """
         Args:
             name (str): name of the agent
-            system_message (str): system message to be sent to the agent
+            system_message (str): system message to be sent to the agent.
+            is_termination_msg (function): a function that takes a message in the form of a dictionary
+                and returns a boolean value indicating if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call".
         """
         # a dictionary of conversations, default value is list
         self._oai_conversations = defaultdict(list)
         self._name = name
         self._system_message = system_message
+        self._is_termination_msg = (
+            is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
+        )
 
     @property
     def name(self):
@@ -68,8 +79,10 @@ class Agent:
         self._append_oai_message(message, "assistant", recipient.name)
         recipient.receive(message, self)
 
-    def _receive(self, message: Union[Dict, str], sender: "Agent"):
+    def receive(self, message: Union[Dict, str], sender: "Agent"):
         """Receive a message from another agent.
+        This method is called by the sender.
+        It needs to be overriden by the subclass to perform followup actions.
 
         Args:
             message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
@@ -106,19 +119,4 @@ class Agent:
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
         self._append_oai_message(message, "user", sender.name)
 
-    def receive(self, message: Union[Dict, str], sender):
-        """Receive a message from another agent.
-        This method is called by the sender.
-        It needs to be overriden by the subclass to perform followup actions.
-
-        Args:
-            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
-                1. "content": content of the message, can be None.
-                2. "function_call": a dictionary containing the function name and arguments.
-                3. "role": role of the message, can be "assistant", "user", "function".
-                    This field is only needed to distinguish between "function" or "assistant"/"user".
-                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
-            sender: sender of an Agent instance.
-        """
-        self._receive(message, sender)
-        # perform actions based on the message
+        # After the above, perform actions based on the message in a subclass.

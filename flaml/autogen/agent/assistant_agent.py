@@ -1,7 +1,7 @@
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL
 from flaml import oai
-from typing import Dict, Union
+from typing import Callable, Dict, Optional, Union
 
 
 class AssistantAgent(Agent):
@@ -21,16 +21,25 @@ class AssistantAgent(Agent):
         "model": DEFAULT_MODEL,
     }
 
-    def __init__(self, name, system_message=DEFAULT_SYSTEM_MESSAGE, **config):
+    def __init__(
+        self,
+        name: str,
+        system_message: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        **config
+    ):
         """
         Args:
             name (str): agent name.
             system_message (str): system message to be sent to the agent.
+            is_termination_msg (function): a function that takes a message in the form of a dictionary
+                and returns a boolean value indicating if this received message is a termination message.
+                The dict can contain the following keys: "content", "role", "name", "function_call".
             **config (dict): other configurations allowed in
               [oai.Completion.create](../oai/Completion#create).
               These configurations will be used when invoking LLM.
         """
-        super().__init__(name, system_message)
+        super().__init__(name, system_message, is_termination_msg)
         self._config = self.DEFAULT_CONFIG.copy()
         self._config.update(config)
         self._sender_dict = {}
@@ -40,7 +49,10 @@ class AssistantAgent(Agent):
             self._sender_dict[sender.name] = sender
             self._oai_conversations[sender.name] = [{"content": self._system_message, "role": "system"}]
 
+        message = self._message_to_dict(message)
         super().receive(message, sender)
+        if self._is_termination_msg(message):
+            return
         responses = oai.ChatCompletion.create(messages=self._oai_conversations[sender.name], **self._config)
         self.send(oai.ChatCompletion.extract_text_or_function_call(responses)[0], sender)
 
