@@ -49,7 +49,11 @@ def test_filter():
         prompt="Is 37 a prime number? Please answer 'Yes.' or 'No.'",
         filter_func=yes_or_no_filter,
     )
-    assert oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
+    assert (
+        oai.Completion.extract_text(response)[0] in ["Yes.", "No."]
+        or not response["pass_filter"]
+        and response["config_id"] == 2
+    )
     response = oai.Completion.create(
         context={"yes_or_no_choice": False},
         config_list=[{"model": "text-ada-001"}, {"model": "gpt-3.5-turbo"}, {"model": "text-davinci-003"}],

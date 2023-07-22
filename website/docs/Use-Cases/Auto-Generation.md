@@ -47,7 +47,7 @@ user_proxy = UserProxyAgent(
 # the assistant receives a message from the user, which contains the task description
 user.initiate_chat(
     assistant,
-    """What date is today? Which big tech stock has the largest year-to-date gain this year? How much is the gain?""",
+    message="""What date is today? Which big tech stock has the largest year-to-date gain this year? How much is the gain?""",
 )
 ```
 In the example above, we create an AssistantAgent named "assistant" to serve as the assistant and a UserProxyAgent named "user_proxy" to serve as a proxy for the human user.
@@ -120,7 +120,7 @@ user.register_function(function_map={"execute_code": execute_code})
 # start the conversation
 user.initiate_chat(
     assistant,
-    "Draw a rocket and save to a file named 'rocket.svg'",
+    message="Draw a rocket and save to a file named 'rocket.svg'",
 )
 ```
 

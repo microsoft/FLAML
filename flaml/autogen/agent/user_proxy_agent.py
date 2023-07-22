@@ -72,22 +72,37 @@ class UserProxyAgent(Agent):
         or str value of the docker image name to use, or None when code execution is disabled."""
         return None if self._code_execution_config is False else self._code_execution_config.get("use_docker")
 
-    def execute_code(self, code_blocks):
-        """Execute the code and return the result."""
+    def _run_code(self, code, **kwargs):
+        """Run the code and return the result.
+
+        Args:
+            code (str): the code to be executed.
+            **kwargs: other keyword arguments.
+
+        Returns:
+            A tuple of (exitcode, logs, image).
+            exitcode (int): the exit code of the code execution.
+            logs (bytes): the logs of the code execution.
+            image (str or None): the docker image used for the code execution.
+        """
+        return execute_code(code, **kwargs)
+
+    def execute_code_blocks(self, code_blocks):
+        """Execute the code blocks and return the result."""
         logs_all = ""
         for code_block in code_blocks:
             lang, code = code_block
             if not lang:
                 lang = infer_lang(code)
             if lang in ["bash", "shell", "sh"]:
-                exitcode, logs, image = execute_code(code, lang=lang, **self._code_execution_config)
+                exitcode, logs, image = self._run_code(code, lang=lang, **self._code_execution_config)
                 logs = logs.decode("utf-8")
             elif lang in ["python", "Python"]:
                 if code.startswith("# filename: "):
                     filename = code[11 : code.find("\n")].strip()
                 else:
                     filename = None
-                exitcode, logs, image = execute_code(
+                exitcode, logs, image = self._run_code(
                     code,
                     filename=filename,
                     **self._code_execution_config,
@@ -186,7 +201,7 @@ class UserProxyAgent(Agent):
             # no code block is found, lang should be `UNKNOWN`
             return default_reply
         # try to execute the code
-        exitcode, logs = self.execute_code(code_blocks)
+        exitcode, logs = self.execute_code_blocks(code_blocks)
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
         return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
@@ -234,24 +249,24 @@ class UserProxyAgent(Agent):
         super().reset()
         self._consecutive_auto_reply_counter.clear()
 
-    def generate_init_prompt(self, *args, **kwargs) -> Union[str, Dict]:
-        """Generate the initial prompt for the agent.
+    def generate_init_message(self, **context) -> Union[str, Dict]:
+        """Generate the initial message for the agent.
 
-        Override this function to customize the initial prompt based on user's request.
+        Override this function to customize the initial message based on user's request.
         """
-        return args[0] if args else kwargs["message"]
+        return context["message"]
 
-    def initiate_chat(self, recipient, *args, **kwargs):
+    def initiate_chat(self, recipient, **context):
         """Initiate a chat with the recipient agent.
 
-        `generate_init_prompt` is called to generate the initial prompt for the agent.
+        `generate_init_message` is called to generate the initial message for the agent.
 
         Args:
             recipient: the recipient agent.
-            *args: any additional arguments.
-            **kwargs: any additional keyword arguments.
+            **context: any context information.
+                "message" needs to be provided if the `generate_init_message` method is not overridden.
         """
-        self.send(self.generate_init_prompt(*args, **kwargs), recipient)
+        self.send(self.generate_init_message(**context), recipient)
 
     def register_function(self, function_map: Dict[str, Callable]):
         """Register functions to the agent.
