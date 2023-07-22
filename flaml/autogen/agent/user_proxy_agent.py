@@ -2,7 +2,7 @@ from .agent import Agent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
 import json
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 
 class UserProxyAgent(Agent):
