@@ -60,7 +60,6 @@ class UserProxyAgent(Agent):
         super().__init__(name, system_message, is_termination_msg)
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self.human_input_mode = human_input_mode
-        self._config = config
         self.max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
         )

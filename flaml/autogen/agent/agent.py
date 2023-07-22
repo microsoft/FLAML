@@ -37,8 +37,8 @@ class Agent:
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
         )
-        self._config = self.DEFAULT_CONFIG.copy()
-        self._config.update(config)
+        self.config = self.DEFAULT_CONFIG.copy()
+        self.config.update(config)
         self._sender_dict = {}
 
     @property
@@ -140,5 +140,5 @@ class Agent:
         self._oai_conversations.clear()
 
     def _ai_reply(self, sender):
-        response = oai.ChatCompletion.create(messages=self._oai_conversations[sender.name], **self._config)
+        response = oai.ChatCompletion.create(messages=self._oai_conversations[sender.name], **self.config)
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
