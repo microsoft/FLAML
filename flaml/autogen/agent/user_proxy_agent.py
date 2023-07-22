@@ -59,9 +59,9 @@ class UserProxyAgent(Agent):
         """
         super().__init__(name, system_message, is_termination_msg)
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
-        self._human_input_mode = human_input_mode
+        self.human_input_mode = human_input_mode
         self._config = config
-        self._max_consecutive_auto_reply = (
+        self.max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
@@ -200,14 +200,14 @@ class UserProxyAgent(Agent):
         super().receive(message, sender)
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
-        if self._human_input_mode == "ALWAYS":
+        if self.human_input_mode == "ALWAYS":
             reply = input(
                 "Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
-        ] >= self._max_consecutive_auto_reply or self._is_termination_msg(message):
-            if self._human_input_mode == "TERMINATE":
+        ] >= self.max_consecutive_auto_reply or self._is_termination_msg(message):
+            if self.human_input_mode == "TERMINATE":
                 reply = input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
                 )
@@ -226,7 +226,7 @@ class UserProxyAgent(Agent):
             return
 
         self._consecutive_auto_reply_counter[sender.name] += 1
-        no_human_input = "NO HUMAN INPUT RECEIVED. " if self._human_input_mode != "NEVER" else ""
+        no_human_input = "NO HUMAN INPUT RECEIVED. " if self.human_input_mode != "NEVER" else ""
         print(f"\n>>>>>>>> {no_human_input}USING AUTO REPLY FOR THE USER...", flush=True)
         self.send(self.auto_reply(sender, default_reply=reply), sender)
 
