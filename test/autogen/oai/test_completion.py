@@ -180,7 +180,22 @@ def test_nocontext():
     reason="do not run on windows",
 )
 def test_humaneval(num_samples=1):
-    eval_with_generated_assertions = partial(eval_function_completions, assertions=generate_assertions)
+    gpt35_config_list = oai.config_list_from_json(
+        env_or_file="OAI_CONFIG_LIST",
+        filter_dict={
+            "model": {
+                "gpt-3.5-turbo",
+                "gpt-3.5-turbo-16k",
+                "gpt-3.5-turbo-0301",
+                "chatgpt-35-turbo-0301",
+                "gpt-35-turbo-v0301",
+            },
+        },
+    )
+    eval_with_generated_assertions = partial(
+        eval_function_completions,
+        assertions=partial(generate_assertions, config_list=gpt35_config_list),
+    )
 
     seed = 41
     data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
