@@ -57,7 +57,7 @@ class UserProxyAgent(Agent):
                 - timeout (Optional, int): The maximum execution time in seconds.
             **config (dict): other configurations.
         """
-        super().__init__(name, system_message, is_termination_msg)
+        super().__init__(name, system_message, is_termination_msg, **config)
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self.human_input_mode = human_input_mode
         self.max_consecutive_auto_reply = (
@@ -188,7 +188,7 @@ class UserProxyAgent(Agent):
             "content": str(content),
         }
 
-    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):
+    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
         """Generate an auto reply."""
         message = self.oai_conversations[sender.name][-1]
         if "function_call" in message:
@@ -209,6 +209,15 @@ class UserProxyAgent(Agent):
         """Receive a message from the sender agent.
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
+
+        Args:
+            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
+                1. "content": content of the message, can be None.
+                2. "function_call": a dictionary containing the function name and arguments.
+                3. "role": role of the message, can be "assistant", "user", "function".
+                    This field is only needed to distinguish between "function" or "assistant"/"user".
+                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
+            sender: sender of an Agent instance.
         """
         message = self._message_to_dict(message)
         super().receive(message, sender)
