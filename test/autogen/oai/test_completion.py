@@ -280,7 +280,7 @@ def test_humaneval(num_samples=1):
         code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
     except RateLimitError:
         code, cost, selected = implement(
-            tune_data[1], [{**config_list[-1], **config, "model": "text-ada-001"}], assertions=assertions
+            tune_data[1], [{**config_list[-1], "model": "text-ada-001"}], assertions=assertions
         )
     print(code)
     print(cost)
