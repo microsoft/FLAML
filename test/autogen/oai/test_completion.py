@@ -280,7 +280,7 @@ def test_humaneval(num_samples=1):
         code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
     except RateLimitError:
         code, cost, selected = implement(
-            tune_data[1], [{**config_list[-1], "model": "text-ada-001"}], assertions=assertions
+            tune_data[1], [{**config_list[0], "model": "text-ada-001"}], assertions=assertions
         )
     print(code)
     print(cost)
@@ -316,10 +316,12 @@ def test_humaneval(num_samples=1):
     result = oai.Completion.test(test_data[:num_samples], **config2)
     print(result)
     try:
-        code, cost, selected = implement(tune_data[1], [config2, config])
+        code, cost, selected = implement(tune_data[1], [{**config_list[-2], **config2}, {**config_list[-1], **config}])
     except RateLimitError:
         code, cost, selected = implement(
-            tune_data[1], [config2, {**config, "model": "text-ada-001"}], assertions=assertions
+            tune_data[1],
+            [{**config_list[-3], **config2}, {**config_list[0], "model": "text-ada-001"}],
+            assertions=assertions,
         )
     print(code)
     print(cost)
