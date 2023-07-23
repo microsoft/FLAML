@@ -196,9 +196,10 @@ def test_humaneval(num_samples=1):
             },
         },
     )
+    assertions = partial(generate_assertions, config_list=gpt35_config_list)
     eval_with_generated_assertions = partial(
         eval_function_completions,
-        assertions=partial(generate_assertions, config_list=gpt35_config_list),
+        assertions=assertions,
     )
 
     seed = 41
@@ -278,7 +279,9 @@ def test_humaneval(num_samples=1):
     try:
         code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config}])
     except RateLimitError:
-        code, cost, selected = implement(tune_data[1], [{**config_list[-1], **config, "model": "text-ada-001"}])
+        code, cost, selected = implement(
+            tune_data[1], [{**config_list[-1], **config, "model": "text-ada-001"}], assertions=assertions
+        )
     print(code)
     print(cost)
     assert selected == 0
@@ -315,7 +318,9 @@ def test_humaneval(num_samples=1):
     try:
         code, cost, selected = implement(tune_data[1], [config2, config])
     except RateLimitError:
-        code, cost, selected = implement(tune_data[1], [config2, {**config, "model": "text-ada-001"}])
+        code, cost, selected = implement(
+            tune_data[1], [config2, {**config, "model": "text-ada-001"}], assertions=assertions
+        )
     print(code)
     print(cost)
     print(selected)
