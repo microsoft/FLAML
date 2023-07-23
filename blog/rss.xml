@@ -8,9 +8,9 @@
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <item>
-            <title><![CDATA[Use flaml.autogen for local LLMs]]></title>
+            <title><![CDATA[Use flaml.autogen for Local LLMs]]></title>
             <link>https://microsoft.github.io/FLAML/blog/2023/07/14/Local-LLMs</link>
-            <guid>Use flaml.autogen for local LLMs</guid>
+            <guid>Use flaml.autogen for Local LLMs</guid>
             <pubDate>Fri, 14 Jul 2023 00:00:00 GMT</pubDate>
             <description><![CDATA[TL;DR:]]></description>
             <content:encoded><![CDATA[<p><strong>TL;DR:</strong>

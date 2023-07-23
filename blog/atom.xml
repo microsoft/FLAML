@@ -8,8 +8,8 @@
     <subtitle>FLAML Blog</subtitle>
     <icon>https://microsoft.github.io/FLAML/img/flaml_logo.ico</icon>
     <entry>
-        <title type="html"><![CDATA[Use flaml.autogen for local LLMs]]></title>
-        <id>Use flaml.autogen for local LLMs</id>
+        <title type="html"><![CDATA[Use flaml.autogen for Local LLMs]]></title>
+        <id>Use flaml.autogen for Local LLMs</id>
         <link href="https://microsoft.github.io/FLAML/blog/2023/07/14/Local-LLMs"/>
         <updated>2023-07-14T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[TL;DR:]]></summary>
