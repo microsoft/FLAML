@@ -390,7 +390,6 @@ def get_from_dict_or_env(data: Dict[str, Any], key: str, env_key: str, default: 
         )
 
 
-# Imported from langchain
 class WolframAlphaAPIWrapper(BaseModel):
     """Wrapper for Wolfram Alpha.
 
