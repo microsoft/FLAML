@@ -1,9 +1,9 @@
 import re
 import os
 from pydantic import BaseModel, Extra, root_validator
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from time import sleep
-from flaml.autogen.agent import UserProxyAgent, Agent
+from flaml.autogen.agent import UserProxyAgent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from flaml.autogen.math_utils import get_answer
 
@@ -305,9 +305,9 @@ class MathUserProxyAgent(UserProxyAgent):
             is_success = False
         return output, is_success
 
-    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):
+    def auto_reply(self, messages: List[Dict], default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
         """Generate an auto reply."""
-        message = self.oai_conversations[sender.name][-1]
+        message = messages[-1]
         message = message.get("content", "")
         code_blocks = extract_code(message)
 

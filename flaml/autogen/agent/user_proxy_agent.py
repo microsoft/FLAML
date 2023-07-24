@@ -2,7 +2,7 @@ from .agent import Agent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from collections import defaultdict
 import json
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 
 class UserProxyAgent(Agent):
@@ -191,20 +191,20 @@ class UserProxyAgent(Agent):
             "content": str(content),
         }
 
-    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
+    def auto_reply(self, messages: List[Dict], default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
         """Generate an auto reply.
 
         Execute function or code and return the result.
         Override this function to customize the auto reply.
 
         Args:
-            sender: sender of an Agent instance.
-            default_reply (str or dict): default reply to the sender.
+            messages: a list of messages in the conversation history.
+            default_reply (str or dict): default reply.
 
         Returns:
-            str or dict: auto reply to the sender.
+            str or dict: auto reply.
         """
-        message = self.oai_conversations[sender.name][-1]
+        message = messages[-1]
         if "function_call" in message:
             _, func_return = self.execute_function(message["function_call"])
             return func_return
@@ -324,7 +324,7 @@ class AIUserProxyAgent(UserProxyAgent):
     To disable code execution, set code_execution_config to False.
     """
 
-    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
+    def auto_reply(self, messages: List[Dict], default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
         """Generate an auto reply.
 
         Execute function or code and return the result.
@@ -332,14 +332,14 @@ class AIUserProxyAgent(UserProxyAgent):
         Override this function to customize the auto reply.
 
         Args:
-            sender: sender of an Agent instance.
-            default_reply (str or dict): default reply to the sender.
+            messages: a list of messages in the conversation history.
+            default_reply (str or dict): default reply.
 
         Returns:
-            str or dict: auto reply to the sender.
+            str or dict: auto reply.
         """
-        reply = super().auto_reply(sender, default_reply)
+        reply = super().auto_reply(messages, default_reply)
         if reply == default_reply:
             # try to generate AI reply
-            reply = self._ai_reply(sender)
+            reply = self._ai_reply(messages)
         return reply
