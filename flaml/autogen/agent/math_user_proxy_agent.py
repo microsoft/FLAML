@@ -350,7 +350,7 @@ class MathUserProxyAgent(UserProxyAgent):
         return reply
 
 
-# Imported from langchain. Langchain is licensed under MIT License:
+# Modified based on langchain. Langchain is licensed under MIT License:
 # The MIT License
 
 # Copyright (c) Harrison Chase
