@@ -131,7 +131,9 @@ class MathUserProxyAgent(UserProxyAgent):
         self,
         name: Optional[str] = "MathChatAgent",  # default set to MathChatAgent
         system_message: Optional[str] = "",
-        is_termination_msg: Optional[Callable[[Dict], bool]] = _is_termination_msg_mathchat, # terminate if \boxed{} in message
+        is_termination_msg: Optional[
+            Callable[[Dict], bool]
+        ] = _is_termination_msg_mathchat,  # terminate if \boxed{} in message
         human_input_mode: Optional[str] = "NEVER",  # Fully automated
         function_map: Optional[Dict[str, Callable]] = None,
         max_consecutive_auto_reply: Optional[int] = None,
