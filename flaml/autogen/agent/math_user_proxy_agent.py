@@ -81,7 +81,7 @@ Problem: """,
 }
 
 
-def is_termination_msg_mathchat(message):
+def _is_termination_msg_mathchat(message):
     """Check if a message is a termination message."""
     if isinstance(message, dict):
         message = message.get("content")
@@ -96,7 +96,7 @@ def is_termination_msg_mathchat(message):
     return not contain_code and get_answer(message) is not None and get_answer(message) != ""
 
 
-def add_print_to_last_line(s):
+def _add_print_to_last_line(s):
     """Add print() to the last line of a string."""
     # 1. check if there is already a print statement
     if "print(" in s:
@@ -115,7 +115,7 @@ def add_print_to_last_line(s):
     return "\n".join(lines)
 
 
-def remove_print(s):
+def _remove_print(s):
     """remove all print statements from a string."""
     lines = s.splitlines()
     lines = [line for line in lines if not line.startswith("print(")]
@@ -237,7 +237,7 @@ class MathUserProxyAgent(UserProxyAgent):
         """
         # Need to replace all "; " with "\n" to avoid syntax error when adding `print` to the last line
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
-        pycode = self._previous_code + add_print_to_last_line(pycode)
+        pycode = self._previous_code + _add_print_to_last_line(pycode)
 
         return_code, output, _ = execute_code(pycode, **self._code_execution_config, timeout=5)
         is_success = return_code == 0
@@ -271,7 +271,7 @@ class MathUserProxyAgent(UserProxyAgent):
 
         if is_success:
             # remove print and check if it still works
-            tmp = self._previous_code + "\n" + remove_print(pycode) + "\n"
+            tmp = self._previous_code + "\n" + _remove_print(pycode) + "\n"
             rcode, _, _ = execute_code(tmp, **self._code_execution_config)
         else:
             # only add imports and check if it works
@@ -286,11 +286,14 @@ class MathUserProxyAgent(UserProxyAgent):
         return output, is_success
 
     def execute_one_wolfram_query(self, query: str):
-        """
-        Run one wolfram query and return the output.
-        return:
-            output: string with the output of the query
-            is_success: boolean indicating whether the query was successful
+        """Run one wolfram query and return the output.
+
+        Args:
+            query: string of the query.
+
+        Returns:
+            output: string with the output of the query.
+            is_success: boolean indicating whether the query was successful.
         """
         # wolfram query handler
         wolfram = WolframAlphaAPIWrapper()

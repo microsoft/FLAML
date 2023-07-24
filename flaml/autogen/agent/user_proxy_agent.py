@@ -68,13 +68,14 @@ class UserProxyAgent(Agent):
 
     @property
     def use_docker(self) -> Union[bool, str, None]:
-        """bool value of whether to use docker to execute the code,
+        """Bool value of whether to use docker to execute the code,
         or str value of the docker image name to use, or None when code execution is disabled."""
         return None if self._code_execution_config is False else self._code_execution_config.get("use_docker")
 
-    def _run_code(self, code, **kwargs):
+    def run_code(self, code, **kwargs):
         """Run the code and return the result.
 
+        Override this function to modify the way to run the code.
         Args:
             code (str): the code to be executed.
             **kwargs: other keyword arguments.
@@ -95,14 +96,14 @@ class UserProxyAgent(Agent):
             if not lang:
                 lang = infer_lang(code)
             if lang in ["bash", "shell", "sh"]:
-                exitcode, logs, image = self._run_code(code, lang=lang, **self._code_execution_config)
+                exitcode, logs, image = self.run_code(code, lang=lang, **self._code_execution_config)
                 logs = logs.decode("utf-8")
             elif lang in ["python", "Python"]:
                 if code.startswith("# filename: "):
                     filename = code[11 : code.find("\n")].strip()
                 else:
                     filename = None
-                exitcode, logs, image = self._run_code(
+                exitcode, logs, image = self.run_code(
                     code,
                     filename=filename,
                     **self._code_execution_config,
@@ -148,8 +149,10 @@ class UserProxyAgent(Agent):
             result.append(char)
         return "".join(result)
 
-    def _execute_function(self, func_call):
+    def execute_function(self, func_call):
         """Execute a function call and return the result.
+
+        Override this function to modify the way to execute a function call.
 
         Args:
             func_call: a dictionary extracted from openai message at key "function_call" with keys "name" and "arguments".
@@ -189,10 +192,21 @@ class UserProxyAgent(Agent):
         }
 
     def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
-        """Generate an auto reply."""
+        """Generate an auto reply.
+
+        Execute function or code and return the result.
+        Override this function to customize the auto reply.
+
+        Args:
+            sender: sender of an Agent instance.
+            default_reply (str or dict): default reply to the sender.
+
+        Returns:
+            str or dict: auto reply to the sender.
+        """
         message = self.oai_conversations[sender.name][-1]
         if "function_call" in message:
-            _, func_return = self._execute_function(message["function_call"])
+            _, func_return = self.execute_function(message["function_call"])
             return func_return
         if self._code_execution_config is False:
             return default_reply
@@ -205,8 +219,23 @@ class UserProxyAgent(Agent):
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
         return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
+    def get_human_input(self, prompt: str) -> str:
+        """Get human input.
+
+        Override this method to customize the way to get human input.
+
+        Args:
+            prompt (str): prompt for the human input.
+
+        Returns:
+            str: human input.
+        """
+        reply = input(prompt)
+        return reply
+
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
+
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
 
@@ -224,14 +253,14 @@ class UserProxyAgent(Agent):
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
         if self.human_input_mode == "ALWAYS":
-            reply = input(
+            reply = self.get_human_input(
                 "Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
         elif self._consecutive_auto_reply_counter[
             sender.name
         ] >= self.max_consecutive_auto_reply or self._is_termination_msg(message):
             if self.human_input_mode == "TERMINATE":
-                reply = input(
+                reply = self.get_human_input(
                     "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
                 )
                 reply = reply if reply else "exit"
@@ -262,6 +291,7 @@ class UserProxyAgent(Agent):
         """Generate the initial message for the agent.
 
         Override this function to customize the initial message based on user's request.
+        If not overriden, "message" needs to be provided in the context.
         """
         return context["message"]
 
@@ -294,7 +324,20 @@ class AIUserProxyAgent(UserProxyAgent):
     To disable code execution, set code_execution_config to False.
     """
 
-    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = ""):
+    def auto_reply(self, sender: "Agent", default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
+        """Generate an auto reply.
+
+        Execute function or code and return the result.
+        If no code execution is performed, generate AI reply.
+        Override this function to customize the auto reply.
+
+        Args:
+            sender: sender of an Agent instance.
+            default_reply (str or dict): default reply to the sender.
+
+        Returns:
+            str or dict: auto reply to the sender.
+        """
         reply = super().auto_reply(sender, default_reply)
         if reply == default_reply:
             # try to generate AI reply
