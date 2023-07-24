@@ -30,4 +30,4 @@ class AssistantAgent(Agent):
         super().receive(message, sender)
         if self._is_termination_msg(message):
             return
-        self.send(self.auto_reply(sender), sender)
+        self.send(self.auto_reply(self._oai_conversations[sender.name]), sender)

@@ -280,7 +280,7 @@ class UserProxyAgent(Agent):
         self._consecutive_auto_reply_counter[sender.name] += 1
         no_human_input = "NO HUMAN INPUT RECEIVED. " if self.human_input_mode != "NEVER" else ""
         print(f"\n>>>>>>>> {no_human_input}USING AUTO REPLY FOR THE USER...", flush=True)
-        self.send(self.auto_reply(sender, default_reply=reply), sender)
+        self.send(self.auto_reply(self._oai_conversations[sender.name], default_reply=reply), sender)
 
     def reset(self):
         """Reset the agent."""
