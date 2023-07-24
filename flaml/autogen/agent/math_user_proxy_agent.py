@@ -457,11 +457,11 @@ class WolframAlphaAPIWrapper(BaseModel):
                 )
             assumption = next(res.pods).text
             answer = ""
-            for r in res["pod"]:
-                if r["@title"] == "Solution":
-                    answer = r["subpod"]["plaintext"]
-                if r["@title"] == "Results" or r["@title"] == "Solutions":
-                    for i, sub in enumerate(r["subpod"]):
+            for result in res["pod"]:
+                if result["@title"] == "Solution":
+                    answer = result["subpod"]["plaintext"]
+                if result["@title"] == "Results" or result["@title"] == "Solutions":
+                    for i, sub in enumerate(result["subpod"]):
                         answer += f"ans {i}: " + sub["plaintext"] + "\n"
                     break
             if answer == "":
@@ -476,6 +476,5 @@ class WolframAlphaAPIWrapper(BaseModel):
         if answer is None or answer == "":
             # We don't want to return the assumption alone if answer is empty
             return "No good Wolfram Alpha Result was found", is_success
-        else:
-            is_success = True
-            return f"Assumption: {assumption} \nAnswer: {answer}", is_success
+        is_success = True
+        return f"Assumption: {assumption} \nAnswer: {answer}", is_success
