@@ -130,21 +130,16 @@ class MathUserProxyAgent(UserProxyAgent):
     def __init__(
         self,
         name: Optional[str] = "MathChatAgent",  # default set to MathChatAgent
-        system_message: Optional[str] = "",
         is_termination_msg: Optional[
             Callable[[Dict], bool]
         ] = _is_termination_msg_mathchat,  # terminate if \boxed{} in message
         human_input_mode: Optional[str] = "NEVER",  # Fully automated
-        function_map: Optional[Dict[str, Callable]] = None,
-        max_consecutive_auto_reply: Optional[int] = None,
-        code_execution_config: Optional[Dict] = None,
         max_invalid_q_per_step=3,  # a parameter needed in MathChat
-        **config,
+        **kwargs,
     ):
         """
         Args:
             name (str): name of the agent
-            system_message (str): system message to be sent to the agent
             is_termination_msg (function): a function that takes a message in the form of a dictionary and returns a boolean value indicating if this received message is a termination message.
                 The dict can contain the following keys: "content", "role", "name", "function_call".
             human_input_mode (str): whether to ask for human inputs every time a message is received.
@@ -154,37 +149,16 @@ class MathUserProxyAgent(UserProxyAgent):
                     or when is_termination_msg is True and there is no human input.
                 (2) When "TERMINATE", the agent only prompts for human input only when a termination message is received or
                     the number of auto reply reaches the max_consecutive_auto_reply.
-                (3) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
+                (3) (Default) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
-            function_map (dict[str, callable]): Mapping function names (passed to openai) to callable functions.
-            max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
-                default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
-                The limit only plays a role when human_input_mode is not "ALWAYS".
-            code_execution_config (dict or False): config for the code execution.
-                To disable code execution, set to False. Otherwise, set to a dictionary with the following keys:
-                - work_dir (Optional, str): The working directory for the code execution.
-                    If None, a default working directory will be used.
-                    The default working directory is the "extensions" directory under
-                    "path_to_flaml/autogen".
-                - use_docker (Optional, list, str or bool): The docker image to use for code execution.
-                    If a list or a str of image name(s) is provided, the code will be executed in a docker container
-                    with the first image successfully pulled.
-                    If None, False or empty, the code will be executed in the current environment.
-                    Default is True, which will be converted into a list.
-                    If the code is executed in the current environment,
-                    the code must be trusted.
             max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
-            **config (dict): other configurations.
+            **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
         """
         super().__init__(
             name=name,
-            system_message=system_message,
             is_termination_msg=is_termination_msg,
-            function_map=function_map,
             human_input_mode=human_input_mode,
-            max_consecutive_auto_reply=max_consecutive_auto_reply,
-            code_execution_config=code_execution_config,
-            **config,
+            **kwargs,
         )
 
         # fixed var
@@ -224,7 +198,7 @@ class MathUserProxyAgent(UserProxyAgent):
         return PROMPTS[prompt_type] + problem
 
     def _reset(self):
-        self._oai_conversations.clear()
+        super().reset()
         self._valid_q_count = 0
         self._total_q_count = 0
         self._accum_invalid_q_per_step = 0

@@ -32,9 +32,11 @@ def test_math_user_proxy_agent():
     assistant = AssistantAgent(
         "assistant",
         system_message="You are a helpful assistant.",
-        request_timeout=600,
-        seed=42,
-        config_list=config_list,
+        oai_config={
+            "request_timeout": 600,
+            "seed": 42,
+            "config_list": config_list,
+        },
     )
 
     mathproxyagent = MathUserProxyAgent(name="MathChatAgent", human_input_mode="NEVER")

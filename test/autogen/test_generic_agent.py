@@ -1,8 +1,8 @@
-def test_agent():
-    from flaml.autogen.agent import Agent
+def test_generic_agent():
+    from flaml.autogen.agent import GenericAgent
 
-    dummy_agent_1 = Agent(name="dummy_agent_1")
-    dummy_agent_2 = Agent(name="dummy_agent_2")
+    dummy_agent_1 = GenericAgent(name="dummy_agent_1")
+    dummy_agent_2 = GenericAgent(name="dummy_agent_2")
 
     dummy_agent_1.receive("hello", dummy_agent_2)  # receive a str
     dummy_agent_1.receive(
@@ -37,4 +37,4 @@ def test_agent():
 
 
 if __name__ == "__main__":
-    test_agent()
+    test_generic_agent()

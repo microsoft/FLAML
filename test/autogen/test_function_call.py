@@ -64,7 +64,7 @@ def test_eval_math_responses():
 def test_json_extraction():
     from flaml.autogen.agent import UserProxyAgent
 
-    user = UserProxyAgent(name="test", use_docker=False)
+    user = UserProxyAgent(name="test", code_execution_config={"use_docker": False})
 
     jstr = '{\n"location": "Boston, MA"\n}'
     assert user._format_json_str(jstr) == '{"location": "Boston, MA"}'
