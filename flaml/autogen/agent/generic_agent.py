@@ -109,23 +109,26 @@ class GenericAgent(Agent):
         else:
             return message
 
-    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id):
-        """Append a message to the openai conversation.
+    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id) -> bool:
+        """Append a message to the oai conversation.
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
         If the message received is a dictionary but does not have any of the two fields "content" or "function_call",
-            this message is not a valid openai message and will be ignored.
+            this message is not a valid oai message and will be ignored.
 
         Args:
-            message (dict or str): message to be appended to the openai conversation.
+            message (dict or str): message to be appended to the oai conversation.
             role (str): role of the message, can be "assistant" or "function".
             conversation_id (str): id of the conversation, should be the name of the recipient or sender.
+
+        Returns:
+            bool: whether the message is appended to the oai conversation.
         """
         message = self._message_to_dict(message)
-        # create openai message to be appended to the openai conversation that can be passed to oai directly.
+        # create oai message to be appended to the oai conversation that can be passed to oai directly.
         oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
         if "content" not in oai_message and "function_call" not in oai_message:
-            return
+            return False
 
         oai_message["role"] = "function" if message.get("role") == "function" else role
         self._oai_conversations[conversation_id].append(oai_message)
@@ -133,8 +136,9 @@ class GenericAgent(Agent):
     def send(self, message: Union[Dict, str], recipient: "Agent"):
         """Send a message to another agent."""
         # When the agent composes and sends the message, the role of the message is "assistant". (If 'role' exists and is 'function', it will remain unchanged.)
-        self._append_oai_message(message, "assistant", recipient.name)
-        recipient.receive(message, self)
+        valid = self._append_oai_message(message, "assistant", recipient.name)
+        if valid:
+            recipient.receive(message, self)
 
     def _print_received_message(self, message: Union[Dict, str], sender: "Agent"):
         # print the message received
@@ -175,9 +179,11 @@ class GenericAgent(Agent):
             sender: sender of an Agent instance.
         """
         message = self._message_to_dict(message)
-        self._print_received_message(message, sender)
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
-        self._append_oai_message(message, "user", sender.name)
+        valid = self._append_oai_message(message, "user", sender.name)
+        if not valid:
+            return
+        self._print_received_message(message, sender)
 
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
