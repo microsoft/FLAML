@@ -132,6 +132,7 @@ class GenericAgent(Agent):
 
         oai_message["role"] = "function" if message.get("role") == "function" else role
         self._oai_conversations[conversation_id].append(oai_message)
+        return True
 
     def send(self, message: Union[Dict, str], recipient: "Agent"):
         """Send a message to another agent."""
