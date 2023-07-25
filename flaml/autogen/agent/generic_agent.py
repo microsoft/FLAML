@@ -76,7 +76,8 @@ class GenericAgent(Agent):
             self.oai_config = False
         else:
             self.oai_config = self.DEFAULT_CONFIG.copy()
-            self.oai_config.update(oai_config)
+            if isinstance(oai_config, dict):
+                self.oai_config.update(oai_config)
 
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self.human_input_mode = human_input_mode
