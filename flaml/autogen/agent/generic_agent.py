@@ -7,7 +7,11 @@ from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extra
 
 
 class GenericAgent(Agent):
-    """(Experimental) An generic agent which can be configured as assistant or user proxy."""
+    """(Experimental) An generic agent which can be configured as assistant or user proxy.
+
+    For example, AssistantAgent and UserProxyAgent are subclasses of GenericAgent,
+    configured with different default settings.
+    """
 
     DEFAULT_CONFIG = {
         "model": DEFAULT_MODEL,

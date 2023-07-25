@@ -3,7 +3,12 @@ from typing import Callable, Dict, Optional, Union
 
 
 class UserProxyAgent(GenericAgent):
-    """(Experimental) A proxy agent for the user, that can execute code and provide feedback to the other agents."""
+    """(Experimental) A proxy agent for the user, that can execute code and provide feedback to the other agents.
+
+    UserProxyAgent is a subclass of GenericAgent configured with `human_input_mode` to ALWAYS
+    and `oai_config` to False. By default, the agent will prompt for human input every time a message is received.
+    Code execution is enabled by default. LLM-based auto reply is disabled by default.
+    """
 
     def __init__(
         self,

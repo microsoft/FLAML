@@ -3,7 +3,15 @@ from typing import Callable, Dict, Optional, Union
 
 
 class AssistantAgent(GenericAgent):
-    """(Experimental) Assistant agent, able to suggest code blocks with default system message."""
+    """(Experimental) Assistant agent, designed to solve a task with LLM.
+
+    AssistantAgent is a subclass of GenericAgent configured with a default system message.
+    The default system message is designed to solve a task with LLM,
+    including suggesting python code blocks and debugging.
+    `human_input_mode` is default to "NEVER"
+    and `code_execution_config` is default to False.
+    This agent doesn't execute code by default, and expects the user to execute the code.
+    """
 
     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant.
     In the following cases, suggest python code (in a python coding block) or shell script (in a sh coding block) for the user to execute. You must indicate the script type in the code block. The user cannot provide any other feedback or perform any other action beyond executing the code you suggest. The user can't modify your code. So do not suggest incomplete code which requires users to modify. Don't use a code block if it's not intended to be executed by the user.
