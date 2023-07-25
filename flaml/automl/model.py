@@ -1509,7 +1509,8 @@ class XGBoostEstimator(SKLearnEstimator):
         if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
             params["tree_method"] = params.get("tree_method", "hist")
-            # params["booster"] = params.get("booster", "gbtree")
+        # params["booster"] = params.get("booster", "gbtree")
+
         # use_label_encoder is deprecated in 1.7.
         from xgboost import __version__ as xgboost_version
 
