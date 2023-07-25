@@ -29,6 +29,8 @@ from .agent import Agent
 from .assistant_agent import AssistantAgent
 from .user_proxy_agent import UserProxyAgent
 
+
+# %% System Messages
 ASSIST_SYSTEM_MSG = """You are OptiGuide,
 an agent to write Python code and to answer users questions for supply chain-related coding project.
 
@@ -55,7 +57,6 @@ The execution result of the original source code is below.
 --- Original Result ---
 {execution_result}
 
-
 Note that your written code will be added to the lines with substring "# OPTIGUIDE *** CODE GOES HERE".
 So, you don't need to write other code, such as m.optimize() or m.update().
 You just need to write code snippet.
@@ -70,15 +71,15 @@ Answer only one word.
 If not safe, answer `DANGER`; else, answer `SAFE`.
 """
 
-
+# %% Constant strings to match code lines in the source code.
 DATA_CODE_STR = "# OPTIGUIDE DATA CODE GOES HERE"
 CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 
 # %%
 class OptiGuideAgent(Agent):
-    """OptiGuide is an agent to write Python code and to answer users
-    questions for supply chain-related coding project.
+    """(Experimental) OptiGuide is an agent to write Python code and to answer
+      users questions for supply chain-related coding project.
 
     Here, the OptiGuide agent manages three agents (coder, safeguard, and interpreter)
     and two assistant agents (pencil and shield).
@@ -162,6 +163,8 @@ class OptiGuideAgent(Agent):
             print(colored(new_code, "green"))
 
             # Step 3: safeguard
+            # FYI: in production, there are some other steps to check the code; for instance,
+            # with a static code analyzer or some other external packages.
             safeguard.send(message=SAFEGUARD_PROMPT.format(code=new_code), recipient=shield)
             safe_msg = safeguard.oai_conversations[shield.name][-1]["content"]
             print("Safety:", colored(safe_msg, "blue"))
@@ -186,17 +189,7 @@ class OptiGuideAgent(Agent):
 
         if success:
             # Step 6 - 7: interpret results
-            interpret_msg = f"""To answer the question: {question}
-
-        I wrote the code: {new_code}
-
-        Here are the execution results: {execution_rst}
-
-        Can you try to organize these information to a human readable answer?
-        Remember to compare the new results to the original results you obtained in the beginning.
-
-        --- HUMAN READABLE ANSWER ---
-        """
+            interpret_msg = INTERPRETER_PROMT.format(execution_rst=execution_rst)
             interpreter.send(message=interpret_msg, recipient=pencil)
             reply = interpreter.oai_conversations[pencil.name][-1]["content"]
         else:
@@ -213,7 +206,7 @@ class OptiGuideAgent(Agent):
 # This approach replicate the evaluation section of the OptiGuide paper.
 
 
-def _run_with_exec(src_code: str) -> object:
+def _run_with_exec(src_code: str) -> Union[str, Exception]:
     """Run the code snippet with exec.
 
     Args:
@@ -337,4 +330,12 @@ SAFEGUARD_PROMPT = """
 {code}
 
 --- One-Word Answer: SAFE or DANGER ---
+"""
+
+INTERPRETER_PROMT = """Here are the execution results: {execution_rst}
+
+Can you organize these information to a human readable answer?
+Remember to compare the new results to the original results you obtained in the beginning.
+
+--- HUMAN READABLE ANSWER ---
 """
