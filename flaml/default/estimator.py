@@ -179,3 +179,6 @@ else:
         "classification",
         [("max_depth", 0, "xgboost")],
     )
+    # if hasattr(xgboost.XGBRegressor, "_get_param_names"):
+    #     XGBRegressor._get_param_names = xgboost.XGBRegressor._get_param_names
+    #     XGBClassifier._get_param_names = xgboost.XGBClassifier._get_param_names
