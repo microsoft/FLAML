@@ -28,7 +28,7 @@ from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
 
 from .agent import Agent
 from .assistant_agent import AssistantAgent
-from .generic_agent import GenericAgent
+from .responsive_agent import ResponsiveAgent
 from .user_proxy_agent import UserProxyAgent
 
 # %% System Messages
@@ -78,7 +78,7 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 
 # %%
-class OptiGuideAgent(GenericAgent):
+class OptiGuideAgent(ResponsiveAgent):
     """(Experimental) OptiGuide is an agent to write Python code and to answer
       users questions for supply chain-related coding project.
 

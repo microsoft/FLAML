@@ -148,6 +148,7 @@ setuptools.setup(
             "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
+        "optiguide": ["gurobipy", "eventlet", "termcolor"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
