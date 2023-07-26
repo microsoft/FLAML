@@ -20,15 +20,16 @@ from typing import Dict, Union
 
 import gurobipy as gp
 from eventlet.timeout import Timeout
-from flaml import oai
-from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
 from gurobipy import GRB
 from termcolor import colored
 
+from flaml import oai
+from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
+
 from .agent import Agent
 from .assistant_agent import AssistantAgent
+from .generic_agent import GenericAgent
 from .user_proxy_agent import UserProxyAgent
-
 
 # %% System Messages
 ASSIST_SYSTEM_MSG = """You are OptiGuide,
@@ -77,7 +78,7 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 
 # %%
-class OptiGuideAgent(Agent):
+class OptiGuideAgent(GenericAgent):
     """(Experimental) OptiGuide is an agent to write Python code and to answer
       users questions for supply chain-related coding project.
 
@@ -98,7 +99,9 @@ class OptiGuideAgent(Agent):
         assert source_code.find(DATA_CODE_STR) >= 0, "DATA_CODE_STR not found."
         assert source_code.find(CONSTRAINT_CODE_STR) >= 0, "CONSTRAINT_CODE_STR not found."
 
-        super().__init__(name, system_message="")
+        super().__init__(
+            name, max_consecutive_auto_reply=0, human_input_mode="NEVER", code_execution_config=False, **config
+        )
         self._source_code = source_code
         self._sender_dict = {}
 
