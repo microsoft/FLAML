@@ -57,7 +57,7 @@ In the example above, we create an AssistantAgent named "assistant" to serve as 
 4. The assistant then generates a further response for the user_proxy. The user_proxy can then decide whether to terminate the conversation. If not, steps 3 and 4 are repeated.
 
 Please find a visual illustration of how UserProxyAgent and AssistantAgent collaboratively solve the above task below:
-![Agent Example](images/agent_example.png)
+![Agent Chat Example](images/agent_example.png)
 
 #### Human Input Mode
 The `human_input_mode` parameter of `UserProxyAgent` controls the behavior of the agent when it receives a message. It can be set to `"NEVER"`, `"ALWAYS"`, or `"TERMINATE"`.
