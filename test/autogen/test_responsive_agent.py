@@ -1,7 +1,7 @@
 import sys
 from io import StringIO
 import pytest
-from flaml.autogen.agent import ResponsiveAgent
+from flaml.autogen.agentchat import ResponsiveAgent
 
 
 def test_responsive_agent(monkeypatch):

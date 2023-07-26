@@ -2,7 +2,7 @@ import os
 import sys
 import pytest
 from flaml import oai
-from flaml.autogen.agent import AssistantAgent, UserProxyAgent
+from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
 
 KEY_LOC = "test/autogen"
 OAI_CONFIG_LIST = "OAI_CONFIG_LIST"

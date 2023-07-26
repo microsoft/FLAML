@@ -200,18 +200,23 @@ class ResponsiveAgent(Agent):
 
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
+        no_human_input_msg = ""
         if self.human_input_mode == "ALWAYS":
             reply = self.get_human_input(
-                "Provide feedback to the sender. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
+                f"Provide feedback to {sender.name}. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
+            no_human_input_msg = "NO HUMAN INPUT RECEIVED. "
         elif self._consecutive_auto_reply_counter[
             sender.name
         ] >= self.max_consecutive_auto_reply or self._is_termination_msg(message):
             if self.human_input_mode == "TERMINATE":
                 reply = self.get_human_input(
-                    "Please give feedback to the sender. (Press enter or type 'exit' to stop the conversation): "
+                    f"Please give feedback to {sender.name}. (Press enter or type 'exit' to stop the conversation): "
+                    if self._is_termination_msg(message)
+                    else f"Please give feedback to {sender.name}. (Press enter to skip and use auto-reply, or type 'exit' to stop the conversation): "
                 )
                 reply = reply if reply else "exit"
+                no_human_input_msg = "NO HUMAN INPUT RECEIVED. "
             else:
                 # this corresponds to the case when self._human_input_mode == "NEVER"
                 reply = "exit"
@@ -227,7 +232,7 @@ class ResponsiveAgent(Agent):
 
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
-            print("\n>>>>>>>> NO HUMAN INPUT RECEIVED. USING AUTO REPLY FOR THE USER...", flush=True)
+            print(f"\n>>>>>>>> {no_human_input_msg}USING AUTO REPLY FOR THE USER...", flush=True)
         self.send(self.generate_reply(self._oai_conversations[sender.name], default_reply=reply), sender)
 
     def reset(self):

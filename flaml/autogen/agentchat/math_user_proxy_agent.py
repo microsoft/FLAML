@@ -3,7 +3,7 @@ import os
 from pydantic import BaseModel, Extra, root_validator
 from typing import Any, Callable, Dict, List, Optional, Union
 from time import sleep
-from flaml.autogen.agent import UserProxyAgent
+from .user_proxy_agent import UserProxyAgent
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from flaml.autogen.math_utils import get_answer
 
