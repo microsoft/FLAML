@@ -5,7 +5,7 @@ from flaml.autogen.agent import ResponsiveAgent
 
 
 def test_responsive_agent(monkeypatch):
-    dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1")
+    dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
     dummy_agent_2 = ResponsiveAgent(name="dummy_agent_2", human_input_mode="TERMINATE")
 
     monkeypatch.setattr(sys, "stdin", StringIO("exit"))
