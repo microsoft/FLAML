@@ -3,10 +3,11 @@ import json
 from typing import Callable, Dict, List, Optional, Union
 from flaml import oai
 from .agent import Agent
+from .roleplay_agent import RoleplayMixin
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
 
 
-class GenericAgent(Agent):
+class GenericAgent(Agent, RoleplayMixin):
     """(Experimental) An generic agent which can be configured as assistant or user proxy.
 
     For example, AssistantAgent and UserProxyAgent are subclasses of GenericAgent,
