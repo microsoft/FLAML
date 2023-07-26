@@ -44,14 +44,8 @@ class RoleplayMixin:
 {rule}
 ### end of role-play rule ###
 
-### chat history ###
-{self._render_chat_history(chat_history)}
-### end of chat history ###
-
 You are in a multi-role play game. Your role is {self.name}, {self.describle_role(chat_history)}.
-please follow the role-play rule and continue the conversation!
-
-[{self.name}]:"""
+please follow the role-play rule and continue the conversation!"""
         
         return prompt
 
@@ -105,5 +99,10 @@ You are in a multi-role play game and your task is to continue writing conversat
         
     def role_play(self, chat_history: List[Message], role_description: List[Tuple[str, str]], rule: str) -> Message:
         prompt = self._render_role_play(chat_history, role_description, rule)
-        reply = self._call_chat(prompt)
+        task_message = {"role": "user", "content": prompt}
+        chat_history = [{"role": 'user', "content": str(message)} for message in chat_history]
+        # only get the last 5 messages
+        chat_history = chat_history[-5:]
+        new_message = {"role": "user", "content": f"[{self.name}]:"}
+        reply = self.generate_reply([task_message] + chat_history + [new_message])
         return Message(self.name, reply)
