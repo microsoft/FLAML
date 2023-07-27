@@ -192,24 +192,27 @@ def execute_code(
     if not use_docker or in_docker_container:
         # already running in a docker container
         cmd = [sys.executable if lang.startswith("python") else _cmd(lang), filename]
-        try:
-            signal.signal(signal.SIGALRM, timeout_handler)
-        except AttributeError:
-            # Windows does not have SIGALRM
+        if sys.platform == "win32":
             logging.warning("SIGALRM is not supported on Windows. No timeout will be enforced.")
-        try:
-            signal.alarm(timeout)
-            # run the code in a subprocess in the current docker container in the working directory
             result = subprocess.run(
                 cmd,
                 cwd=work_dir,
                 capture_output=True,
             )
-            signal.alarm(0)
-        except TimeoutError:
-            if original_filename is None:
-                os.remove(filepath)
-            return 1, TIMEOUT_MSG, None
+        else:
+            try:
+                signal.alarm(timeout)
+                # run the code in a subprocess in the current docker container in the working directory
+                result = subprocess.run(
+                    cmd,
+                    cwd=work_dir,
+                    capture_output=True,
+                )
+                signal.alarm(0)
+            except TimeoutError:
+                if original_filename is None:
+                    os.remove(filepath)
+                return 1, TIMEOUT_MSG, None
         if original_filename is None:
             os.remove(filepath)
         return result.returncode, result.stderr if result.returncode else result.stdout, None
