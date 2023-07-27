@@ -265,7 +265,7 @@ class ResponsiveAgent(Agent):
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
             print(f"\n>>>>>>>> {no_human_input_msg}USING AUTO REPLY FOR THE USER...", flush=True)
-        self.send(self.generate_reply(self._oai_conversations[sender.name], default_reply=reply), sender)
+        self.send(self.generate_reply(sender=sender), sender)
 
     def reset(self):
         """Reset the agent."""
@@ -279,20 +279,30 @@ class ResponsiveAgent(Agent):
         )
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
-    def generate_reply(self, messages: List[Dict], default_reply: Union[str, Dict] = "") -> Union[str, Dict]:
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        default_reply: Optional[Union[str, Dict]] = "",
+        sender: Optional["Agent"] = None,
+    ) -> Union[str, Dict]:
         """Reply based on the conversation history.
 
         First, execute function or code and return the result.
         AI replies are generated only when no code execution is performed.
         Subclasses can override this method to customize the reply.
+        Either messages or sender must be provided.
 
         Args:
             messages: a list of messages in the conversation history.
             default_reply (str or dict): default reply.
+            sender: sender of an Agent instance.
 
         Returns:
             str or dict: reply.
         """
+        assert messages is not None or sender is not None, "Either messages or sender must be provided."
+        if messages is None:
+            messages = self._oai_conversations[sender.name]
         message = messages[-1]
         if "function_call" in message:
             _, func_return = self.execute_function(message["function_call"])
