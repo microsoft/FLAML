@@ -147,11 +147,41 @@ class ResponsiveAgent(Agent):
         return True
 
     def send(self, message: Union[Dict, str], recipient: "Agent"):
-        """Send a message to another agent."""
-        # When the agent composes and sends the message, the role of the message is "assistant". (If 'role' exists and is 'function', it will remain unchanged.)
+        """Send a message to another agent.
+
+        Args:
+            message (dict or str): message to be sent.
+                The message could contain the following fields (either content or function_call must be provided):
+                - content (str): the content of the message.
+                - function_call (str): the name of the function to be called.
+                - name (str): the name of the function to be called.
+                - role (str): the role of the message, any role that is not "function"
+                    will be modified to "assistant".
+                - other fields: the context of the message, which will be passed to
+                    [oai.Completion.create](../oai/Completion#create).
+                    For example, one agent can send a message A as:
+            ```python
+            {
+                "content": "{optional_conext}",
+                "optional_context": "Use tools if they are relevant."
+            }
+            ```
+                    Next time, one agent can send a message B with a different "optional_context".
+                    Then the content of message A will be refreshed to the new "optional_context".
+                    So effectively, this provides a way for an agent to send a "link" and modify
+                    the content of the "link" later.
+            recipient (Agent): the recipient of the message.
+
+        Raises:
+            ValueError: if the message is not a valid oai message.
+        """
+        # When the agent composes and sends the message, the role of the message is "assistant"
+        # unless it's "function".
         valid = self._append_oai_message(message, "assistant", recipient.name)
         if valid:
             recipient.receive(message, self)
+        else:
+            raise ValueError("Message is not a valid oai message. Either content or function_call must be provided.")
 
     def _print_received_message(self, message: Union[Dict, str], sender: "Agent"):
         # print the message received
@@ -242,7 +272,9 @@ class ResponsiveAgent(Agent):
 
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
-        response = oai.ChatCompletion.create(messages=self._oai_system_message + messages, **self.oai_config)
+        response = oai.ChatCompletion.create(
+            context=messages[-1], messages=self._oai_system_message + messages, **self.oai_config
+        )
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
     def generate_reply(self, messages: List[Dict], default_reply: Union[str, Dict] = "") -> Union[str, Dict]:

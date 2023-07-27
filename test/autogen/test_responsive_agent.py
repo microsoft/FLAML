@@ -35,9 +35,10 @@ def test_responsive_agent(monkeypatch):
         dummy_agent_2,
     )  # send a dict
 
-    # receive dict with no openai fields
+    # send dict with no openai fields
     pre_len = len(dummy_agent_1.oai_conversations["dummy_agent_2"])
-    dummy_agent_1.send({"message": "hello"}, dummy_agent_2)  # send dict with wrong field
+    with pytest.raises(ValueError):
+        dummy_agent_1.send({"message": "hello"}, dummy_agent_2)
 
     assert pre_len == len(
         dummy_agent_1.oai_conversations["dummy_agent_2"]
