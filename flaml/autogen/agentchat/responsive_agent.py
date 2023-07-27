@@ -157,17 +157,19 @@ class ResponsiveAgent(Agent):
                 - name (str): the name of the function to be called.
                 - role (str): the role of the message, any role that is not "function"
                     will be modified to "assistant".
-                - other fields: the context of the message, which will be passed to
+                - context (dict): the context of the message, which will be passed to
                     [oai.Completion.create](../oai/Completion#create).
                     For example, one agent can send a message A as:
             ```python
             {
-                "content": "{optional_conext}",
-                "optional_context": "Use tools if they are relevant."
+                "content": "{use_tool_msg}",
+                "context": {
+                    "use_tool_msg": "Use tool X if they are relevant."
+                }
             }
             ```
-                    Next time, one agent can send a message B with a different "optional_context".
-                    Then the content of message A will be refreshed to the new "optional_context".
+                    Next time, one agent can send a message B with a different "use_tool_msg".
+                    Then the content of message A will be refreshed to the new "use_tool_msg".
                     So effectively, this provides a way for an agent to send a "link" and modify
                     the content of the "link" later.
             recipient (Agent): the recipient of the message.
@@ -273,7 +275,7 @@ class ResponsiveAgent(Agent):
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
-            context=messages[-1], messages=self._oai_system_message + messages, **self.oai_config
+            context=messages[-1].get("context"), messages=self._oai_system_message + messages, **self.oai_config
         )
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
