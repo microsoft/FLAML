@@ -200,6 +200,7 @@ def execute_code(
                 capture_output=True,
             )
         else:
+            signal.signal(signal.SIGALRM, timeout_handler)
             try:
                 signal.alarm(timeout)
                 # run the code in a subprocess in the current docker container in the working directory
