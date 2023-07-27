@@ -22,7 +22,7 @@ def infer_lang(code):
     """infer the language for the code.
     TODO: make it robust.
     """
-    if code.startswith("python ") or code.startswith("pip"):
+    if code.startswith("python ") or code.startswith("pip") or code.startswith("python3 "):
         return "sh"
     return "python"
 
