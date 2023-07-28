@@ -24,12 +24,8 @@ from gurobipy import GRB
 from termcolor import colored
 
 from flaml import oai
+from flaml.autogen.agentchat import Agent, AssistantAgent, ResponsiveAgent, UserProxyAgent
 from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
-
-from .agent import Agent
-from .assistant_agent import AssistantAgent
-from .responsive_agent import ResponsiveAgent
-from .user_proxy_agent import UserProxyAgent
 
 # %% System Messages
 ASSIST_SYSTEM_MSG = """You are OptiGuide,
