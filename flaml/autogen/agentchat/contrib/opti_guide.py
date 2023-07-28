@@ -24,7 +24,7 @@ from gurobipy import GRB
 from termcolor import colored
 
 from flaml import oai
-from flaml.autogen.agentchat import Agent, AssistantAgent, ResponsiveAgent, UserProxyAgent
+from flaml.autogen.agentchat import AssistantAgent, ResponsiveAgent, UserProxyAgent
 from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
 
 # %% System Messages
@@ -87,7 +87,8 @@ class OptiGuideAgent(ResponsiveAgent):
         Args:
             name (str): agent name.
             source_code (str): The original source code to run.
-            system_message (str): system message to be sent to the agent.
+            doc_str (str): docstring for helper functions if existed.
+            example_qa (str): training examples for in-context learning.
             **config (dict): other configurations allowed in
               [oai.Completion.create](../oai/Completion#create).
               These configurations will be used when invoking LLM.
@@ -99,32 +100,28 @@ class OptiGuideAgent(ResponsiveAgent):
             name, max_consecutive_auto_reply=0, human_input_mode="NEVER", code_execution_config=False, **config
         )
         self._source_code = source_code
-        self._sender_dict = {}
+        self._doc_str = doc_str
+        self._example_qa = example_qa
+        self._origin_execution_result = _run_with_exec(source_code)
 
-        execution_result = _run_with_exec(source_code)
-        self.writing_sys_msg = ASSIST_SYSTEM_MSG.format(
-            source_code=source_code, doc_str=doc_str, example_qa=example_qa, execution_result=execution_result
-        )
-        self.shield_sys_msg = SAFEGUARD_SYSTEM_MSG.format(source_code=source_code)
-
-        self._debug_opportunity = 3
+        self._debug_opportunity = 3  # number of debug tries we allow for LLM
 
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
         Once a message is received, this function sends a reply to the sender or simply stop.
         The reply can be generated automatically or entered manually by a human.
 
-        OptiGuide will invoke its components: coder, safeguard, and interpret
+        OptiGuide will invoke its components: coder, safeguard, and interpreter
         to generate the reply.
 
-        The steps follows the one in Figure 2 of the OptiGuide paper.
+        The steps follow the one in Figure 2 of the OptiGuide paper.
         """
         # Step 1: receive the message
         message = self._message_to_dict(message)
         super().receive(message, sender)
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
-        question = message["content"]
+        message["content"]
 
         user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
 
@@ -132,15 +129,20 @@ class OptiGuideAgent(ResponsiveAgent):
         # Note: we use the same agent for coding and interpreting, so that they
         # can share the same chat history.
         coder = interpreter = UserProxyAgent(
-            "coder interpreter", human_input_mode="NEVER", max_consecutive_auto_reply=0, code_execution_config=False
+            "coder interpreter", human_input_mode="NEVER", max_consecutive_auto_reply=0
         )
-        safeguard = UserProxyAgent(
-            "safeguard", human_input_mode="NEVER", max_consecutive_auto_reply=0, code_execution_config=False
-        )
+        safeguard = UserProxyAgent("safeguard", human_input_mode="NEVER", max_consecutive_auto_reply=0)
 
         # Spawn the assistants for coder, interpreter, and safeguard
-        pencil = AssistantAgent("pencil", system_message=self.writing_sys_msg + user_chat_history)
-        shield = AssistantAgent("shield", system_message=self.shield_sys_msg + user_chat_history)
+        writing_sys_msg = ASSIST_SYSTEM_MSG.format(
+            source_code=self._source_code,
+            doc_str=self._doc_str,
+            example_qa=self._example_qa,
+            execution_result=self._origin_execution_result,
+        )
+        shield_sys_msg = SAFEGUARD_SYSTEM_MSG.format(source_code=self._source_code)
+        pencil = AssistantAgent("pencil", system_message=writing_sys_msg + user_chat_history)
+        shield = AssistantAgent("shield", system_message=shield_sys_msg + user_chat_history)
 
         debug_opportunity = self._debug_opportunity
 
@@ -151,10 +153,10 @@ class OptiGuideAgent(ResponsiveAgent):
             # Step 2: Write code
             if new_code is None:
                 # The first time we are trying to solve the question in this session
-                msg = CODE_PROMPT.format(question=question)
+                msg = CODE_PROMPT
             else:
                 # debug code
-                msg = DEBUG_PROMPT.format(question, new_code, execution_rst)
+                msg = DEBUG_PROMPT.format(execution_rst)
 
             coder.send(message=msg, recipient=pencil)
             new_code = coder.oai_conversations[pencil.name][-1]["content"]
@@ -188,7 +190,7 @@ class OptiGuideAgent(ResponsiveAgent):
 
         if success:
             # Step 6 - 7: interpret results
-            interpret_msg = INTERPRETER_PROMT.format(execution_rst=execution_rst)
+            interpret_msg = INTERPRETER_PROMPT.format(execution_rst=execution_rst)
             interpreter.send(message=interpret_msg, recipient=pencil)
             reply = interpreter.oai_conversations[pencil.name][-1]["content"]
         else:
@@ -217,10 +219,10 @@ def _run_with_exec(src_code: str) -> Union[str, Exception]:
             else, return the error (exception)
     """
     locals_dict = {}
-    locals_dict.update(locals())
     locals_dict.update(globals())
+    locals_dict.update(locals())
 
-    timeout = Timeout(60, Exception("This is a timeout exception, in case GPT's code falls into infinite loop."))
+    timeout = Timeout(60, TimeoutError("This is a timeout exception, in case GPT's code falls into infinite loop."))
     try:
         exec(src_code, locals_dict, locals_dict)
     except Exception as e:
@@ -266,7 +268,7 @@ def _replace(src_code: str, old_code: str, new_code: str) -> str:
         src_code = 'def hello_world():\n    print("Hello, world!")\n\n# Some other code here'
         old_code = 'print("Hello, world!")'
         new_code = 'print("Bonjour, monde!")\nprint("Hola, mundo!")'
-        modified_code = insert(src_code, old_code, new_code)
+        modified_code = _replace(src_code, old_code, new_code)
         print(modified_code)
         # Output:
         # def hello_world():
@@ -300,22 +302,12 @@ def _insert_code(src_code: str, new_lines: str) -> str:
 
 # %% Prompt for OptiGuide
 CODE_PROMPT = """
-Question: {question}
 Answer Code:
 """
 
 DEBUG_PROMPT = """
-To answer a question, the code snippet is added.
---- QUESTION ---
-{question}
 
-
-Pay attention to the added code below
---- Added Code ---
-{code_snippet}
-
-
-While running Python code, you encountered the error:
+While running the code you suggested, I encountered the error:
 --- ERROR ---
 {error_message}
 
@@ -331,7 +323,7 @@ SAFEGUARD_PROMPT = """
 --- One-Word Answer: SAFE or DANGER ---
 """
 
-INTERPRETER_PROMT = """Here are the execution results: {execution_rst}
+INTERPRETER_PROMPT = """Here are the execution results: {execution_rst}
 
 Can you organize these information to a human readable answer?
 Remember to compare the new results to the original results you obtained in the beginning.
