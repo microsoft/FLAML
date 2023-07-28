@@ -46,7 +46,7 @@ class ResponsiveAgent(Agent):
                 The dict can contain the following keys: "content", "role", "name", "function_call".
             max_consecutive_auto_reply (int): the maximum number of consecutive auto replies.
                 default to None (no limit provided, class attribute MAX_CONSECUTIVE_AUTO_REPLY will be used as the limit in this case).
-                The limit only plays a role when human_input_mode is not "ALWAYS".
+                When set to 0, no auto reply will be generated.
             human_input_mode (str): whether to ask for human inputs every time a message is received.
                 Possible values are "ALWAYS", "TERMINATE", "NEVER".
                 (1) When "ALWAYS", the agent prompts for human input every time a message is received.
@@ -237,34 +237,57 @@ class ResponsiveAgent(Agent):
             reply = self.get_human_input(
                 f"Provide feedback to {sender.name}. Press enter to skip and use auto-reply, or type 'exit' to end the conversation: "
             )
-            no_human_input_msg = "NO HUMAN INPUT RECEIVED. "
-        elif self._consecutive_auto_reply_counter[
-            sender.name
-        ] >= self.max_consecutive_auto_reply or self._is_termination_msg(message):
-            if self.human_input_mode == "TERMINATE":
-                reply = self.get_human_input(
-                    f"Please give feedback to {sender.name}. (Press enter or type 'exit' to stop the conversation): "
-                    if self._is_termination_msg(message)
-                    else f"Please give feedback to {sender.name}. (Press enter to skip and use auto-reply, or type 'exit' to stop the conversation): "
-                )
-                reply = reply if reply else "exit"
-                no_human_input_msg = "NO HUMAN INPUT RECEIVED. "
-            else:
-                # this corresponds to the case when self._human_input_mode == "NEVER"
-                reply = "exit"
-        if reply == "exit" or (self._is_termination_msg(message) and not reply):
+            no_human_input_msg = "NO HUMAN INPUT RECEIVED." if not reply else ""
+            # if the human input is empty, and the message is a termination message, then we will terminate the conversation
+            reply = reply if reply or not self._is_termination_msg(message) else "exit"
+        else:
+            if self._consecutive_auto_reply_counter[sender.name] >= self.max_consecutive_auto_reply:
+                if self.human_input_mode == "NEVER":
+                    reply = "exit"
+                else:
+                    # self.human_input_mode == "TERMINATE":
+                    terminate = self._is_termination_msg(message)
+                    reply = self.get_human_input(
+                        f"Please give feedback to {sender.name}. Press enter or type 'exit' to stop the conversation: "
+                        if terminate
+                        else f"Please give feedback to {sender.name}. Press enter to skip and use auto-reply, or type 'exit' to stop the conversation: "
+                    )
+                    no_human_input_msg = "NO HUMAN INPUT RECEIVED." if not reply else ""
+                    # if the human input is empty, and the message is a termination message, then we will terminate the conversation
+                    reply = reply if reply or not terminate else "exit"
+            elif self._is_termination_msg(message):
+                if self.human_input_mode == "NEVER":
+                    reply = "exit"
+                else:
+                    # self.human_input_mode == "TERMINATE":
+                    reply = self.get_human_input(
+                        f"Please give feedback to {sender.name}. Press enter or type 'exit' to stop the conversation: "
+                    )
+                    no_human_input_msg = "NO HUMAN INPUT RECEIVED." if not reply else ""
+                    # if the human input is empty, and the message is a termination message, then we will terminate the conversation
+                    reply = reply or "exit"
+
+        # print the no_human_input_msg
+        if no_human_input_msg:
+            print(f"\n>>>>>>>> {no_human_input_msg}", flush=True)
+
+        # stop the conversation
+        if reply == "exit":
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             return
-        if reply:
+
+        # send the human reply
+        if reply or self.max_consecutive_auto_reply == 0:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             self.send(reply, sender)
             return
 
+        # send the auto reply
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
-            print(f"\n>>>>>>>> {no_human_input_msg}USING AUTO REPLY FOR THE USER...", flush=True)
+            print("\n>>>>>>>> USING AUTO REPLY...", flush=True)
         self.send(self.generate_reply(sender=sender), sender)
 
     def reset(self):
