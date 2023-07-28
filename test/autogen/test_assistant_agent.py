@@ -97,7 +97,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     )
     user.initiate_chat(assistant, message="TERMINATE")
     # should terminate without sending any message
-    assert assistant.oai_conversations[user.name][-1]["content"] == "TERMINATE"
+    assert assistant.last_message()["content"] == assistant.last_message(user)["content"] == "TERMINATE"
     assistant.reset()
     coding_task = "Print hello world to a file called hello.txt"
     user.initiate_chat(assistant, message=coding_task)

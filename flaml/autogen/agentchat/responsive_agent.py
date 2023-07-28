@@ -104,6 +104,27 @@ class ResponsiveAgent(Agent):
         """A dictionary of conversations from name to list of oai messages."""
         return self._oai_conversations
 
+    def last_message(self, agent: Optional[Agent] = None) -> Dict:
+        """The last message exchanged with the agent.
+
+        Args:
+            agent (Agent): The agent in the conversation.
+                If None and more than one agent's conversations are found, an error will be raised.
+                If None and only one conversation is found, the last message of the only conversation will be returned.
+
+        Returns:
+            The last message exchanged with the agent.
+        """
+        if agent is None:
+            n_conversations = len(self._oai_conversations)
+            if n_conversations == 0:
+                return None
+            if n_conversations == 1:
+                for conversation in self._oai_conversations.values():
+                    return conversation[-1]
+            raise ValueError("More than one conversation is found. Please specify the sender to get the last message.")
+        return self._oai_conversations[agent.name][-1]
+
     @property
     def use_docker(self) -> Union[bool, str, None]:
         """Bool value of whether to use docker to execute the code,
