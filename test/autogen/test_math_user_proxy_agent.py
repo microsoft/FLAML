@@ -1,5 +1,9 @@
 from flaml import oai
-from flaml.autogen.agentchat.math_user_proxy_agent import MathUserProxyAgent, _remove_print, _add_print_to_last_line
+from flaml.autogen.agentchat.contrib.math_user_proxy_agent import (
+    MathUserProxyAgent,
+    _remove_print,
+    _add_print_to_last_line,
+)
 import pytest
 import sys
 
