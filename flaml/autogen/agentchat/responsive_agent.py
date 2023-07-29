@@ -79,8 +79,7 @@ class ResponsiveAgent(Agent):
         super().__init__(name)
         # a dictionary of conversations, default value is list
         self._oai_conversations = defaultdict(list)
-        self._system_message = system_message
-        self._oai_system_message = [{"content": self._system_message, "role": "system"}]
+        self._oai_system_message = [{"content": system_message, "role": "system"}]
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
         )
@@ -98,6 +97,14 @@ class ResponsiveAgent(Agent):
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._function_map = {} if function_map is None else function_map
+
+    def update_system_message(self, system_message: str):
+        """Update the system message.
+
+        Args:
+            system_message (str): system message for the oai inference.
+        """
+        self._oai_system_message[0]["content"] = system_message
 
     @property
     def oai_conversations(self) -> Dict[str, List[Dict]]:
