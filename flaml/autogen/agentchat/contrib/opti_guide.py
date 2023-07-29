@@ -91,8 +91,8 @@ class OptiGuideAgent(AssistantAgent):
         self._doc_str = doc_str
         self._example_qa = example_qa
         self._origin_execution_result = _run_with_exec(source_code)
-        self._pencil = AssistantAgent("pencil")
-        self._shield = AssistantAgent("shield")
+        self._pencil = AssistantAgent("pencil", oai_config=self.oai_config)
+        self._shield = AssistantAgent("shield", oai_config=self.oai_config)
         self._debug_opportunity = 3  # number of debug tries we allow for LLM
         self._success = False
 
@@ -141,12 +141,10 @@ class OptiGuideAgent(AssistantAgent):
             # no reply to pencil
             return
         # Step 3: safeguard
-        code = extract_code(self.last_message(sender)["content"])[0][
-            1
-        ]  # First code block, the code (excluding language)
+        _, code = extract_code(self.last_message(sender)["content"])[0]
         print(colored(code, "green"))
         self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
-        safe_msg = self.last_message(sender)["content"]
+        safe_msg = self.last_message(self._shield)["content"]
         print("Safety:", colored(safe_msg, "blue"))
         if safe_msg.find("DANGER") < 0:
             # Step 4 and 5: Run the code and obtain the results
@@ -157,7 +155,7 @@ class OptiGuideAgent(AssistantAgent):
                 # we successfully run the code and get the result
                 self._success = True
                 # Step 6: request to interpret results
-                return INTERPRETER_PROMPT.format(result=execution_rst)
+                return INTERPRETER_PROMPT.format(execution_rst=execution_rst)
         else:
             # DANGER: If not safe, try to debug. Redo coding
             execution_rst = """
@@ -166,7 +164,7 @@ Please try to find a new way (coding) to answer the question."""
         if self._debug_opportunity > 0:
             # Try to debug and write code again (back to step 2)
             self._debug_opportunity -= 1
-            return DEBUG_PROMPT.format(execution_rst)
+            return DEBUG_PROMPT.format(error_message=execution_rst)
 
 
 # %% Helper functions to edit and run code.
