@@ -16,7 +16,7 @@ from flaml.autogen.code_utils import (
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
-KEY_LOC = "test/autogen"
+KEY_LOC = "notebook"
 OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 here = os.path.abspath(os.path.dirname(__file__))
 

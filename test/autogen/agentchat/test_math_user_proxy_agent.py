@@ -1,14 +1,12 @@
+import pytest
+import sys
 from flaml import oai
 from flaml.autogen.agentchat.contrib.math_user_proxy_agent import (
     MathUserProxyAgent,
     _remove_print,
     _add_print_to_last_line,
 )
-import pytest
-import sys
-
-KEY_LOC = "test/autogen"
-OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
+from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 
 @pytest.mark.skipif(

@@ -4,7 +4,7 @@ import pytest
 from flaml import oai
 from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
 
-KEY_LOC = "test/autogen"
+KEY_LOC = "notebook"
 OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 here = os.path.abspath(os.path.dirname(__file__))
 
