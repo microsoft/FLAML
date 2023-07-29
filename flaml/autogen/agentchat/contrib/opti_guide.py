@@ -4,7 +4,7 @@ For more details, read: https://arxiv.org/abs/2307.03875
 The design here is that a user asked a question, then OptiGuide will answer
 it.
 
-The OptiGuide agent will interact with the LLMProxy agent to access LLMs.
+The OptiGuide agent will interact with LLM-based agents.
 
 Notes:
 1. We assume there is a Gurobi model `m` in the global scope.
@@ -67,11 +67,10 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 # %%
 class OptiGuideAgent(AssistantAgent):
-    """(Experimental) OptiGuide is an agent to write Python code and to answer
+    """(Experimental) OptiGuide is an agent to answer
     users questions for supply chain-related coding project.
 
-    Here, the OptiGuide agent manages three agents (coder, safeguard, and interpreter)
-    and two assistant agents (pencil and shield).
+    Here, the OptiGuide agent manages two assistant agents (pencil and shield).
     """
 
     def __init__(self, name, source_code, doc_str="", example_qa="", **config):
@@ -82,8 +81,7 @@ class OptiGuideAgent(AssistantAgent):
             doc_str (str): docstring for helper functions if existed.
             example_qa (str): training examples for in-context learning.
             **config (dict): other configurations allowed in
-              [oai.Completion.create](../oai/Completion#create).
-              These configurations will be used when invoking LLM.
+              [ResponsiveAgent](../responsive_agent/ResponsiveAgent#__init__).
         """
         assert source_code.find(DATA_CODE_STR) >= 0, "DATA_CODE_STR not found."
         assert source_code.find(CONSTRAINT_CODE_STR) >= 0, "CONSTRAINT_CODE_STR not found."
