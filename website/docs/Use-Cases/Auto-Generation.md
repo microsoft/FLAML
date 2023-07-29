@@ -15,22 +15,19 @@ The package is under active development with more features upcoming.
 
 [`flaml.autogen.agentchat`](/docs/reference/autogen/agentchat/agent) contains an experimental implementation of interactive agents which can adapt to human or simulated feedback. This subpackage is under active development.
 
-We have designed different classes of Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform after receiving messages.
+We have designed a generic `ResponsiveAgent` class for Agents that are capable of communicating with each other through the exchange of messages to collaboratively finish a task. An agent can communicate with other agents and perform actions. Different agents can differ in what actions they perform after receiving messages. Two representative subclasses are `AssistantAgent` and `UserProxyAgent`.
 
-### `AssistantAgent`
+- `AssistantAgent`. Designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (e.g., GPT-4). It can also receive the execution results and suggest code with bug fix.
+- `UserProxyAgent`. Serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
+By default, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. Code execution can be disabled by setting `code_execution_config` to False.
+When both `oai_config` and `code_execution_config` are not `False`, `UserProxyAgent` can generate replies using an LLM when code execution is not performed.
 
-`AssistantAgent` is an Agent class designed to act as an assistant by responding to user requests. It could write Python code (in a Python coding block) for a user to execute when a message (typically a description of a task that needs to be solved) is received. Under the hood, the Python code is written by LLM (e.g., GPT-4).
-
-### `UserProxyAgent`
-`UserProxyAgent` is an Agent class that serves as a proxy for the human user. Upon receiving a message, the UserProxyAgent will either solicit the human user's input or prepare an automatically generated reply. The chosen action depends on the settings of the `human_input_mode` and `max_consecutive_auto_reply` when the `UserProxyAgent` instance is constructed, and whether a human user input is available.
-
-By default, the automatically generated reply is crafted based on automatic code execution. The `UserProxyAgent` triggers code execution automatically when it detects an executable code block in the received message and no human user input is provided. One can also easily extend it by overriding the `auto_reply` function of the `UserProxyAgent` to add or modify responses.
-For example, `AIUserProxyAgent` is a subclass of `UserProxyAgent` which can generate replies using an LLM when code execution is not performed. Code execution can be disabled by setting `code_execution_config` to False.
-This auto-reply capability allows for more autonomous user-agent communication while retaining the possibility of human intervention.
+The auto-reply capability of `ResponsiveAgent` allows for more autonomous user-agent communication while retaining the possibility of human intervention.
+One can also easily extend it by overriding the `generate_reply` function of the `UserProxyAgent` to add or modify responses.
 
 Example usage of the agents to solve a task with code:
 ```python
-from flaml.autogen.agent import AssistantAgent, UserProxyAgent
+from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
 
 # create an AssistantAgent instance named "assistant"
 assistant = AssistantAgent(name="assistant")
@@ -39,9 +36,6 @@ assistant = AssistantAgent(name="assistant")
 user_proxy = UserProxyAgent(
     name="user_proxy",
     human_input_mode="NEVER",  # in this mode, the agent will never solicit human input but always auto reply
-    max_consecutive_auto_reply=10,  # the maximum number of consecutive auto replies
-    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE") or x.get("content", "").rstrip().endswith('"TERMINATE".'),  # the function to determine whether a message is a termination message
-    code_execution_config={"work_dir": "."},
 )
 
 # the assistant receives a message from the user, which contains the task description
@@ -70,57 +64,80 @@ To leverage [function calling capability of OpenAI's Chat Completions API](https
 
 Example usage of the agents to solve a task with function calling feature:
 ```python
-from flaml.autogen.agent import AssistantAgent, UserProxyAgent
+from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
 
 # put the descriptions of functions in config to be passed to OpenAI's API
 oai_config = {
     "model": "gpt-4-0613",
     "functions": [
         {
-            "name": "execute_code",
-            "description": "Receive a python code or shell script and return the execution result.",
+            "name": "python",
+            "description": "run cell in ipython and return the execution result.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "code_type": {
+                    "cell": {
                         "type": "string",
-                        "description": "Code type, 'python' or 'sh'.",
-                    },
-                    "code": {
-                        "type": "string",
-                        "description": "Valid Python code to execute.",
+                        "description": "Valid Python cell to execute.",
                     }
                 },
-                "required": ["code_type", "code"],
+                "required": ["cell"],
             },
-        }
+        },
+        {
+            "name": "sh",
+            "description": "run a shell script and return the execution result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "script": {
+                        "type": "string",
+                        "description": "Valid shell script to execute.",
+                    }
+                },
+                "required": ["script"],
+            },
+        },
     ],
-    "function_call": "auto",
 }
 
 # create an AssistantAgent instance named "assistant"
-chatbot = AssistantAgent("assistant", config_list=config_list, **oai_config)
+chatbot = AssistantAgent("assistant", **oai_config)
 
-# create a UserProxyAgent instance named "user"
-user = UserProxyAgent(
-    "user",
+# create a UserProxyAgent instance named "user_proxy"
+user_proxy = UserProxyAgent(
+    "user_proxy",
     human_input_mode="NEVER",
-    code_execution_config={"work_dir": "coding"},
 )
 
-# define an `execute_code` function according to the function desription
-def execute_code(code_type, code):
-    # here we reuse the method in the user proxy agent
-    # in general, this is not necessary
-    return user.execute_code_blocks([(code_type, code)])
+# define functions according to the function desription
+from IPython import get_ipython
 
-# register the `execute_code` function
-user.register_function(function_map={"execute_code": execute_code})
+def exec_python(cell):
+    ipython = get_ipython()
+    result = ipython.run_cell(cell)
+    log = str(result.result)
+    if result.error_before_exec is not None:
+        log += f"\n{result.error_before_exec}"
+    if result.error_in_exec is not None:
+        log += f"\n{result.error_in_exec}"
+    return log
+
+def exec_sh(script):
+    return user_proxy.execute_code_blocks([("sh", script)])
+
+# register the functions
+user_proxy.register_function(
+    function_map={
+        "python": exec_python,
+        "sh": exec_sh,
+    }
+)
 
 # start the conversation
-user.initiate_chat(
-    assistant,
-    message="Draw a rocket and save to a file named 'rocket.svg'",
+user_proxy.initiate_chat(
+    chatbot,
+    message="Draw two agents chatting with each other with an example dialog.",
 )
 ```
 
