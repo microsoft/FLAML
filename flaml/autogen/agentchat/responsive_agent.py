@@ -311,7 +311,9 @@ class ResponsiveAgent(Agent):
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
             print("\n>>>>>>>> USING AUTO REPLY...", flush=True)
-        self.send(self.generate_reply(sender=sender), sender)
+        reply = self.generate_reply(sender=sender)
+        if reply is not None:
+            self.send(reply, sender)
 
     def reset(self):
         """Reset the agent."""
@@ -330,7 +332,7 @@ class ResponsiveAgent(Agent):
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
-    ) -> Union[str, Dict]:
+    ) -> Union[str, Dict, None]:
         """Reply based on the conversation history.
 
         First, execute function or code and return the result.
@@ -344,7 +346,7 @@ class ResponsiveAgent(Agent):
             sender: sender of an Agent instance.
 
         Returns:
-            str or dict: reply.
+            str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
         if messages is None:
