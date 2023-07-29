@@ -147,7 +147,7 @@ class ResponsiveAgent(Agent):
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
         If the message received is a dictionary but does not have any of the two fields "content" or "function_call",
-            this message is not a valid oai message and will be ignored.
+            this message is not a valid oai message.
 
         Args:
             message (dict or str): message to be appended to the oai conversation.
@@ -167,7 +167,7 @@ class ResponsiveAgent(Agent):
         self._oai_conversations[conversation_id].append(oai_message)
         return True
 
-    def send(self, message: Union[Dict, str], recipient: "Agent"):
+    def send(self, message: Union[Dict, str], recipient: Agent):
         """Send a message to another agent.
 
         Args:
@@ -181,14 +181,14 @@ class ResponsiveAgent(Agent):
                 - context (dict): the context of the message, which will be passed to
                     [oai.Completion.create](../oai/Completion#create).
                     For example, one agent can send a message A as:
-            ```python
-            {
-                "content": "{use_tool_msg}",
-                "context": {
-                    "use_tool_msg": "Use tool X if they are relevant."
-                }
+        ```python
+        {
+            "content": "{use_tool_msg}",
+            "context": {
+                "use_tool_msg": "Use tool X if they are relevant."
             }
-            ```
+        }
+        ```
                     Next time, one agent can send a message B with a different "use_tool_msg".
                     Then the content of message A will be refreshed to the new "use_tool_msg".
                     So effectively, this provides a way for an agent to send a "link" and modify
@@ -206,7 +206,7 @@ class ResponsiveAgent(Agent):
         else:
             raise ValueError("Message is not a valid oai message. Either content or function_call must be provided.")
 
-    def _print_received_message(self, message: Union[Dict, str], sender: "Agent"):
+    def _print_received_message(self, message: Union[Dict, str], sender: Agent):
         # print the message received
         print(sender.name, "(to", f"{self.name}):\n", flush=True)
         if message.get("role") == "function":
@@ -229,14 +229,14 @@ class ResponsiveAgent(Agent):
                 print("*" * len(func_print), flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
-    def receive(self, message: Union[Dict, str], sender: "Agent"):
+    def receive(self, message: Union[Dict, str], sender: Agent):
         """Receive a message from another agent.
 
         Once a message is received, this function sends a reply to the sender or stop.
         The reply can be generated automatically or entered manually by a human.
 
         Args:
-            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (All fields are optional).
+            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (either content or function_call need to be provided).
                 1. "content": content of the message, can be None.
                 2. "function_call": a dictionary containing the function name and arguments.
                 3. "role": role of the message, can be "assistant", "user", "function".
@@ -248,7 +248,9 @@ class ResponsiveAgent(Agent):
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
         valid = self._append_oai_message(message, "user", sender.name)
         if not valid:
-            return
+            raise ValueError(
+                "Received message is not a valid oai message. Either content or function_call must be provided."
+            )
         self._print_received_message(message, sender)
 
         # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
@@ -327,7 +329,7 @@ class ResponsiveAgent(Agent):
         self,
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = "",
-        sender: Optional["Agent"] = None,
+        sender: Optional[Agent] = None,
     ) -> Union[str, Dict]:
         """Reply based on the conversation history.
 

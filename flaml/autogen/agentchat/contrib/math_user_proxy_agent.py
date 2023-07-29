@@ -285,7 +285,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self,
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = DEFAULT_REPLY,
-        sender: Optional["Agent"] = None,
+        sender: Optional[Agent] = None,
     ) -> Union[str, Dict]:
         """Generate an auto reply."""
         if messages is None:
