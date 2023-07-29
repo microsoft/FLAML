@@ -419,6 +419,12 @@ class ResponsiveAgent(Agent):
                 # raise NotImplementedError
             self._code_execution_config["use_docker"] = image
             logs_all += "\n" + logs
+
+            if len(logs_all) > 1000:
+                # Hard limit to around 250 tokens 4 char = 1 token.
+                # TODO: Use tiktoken for fine-grained token count, and possibly calcuate token usage and limit
+                logs_all = logs_all[:1000] + "\n... (Error: The output is too long and is truncated. Please revise.)"
+                return 1, logs_all
             if exitcode != 0:
                 return exitcode, logs_all
         return exitcode, logs_all
