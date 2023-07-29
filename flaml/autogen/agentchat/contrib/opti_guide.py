@@ -15,7 +15,8 @@ code_utils.py. Please note and update the code accordingly.
 we would insert the newly added code.
 """
 import re
-from typing import Dict, Union
+from typing import Dict, List, Optional, Union
+from flaml.autogen.agentchat.agent import Agent
 
 import gurobipy as gp
 from eventlet.timeout import Timeout
@@ -66,7 +67,7 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 
 # %%
-class OptiGuideAgent(ResponsiveAgent):
+class OptiGuideAgent(AssistantAgent):
     """(Experimental) OptiGuide is an agent to write Python code and to answer
     users questions for supply chain-related coding project.
 
@@ -88,15 +89,79 @@ class OptiGuideAgent(ResponsiveAgent):
         assert source_code.find(DATA_CODE_STR) >= 0, "DATA_CODE_STR not found."
         assert source_code.find(CONSTRAINT_CODE_STR) >= 0, "CONSTRAINT_CODE_STR not found."
 
-        super().__init__(
-            name, max_consecutive_auto_reply=0, human_input_mode="NEVER", code_execution_config=False, **config
-        )
+        super().__init__(name, **config)
         self._source_code = source_code
         self._doc_str = doc_str
         self._example_qa = example_qa
         self._origin_execution_result = _run_with_exec(source_code)
-
+        self._pencil = AssistantAgent("pencil")
+        self._shield = AssistantAgent("shield")
         self._debug_opportunity = 3  # number of debug tries we allow for LLM
+        self._success = False
+
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        default_reply: Optional[Union[str, Dict]] = "",
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict]:
+        """Reply based on the conversation history."""
+        if sender not in [self._pencil, self._shield]:
+            # reply to user
+            user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
+            pencil_sys_msg = (
+                PENCIL_SYSTEM_MSG.format(
+                    source_code=self._source_code,
+                    doc_str=self._doc_str,
+                    example_qa=self._example_qa,
+                    execution_result=self._origin_execution_result,
+                )
+                + user_chat_history
+            )
+            shield_sys_msg = SHIELD_SYSTEM_MSG.format(source_code=self._source_code) + user_chat_history
+            self._pencil.update_system_message(pencil_sys_msg)
+            self._shield.update_system_message(shield_sys_msg)
+            self._pencil.reset()
+            self._shield.reset()
+            self._debug_opportunity = 3  # number of debug tries we allow for LLM
+            self._success = False
+            self.initiate_chat(self._pencil, message=CODE_PROMPT)
+            if self._success:
+                return self.last_message(self._pencil)["content"]
+            return "Sorry. I cannot answer your question."
+        if sender == self._pencil:
+            # reply to pencil
+            if self._success:
+                # no reply to pencil
+                return
+            code = extract_code(self.last_message(sender)["content"])[0][
+                1
+            ]  # First code block, the code (excluding language)
+            print(colored(code, "green"))
+            self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
+            safe_msg = self.last_message(sender)["content"]
+            print("Safety:", colored(safe_msg, "blue"))
+            if safe_msg.find("DANGER") < 0:
+                # Step 4 and 5: Run the code and obtain the results
+                src_code = _insert_code(self._source_code, code)
+                execution_rst = _run_with_exec(src_code)
+                print(colored(str(execution_rst), "yellow"))
+                if type(execution_rst) in [str, int, float]:
+                    # we successfully run the code and get the result
+                    self._success = True
+                    self.initiate_chat(message=INTERPRETER_PROMPT.format(result=execution_rst), recipient=self._pencil)
+                    return
+            else:
+                # DANGER: If not safe, try to debug. Redo coding
+                execution_rst = """
+Sorry, this new code is not safe to run. I would not allow you to execute it.
+Please try to find a new way (coding) to answer the question."""
+            # Try to debug and write code again
+            self._debug_opportunity -= 1
+            if self._debug_opportunity == 0:
+                return
+            return DEBUG_PROMPT.format(execution_rst)
+        # no reply to shield
 
     def receive(self, message: Union[Dict, str], sender):
         """Receive a message from the sender agent.
