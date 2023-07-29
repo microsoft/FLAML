@@ -45,6 +45,10 @@ def test_responsive_agent(monkeypatch):
         dummy_agent_1.oai_conversations["dummy_agent_2"]
     ), "When the message is not a valid openai message, it should not be appended to the oai conversation."
 
+    # update system message
+    dummy_agent_1.update_system_message("new system message")
+    assert dummy_agent_1._oai_system_message[0]["content"] == "new system message"
+
 
 if __name__ == "__main__":
     test_responsive_agent(pytest.monkeypatch)
