@@ -14,7 +14,6 @@ code_utils.py. Please note and update the code accordingly.
 4. We simplify the evaluation only to "DATA CODE" and "CONSTRAINT CODE", where
 we would insert the newly added code.
 """
-import pdb
 import re
 from typing import Dict, Union
 
@@ -23,32 +22,25 @@ from eventlet.timeout import Timeout
 from gurobipy import GRB
 from termcolor import colored
 
-from flaml import oai
 from flaml.autogen.agentchat import AssistantAgent, ResponsiveAgent, UserProxyAgent
-from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
+from flaml.autogen.code_utils import extract_code
 
 # %% System Messages
-ASSIST_SYSTEM_MSG = """You are OptiGuide,
-an agent to write Python code and to answer users questions for supply chain-related coding project.
-
-
-You are a chatbot to explain solutions from a Gurobi/Python solver.
-
+PENCIL_SYSTEM_MSG = """You are a chatbot to:
+(1) write Python code to answer users questions for supply chain-related coding project;
+(2) explain solutions from a Gurobi/Python solver.
 
 --- SOURCE CODE ---
 {source_code}
 
 --- DOC STR ---
 {doc_str}
-
+---
 
 Here are some example questions and their answers and codes:
 --- EXAMPLES ---
 {example_qa}
-
-
 ---
-
 
 The execution result of the original source code is below.
 --- Original Result ---
@@ -59,7 +51,7 @@ So, you don't need to write other code, such as m.optimize() or m.update().
 You just need to write code snippet.
 """
 
-SAFEGUARD_SYSTEM_MSG = """
+SHIELD_SYSTEM_MSG = """
 Given the original source code:
 {source_code}
 
@@ -76,7 +68,7 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 # %%
 class OptiGuideAgent(ResponsiveAgent):
     """(Experimental) OptiGuide is an agent to write Python code and to answer
-      users questions for supply chain-related coding project.
+    users questions for supply chain-related coding project.
 
     Here, the OptiGuide agent manages three agents (coder, safeguard, and interpreter)
     and two assistant agents (pencil and shield).
@@ -134,13 +126,13 @@ class OptiGuideAgent(ResponsiveAgent):
         safeguard = UserProxyAgent("safeguard", human_input_mode="NEVER", max_consecutive_auto_reply=0)
 
         # Spawn the assistants for coder, interpreter, and safeguard
-        writing_sys_msg = ASSIST_SYSTEM_MSG.format(
+        writing_sys_msg = PENCIL_SYSTEM_MSG.format(
             source_code=self._source_code,
             doc_str=self._doc_str,
             example_qa=self._example_qa,
             execution_result=self._origin_execution_result,
         )
-        shield_sys_msg = SAFEGUARD_SYSTEM_MSG.format(source_code=self._source_code)
+        shield_sys_msg = SHIELD_SYSTEM_MSG.format(source_code=self._source_code)
         pencil = AssistantAgent("pencil", system_message=writing_sys_msg + user_chat_history)
         shield = AssistantAgent("shield", system_message=shield_sys_msg + user_chat_history)
 
