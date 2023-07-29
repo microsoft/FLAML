@@ -20,7 +20,8 @@ def test_responsive_agent(monkeypatch):
 
     # receive dict without openai fields to be printed, such as "content", 'function_call'. There should be no error raised.
     pre_len = len(dummy_agent_1.oai_conversations["dummy_agent_2"])
-    dummy_agent_1.receive({"message": "hello"}, dummy_agent_2)
+    with pytest.raises(ValueError):
+        dummy_agent_1.receive({"message": "hello"}, dummy_agent_2)
     assert pre_len == len(
         dummy_agent_1.oai_conversations["dummy_agent_2"]
     ), "When the message is not an valid openai message, it should not be appended to the oai conversation."
@@ -43,6 +44,10 @@ def test_responsive_agent(monkeypatch):
     assert pre_len == len(
         dummy_agent_1.oai_conversations["dummy_agent_2"]
     ), "When the message is not a valid openai message, it should not be appended to the oai conversation."
+
+    # update system message
+    dummy_agent_1.update_system_message("new system message")
+    assert dummy_agent_1._oai_system_message[0]["content"] == "new system message"
 
 
 if __name__ == "__main__":
