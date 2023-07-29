@@ -104,10 +104,10 @@ class OptiGuideAgent(AssistantAgent):
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
-    ) -> Union[str, Dict]:
+    ) -> Union[str, Dict, None]:
         """Reply based on the conversation history."""
         if sender not in [self._pencil, self._shield]:
-            # reply to user
+            # Step 1: receive the message from the user
             user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
             pencil_sys_msg = (
                 PENCIL_SYSTEM_MSG.format(
@@ -125,136 +125,50 @@ class OptiGuideAgent(AssistantAgent):
             self._shield.reset()
             self._debug_opportunity = 3  # number of debug tries we allow for LLM
             self._success = False
+            # Step 2-6: code, safeguard, and interpret
             self.initiate_chat(self._pencil, message=CODE_PROMPT)
             if self._success:
-                return self.last_message(self._pencil)["content"]
-            return "Sorry. I cannot answer your question."
+                # step 7: receive interpret result
+                reply = self.last_message(self._pencil)["content"]
+            else:
+                reply = "Sorry. I cannot answer your question."
+            # Finally, step 8: send reply to user
+            return reply
         if sender == self._pencil:
-            # reply to pencil
-            if self._success:
+            if self._success or self._debug_opportunity <= 0:
                 # no reply to pencil
                 return
-            code = extract_code(self.last_message(sender)["content"])[0][
-                1
-            ]  # First code block, the code (excluding language)
-            print(colored(code, "green"))
-            self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
-            safe_msg = self.last_message(sender)["content"]
-            print("Safety:", colored(safe_msg, "blue"))
-            if safe_msg.find("DANGER") < 0:
-                # Step 4 and 5: Run the code and obtain the results
-                src_code = _insert_code(self._source_code, code)
-                execution_rst = _run_with_exec(src_code)
-                print(colored(str(execution_rst), "yellow"))
-                if type(execution_rst) in [str, int, float]:
-                    # we successfully run the code and get the result
-                    self._success = True
-                    self.initiate_chat(message=INTERPRETER_PROMPT.format(result=execution_rst), recipient=self._pencil)
-                    return
-            else:
-                # DANGER: If not safe, try to debug. Redo coding
-                execution_rst = """
-Sorry, this new code is not safe to run. I would not allow you to execute it.
-Please try to find a new way (coding) to answer the question."""
-            # Try to debug and write code again
-            self._debug_opportunity -= 1
-            if self._debug_opportunity == 0:
-                return
-            return DEBUG_PROMPT.format(execution_rst)
+            # reply to pencil
+            return self._generate_reply_to_pencil(sender)
         # no reply to shield
 
-    def receive(self, message: Union[Dict, str], sender):
-        """Receive a message from the sender agent.
-        Once a message is received, this function sends a reply to the sender or simply stop.
-        The reply can be generated automatically or entered manually by a human.
-
-        OptiGuide will invoke its components: coder, safeguard, and interpreter
-        to generate the reply.
-
-        The steps follow the one in Figure 2 of the OptiGuide paper.
-        """
-        # Step 1: receive the message
-        message = self._message_to_dict(message)
-        super().receive(message, sender)
-        # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
-        reply = ""
-        message["content"]
-
-        user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
-
-        # Spawn coder, interpreter, and safeguard
-        # Note: we use the same agent for coding and interpreting, so that they
-        # can share the same chat history.
-        coder = interpreter = UserProxyAgent(
-            "coder interpreter", human_input_mode="NEVER", max_consecutive_auto_reply=0
-        )
-        safeguard = UserProxyAgent("safeguard", human_input_mode="NEVER", max_consecutive_auto_reply=0)
-
-        # Spawn the assistants for coder, interpreter, and safeguard
-        writing_sys_msg = PENCIL_SYSTEM_MSG.format(
-            source_code=self._source_code,
-            doc_str=self._doc_str,
-            example_qa=self._example_qa,
-            execution_result=self._origin_execution_result,
-        )
-        shield_sys_msg = SHIELD_SYSTEM_MSG.format(source_code=self._source_code)
-        pencil = AssistantAgent("pencil", system_message=writing_sys_msg + user_chat_history)
-        shield = AssistantAgent("shield", system_message=shield_sys_msg + user_chat_history)
-
-        debug_opportunity = self._debug_opportunity
-
-        new_code = None
-        execution_rst = None
-        success = False
-        while execution_rst is None and debug_opportunity > 0:
-            # Step 2: Write code
-            if new_code is None:
-                # The first time we are trying to solve the question in this session
-                msg = CODE_PROMPT
-            else:
-                # debug code
-                msg = DEBUG_PROMPT.format(execution_rst)
-
-            coder.send(message=msg, recipient=pencil)
-            new_code = coder.oai_conversations[pencil.name][-1]["content"]
-            new_code = extract_code(new_code)[0][1]  # First code block, the code (excluding language)
-            print(colored(new_code, "green"))
-
-            # Step 3: safeguard
-            # FYI: in production, there are some other steps to check the code; for instance,
-            # with a static code analyzer or some other external packages.
-            safeguard.send(message=SAFEGUARD_PROMPT.format(code=new_code), recipient=shield)
-            safe_msg = safeguard.oai_conversations[shield.name][-1]["content"]
-            print("Safety:", colored(safe_msg, "blue"))
-
-            if safe_msg.find("DANGER") < 0:
-                # Step 4 and 5: Run the code and obtain the results
-                src_code = _insert_code(self._source_code, new_code)
-                execution_rst = _run_with_exec(src_code)
-
-                print(colored(str(execution_rst), "yellow"))
-                if type(execution_rst) in [str, int, float]:
-                    success = True
-                    break  # we successfully run the code and get the result
-            else:
-                # DANGER: If not safe, try to debug. Redo coding
-                execution_rst = """
-                Sorry, this new code is not safe to run. I would not allow you to execute it.
-                Please try to find a new way (coding) to answer the question."""
-
-            # Try to debug and write code again
-            debug_opportunity -= 1
-
-        if success:
-            # Step 6 - 7: interpret results
-            interpret_msg = INTERPRETER_PROMPT.format(execution_rst=execution_rst)
-            interpreter.send(message=interpret_msg, recipient=pencil)
-            reply = interpreter.oai_conversations[pencil.name][-1]["content"]
+    def _generate_reply_to_pencil(self, sender):
+        # Step 3: safeguard
+        code = extract_code(self.last_message(sender)["content"])[0][
+            1
+        ]  # First code block, the code (excluding language)
+        print(colored(code, "green"))
+        self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
+        safe_msg = self.last_message(sender)["content"]
+        print("Safety:", colored(safe_msg, "blue"))
+        if safe_msg.find("DANGER") < 0:
+            # Step 4 and 5: Run the code and obtain the results
+            src_code = _insert_code(self._source_code, code)
+            execution_rst = _run_with_exec(src_code)
+            print(colored(str(execution_rst), "yellow"))
+            if type(execution_rst) in [str, int, float]:
+                # we successfully run the code and get the result
+                self._success = True
+                # Step 6: request to interpret results
+                return INTERPRETER_PROMPT.format(result=execution_rst)
         else:
-            reply = "Sorry. I cannot answer your question."
-
-        # Finally, step 8: send reply
-        self.send(reply, sender)
+            # DANGER: If not safe, try to debug. Redo coding
+            execution_rst = """
+Sorry, this new code is not safe to run. I would not allow you to execute it.
+Please try to find a new way (coding) to answer the question."""
+        # Try to debug and write code again (back to step 2)
+        self._debug_opportunity -= 1
+        return DEBUG_PROMPT.format(execution_rst)
 
 
 # %% Helper functions to edit and run code.
