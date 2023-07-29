@@ -18,12 +18,11 @@ import re
 from typing import Dict, List, Optional, Union
 from flaml.autogen.agentchat.agent import Agent
 
-import gurobipy as gp
 from eventlet.timeout import Timeout
 from gurobipy import GRB
 from termcolor import colored
 
-from flaml.autogen.agentchat import AssistantAgent, ResponsiveAgent, UserProxyAgent
+from flaml.autogen.agentchat import AssistantAgent
 from flaml.autogen.code_utils import extract_code
 
 # %% System Messages
@@ -123,7 +122,7 @@ class OptiGuideAgent(AssistantAgent):
             self._shield.update_system_message(shield_sys_msg)
             self._pencil.reset()
             self._shield.reset()
-            self._debug_opportunity = 3  # number of debug tries we allow for LLM
+            self._debug_opportunity = 3  # number of debug tries we allow for pencil
             self._success = False
             # Step 2-6: code, safeguard, and interpret
             self.initiate_chat(self._pencil, message=CODE_PROMPT)
@@ -135,14 +134,14 @@ class OptiGuideAgent(AssistantAgent):
             # Finally, step 8: send reply to user
             return reply
         if sender == self._pencil:
-            if self._success or self._debug_opportunity <= 0:
-                # no reply to pencil
-                return
             # reply to pencil
             return self._generate_reply_to_pencil(sender)
         # no reply to shield
 
     def _generate_reply_to_pencil(self, sender):
+        if self._success:
+            # no reply to pencil
+            return
         # Step 3: safeguard
         code = extract_code(self.last_message(sender)["content"])[0][
             1
@@ -166,9 +165,10 @@ class OptiGuideAgent(AssistantAgent):
             execution_rst = """
 Sorry, this new code is not safe to run. I would not allow you to execute it.
 Please try to find a new way (coding) to answer the question."""
-        # Try to debug and write code again (back to step 2)
-        self._debug_opportunity -= 1
-        return DEBUG_PROMPT.format(execution_rst)
+        if self._debug_opportunity > 0:
+            # Try to debug and write code again (back to step 2)
+            self._debug_opportunity -= 1
+            return DEBUG_PROMPT.format(execution_rst)
 
 
 # %% Helper functions to edit and run code.
