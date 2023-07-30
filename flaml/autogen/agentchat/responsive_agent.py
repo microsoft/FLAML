@@ -358,12 +358,13 @@ class ResponsiveAgent(Agent, RoleplayMixin):
         # search from the most recent message to the oldest message for code blocks
         for msg in reversed(messages):
             code_blocks = extract_code(msg["content"])
-            print("code_blocks", code_blocks)
             if len(code_blocks) == 1 and code_blocks[0][0] != UNKNOWN:
                 break
 
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
+            if default_reply == "":
+                default_reply = "failed to find code block, please make sure the code is in a code block."
             return default_reply if self.oai_config is False else self._oai_reply(messages)
         # try to execute the code
         print("found code! executing...")

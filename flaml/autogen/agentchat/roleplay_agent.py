@@ -81,7 +81,7 @@ rules:
 You are in a multi-role play game and your task is to continue writing conversation. Follow the rule and pick a role to continue conversation. Put role's name in square brackets.
 (e.g: [role]: // short and precise message)"""
 
-        chat_history = [{"role": "user", "content": str(message)} for message in chat_history]
+        chat_history = [{"role": "user", "content": self._render_message(message)} for message in chat_history]
         task_message = {"role": "user", "content": task_prompt}
 
         reply = self._oai_reply([task_message] + chat_history)
@@ -102,7 +102,7 @@ You are in a multi-role play game and your task is to continue writing conversat
     def role_play(self, chat_history: List[Dict], role_description: List[Tuple[str, str]], rule: str) -> Dict:
         prompt = self._render_role_play(chat_history, role_description, rule)
         task_message = {"role": "user", "content": prompt}
-        chat_history = [{"role": "user", "content": str(message)} for message in chat_history]
+        chat_history = [{"role": "user", "content": self._render_message(message)} for message in chat_history]
         # only get the last 5 messages
         chat_history = chat_history[-5:]
         new_message = {"role": "user", "content": f"[{self.name}]:"}

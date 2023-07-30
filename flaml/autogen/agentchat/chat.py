@@ -32,10 +32,10 @@ class Chat:
         return description
 
     def _select_next_speaker(self, description: List[Tuple[str, str]], rules: str) -> ResponsiveAgent:
-        agent_list = [agent for agent in self.agents] + [self.user]
-
+        llm_agents = [agent for agent in self.agents if agent.oai_config is not None and agent.oai_config is not False]
+        agent_list = self.agents + [self.user]
         # randomly select an agent
-        selected_agent = random.choice(self.agents)
+        selected_agent = random.choice(llm_agents)
         next_agent_index = selected_agent.select_role(self.chat_history, description, rules)
         if next_agent_index < 0:
             return self.user
@@ -48,9 +48,15 @@ class Chat:
     def _summarize_rule_from_chat_history(self, chat_history: List[Dict], admin: str) -> str:
         # randomly select an agent
         # and summarize the rule
-        agent = random.choice(self.agents)
+        llm_agents = [agent for agent in self.agents if agent.oai_config is not None and agent.oai_config is not False]
+        agent = random.choice(llm_agents)
         return agent.summarize_rule_from_chat_history(chat_history, admin)
 
+    def _render_message(self, message: Dict) -> str:
+        # remove newline characters
+        content = message["content"]
+        return f"[{message['role']}]: {content}"
+    
     def send_single_step(self, message: Dict) -> Dict:
         self.push_message(message)
         description = self._get_role_description()
@@ -73,7 +79,7 @@ class Chat:
         """
 
         for _ in range(max_round):
-            print(message)
+            print(self._render_message(message))
             message = self.send_single_step(message)
 
         return self.chat_history + [message]
