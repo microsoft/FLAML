@@ -2,9 +2,6 @@ import pytest
 import sys
 import requests  # for loading the example source code
 from flaml import oai
-from flaml.autogen.agentchat.contrib.opti_guide import (
-    OptiGuideAgent,
-)
 from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 
@@ -19,6 +16,7 @@ def test_optiguide():
         return
 
     from flaml.autogen.agentchat import UserProxyAgent
+    from flaml.autogen.agentchat.contrib.opti_guide import OptiGuideAgent
 
     conversations = {}
     oai.ChatCompletion.start_logging(conversations)
@@ -50,10 +48,17 @@ def test_optiguide():
         "What is the impact of supplier1 being able to supply only half the quantity at present?", assistant
     )
     user_proxy.send("What if Roastery 1 is exclusively for Cafe 3", assistant)
-    assistant.reset()
-    user_proxy.send("What's the weather today", assistant)
 
-    print(conversations)
+    # test danger case
+    assistant.reset()
+    assistant.debug_times = 1
+    assistant._shield.generate_reply = lambda **_: "DANGER"
+    user_proxy.send("What's the weather today", assistant)
+    assert (
+        assistant._debug_times_left == 0
+        and assistant.last_message(user_proxy)["content"] == "Sorry. I cannot answer your question."
+    )
+    # print(conversations)
 
 
 if __name__ == "__main__":

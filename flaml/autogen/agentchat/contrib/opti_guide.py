@@ -73,13 +73,14 @@ class OptiGuideAgent(AssistantAgent):
     Here, the OptiGuide agent manages two assistant agents (pencil and shield).
     """
 
-    def __init__(self, name, source_code, doc_str="", example_qa="", **config):
+    def __init__(self, name, source_code, doc_str="", example_qa="", debug_times=3, **config):
         """
         Args:
             name (str): agent name.
             source_code (str): The original source code to run.
             doc_str (str): docstring for helper functions if existed.
             example_qa (str): training examples for in-context learning.
+            debug_times (int): number of debug tries we allow for LLM.
             **config (dict): other configurations allowed in
               [ResponsiveAgent](../responsive_agent/ResponsiveAgent#__init__).
         """
@@ -93,7 +94,7 @@ class OptiGuideAgent(AssistantAgent):
         self._origin_execution_result = _run_with_exec(source_code)
         self._pencil = AssistantAgent("pencil", oai_config=self.oai_config)
         self._shield = AssistantAgent("shield", oai_config=self.oai_config)
-        self._debug_opportunity = 3  # number of debug tries we allow for LLM
+        self._debug_times_left = self.debug_times = 3
         self._success = False
 
     def generate_reply(
@@ -120,7 +121,7 @@ class OptiGuideAgent(AssistantAgent):
             self._shield.update_system_message(shield_sys_msg)
             self._pencil.reset()
             self._shield.reset()
-            self._debug_opportunity = 3  # number of debug tries we allow for pencil
+            self._debug_times_left = self.debug_times
             self._success = False
             # Step 2-6: code, safeguard, and interpret
             self.initiate_chat(self._pencil, message=CODE_PROMPT)
@@ -142,15 +143,15 @@ class OptiGuideAgent(AssistantAgent):
             return
         # Step 3: safeguard
         _, code = extract_code(self.last_message(sender)["content"])[0]
-        print(colored(code, "green"))
+        # print(colored(code, "green"))
         self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
         safe_msg = self.last_message(self._shield)["content"]
-        print("Safety:", colored(safe_msg, "blue"))
+        # print("Safety:", colored(safe_msg, "blue"))
         if safe_msg.find("DANGER") < 0:
             # Step 4 and 5: Run the code and obtain the results
             src_code = _insert_code(self._source_code, code)
             execution_rst = _run_with_exec(src_code)
-            print(colored(str(execution_rst), "yellow"))
+            # print(colored(str(execution_rst), "yellow"))
             if type(execution_rst) in [str, int, float]:
                 # we successfully run the code and get the result
                 self._success = True
@@ -161,9 +162,9 @@ class OptiGuideAgent(AssistantAgent):
             execution_rst = """
 Sorry, this new code is not safe to run. I would not allow you to execute it.
 Please try to find a new way (coding) to answer the question."""
-        if self._debug_opportunity > 0:
+        if self._debug_times_left > 0:
             # Try to debug and write code again (back to step 2)
-            self._debug_opportunity -= 1
+            self._debug_times_left -= 1
             return DEBUG_PROMPT.format(error_message=execution_rst)
 
 
