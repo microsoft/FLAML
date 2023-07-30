@@ -5,6 +5,13 @@ from flaml import oai
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
 
+try:
+    from termcolor import colored
+except ImportError:
+
+    def colored(x, *args, **kwargs):
+        return x
+
 
 class ResponsiveAgent(Agent):
     """(Experimental) A class for generic responsive agents which can be configured as assistant or user proxy.
@@ -215,25 +222,25 @@ class ResponsiveAgent(Agent):
 
     def _print_received_message(self, message: Union[Dict, str], sender: Agent):
         # print the message received
-        print(sender.name, "(to", f"{self.name}):\n", flush=True)
+        print(colored(sender.name, "yellow"), "(to", f"{self.name}):\n", flush=True)
         if message.get("role") == "function":
             func_print = f"***** Response from calling function \"{message['name']}\" *****"
-            print(func_print, flush=True)
+            print(colored(func_print, "green"), flush=True)
             print(message["content"], flush=True)
-            print("*" * len(func_print), flush=True)
+            print(colored("*" * len(func_print), "green"), flush=True)
         else:
             if message.get("content") is not None:
                 print(message["content"], flush=True)
             if "function_call" in message:
                 func_print = f"***** Suggested function Call: {message['function_call'].get('name', '(No function name found)')} *****"
-                print(func_print, flush=True)
+                print(colored(func_print, "green"), flush=True)
                 print(
                     "Arguments: \n",
                     message["function_call"].get("arguments", "(No arguments found)"),
                     flush=True,
                     sep="",
                 )
-                print("*" * len(func_print), flush=True)
+                print(colored("*" * len(func_print), "green"), flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
     def receive(self, message: Union[Dict, str], sender: Agent):
@@ -299,7 +306,7 @@ class ResponsiveAgent(Agent):
 
         # print the no_human_input_msg
         if no_human_input_msg:
-            print(f"\n>>>>>>>> {no_human_input_msg}", flush=True)
+            print(colored(f"\n>>>>>>>> {no_human_input_msg}", "red"), flush=True)
 
         # stop the conversation
         if reply == "exit":
@@ -317,7 +324,7 @@ class ResponsiveAgent(Agent):
         # send the auto reply
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
-            print("\n>>>>>>>> USING AUTO REPLY...", flush=True)
+            print(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
         reply = self.generate_reply(sender=sender)
         if reply is not None:
             self.send(reply, sender)
