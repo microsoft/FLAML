@@ -16,13 +16,11 @@ we would insert the newly added code.
 """
 import re
 from typing import Dict, List, Optional, Union
-from flaml.autogen.agentchat.agent import Agent
 
 from eventlet.timeout import Timeout
 from gurobipy import GRB
-from termcolor import colored
 
-from flaml.autogen.agentchat import AssistantAgent
+from flaml.autogen import Agent, AssistantAgent
 from flaml.autogen.code_utils import extract_code
 
 # %% System Messages

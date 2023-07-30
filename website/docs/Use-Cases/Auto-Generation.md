@@ -27,7 +27,7 @@ One can also easily extend it by overriding the `generate_reply` function of the
 
 Example usage of the agents to solve a task with code:
 ```python
-from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
+from flaml.autogen import AssistantAgent, UserProxyAgent
 
 # create an AssistantAgent instance named "assistant"
 assistant = AssistantAgent(name="assistant")
@@ -64,7 +64,7 @@ To leverage [function calling capability of OpenAI's Chat Completions API](https
 
 Example usage of the agents to solve a task with function calling feature:
 ```python
-from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
+from flaml.autogen import AssistantAgent, UserProxyAgent
 
 # put the descriptions of functions in config to be passed to OpenAI's API
 llm_config = {
@@ -157,7 +157,7 @@ user_proxy.initiate_chat(
 ## Enhanced Inference
 
 One can use [`flaml.autogen.Completion.create`](/docs/reference/autogen/oai/completion#create) to perform inference.
-There are a number of benefits of using `flaml.autogen.Completion.create` to perform inference.
+There are a number of benefits of using `autogen` to perform inference.
 
 ### Tune Inference Parameters
 
