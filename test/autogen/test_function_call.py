@@ -6,8 +6,7 @@ import pytest
 import json
 from flaml import autogen
 from flaml.autogen.math_utils import eval_math_responses
-
-KEY_LOC = "notebook"
+from test_code import KEY_LOC
 
 
 @pytest.mark.skipif(openai is None, reason="openai not installed")

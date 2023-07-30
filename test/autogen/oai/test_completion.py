@@ -11,8 +11,6 @@ from flaml.autogen.code_utils import (
     generate_assertions,
     implement,
     generate_code,
-    improve_function,
-    improve_code,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
@@ -102,39 +100,6 @@ def test_multi_model():
         prompt="Hi",
     )
     print(response)
-
-
-def test_improve():
-    try:
-        import openai
-        import diskcache
-    except ImportError as exc:
-        print(exc)
-        return
-    config_list = autogen.config_list_openai_aoai(KEY_LOC)
-    improved, _ = improve_function(
-        "flaml/autogen/math_utils.py",
-        "solve_problem",
-        "Solve math problems accurately, by avoiding calculation errors and reduce reasoning errors.",
-        config_list=config_list,
-    )
-    with open(f"{here}/math_utils.py.improved", "w") as f:
-        f.write(improved)
-    suggestion, _ = improve_code(
-        ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
-        "leverage generative AI smartly and cost-effectively",
-        config_list=config_list,
-    )
-    print(suggestion)
-    improvement, cost = improve_code(
-        ["flaml/autogen/code_utils.py", "flaml/autogen/math_utils.py"],
-        "leverage generative AI smartly and cost-effectively",
-        suggest_only=False,
-        config_list=config_list,
-    )
-    print(cost)
-    with open(f"{here}/suggested_improvement.txt", "w") as f:
-        f.write(improvement)
 
 
 def test_nocontext():

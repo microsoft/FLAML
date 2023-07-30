@@ -54,6 +54,40 @@ def extract_code(text: str, pattern: str = CODE_BLOCK_PATTERN) -> List[Tuple[str
     return match if match else [(UNKNOWN, text)]
 
 
+_FIND_CODE_SYS_MSG = [
+    {
+        "role": "system",
+        "content": """Read the conversation, and then find the right code blocks to run.
+Only return the code blocks that are expected to run and put them in a right order.
+If the line beginning with "# filename" is put before a code block, move it into the code block as the first line.
+Add the right "python" or "sh" identifier if it's missing for a code block.
+If no code block is expeted to run, check whether the task has been successfully finished at full satisfaction.
+If not, reply with the reason why the task is not finished.""",
+    },
+]
+_FIND_CODE_CONFIG = {
+    "model": FAST_MODEL,
+}
+
+
+def find_code(messages: List[Dict], sys_msg=None, **config) -> List[Tuple[str, str]]:
+    """Find code from a list of messages.
+
+    Args:
+        messages (str): The list of messages to find code from.
+        sys_msg (Optional, str): The system message to prepend to the messages.
+        config (Optional, dict): The configuration for the API call.
+
+    Returns:
+        list: A list of tuples, each containing the language and the code.
+    """
+    params = {**_FIND_CODE_CONFIG, **config}
+    if sys_msg is None or not sys_msg[0]["content"]:
+        sys_msg = _FIND_CODE_SYS_MSG
+    response = oai.ChatCompletion.create(messages=sys_msg + messages, **params)
+    return extract_code(oai.Completion.extract_text(response)[0])
+
+
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:
     """Generate code.
 

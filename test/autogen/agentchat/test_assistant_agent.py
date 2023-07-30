@@ -75,14 +75,14 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
             },
         },
     )
+    llm_config = {
+        "seed": 42,
+        "config_list": config_list,
+        "max_tokens": 1024,
+    }
     assistant = AssistantAgent(
         "coding_agent",
-        llm_config={
-            # "request_timeout": 600,
-            "seed": 42,
-            "config_list": config_list,
-            "max_tokens": 1024,
-        },
+        llm_config=llm_config,
     )
     user = UserProxyAgent(
         "user",
@@ -94,6 +94,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
             "use_docker": "python:3",
             "timeout": 60,
         },
+        llm_config=llm_config,
     )
     user.initiate_chat(assistant, message="TERMINATE")
     # should terminate without sending any message
@@ -118,13 +119,14 @@ def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_re
     config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
     conversations = {}
     autogen.ChatCompletion.start_logging(conversations)
+    llm_config = {
+        "request_timeout": 600,
+        "seed": 42,
+        "config_list": config_list,
+    }
     assistant = AssistantAgent(
         "assistant",
-        llm_config={
-            "request_timeout": 600,
-            "seed": 42,
-            "config_list": config_list,
-        },
+        llm_config=llm_config,
     )
     user = UserProxyAgent(
         "user",

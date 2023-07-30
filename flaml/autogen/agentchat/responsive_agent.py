@@ -3,7 +3,7 @@ import json
 from typing import Callable, Dict, List, Optional, Union
 from flaml.autogen import oai
 from .agent import Agent
-from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
+from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, find_code, infer_lang
 
 try:
     from termcolor import colored
@@ -379,7 +379,11 @@ class ResponsiveAgent(Agent):
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
-            return default_reply if self.llm_config is False else self._oai_reply(messages)
+            if self.llm_config is False:
+                return default_reply
+            code_blocks = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
+            if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
+                return code_blocks[0][1]  # self._oai_reply(messages)
         # try to execute the code
         exitcode, logs = self.execute_code_blocks(code_blocks)
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
