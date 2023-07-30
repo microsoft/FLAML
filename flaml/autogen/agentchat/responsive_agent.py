@@ -354,14 +354,14 @@ class ResponsiveAgent(Agent, RoleplayMixin):
             return func_return
         if self._code_execution_config is False:
             return default_reply if self.oai_config is False else self._oai_reply(messages)
-        
+
         # search from the most recent message to the oldest message for code blocks
         for msg in reversed(messages):
             code_blocks = extract_code(msg["content"])
             print("code_blocks", code_blocks)
             if len(code_blocks) == 1 and code_blocks[0][0] != UNKNOWN:
                 break
-        
+
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
             return default_reply if self.oai_config is False else self._oai_reply(messages)
