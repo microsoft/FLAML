@@ -1,7 +1,7 @@
 from collections import defaultdict
 import json
 from typing import Callable, Dict, List, Optional, Union
-from flaml import oai
+from flaml.autogen import oai
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
 
@@ -42,12 +42,12 @@ class ResponsiveAgent(Agent):
         human_input_mode: Optional[str] = "TERMINATE",
         function_map: Optional[Dict[str, Callable]] = None,
         code_execution_config: Optional[Union[Dict, bool]] = None,
-        oai_config: Optional[Union[Dict, bool]] = None,
+        llm_config: Optional[Union[Dict, bool]] = None,
     ):
         """
         Args:
             name (str): name of the agent.
-            system_message (str): system message for the oai inference.
+            system_message (str): system message for the ChatCompletion inference.
             is_termination_msg (function): a function that takes a message in the form of a dictionary
                 and returns a boolean value indicating if this received message is a termination message.
                 The dict can contain the following keys: "content", "role", "name", "function_call".
@@ -78,24 +78,24 @@ class ResponsiveAgent(Agent):
                     If the code is executed in the current environment,
                     the code must be trusted.
                 - timeout (Optional, int): The maximum execution time in seconds.
-            oai_config (dict or False): oai inference configuration.
-                Please refer to [oai.Completion.create](/docs/reference/autogen/oai/completion#create)
+            llm_config (dict or False): llm inference configuration.
+                Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
                 for available options.
-                To disable oai-based auto reply, set to False.
+                To disable llm-based auto reply, set to False.
         """
         super().__init__(name)
         # a dictionary of conversations, default value is list
-        self._oai_conversations = defaultdict(list)
+        self._oai_messages = defaultdict(list)
         self._oai_system_message = [{"content": system_message, "role": "system"}]
         self._is_termination_msg = (
             is_termination_msg if is_termination_msg is not None else (lambda x: x.get("content") == "TERMINATE")
         )
-        if oai_config is False:
-            self.oai_config = False
+        if llm_config is False:
+            self.llm_config = False
         else:
-            self.oai_config = self.DEFAULT_CONFIG.copy()
-            if isinstance(oai_config, dict):
-                self.oai_config.update(oai_config)
+            self.llm_config = self.DEFAULT_CONFIG.copy()
+            if isinstance(llm_config, dict):
+                self.llm_config.update(llm_config)
 
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self.human_input_mode = human_input_mode
@@ -109,14 +109,14 @@ class ResponsiveAgent(Agent):
         """Update the system message.
 
         Args:
-            system_message (str): system message for the oai inference.
+            system_message (str): system message for the ChatCompletion inference.
         """
         self._oai_system_message[0]["content"] = system_message
 
     @property
-    def oai_conversations(self) -> Dict[str, List[Dict]]:
-        """A dictionary of conversations from name to list of oai messages."""
-        return self._oai_conversations
+    def chat_messages(self) -> Dict[str, List[Dict]]:
+        """A dictionary of conversations from name to list of ChatCompletion messages."""
+        return self._oai_messages
 
     def last_message(self, agent: Optional[Agent] = None) -> Dict:
         """The last message exchanged with the agent.
@@ -130,14 +130,14 @@ class ResponsiveAgent(Agent):
             The last message exchanged with the agent.
         """
         if agent is None:
-            n_conversations = len(self._oai_conversations)
+            n_conversations = len(self._oai_messages)
             if n_conversations == 0:
                 return None
             if n_conversations == 1:
-                for conversation in self._oai_conversations.values():
+                for conversation in self._oai_messages.values():
                     return conversation[-1]
             raise ValueError("More than one conversation is found. Please specify the sender to get the last message.")
-        return self._oai_conversations[agent.name][-1]
+        return self._oai_messages[agent.name][-1]
 
     @property
     def use_docker(self) -> Union[bool, str, None]:
@@ -157,19 +157,19 @@ class ResponsiveAgent(Agent):
             return message
 
     def _append_oai_message(self, message: Union[Dict, str], role, conversation_id) -> bool:
-        """Append a message to the oai conversation.
+        """Append a message to the ChatCompletion conversation.
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
         If the message received is a dictionary but does not have any of the two fields "content" or "function_call",
-            this message is not a valid oai message.
+            this message is not a valid ChatCompletion message.
 
         Args:
-            message (dict or str): message to be appended to the oai conversation.
+            message (dict or str): message to be appended to the ChatCompletion conversation.
             role (str): role of the message, can be "assistant" or "function".
             conversation_id (str): id of the conversation, should be the name of the recipient or sender.
 
         Returns:
-            bool: whether the message is appended to the oai conversation.
+            bool: whether the message is appended to the ChatCompletion conversation.
         """
         message = self._message_to_dict(message)
         # create oai message to be appended to the oai conversation that can be passed to oai directly.
@@ -178,7 +178,7 @@ class ResponsiveAgent(Agent):
             return False
 
         oai_message["role"] = "function" if message.get("role") == "function" else role
-        self._oai_conversations[conversation_id].append(oai_message)
+        self._oai_messages[conversation_id].append(oai_message)
         return True
 
     def send(self, message: Union[Dict, str], recipient: Agent):
@@ -193,7 +193,7 @@ class ResponsiveAgent(Agent):
                 - role (str): the role of the message, any role that is not "function"
                     will be modified to "assistant".
                 - context (dict): the context of the message, which will be passed to
-                    [oai.Completion.create](../oai/Completion#create).
+                    [autogen.Completion.create](../oai/Completion#create).
                     For example, one agent can send a message A as:
         ```python
         {
@@ -210,7 +210,7 @@ class ResponsiveAgent(Agent):
             recipient (Agent): the recipient of the message.
 
         Raises:
-            ValueError: if the message is not a valid oai message.
+            ValueError: if the message can't be converted into a valid ChatCompletion message.
         """
         # When the agent composes and sends the message, the role of the message is "assistant"
         # unless it's "function".
@@ -218,7 +218,9 @@ class ResponsiveAgent(Agent):
         if valid:
             recipient.receive(message, self)
         else:
-            raise ValueError("Message is not a valid oai message. Either content or function_call must be provided.")
+            raise ValueError(
+                "Message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
+            )
 
     def _print_received_message(self, message: Union[Dict, str], sender: Agent):
         # print the message received
@@ -257,13 +259,16 @@ class ResponsiveAgent(Agent):
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
             sender: sender of an Agent instance.
+
+        Raises:
+            ValueError: if the message can't be converted into a valid ChatCompletion message.
         """
         message = self._message_to_dict(message)
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
         valid = self._append_oai_message(message, "user", sender.name)
         if not valid:
             raise ValueError(
-                "Received message is not a valid oai message. Either content or function_call must be provided."
+                "Received message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
             )
         self._print_received_message(message, sender)
 
@@ -331,13 +336,13 @@ class ResponsiveAgent(Agent):
 
     def reset(self):
         """Reset the agent."""
-        self._oai_conversations.clear()
+        self._oai_messages.clear()
         self._consecutive_auto_reply_counter.clear()
 
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
-            context=messages[-1].get("context"), messages=self._oai_system_message + messages, **self.oai_config
+            context=messages[-1].get("context"), messages=self._oai_system_message + messages, **self.llm_config
         )
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
@@ -364,17 +369,17 @@ class ResponsiveAgent(Agent):
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
         if messages is None:
-            messages = self._oai_conversations[sender.name]
+            messages = self._oai_messages[sender.name]
         message = messages[-1]
         if "function_call" in message:
             _, func_return = self.execute_function(message["function_call"])
             return func_return
         if self._code_execution_config is False:
-            return default_reply if self.oai_config is False else self._oai_reply(messages)
+            return default_reply if self.llm_config is False else self._oai_reply(messages)
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
-            return default_reply if self.oai_config is False else self._oai_reply(messages)
+            return default_reply if self.llm_config is False else self._oai_reply(messages)
         # try to execute the code
         exitcode, logs = self.execute_code_blocks(code_blocks)
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"

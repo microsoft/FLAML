@@ -289,7 +289,7 @@ class MathUserProxyAgent(UserProxyAgent):
     ) -> Union[str, Dict, None]:
         """Generate an auto reply."""
         if messages is None:
-            messages = self._oai_conversations[sender.name]
+            messages = self._oai_messages[sender.name]
         message = messages[-1]
         message = message.get("content", "")
         code_blocks = extract_code(message)

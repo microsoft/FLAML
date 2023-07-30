@@ -8,8 +8,15 @@ import re
 import time
 from hashlib import md5
 import logging
-from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
+from flaml.autogen import oai
 
+try:
+    import docker
+except ImportError:
+    docker = None
+
+DEFAULT_MODEL = "gpt-4"
+FAST_MODEL = "gpt-3.5-turbo"
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```(\w*)\n(.*?)\n```"
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
@@ -138,7 +145,7 @@ def execute_code(
     timeout: Optional[int] = None,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[Union[List[str], str, bool]] = True,
+    use_docker: Optional[Union[List[str], str, bool]] = docker is not None,
     lang: Optional[str] = "python",
 ) -> Tuple[int, bytes, str]:
     """Execute code in a docker container.
@@ -217,8 +224,6 @@ def execute_code(
         if original_filename is None:
             os.remove(filepath)
         return result.returncode, result.stderr if result.returncode else result.stdout, None
-
-    import docker
 
     # create a docker client
     client = docker.from_env()
