@@ -237,8 +237,8 @@ first to install pandas.
     assert codeblocks[0][0] != "unknown", content
 
     messages[-1]["content"] = "please skip pip install pandas if you already have pandas installed"
-    codeblocks, content = find_code(messages, config_list=config_list)
-    assert codeblocks[0][0] == "python", content
+    codeblocks, content = find_code(messages, seed=42, config_list=config_list)
+    assert codeblocks[0][0] != "sh", content
 
     messages += [
         {

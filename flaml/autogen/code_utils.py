@@ -58,7 +58,7 @@ _FIND_CODE_SYS_MSG = [
     {
         "role": "system",
         "content": """Read the conversation, and then find the right code blocks to run.
-Only return the code blocks that are expected to run. Make sure to put them in a right order.
+Only return the code blocks that are expected to run. Make sure to output the blocks in a right order.
 If the line beginning with "# filename" is put before a code block, move it into the code block as the first line.
 Make sure to add the right "python" or "sh" identifier if the language identifier is missing for a code block.
 Don't make other changes to the code blocks.
