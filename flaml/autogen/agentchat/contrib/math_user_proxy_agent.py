@@ -220,14 +220,6 @@ class MathUserProxyAgent(UserProxyAgent):
         return_code, output, _ = execute_code(pycode, **self._code_execution_config, timeout=5)
         is_success = return_code == 0
 
-        # Decode the output
-        if isinstance(output, bytes):
-            try:
-                output = output.decode("utf-8")
-            except UnicodeDecodeError:
-                is_success = False
-                output = "The return cannot be decoded."
-
         if not is_success:
             # Remove the file information from the error string
             pattern = r'File "/[^"]+\.py", line \d+, in .+\n'

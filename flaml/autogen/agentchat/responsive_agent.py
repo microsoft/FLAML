@@ -410,7 +410,7 @@ class ResponsiveAgent(Agent):
         Returns:
             A tuple of (exitcode, logs, image).
             exitcode (int): the exit code of the code execution.
-            logs (bytes): the logs of the code execution.
+            logs (str): the logs of the code execution.
             image (str or None): the docker image used for the code execution.
         """
         return execute_code(code, **kwargs)
@@ -424,7 +424,6 @@ class ResponsiveAgent(Agent):
                 lang = infer_lang(code)
             if lang in ["bash", "shell", "sh"]:
                 exitcode, logs, image = self.run_code(code, lang=lang, **self._code_execution_config)
-                logs = logs.decode("utf-8")
             elif lang in ["python", "Python"]:
                 if code.startswith("# filename: "):
                     filename = code[11 : code.find("\n")].strip()
@@ -435,7 +434,6 @@ class ResponsiveAgent(Agent):
                     filename=filename,
                     **self._code_execution_config,
                 )
-                logs = logs.decode("utf-8")
             else:
                 # In case the language is not supported, we return an error message.
                 exitcode, logs, image = 1, f"unknown language {lang}", self._code_execution_config["use_docker"]

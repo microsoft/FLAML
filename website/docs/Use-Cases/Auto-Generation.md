@@ -148,8 +148,6 @@ user_proxy.initiate_chat(
 
 * [Solve Tasks Requiring Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_web_info.ipynb)
 
-* [Using MathChat to Solve Math Problems](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_MathChat.ipynb)
-
 * [Use Provided Tools as Functions](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_function_call.ipynb)
 
 * [Automated Task Solving with Coding & Planning Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_planning.ipynb)
