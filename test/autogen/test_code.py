@@ -59,12 +59,16 @@ def test_execute_code():
         import docker
     except ImportError as exc:
         print(exc)
-        return
-    exitcode, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py")
-    assert exitcode == 0 and msg == b"hello world\n", msg
+        docker = None
+    exit_code, msg, image = execute_code("print('hello world')", filename="tmp/codetest.py")
+    assert exit_code == 0 and msg == "hello world\n", msg
     # read a file
     print(execute_code("with open('tmp/codetest.py', 'r') as f: a=f.read()"))
     # create a file
+    exit_code, msg, image = execute_code(
+        "with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir=f"{here}/my_tmp", filename="tmp2/codetest.py"
+    )
+    assert exit_code and 'File "tmp2/codetest.py"' in msg, msg
     print(execute_code("with open('tmp/codetest.py', 'w') as f: f.write('b=1')", work_dir=f"{here}/my_tmp"))
     # execute code in a file
     print(execute_code(filename="tmp/codetest.py"))
@@ -72,16 +76,17 @@ def test_execute_code():
     # execute code for assertion error
     exit_code, msg, image = execute_code("assert 1==2")
     assert exit_code, msg
+    assert 'File ""' in msg
     # execute code which takes a long time
     exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1)
-    assert exit_code and error.decode() == "Timeout"
-    assert isinstance(image, str)
+    assert exit_code and error == "Timeout"
+    assert isinstance(image, str) or docker is None or os.path.exists("/.dockerenv")
 
 
 def test_execute_code_no_docker():
     exit_code, error, image = execute_code("import time; time.sleep(2)", timeout=1, use_docker=False)
     if sys.platform != "win32":
-        assert exit_code and error.decode() == "Timeout"
+        assert exit_code and error == "Timeout"
     assert image is None
 
 

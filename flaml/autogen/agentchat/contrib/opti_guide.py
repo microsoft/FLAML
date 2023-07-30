@@ -92,8 +92,8 @@ class OptiGuideAgent(AssistantAgent):
         self._doc_str = doc_str
         self._example_qa = example_qa
         self._origin_execution_result = _run_with_exec(source_code)
-        self._pencil = AssistantAgent("pencil", oai_config=self.oai_config)
-        self._shield = AssistantAgent("shield", oai_config=self.oai_config)
+        self._pencil = AssistantAgent("pencil", llm_config=self.llm_config)
+        self._shield = AssistantAgent("shield", llm_config=self.llm_config)
         self._debug_times_left = self.debug_times = 3
         self._success = False
 
@@ -106,7 +106,7 @@ class OptiGuideAgent(AssistantAgent):
         """Reply based on the conversation history."""
         if sender not in [self._pencil, self._shield]:
             # Step 1: receive the message from the user
-            user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
+            user_chat_history = f"\nHere are the history of discussions:\n{self._oai_messages[sender.name]}"
             pencil_sys_msg = (
                 PENCIL_SYSTEM_MSG.format(
                     source_code=self._source_code,

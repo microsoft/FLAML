@@ -8,13 +8,20 @@ import re
 import time
 from hashlib import md5
 import logging
-from flaml.autogen import oai, DEFAULT_MODEL, FAST_MODEL
+from flaml.autogen import oai
 
+try:
+    import docker
+except ImportError:
+    docker = None
+
+DEFAULT_MODEL = "gpt-4"
+FAST_MODEL = "gpt-3.5-turbo"
 # Regular expression for finding a code block
 CODE_BLOCK_PATTERN = r"```(\w*)\n(.*?)\n```"
 WORKING_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extensions")
 UNKNOWN = "unknown"
-TIMEOUT_MSG = bytes("Timeout", "utf-8")
+TIMEOUT_MSG = "Timeout"
 DEFAULT_TIMEOUT = 600
 
 
@@ -138,9 +145,9 @@ def execute_code(
     timeout: Optional[int] = None,
     filename: Optional[str] = None,
     work_dir: Optional[str] = None,
-    use_docker: Optional[Union[List[str], str, bool]] = True,
+    use_docker: Optional[Union[List[str], str, bool]] = docker is not None,
     lang: Optional[str] = "python",
-) -> Tuple[int, bytes, str]:
+) -> Tuple[int, str, str]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
 
@@ -169,7 +176,7 @@ def execute_code(
 
     Returns:
         int: 0 if the code executes successfully.
-        bytes: The error message if the code fails to execute; the stdout otherwise.
+        str: The error message if the code fails to execute; the stdout otherwise.
         image: The docker image name after container run when docker is used.
     """
     assert code is not None or filename is not None, "Either code or filename must be provided."
@@ -216,9 +223,15 @@ def execute_code(
                 return 1, TIMEOUT_MSG, None
         if original_filename is None:
             os.remove(filepath)
-        return result.returncode, result.stderr if result.returncode else result.stdout, None
-
-    import docker
+            abs_path = str(pathlib.Path(filepath).absolute())
+        else:
+            abs_path = str(pathlib.Path(work_dir).absolute()) + "/"
+        if result.returncode:
+            logs = result.stderr.decode("utf-8")
+            logs = logs.replace(str(abs_path), "")
+        else:
+            logs = result.stdout.decode("utf-8")
+        return result.returncode, logs, None
 
     # create a docker client
     client = docker.from_env()
@@ -283,7 +296,8 @@ def execute_code(
     # get the container logs
     logs = container.logs().decode("utf-8").rstrip()
     # commit the image
-    container.commit(repository="python", tag=filename.replace("/", ""))
+    tag = filename.replace("/", "")
+    container.commit(repository="python", tag=tag)
     # remove the container
     container.remove()
     # check if the code executed successfully
@@ -296,11 +310,12 @@ def execute_code(
         # remove the exit code from the logs
         logs = pattern.sub("", logs)
 
-    logs = bytes(logs, "utf-8")
     if original_filename is None:
         os.remove(filepath)
+    if exit_code:
+        logs = logs.replace(f"/workspace/{filename if original_filename is None else ''}", "")
     # return the exit code, logs and image
-    return exit_code, logs, f"python:{filename}"
+    return exit_code, logs, f"python:{tag}"
 
 
 _GENERATE_ASSERTIONS_CONFIG = {

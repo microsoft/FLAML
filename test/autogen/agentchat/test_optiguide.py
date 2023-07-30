@@ -1,7 +1,7 @@
 import pytest
 import sys
 import requests  # for loading the example source code
-from flaml import oai
+from flaml import autogen
 from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
 
@@ -19,9 +19,9 @@ def test_optiguide():
     from flaml.autogen.agentchat.contrib.opti_guide import OptiGuideAgent
 
     conversations = {}
-    oai.ChatCompletion.start_logging(conversations)
+    autogen.ChatCompletion.start_logging(conversations)
 
-    config_list = oai.config_list_from_json(
+    config_list = autogen.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
         filter_dict={
@@ -35,7 +35,7 @@ def test_optiguide():
         "optiguide",
         source_code=code,
         example_qa="",
-        oai_config={
+        llm_config={
             "request_timeout": 600,
             "seed": 42,
             "config_list": config_list,
