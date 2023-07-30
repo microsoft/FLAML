@@ -56,7 +56,7 @@ class Chat:
         # remove newline characters
         content = message["content"]
         return f"[{message['role']}]: {content}"
-    
+
     def send_single_step(self, message: Dict) -> Dict:
         self.push_message(message)
         description = self._get_role_description()
