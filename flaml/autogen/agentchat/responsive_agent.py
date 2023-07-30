@@ -381,7 +381,7 @@ class ResponsiveAgent(Agent):
             # no code block is found, lang should be `UNKNOWN`
             if self.llm_config is False:
                 return default_reply
-            code_blocks = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
+            code_blocks, _ = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
             if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
                 return code_blocks[0][1]  # self._oai_reply(messages)
         # try to execute the code

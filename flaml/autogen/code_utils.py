@@ -58,9 +58,11 @@ _FIND_CODE_SYS_MSG = [
     {
         "role": "system",
         "content": """Read the conversation, and then find the right code blocks to run.
-Only return the code blocks that are expected to run and put them in a right order.
+Only return the code blocks that are expected to run. Make sure to put them in a right order.
 If the line beginning with "# filename" is put before a code block, move it into the code block as the first line.
-Add the right "python" or "sh" identifier if it's missing for a code block.
+Make sure to add the right "python" or "sh" identifier if the language identifier is missing for a code block.
+Don't make other changes to the code blocks.
+Don't reply anything else if at least one code block is expected to run.
 If no code block is expeted to run, check whether the task has been successfully finished at full satisfaction.
 If not, reply with the reason why the task is not finished.""",
     },
@@ -70,7 +72,7 @@ _FIND_CODE_CONFIG = {
 }
 
 
-def find_code(messages: List[Dict], sys_msg=None, **config) -> List[Tuple[str, str]]:
+def find_code(messages: List[Dict], sys_msg=None, **config) -> Tuple[List[Tuple[str, str]], str]:
     """Find code from a list of messages.
 
     Args:
@@ -80,12 +82,14 @@ def find_code(messages: List[Dict], sys_msg=None, **config) -> List[Tuple[str, s
 
     Returns:
         list: A list of tuples, each containing the language and the code.
+        str: The generated text by llm.
     """
     params = {**_FIND_CODE_CONFIG, **config}
     if sys_msg is None or not sys_msg[0]["content"]:
         sys_msg = _FIND_CODE_SYS_MSG
     response = oai.ChatCompletion.create(messages=sys_msg + messages, **params)
-    return extract_code(oai.Completion.extract_text(response)[0])
+    content = oai.Completion.extract_text(response)[0]
+    return extract_code(content), content
 
 
 def generate_code(pattern: str = CODE_BLOCK_PATTERN, **config) -> Tuple[str, float]:

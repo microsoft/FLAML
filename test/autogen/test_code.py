@@ -137,19 +137,27 @@ def test_find_code():
         import openai
     except ImportError:
         return
+    # need gpt-4 for this task
     config_list = autogen.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
         filter_dict={
-            "model": {
-                "gpt-3.5-turbo",
-                "gpt-3.5-turbo-16k",
-                "gpt-3.5-turbo-0301",
-                "chatgpt-35-turbo-0301",
-                "gpt-35-turbo-v0301",
-            },
+            "model": ["gpt-4", "gpt4", "gpt-4-32k", "gpt-4-32k-0314"],
         },
     )
+    # config_list = autogen.config_list_from_json(
+    #     OAI_CONFIG_LIST,
+    #     file_location=KEY_LOC,
+    #     filter_dict={
+    #         "model": {
+    #             "gpt-3.5-turbo",
+    #             "gpt-3.5-turbo-16k",
+    #             "gpt-3.5-turbo-0301",
+    #             "chatgpt-35-turbo-0301",
+    #             "gpt-35-turbo-v0301",
+    #         },
+    #     },
+    # )
 
     messages = [
         {
@@ -169,7 +177,7 @@ Please execute the above Python code to print "Hello, World!" to a file called h
 """,
         },
     ]
-    codeblocks = find_code(messages, config_list=config_list)
+    codeblocks, _ = find_code(messages, config_list=config_list)
     assert codeblocks[0][0] == "python", codeblocks
     messages += [
         {
@@ -185,7 +193,7 @@ Hello, World! printed to hello.txt
             "content": "Great! Can I help you with anything else?",
         },
     ]
-    codeblocks = find_code(messages, config_list=config_list)
+    codeblocks, _ = find_code(messages, config_list=config_list)
     assert codeblocks[0][0] == "unknown", codeblocks
     messages += [
         {
@@ -212,10 +220,39 @@ first to install pandas.
 """,
         },
     ]
-    # need gpt-4 for this task
-    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
-    codeblocks = find_code(messages, config_list=config_list)
+    codeblocks, _ = find_code(messages, config_list=config_list)
     assert codeblocks[0][0] == "sh" and codeblocks[1][0] == "python", codeblocks
+
+    messages += [
+        {
+            "role": "assistant",
+            "content": "The code is unsafe to execute in my environment.",
+        },
+        {
+            "role": "user",
+            "content": "please run python write_hello.py",
+        },
+    ]
+    codeblocks, content = find_code(messages, config_list=config_list)
+    assert codeblocks[0][0] != "unknown", content
+
+    messages[-1]["content"] = "please skip pip install pandas if you already have pandas installed"
+    codeblocks, content = find_code(messages, config_list=config_list)
+    assert codeblocks[0][0] == "python", content
+
+    messages += [
+        {
+            "role": "assistant",
+            "content": "The code is still unsafe to execute in my environment.",
+        },
+        {
+            "role": "user",
+            "content": "Let me try something else. Do you have docker installed?",
+        },
+    ]
+    codeblocks, content = find_code(messages, config_list=config_list)
+    assert codeblocks[0][0] == "unknown", content
+    print(content)
 
 
 if __name__ == "__main__":
