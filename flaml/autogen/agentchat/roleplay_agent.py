@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 import re
 class Message:
     role: str
@@ -16,18 +16,18 @@ class RoleplayMixin:
     def __init__(self) -> None:
         raise Exception("RoleplayMixin is a mixin class, it should not be instantiated.")
     
-    def describle_role(self, chat_history: List[Message]) -> str:
+    def describle_role(self, chat_history: List[Dict]) -> str:
         return self._system_message
 
     def _render_role_information(self, roles: List[Tuple[str, str]]) -> str:
         return "\n".join([f"{name}: {description}" for name, description in roles])
 
-    def _render_message(self, message: Message) -> str:
+    def _render_message(self, message: Dict) -> str:
         # remove newline characters
-        content = message.content.replace("\n", " ")
-        return f"[{message.role}]: {content}"
+        content = message["content"].replace("\n", " ")
+        return f"[{message['role']}]: {content}"
     
-    def _render_chat_history(self, chat_history: List[Message]) -> str:
+    def _render_chat_history(self, chat_history: List[Dict]) -> str:
         return "\n".join([self._render_message(message) for message in chat_history])
 
     def _call_chat(self, content:str)->str:
@@ -35,7 +35,7 @@ class RoleplayMixin:
         message['role'] = "user"
         return self._oai_reply([message])
     
-    def _render_role_play(self, chat_history: List[Message], roles: List[Tuple[str, str]], rule: str) -> str:
+    def _render_role_play(self, chat_history: List[Dict], roles: List[Tuple[str, str]], rule: str) -> str:
         prompt = f"""### role information ###
 {self._render_role_information(roles)}
 ### end of role information ###
@@ -60,7 +60,7 @@ rules:
         
         return prompt
     
-    def summarize_rule_from_chat_history(self, chat_history: List[Message], admin: str) -> str:
+    def summarize_rule_from_chat_history(self, chat_history: List[Dict], admin: str) -> str:
         if len(chat_history) == 0:
             rule = f"""always listen to {admin}"""
         else:
@@ -69,7 +69,7 @@ rules:
 
         return rule
 
-    def select_role(self, chat_history: List[Message], roles: List[Tuple[str, str]], rules: str) -> int:
+    def select_role(self, chat_history: List[Dict], roles: List[Tuple[str, str]], rules: str) -> int:
         task_prompt = f"""### rule ###
 {rules}
 
@@ -97,7 +97,7 @@ You are in a multi-role play game and your task is to continue writing conversat
             # invalid reply, return -1
             return -1
         
-    def role_play(self, chat_history: List[Message], role_description: List[Tuple[str, str]], rule: str) -> Message:
+    def role_play(self, chat_history: List[Dict], role_description: List[Tuple[str, str]], rule: str) -> Dict:
         prompt = self._render_role_play(chat_history, role_description, rule)
         task_message = {"role": "user", "content": prompt}
         chat_history = [{"role": 'user', "content": str(message)} for message in chat_history]
@@ -105,4 +105,4 @@ You are in a multi-role play game and your task is to continue writing conversat
         chat_history = chat_history[-5:]
         new_message = {"role": "user", "content": f"[{self.name}]:"}
         reply = self.generate_reply([task_message] + chat_history + [new_message])
-        return Message(self.name, reply)
+        return {"role": self.name, "content": reply}
