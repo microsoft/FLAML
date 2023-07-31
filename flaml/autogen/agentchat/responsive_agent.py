@@ -43,6 +43,7 @@ class ResponsiveAgent(Agent):
         function_map: Optional[Dict[str, Callable]] = None,
         code_execution_config: Optional[Union[Dict, bool]] = None,
         llm_config: Optional[Union[Dict, bool]] = None,
+        default_auto_reply: Optional[str] = "",
     ):
         """
         Args:
@@ -82,6 +83,7 @@ class ResponsiveAgent(Agent):
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
                 for available options.
                 To disable llm-based auto reply, set to False.
+            default_auto_reply (str): default auto reply when no code execution or llm-based reply is generated.
         """
         super().__init__(name)
         # a dictionary of conversations, default value is list
@@ -104,6 +106,7 @@ class ResponsiveAgent(Agent):
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._function_map = {} if function_map is None else function_map
+        self._default_auto_reply = default_auto_reply
 
     def update_system_message(self, system_message: str):
         """Update the system message.
@@ -149,7 +152,7 @@ class ResponsiveAgent(Agent):
     def _message_to_dict(message: Union[Dict, str]):
         """Convert a message to a dictionary.
 
-        The message can be a string or a dictionary. The string with be put in the "content" field of the new dictionary.
+        The message can be a string or a dictionary. The string will be put in the "content" field of the new dictionary.
         """
         if isinstance(message, str):
             return {"content": message}
@@ -332,7 +335,7 @@ class ResponsiveAgent(Agent):
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
             print(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
-        reply = self.generate_reply(sender=sender)
+        reply = self.generate_reply(sender=sender, default_reply=self._default_auto_reply)
         if reply is not None:
             self.send(reply, sender)
 

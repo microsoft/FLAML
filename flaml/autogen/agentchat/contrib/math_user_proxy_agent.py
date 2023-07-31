@@ -136,6 +136,7 @@ class MathUserProxyAgent(UserProxyAgent):
             Callable[[Dict], bool]
         ] = _is_termination_msg_mathchat,  # terminate if \boxed{} in message
         human_input_mode: Optional[str] = "NEVER",  # Fully automated
+        default_auto_reply: Optional[str] = DEFAULT_REPLY,
         max_invalid_q_per_step=3,  # a parameter needed in MathChat
         **kwargs,
     ):
@@ -153,6 +154,7 @@ class MathUserProxyAgent(UserProxyAgent):
                     the number of auto reply reaches the max_consecutive_auto_reply.
                 (3) (Default) When "NEVER", the agent will never prompt for human input. Under this mode, the conversation stops
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
+            default_auto_reply (str): the default auto reply message when no code execution or llm based reply is generated.
             max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
             **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
         """
@@ -160,6 +162,7 @@ class MathUserProxyAgent(UserProxyAgent):
             name=name,
             is_termination_msg=is_termination_msg,
             human_input_mode=human_input_mode,
+            default_auto_reply=default_auto_reply,
             **kwargs,
         )
 
