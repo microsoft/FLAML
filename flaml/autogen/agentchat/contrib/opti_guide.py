@@ -4,7 +4,7 @@ For more details, read: https://arxiv.org/abs/2307.03875
 The design here is that a user asked a question, then OptiGuide will answer
 it.
 
-The OptiGuide agent will interact with the LLMProxy agent to access LLMs.
+The OptiGuide agent will interact with LLM-based agents.
 
 Notes:
 1. We assume there is a Gurobi model `m` in the global scope.
@@ -14,41 +14,33 @@ code_utils.py. Please note and update the code accordingly.
 4. We simplify the evaluation only to "DATA CODE" and "CONSTRAINT CODE", where
 we would insert the newly added code.
 """
-import pdb
 import re
-from typing import Dict, Union
+from typing import Dict, List, Optional, Union
+from flaml.autogen.agentchat.agent import Agent
 
-import gurobipy as gp
 from eventlet.timeout import Timeout
 from gurobipy import GRB
 from termcolor import colored
 
-from flaml import oai
-from flaml.autogen.agentchat import AssistantAgent, ResponsiveAgent, UserProxyAgent
-from flaml.autogen.code_utils import DEFAULT_MODEL, extract_code
+from flaml.autogen.agentchat import AssistantAgent
+from flaml.autogen.code_utils import extract_code
 
 # %% System Messages
-ASSIST_SYSTEM_MSG = """You are OptiGuide,
-an agent to write Python code and to answer users questions for supply chain-related coding project.
-
-
-You are a chatbot to explain solutions from a Gurobi/Python solver.
-
+PENCIL_SYSTEM_MSG = """You are a chatbot to:
+(1) write Python code to answer users questions for supply chain-related coding project;
+(2) explain solutions from a Gurobi/Python solver.
 
 --- SOURCE CODE ---
 {source_code}
 
 --- DOC STR ---
 {doc_str}
-
+---
 
 Here are some example questions and their answers and codes:
 --- EXAMPLES ---
 {example_qa}
-
-
 ---
-
 
 The execution result of the original source code is below.
 --- Original Result ---
@@ -59,7 +51,7 @@ So, you don't need to write other code, such as m.optimize() or m.update().
 You just need to write code snippet.
 """
 
-SAFEGUARD_SYSTEM_MSG = """
+SHIELD_SYSTEM_MSG = """
 Given the original source code:
 {source_code}
 
@@ -74,130 +66,106 @@ CONSTRAINT_CODE_STR = "# OPTIGUIDE CONSTRAINT CODE GOES HERE"
 
 
 # %%
-class OptiGuideAgent(ResponsiveAgent):
-    """(Experimental) OptiGuide is an agent to write Python code and to answer
-      users questions for supply chain-related coding project.
+class OptiGuideAgent(AssistantAgent):
+    """(Experimental) OptiGuide is an agent to answer
+    users questions for supply chain-related coding project.
 
-    Here, the OptiGuide agent manages three agents (coder, safeguard, and interpreter)
-    and two assistant agents (pencil and shield).
+    Here, the OptiGuide agent manages two assistant agents (pencil and shield).
     """
 
-    def __init__(self, name, source_code, doc_str="", example_qa="", **config):
+    def __init__(self, name, source_code, doc_str="", example_qa="", debug_times=3, **config):
         """
         Args:
             name (str): agent name.
             source_code (str): The original source code to run.
             doc_str (str): docstring for helper functions if existed.
             example_qa (str): training examples for in-context learning.
+            debug_times (int): number of debug tries we allow for LLM.
             **config (dict): other configurations allowed in
-              [oai.Completion.create](../oai/Completion#create).
-              These configurations will be used when invoking LLM.
+              [ResponsiveAgent](../responsive_agent/ResponsiveAgent#__init__).
         """
         assert source_code.find(DATA_CODE_STR) >= 0, "DATA_CODE_STR not found."
         assert source_code.find(CONSTRAINT_CODE_STR) >= 0, "CONSTRAINT_CODE_STR not found."
 
-        super().__init__(
-            name, max_consecutive_auto_reply=0, human_input_mode="NEVER", code_execution_config=False, **config
-        )
+        super().__init__(name, **config)
         self._source_code = source_code
         self._doc_str = doc_str
         self._example_qa = example_qa
         self._origin_execution_result = _run_with_exec(source_code)
+        self._pencil = AssistantAgent("pencil", llm_config=self.llm_config)
+        self._shield = AssistantAgent("shield", llm_config=self.llm_config)
+        self._debug_times_left = self.debug_times = 3
+        self._success = False
 
-        self._debug_opportunity = 3  # number of debug tries we allow for LLM
-
-    def receive(self, message: Union[Dict, str], sender):
-        """Receive a message from the sender agent.
-        Once a message is received, this function sends a reply to the sender or simply stop.
-        The reply can be generated automatically or entered manually by a human.
-
-        OptiGuide will invoke its components: coder, safeguard, and interpreter
-        to generate the reply.
-
-        The steps follow the one in Figure 2 of the OptiGuide paper.
-        """
-        # Step 1: receive the message
-        message = self._message_to_dict(message)
-        super().receive(message, sender)
-        # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
-        reply = ""
-        message["content"]
-
-        user_chat_history = f"\nHere are the history of discussions:\n{self._oai_conversations[sender.name]}"
-
-        # Spawn coder, interpreter, and safeguard
-        # Note: we use the same agent for coding and interpreting, so that they
-        # can share the same chat history.
-        coder = interpreter = UserProxyAgent(
-            "coder interpreter", human_input_mode="NEVER", max_consecutive_auto_reply=0
-        )
-        safeguard = UserProxyAgent("safeguard", human_input_mode="NEVER", max_consecutive_auto_reply=0)
-
-        # Spawn the assistants for coder, interpreter, and safeguard
-        writing_sys_msg = ASSIST_SYSTEM_MSG.format(
-            source_code=self._source_code,
-            doc_str=self._doc_str,
-            example_qa=self._example_qa,
-            execution_result=self._origin_execution_result,
-        )
-        shield_sys_msg = SAFEGUARD_SYSTEM_MSG.format(source_code=self._source_code)
-        pencil = AssistantAgent("pencil", system_message=writing_sys_msg + user_chat_history)
-        shield = AssistantAgent("shield", system_message=shield_sys_msg + user_chat_history)
-
-        debug_opportunity = self._debug_opportunity
-
-        new_code = None
-        execution_rst = None
-        success = False
-        while execution_rst is None and debug_opportunity > 0:
-            # Step 2: Write code
-            if new_code is None:
-                # The first time we are trying to solve the question in this session
-                msg = CODE_PROMPT
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        default_reply: Optional[Union[str, Dict]] = "",
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict, None]:
+        """Reply based on the conversation history."""
+        if sender not in [self._pencil, self._shield]:
+            # Step 1: receive the message from the user
+            user_chat_history = f"\nHere are the history of discussions:\n{self._oai_messages[sender.name]}"
+            pencil_sys_msg = (
+                PENCIL_SYSTEM_MSG.format(
+                    source_code=self._source_code,
+                    doc_str=self._doc_str,
+                    example_qa=self._example_qa,
+                    execution_result=self._origin_execution_result,
+                )
+                + user_chat_history
+            )
+            shield_sys_msg = SHIELD_SYSTEM_MSG.format(source_code=self._source_code) + user_chat_history
+            self._pencil.update_system_message(pencil_sys_msg)
+            self._shield.update_system_message(shield_sys_msg)
+            self._pencil.reset()
+            self._shield.reset()
+            self._debug_times_left = self.debug_times
+            self._success = False
+            # Step 2-6: code, safeguard, and interpret
+            self.initiate_chat(self._pencil, message=CODE_PROMPT)
+            if self._success:
+                # step 7: receive interpret result
+                reply = self.last_message(self._pencil)["content"]
             else:
-                # debug code
-                msg = DEBUG_PROMPT.format(execution_rst)
+                reply = "Sorry. I cannot answer your question."
+            # Finally, step 8: send reply to user
+            return reply
+        if sender == self._pencil:
+            # reply to pencil
+            return self._generate_reply_to_pencil(sender)
+        # no reply to shield
 
-            coder.send(message=msg, recipient=pencil)
-            new_code = coder.oai_conversations[pencil.name][-1]["content"]
-            new_code = extract_code(new_code)[0][1]  # First code block, the code (excluding language)
-            print(colored(new_code, "green"))
-
-            # Step 3: safeguard
-            # FYI: in production, there are some other steps to check the code; for instance,
-            # with a static code analyzer or some other external packages.
-            safeguard.send(message=SAFEGUARD_PROMPT.format(code=new_code), recipient=shield)
-            safe_msg = safeguard.oai_conversations[shield.name][-1]["content"]
-            print("Safety:", colored(safe_msg, "blue"))
-
-            if safe_msg.find("DANGER") < 0:
-                # Step 4 and 5: Run the code and obtain the results
-                src_code = _insert_code(self._source_code, new_code)
-                execution_rst = _run_with_exec(src_code)
-
-                print(colored(str(execution_rst), "yellow"))
-                if type(execution_rst) in [str, int, float]:
-                    success = True
-                    break  # we successfully run the code and get the result
-            else:
-                # DANGER: If not safe, try to debug. Redo coding
-                execution_rst = """
-                Sorry, this new code is not safe to run. I would not allow you to execute it.
-                Please try to find a new way (coding) to answer the question."""
-
-            # Try to debug and write code again
-            debug_opportunity -= 1
-
-        if success:
-            # Step 6 - 7: interpret results
-            interpret_msg = INTERPRETER_PROMPT.format(execution_rst=execution_rst)
-            interpreter.send(message=interpret_msg, recipient=pencil)
-            reply = interpreter.oai_conversations[pencil.name][-1]["content"]
+    def _generate_reply_to_pencil(self, sender):
+        if self._success:
+            # no reply to pencil
+            return
+        # Step 3: safeguard
+        _, code = extract_code(self.last_message(sender)["content"])[0]
+        # print(colored(code, "green"))
+        self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
+        safe_msg = self.last_message(self._shield)["content"]
+        # print("Safety:", colored(safe_msg, "blue"))
+        if safe_msg.find("DANGER") < 0:
+            # Step 4 and 5: Run the code and obtain the results
+            src_code = _insert_code(self._source_code, code)
+            execution_rst = _run_with_exec(src_code)
+            # print(colored(str(execution_rst), "yellow"))
+            if type(execution_rst) in [str, int, float]:
+                # we successfully run the code and get the result
+                self._success = True
+                # Step 6: request to interpret results
+                return INTERPRETER_PROMPT.format(execution_rst=execution_rst)
         else:
-            reply = "Sorry. I cannot answer your question."
-
-        # Finally, step 8: send reply
-        self.send(reply, sender)
+            # DANGER: If not safe, try to debug. Redo coding
+            execution_rst = """
+Sorry, this new code is not safe to run. I would not allow you to execute it.
+Please try to find a new way (coding) to answer the question."""
+        if self._debug_times_left > 0:
+            # Try to debug and write code again (back to step 2)
+            self._debug_times_left -= 1
+            return DEBUG_PROMPT.format(error_message=execution_rst)
 
 
 # %% Helper functions to edit and run code.

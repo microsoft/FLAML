@@ -220,14 +220,6 @@ class MathUserProxyAgent(UserProxyAgent):
         return_code, output, _ = execute_code(pycode, **self._code_execution_config, timeout=5)
         is_success = return_code == 0
 
-        # Decode the output
-        if isinstance(output, bytes):
-            try:
-                output = output.decode("utf-8")
-            except UnicodeDecodeError:
-                is_success = False
-                output = "The return cannot be decoded."
-
         if not is_success:
             # Remove the file information from the error string
             pattern = r'File "/[^"]+\.py", line \d+, in .+\n'
@@ -285,11 +277,11 @@ class MathUserProxyAgent(UserProxyAgent):
         self,
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = DEFAULT_REPLY,
-        sender: Optional["Agent"] = None,
-    ) -> Union[str, Dict]:
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict, None]:
         """Generate an auto reply."""
         if messages is None:
-            messages = self._oai_conversations[sender.name]
+            messages = self._oai_messages[sender.name]
         message = messages[-1]
         message = message.get("content", "")
         code_blocks = extract_code(message)

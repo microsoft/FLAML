@@ -1,10 +1,10 @@
 import os
 import sys
 import pytest
-from flaml import oai
+from flaml import autogen
 from flaml.autogen.agentchat import AssistantAgent, UserProxyAgent
 
-KEY_LOC = "test/autogen"
+KEY_LOC = "notebook"
 OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -20,16 +20,16 @@ def test_ai_user_proxy_agent():
         return
 
     conversations = {}
-    oai.ChatCompletion.start_logging(conversations)
+    autogen.ChatCompletion.start_logging(conversations)
 
-    config_list = oai.config_list_from_json(
+    config_list = autogen.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
     )
     assistant = AssistantAgent(
         "assistant",
         system_message="You are a helpful assistant.",
-        oai_config={
+        llm_config={
             "request_timeout": 600,
             "seed": 42,
             "config_list": config_list,
@@ -41,7 +41,7 @@ def test_ai_user_proxy_agent():
         human_input_mode="NEVER",
         max_consecutive_auto_reply=2,
         code_execution_config=False,
-        oai_config={
+        llm_config={
             "config_list": config_list,
         },
         # In the system message the "user" always refers to ther other agent.
@@ -62,7 +62,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
         import openai
     except ImportError:
         return
-    config_list = oai.config_list_from_json(
+    config_list = autogen.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
         filter_dict={
@@ -77,7 +77,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
     )
     assistant = AssistantAgent(
         "coding_agent",
-        oai_config={
+        llm_config={
             # "request_timeout": 600,
             "seed": 42,
             "config_list": config_list,
@@ -115,12 +115,12 @@ def test_create_execute_script(human_input_mode="NEVER", max_consecutive_auto_re
     except ImportError:
         return
 
-    config_list = oai.config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
+    config_list = autogen.config_list_from_json(OAI_CONFIG_LIST, file_location=KEY_LOC)
     conversations = {}
-    oai.ChatCompletion.start_logging(conversations)
+    autogen.ChatCompletion.start_logging(conversations)
     assistant = AssistantAgent(
         "assistant",
-        oai_config={
+        llm_config={
             "request_timeout": 600,
             "seed": 42,
             "config_list": config_list,
@@ -145,10 +145,10 @@ print('Hello world!')
 ```""",
     )
     print(conversations)
-    oai.ChatCompletion.start_logging(compact=False)
+    autogen.ChatCompletion.start_logging(compact=False)
     user.send("""Execute temp.py""", assistant)
-    print(oai.ChatCompletion.logged_history)
-    oai.ChatCompletion.stop_logging()
+    print(autogen.ChatCompletion.logged_history)
+    autogen.ChatCompletion.stop_logging()
 
 
 def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
@@ -157,7 +157,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     except ImportError:
         return
 
-    config_list = oai.config_list_from_json(
+    config_list = autogen.config_list_from_json(
         OAI_CONFIG_LIST,
         file_location=KEY_LOC,
         filter_dict={
@@ -179,19 +179,17 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
         def generate_init_message(self, question) -> str:
             return self._prompt.format(question=question)
 
-    oai.ChatCompletion.start_logging()
-    assistant = AssistantAgent("assistant", oai_config={"temperature": 0, "config_list": config_list})
+    autogen.ChatCompletion.start_logging()
+    assistant = AssistantAgent("assistant", llm_config={"temperature": 0, "config_list": config_list})
     user = TSPUserProxyAgent(
         "user",
         code_execution_config={"work_dir": here},
         human_input_mode=human_input_mode,
         max_consecutive_auto_reply=max_consecutive_auto_reply,
     )
-    # agent.receive(prompt.format(question=hard_questions[0]), user)
-    # agent.receive(prompt.format(question=hard_questions[1]), user)
     user.initiate_chat(assistant, question=hard_questions[2])
-    print(oai.ChatCompletion.logged_history)
-    oai.ChatCompletion.stop_logging()
+    print(autogen.ChatCompletion.logged_history)
+    autogen.ChatCompletion.stop_logging()
 
 
 if __name__ == "__main__":
