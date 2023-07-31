@@ -140,6 +140,15 @@ setuptools.setup(
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
         "openai": ["openai==0.27.8", "diskcache"],
         "autogen": ["openai==0.27.8", "diskcache", "docker"],
+        "retrievechat": [
+            "openai==0.27.8",
+            "diskcache",
+            "docker",
+            "chromadb",
+            "pydantic==1.10.9",
+            "tiktoken",
+            "sentence_transformers",
+        ],
         "mathchat": ["openai==0.27.8", "diskcache", "docker", "sympy", "pydantic==1.10.9", "wolframalpha"],
         "synapse": [
             "joblibspark>=0.5.0",
