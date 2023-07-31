@@ -509,6 +509,7 @@ class ResponsiveAgent(Agent):
 
             # Try to execute the function
             if arguments:
+                print(colored(f"\n>>>>>>>> EXECUTING FUNCTION {func_name}...", "magenta"), flush=True)
                 try:
                     content = func(**arguments)
                     is_exec_success = True
