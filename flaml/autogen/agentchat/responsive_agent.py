@@ -43,7 +43,7 @@ class ResponsiveAgent(Agent):
         function_map: Optional[Dict[str, Callable]] = None,
         code_execution_config: Optional[Union[Dict, bool]] = None,
         llm_config: Optional[Union[Dict, bool]] = None,
-        default_auto_reply: Optional[str] = "",
+        default_auto_reply: Optional[Union[str, Dict, None]] = "",
     ):
         """
         Args:
@@ -83,7 +83,7 @@ class ResponsiveAgent(Agent):
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
                 for available options.
                 To disable llm-based auto reply, set to False.
-            default_auto_reply (str): default auto reply when no code execution or llm-based reply is generated.
+            default_auto_reply (str or dict or None): default auto reply when no code execution or llm-based reply is generated.
         """
         super().__init__(name)
         # a dictionary of conversations, default value is list

@@ -23,6 +23,7 @@ class UserProxyAgent(ResponsiveAgent):
         human_input_mode: Optional[str] = "ALWAYS",
         function_map: Optional[Dict[str, Callable]] = None,
         code_execution_config: Optional[Union[Dict, bool]] = None,
+        default_auto_reply: Optional[Union[str, Dict, None]] = "",
         llm_config: Optional[Union[Dict, bool]] = False,
         system_message: Optional[str] = "",
     ):
@@ -59,6 +60,7 @@ class UserProxyAgent(ResponsiveAgent):
                     If the code is executed in the current environment,
                     the code must be trusted.
                 - timeout (Optional, int): The maximum execution time in seconds.
+            default_auto_reply (str or dict or None): the default auto reply message when no code execution or llm based reply is generated.
             llm_config (dict or False): llm inference configuration.
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
                 for available options.
@@ -75,4 +77,5 @@ class UserProxyAgent(ResponsiveAgent):
             function_map,
             code_execution_config,
             llm_config,
+            default_auto_reply,
         )
