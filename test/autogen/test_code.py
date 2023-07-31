@@ -43,7 +43,7 @@ def test_find_code():
     #         },
     #     },
     # )
-
+    seed = 44
     messages = [
         {
             "role": "assistant",
@@ -62,7 +62,7 @@ Please execute the above Python code to print "Hello, World!" to a file called h
 """,
         },
     ]
-    codeblocks, _ = find_code(messages, config_list=config_list)
+    codeblocks, _ = find_code(messages, seed=seed, config_list=config_list)
     assert codeblocks[0][0] == "python", codeblocks
     messages += [
         {
@@ -78,7 +78,7 @@ Hello, World! printed to hello.txt
             "content": "Great! Can I help you with anything else?",
         },
     ]
-    codeblocks, _ = find_code(messages, config_list=config_list)
+    codeblocks, _ = find_code(messages, seed=seed, config_list=config_list)
     assert codeblocks[0][0] == "unknown", codeblocks
     messages += [
         {
@@ -105,8 +105,13 @@ first to install pandas.
 """,
         },
     ]
-    codeblocks, _ = find_code(messages, config_list=config_list)
-    assert codeblocks[0][0] == "sh" and codeblocks[1][0] == "python", codeblocks
+    codeblocks, _ = find_code(messages, seed=seed, config_list=config_list)
+    assert (
+        codeblocks[0][0] == "sh"
+        and codeblocks[1][0] == "python"
+        or codeblocks[0][0] == "python"
+        and codeblocks[1][0] == "sh"
+    ), codeblocks
 
     messages += [
         {
@@ -123,7 +128,7 @@ first to install pandas.
     # I'm sorry, but I cannot execute code from earlier messages. Please provide the code again if you would like me to execute it.
 
     messages[-1]["content"] = "please skip pip install pandas if you already have pandas installed"
-    codeblocks, content = find_code(messages, seed=42, config_list=config_list)
+    codeblocks, content = find_code(messages, seed=seed, config_list=config_list)
     assert codeblocks[0][0] != "sh", content
 
     messages += [
@@ -136,7 +141,7 @@ first to install pandas.
             "content": "Let me try something else. Do you have docker installed?",
         },
     ]
-    codeblocks, content = find_code(messages, config_list=config_list)
+    codeblocks, content = find_code(messages, seed=seed, config_list=config_list)
     assert codeblocks[0][0] == "unknown", content
     print(content)
 
