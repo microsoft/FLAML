@@ -424,10 +424,11 @@ class ResponsiveAgent(Agent):
     def execute_code_blocks(self, code_blocks):
         """Execute the code blocks and return the result."""
         logs_all = ""
-        for code_block in code_blocks:
+        for i, code_block in enumerate(code_blocks):
             lang, code = code_block
             if not lang:
                 lang = infer_lang(code)
+            print(colored(f"\n>>>>>>>> EXECUTING CODE BLOCK {i} (inferred language is {lang})...", "red"), flush=True)
             if lang in ["bash", "shell", "sh"]:
                 exitcode, logs, image = self.run_code(code, lang=lang, **self._code_execution_config)
             elif lang in ["python", "Python"]:
