@@ -173,7 +173,7 @@ class ResponsiveAgent(Agent):
         """
         message = self._message_to_dict(message)
         # create oai message to be appended to the oai conversation that can be passed to oai directly.
-        oai_message = {k: message[k] for k in ("content", "function_call", "name") if k in message}
+        oai_message = {k: message[k] for k in ("content", "function_call", "name", "context") if k in message}
         if "content" not in oai_message and "function_call" not in oai_message:
             return False
 
@@ -258,6 +258,8 @@ class ResponsiveAgent(Agent):
                 3. "role": role of the message, can be "assistant", "user", "function".
                     This field is only needed to distinguish between "function" or "assistant"/"user".
                 4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
+                5. "context" (dict): the context of the message, which will be passed to
+                    [autogen.Completion.create](../oai/Completion#create).
             sender: sender of an Agent instance.
 
         Raises:
@@ -342,7 +344,7 @@ class ResponsiveAgent(Agent):
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
-            context=messages[-1].get("context"), messages=self._oai_system_message + messages, **self.llm_config
+            context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **self.llm_config
         )
         return oai.ChatCompletion.extract_text_or_function_call(response)[0]
 

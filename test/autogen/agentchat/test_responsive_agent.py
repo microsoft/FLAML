@@ -13,11 +13,14 @@ def test_responsive_agent(monkeypatch):
     monkeypatch.setattr(sys, "stdin", StringIO("TERMINATE\n\n"))
     dummy_agent_1.receive(
         {
-            "content": "hello",
+            "content": "hello {name}",
+            "context": {
+                "name": "dummy_agent_2",
+            },
         },
         dummy_agent_2,
     )  # receive a dict
-
+    assert "context" in dummy_agent_1.chat_messages["dummy_agent_2"][-2]
     # receive dict without openai fields to be printed, such as "content", 'function_call'. There should be no error raised.
     pre_len = len(dummy_agent_1.chat_messages["dummy_agent_2"])
     with pytest.raises(ValueError):
