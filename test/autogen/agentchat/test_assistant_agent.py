@@ -95,6 +95,7 @@ def test_gpt35(human_input_mode="NEVER", max_consecutive_auto_reply=5):
             "timeout": 60,
         },
         llm_config=llm_config,
+        system_message="""Reply TERMINATE to end the conversation.""",
     )
     user.initiate_chat(assistant, message="TERMINATE")
     # should terminate without sending any message
