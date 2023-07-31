@@ -8,7 +8,7 @@ The OptiGuide agent will interact with LLM-based agents.
 
 Notes:
 1. We assume there is a Gurobi model `m` in the global scope.
-2. Some helper functions can be integrated with other FLAML components, such as
+2. Some helper functions can be integrated with other autogen components, such as
 code_utils.py. Please note and update the code accordingly.
 3. We do not handle docker here. Please test and add docker support if missing.
 4. We simplify the evaluation only to "DATA CODE" and "CONSTRAINT CODE", where
@@ -16,17 +16,17 @@ we would insert the newly added code.
 """
 import re
 from typing import Dict, List, Optional, Union
-from flaml.autogen.agentchat.agent import Agent
 
 from eventlet.timeout import Timeout
 from gurobipy import GRB
 from termcolor import colored
 
 from flaml.autogen.agentchat import AssistantAgent
+from flaml.autogen.agentchat.agent import Agent
 from flaml.autogen.code_utils import extract_code
 
 # %% System Messages
-PENCIL_SYSTEM_MSG = """You are a chatbot to:
+WRITER_SYSTEM_MSG = """You are a chatbot to:
 (1) write Python code to answer users questions for supply chain-related coding project;
 (2) explain solutions from a Gurobi/Python solver.
 
@@ -51,7 +51,7 @@ So, you don't need to write other code, such as m.optimize() or m.update().
 You just need to write code snippet.
 """
 
-SHIELD_SYSTEM_MSG = """
+SAFEGUARD_SYSTEM_MSG = """
 Given the original source code:
 {source_code}
 
@@ -70,31 +70,33 @@ class OptiGuideAgent(AssistantAgent):
     """(Experimental) OptiGuide is an agent to answer
     users questions for supply chain-related coding project.
 
-    Here, the OptiGuide agent manages two assistant agents (pencil and shield).
+    Here, the OptiGuide agent manages two assistant agents (writer and safeguard).
     """
 
-    def __init__(self, name, source_code, doc_str="", example_qa="", debug_times=3, **config):
+    def __init__(self, name, source_code, doc_str="", example_qa="", debug_times=3, **kwargs):
         """
         Args:
             name (str): agent name.
             source_code (str): The original source code to run.
             doc_str (str): docstring for helper functions if existed.
             example_qa (str): training examples for in-context learning.
-            debug_times (int): number of debug tries we allow for LLM.
-            **config (dict): other configurations allowed in
-              [ResponsiveAgent](../responsive_agent/ResponsiveAgent#__init__).
+            debug_times (int): number of debug tries we allow for LLM to answer
+                each question.
+            **kwargs (dict): Please refer to other kwargs in
+                [AssistantAgent](assistant_agent#__init__) and
+                [ResponsiveAgent](responsive_agent#__init__).
         """
         assert source_code.find(DATA_CODE_STR) >= 0, "DATA_CODE_STR not found."
         assert source_code.find(CONSTRAINT_CODE_STR) >= 0, "CONSTRAINT_CODE_STR not found."
 
-        super().__init__(name, **config)
+        super().__init__(name, **kwargs)
         self._source_code = source_code
         self._doc_str = doc_str
         self._example_qa = example_qa
         self._origin_execution_result = _run_with_exec(source_code)
-        self._pencil = AssistantAgent("pencil", llm_config=self.llm_config)
-        self._shield = AssistantAgent("shield", llm_config=self.llm_config)
-        self._debug_times_left = self.debug_times = 3
+        self._writer = AssistantAgent("writer", llm_config=self.llm_config)
+        self._safeguard = AssistantAgent("safeguard", llm_config=self.llm_config)
+        self._debug_times_left = self.debug_times = debug_times
         self._success = False
 
     def generate_reply(
@@ -103,12 +105,15 @@ class OptiGuideAgent(AssistantAgent):
         default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
+        # Remove unused variables:
+        # The message is already stored in self._messages by the parent class.
+        del messages, default_reply
         """Reply based on the conversation history."""
-        if sender not in [self._pencil, self._shield]:
+        if sender not in [self._writer, self._safeguard]:
             # Step 1: receive the message from the user
             user_chat_history = f"\nHere are the history of discussions:\n{self._oai_messages[sender.name]}"
-            pencil_sys_msg = (
-                PENCIL_SYSTEM_MSG.format(
+            writer_sys_msg = (
+                WRITER_SYSTEM_MSG.format(
                     source_code=self._source_code,
                     doc_str=self._doc_str,
                     example_qa=self._example_qa,
@@ -116,42 +121,42 @@ class OptiGuideAgent(AssistantAgent):
                 )
                 + user_chat_history
             )
-            shield_sys_msg = SHIELD_SYSTEM_MSG.format(source_code=self._source_code) + user_chat_history
-            self._pencil.update_system_message(pencil_sys_msg)
-            self._shield.update_system_message(shield_sys_msg)
-            self._pencil.reset()
-            self._shield.reset()
+            safeguard_sys_msg = SAFEGUARD_SYSTEM_MSG.format(source_code=self._source_code) + user_chat_history
+            self._writer.update_system_message(writer_sys_msg)
+            self._safeguard.update_system_message(safeguard_sys_msg)
+            self._writer.reset()
+            self._safeguard.reset()
             self._debug_times_left = self.debug_times
             self._success = False
             # Step 2-6: code, safeguard, and interpret
-            self.initiate_chat(self._pencil, message=CODE_PROMPT)
+            self.initiate_chat(self._writer, message=CODE_PROMPT)
             if self._success:
                 # step 7: receive interpret result
-                reply = self.last_message(self._pencil)["content"]
+                reply = self.last_message(self._writer)["content"]
             else:
                 reply = "Sorry. I cannot answer your question."
             # Finally, step 8: send reply to user
             return reply
-        if sender == self._pencil:
-            # reply to pencil
-            return self._generate_reply_to_pencil(sender)
-        # no reply to shield
+        if sender == self._writer:
+            # reply to writer
+            return self._generate_reply_to_writer(sender)
+        # no reply to safeguard
 
-    def _generate_reply_to_pencil(self, sender):
+    def _generate_reply_to_writer(self, sender):
         if self._success:
-            # no reply to pencil
+            # no reply to writer
             return
         # Step 3: safeguard
         _, code = extract_code(self.last_message(sender)["content"])[0]
         # print(colored(code, "green"))
-        self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._shield)
-        safe_msg = self.last_message(self._shield)["content"]
+        self.initiate_chat(message=SAFEGUARD_PROMPT.format(code=code), recipient=self._safeguard)
+        safe_msg = self.last_message(self._safeguard)["content"]
         # print("Safety:", colored(safe_msg, "blue"))
         if safe_msg.find("DANGER") < 0:
             # Step 4 and 5: Run the code and obtain the results
             src_code = _insert_code(self._source_code, code)
             execution_rst = _run_with_exec(src_code)
-            # print(colored(str(execution_rst), "yellow"))
+            print(colored(str(execution_rst), "yellow"))
             if type(execution_rst) in [str, int, float]:
                 # we successfully run the code and get the result
                 self._success = True
@@ -165,7 +170,7 @@ Please try to find a new way (coding) to answer the question."""
         if self._debug_times_left > 0:
             # Try to debug and write code again (back to step 2)
             self._debug_times_left -= 1
-            return DEBUG_PROMPT.format(error_message=execution_rst)
+            return DEBUG_PROMPT.format(error_type=type(execution_rst), error_message=str(execution_rst))
 
 
 # %% Helper functions to edit and run code.
@@ -275,8 +280,8 @@ Answer Code:
 
 DEBUG_PROMPT = """
 
-While running the code you suggested, I encountered the error:
---- ERROR ---
+While running the code you suggested, I encountered the {error_type}:
+--- ERROR MESSAGE ---
 {error_message}
 
 Please try to resolve this bug, and rewrite the code snippet.
