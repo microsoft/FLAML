@@ -221,7 +221,7 @@ class ResponsiveAgent(Agent):
                     For example, one agent can send a message A as:
         ```python
         {
-            "content": "{use_tool_msg}",
+            "content": lambda context: context["use_tool_msg"],
             "context": {
                 "use_tool_msg": "Use tool X if they are relevant."
             }
@@ -255,8 +255,15 @@ class ResponsiveAgent(Agent):
             print(message["content"], flush=True)
             print(colored("*" * len(func_print), "green"), flush=True)
         else:
-            if message.get("content") is not None:
-                print(message["content"], flush=True)
+            content = message.get("content")
+            if content is not None:
+                if "context" in message:
+                    content = oai.ChatCompletion.instantiate(
+                        content,
+                        message["context"],
+                        self.llm_config and self.llm_config.get("allow_format_str_template", False),
+                    )
+                print(content, flush=True)
             if "function_call" in message:
                 func_print = f"***** Suggested function Call: {message['function_call'].get('name', '(No function name found)')} *****"
                 print(colored(func_print, "green"), flush=True)

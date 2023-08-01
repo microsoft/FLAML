@@ -4,6 +4,42 @@ import pytest
 from flaml.autogen.agentchat import ResponsiveAgent
 
 
+def test_context():
+    agent = ResponsiveAgent("a0", max_consecutive_auto_reply=0, llm_config=False, human_input_mode="NEVER")
+    agent1 = ResponsiveAgent("a1", max_consecutive_auto_reply=0, human_input_mode="NEVER")
+    agent1.send(
+        {
+            "content": "hello {name}",
+            "context": {
+                "name": "there",
+            },
+        },
+        agent,
+    )
+    # expect hello {name} to be printed
+    agent1.send(
+        {
+            "content": lambda context: f"hello {context['name']}",
+            "context": {
+                "name": "there",
+            },
+        },
+        agent,
+    )
+    # expect hello there to be printed
+    agent.llm_config = {"allow_format_str_template": True}
+    agent1.send(
+        {
+            "content": "hello {name}",
+            "context": {
+                "name": "there",
+            },
+        },
+        agent,
+    )
+    # expect hello there to be printed
+
+
 def test_max_consecutive_auto_reply():
     agent = ResponsiveAgent("a0", max_consecutive_auto_reply=2, llm_config=False, human_input_mode="NEVER")
     agent1 = ResponsiveAgent("a1", max_consecutive_auto_reply=0, human_input_mode="NEVER")
@@ -79,5 +115,6 @@ def test_responsive_agent(monkeypatch):
 
 
 if __name__ == "__main__":
-    test_max_consecutive_auto_reply()
+    test_context()
+    # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)

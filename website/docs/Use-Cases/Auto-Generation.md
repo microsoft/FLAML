@@ -350,6 +350,7 @@ If the provided prompt or message is a template, it will be automatically materi
 response = autogen.Completion.create(
     context={"problem": "How many positive integers, not exceeding 100, are multiples of 2 or 3 but not 4?"},
     prompt="{problem} Solve the problem carefully.",
+    allow_format_str_template=True,
     **config
 )
 ```
