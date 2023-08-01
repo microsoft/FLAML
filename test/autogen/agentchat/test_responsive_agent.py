@@ -16,11 +16,17 @@ def test_max_consecutive_auto_reply():
     agent1.initiate_chat(agent, message="hello again")
     # with auto reply because the counter is reset
     assert agent1.last_message(agent)["role"] == "user"
+    assert len(agent1.chat_messages[agent.name]) == 2
+    assert len(agent.chat_messages[agent1.name]) == 2
 
     assert agent._consecutive_auto_reply_counter[agent1.name] == 1
     agent1.send(message="bye", recipient=agent)
     # no auto reply
     assert agent1.last_message(agent)["role"] == "assistant"
+
+    agent1.initiate_chat(agent, clear_history=False, message="hi")
+    assert len(agent1.chat_messages[agent.name]) > 2
+    assert len(agent.chat_messages[agent1.name]) > 2
 
 
 def test_responsive_agent(monkeypatch):

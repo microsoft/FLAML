@@ -360,10 +360,30 @@ class ResponsiveAgent(Agent):
         if reply is not None:
             self.send(reply, sender)
 
+    def initiate_chat(self, recipient: "ResponsiveAgent", clear_history: Optional[bool] = True, **context):
+        """Initiate a chat with the recipient agent.
+
+        Reset the consecutive auto reply counter.
+        If `clear_history` is True, the chat history with the recipient agent will be cleared.
+        `generate_init_message` is called to generate the initial message for the agent.
+
+        Args:
+            recipient: the recipient agent.
+            clear_history (bool): whether to clear the chat history with the agent.
+            **context: any context information.
+                "message" needs to be provided if the `generate_init_message` method is not overridden.
+        """
+        self.reset_consecutive_auto_reply_counter(recipient)
+        recipient.reset_consecutive_auto_reply_counter(self)
+        if clear_history:
+            self.clear_history(recipient)
+            recipient.clear_history(self)
+        self.send(self.generate_init_message(**context), recipient)
+
     def reset(self):
         """Reset the agent."""
-        self._oai_messages.clear()
-        self._consecutive_auto_reply_counter.clear()
+        self.clear_history()
+        self.reset_consecutive_auto_reply_counter()
 
     def reset_consecutive_auto_reply_counter(self, sender: Optional[Agent] = None):
         """Reset the consecutive_auto_reply_counter of the sender."""
@@ -371,6 +391,17 @@ class ResponsiveAgent(Agent):
             self._consecutive_auto_reply_counter.clear()
         else:
             self._consecutive_auto_reply_counter[sender.name] = 0
+
+    def clear_history(self, agent: Optional[Agent] = None):
+        """Clear the chat history of the agent.
+
+        Args:
+            agent: the agent with whom the chat history to clear. If None, clear the chat history with all agents.
+        """
+        if agent is None:
+            self._oai_messages.clear()
+        else:
+            self._oai_messages[agent.name].clear()
 
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
@@ -563,20 +594,6 @@ class ResponsiveAgent(Agent):
         If not overriden, "message" needs to be provided in the context.
         """
         return context["message"]
-
-    def initiate_chat(self, recipient: "ResponsiveAgent", **context):
-        """Initiate a chat with the recipient agent.
-
-        `generate_init_message` is called to generate the initial message for the agent.
-
-        Args:
-            recipient: the recipient agent.
-            **context: any context information.
-                "message" needs to be provided if the `generate_init_message` method is not overridden.
-        """
-        self._consecutive_auto_reply_counter[recipient.name] = 0
-        recipient.reset_consecutive_auto_reply_counter(self)
-        self.send(self.generate_init_message(**context), recipient)
 
     def register_function(self, function_map: Dict[str, Callable]):
         """Register functions to the agent.

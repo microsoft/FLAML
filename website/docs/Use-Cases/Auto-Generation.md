@@ -152,9 +152,9 @@ user_proxy.initiate_chat(
 
 * [Automated Task Solving with Coding & Planning Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_planning.ipynb)
 
-* [Automated Task Solving with Multiple Human Users](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_two_users.ipynb)
+* [Automated Task Solving with GPT-4 + Multiple Human Users](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_two_users.ipynb)
 
-* [Automated Chess Game Playing & Chitchatting by AI Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_chess.ipynb)
+* [Automated Chess Game Playing & Chitchatting by GPT-4 Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_chess.ipynb)
 
 ## Enhanced Inference
 
