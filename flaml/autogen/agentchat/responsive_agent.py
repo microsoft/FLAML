@@ -101,10 +101,11 @@ class ResponsiveAgent(Agent):
 
         self._code_execution_config = {} if code_execution_config is None else code_execution_config
         self.human_input_mode = human_input_mode
-        self.max_consecutive_auto_reply = (
+        self._max_consecutive_auto_reply = (
             max_consecutive_auto_reply if max_consecutive_auto_reply is not None else self.MAX_CONSECUTIVE_AUTO_REPLY
         )
         self._consecutive_auto_reply_counter = defaultdict(int)
+        self._max_consecutive_auto_reply_dict = defaultdict(self.max_consecutive_auto_reply)
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
 
@@ -115,6 +116,26 @@ class ResponsiveAgent(Agent):
             system_message (str): system message for the ChatCompletion inference.
         """
         self._oai_system_message[0]["content"] = system_message
+
+    def update_max_consecutive_auto_reply(self, value: int, sender: Optional[Agent] = None):
+        """Update the maximum number of consecutive auto replies.
+
+        Args:
+            value (int): the maximum number of consecutive auto replies.
+            sender (Agent): when the sender is provided, only update the max_consecutive_auto_reply for that sender.
+        """
+        if sender is None:
+            self._max_consecutive_auto_reply = value
+            for k in self._max_consecutive_auto_reply_dict:
+                self._max_consecutive_auto_reply_dict[k] = value
+        else:
+            self._max_consecutive_auto_reply_dict[sender.name] = value
+
+    def max_consecutive_auto_reply(self, sender: Optional[Agent] = None) -> int:
+        """The maximum number of consecutive auto replies."""
+        return (
+            self._max_consecutive_auto_reply if sender is None else self._max_consecutive_auto_reply_dict[sender.name]
+        )
 
     @property
     def chat_messages(self) -> Dict[str, List[Dict]]:
@@ -288,7 +309,7 @@ class ResponsiveAgent(Agent):
             # if the human input is empty, and the message is a termination message, then we will terminate the conversation
             reply = reply if reply or not self._is_termination_msg(message) else "exit"
         else:
-            if self._consecutive_auto_reply_counter[sender.name] >= self.max_consecutive_auto_reply:
+            if self._consecutive_auto_reply_counter[sender.name] >= self._max_consecutive_auto_reply_dict[sender.name]:
                 if self.human_input_mode == "NEVER":
                     reply = "exit"
                 else:
@@ -325,7 +346,7 @@ class ResponsiveAgent(Agent):
             return
 
         # send the human reply
-        if reply or self.max_consecutive_auto_reply == 0:
+        if reply or self._max_consecutive_auto_reply_dict[sender.name] == 0:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
             self.send(reply, sender)
@@ -343,6 +364,13 @@ class ResponsiveAgent(Agent):
         """Reset the agent."""
         self._oai_messages.clear()
         self._consecutive_auto_reply_counter.clear()
+
+    def reset_consecutive_auto_reply_counter(self, sender: Optional[Agent] = None):
+        """Reset the consecutive_auto_reply_counter of the sender."""
+        if sender is None:
+            self._consecutive_auto_reply_counter.clear()
+        else:
+            self._consecutive_auto_reply_counter[sender.name] = 0
 
     def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
         # TODO: #1143 handle token limit exceeded error
@@ -536,7 +564,7 @@ class ResponsiveAgent(Agent):
         """
         return context["message"]
 
-    def initiate_chat(self, recipient, **context):
+    def initiate_chat(self, recipient: "ResponsiveAgent", **context):
         """Initiate a chat with the recipient agent.
 
         `generate_init_message` is called to generate the initial message for the agent.
@@ -546,6 +574,8 @@ class ResponsiveAgent(Agent):
             **context: any context information.
                 "message" needs to be provided if the `generate_init_message` method is not overridden.
         """
+        self._consecutive_auto_reply_counter[recipient.name] = 0
+        recipient.reset_consecutive_auto_reply_counter(self)
         self.send(self.generate_init_message(**context), recipient)
 
     def register_function(self, function_map: Dict[str, Callable]):
