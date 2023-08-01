@@ -144,8 +144,8 @@ setuptools.setup(
         "retrievechat": [
             "openai==0.27.8",
             "diskcache",
-            "termcolor" "chromadb",
-            "pydantic==1.10.9",
+            "termcolor",
+            "chromadb",
             "tiktoken",
             "sentence_transformers",
         ],

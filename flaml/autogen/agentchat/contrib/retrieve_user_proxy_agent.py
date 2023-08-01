@@ -37,7 +37,7 @@ def _is_termination_msg_retrievechat(message):
     cb = extract_code(message)
     contain_code = False
     for c in cb:
-        if c[0] == "python" or c[0] == "wolfram":
+        if c[0] == "python":
             contain_code = True
             break
     return not contain_code
@@ -73,9 +73,11 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 - collection_name (Optional, str): the name of the collection.
                     If key not provided, a default name `flaml-docs` will be used.
                 - model (Optional, str): the model to use for the retrieve chat.
-                    If key not provided, a default model `gpt-3.5` will be used.
+                    If key not provided, a default model `gpt-4` will be used.
                 - chunk_token_size (Optional, int): the chunk token size for the retrieve chat.
-                    If key not provided, a default size `max_tokens * 0.6` will be used.
+                    If key not provided, a default size `max_tokens * 0.4` will be used.
+                - context_max_tokens (Optional, int): the context max token size for the retrieve chat.
+                    If key not provided, a default size `max_tokens * 0.8` will be used.
             **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
         """
         super().__init__(
@@ -89,54 +91,88 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._client = self._retrieve_config.get("client", chromadb.Client())
         self._docs_path = self._retrieve_config.get("docs_path", "./docs")
         self._collection_name = self._retrieve_config.get("collection_name", "flaml-docs")
-        self._model = self._retrieve_config.get("model", "gpt-3.5")
+        self._model = self._retrieve_config.get("model", "gpt-4")
         self._max_tokens = self.get_max_tokens(self._model)
-        self._chunk_token_size = int(self._retrieve_config.get("chunk_token_size", self._max_tokens * 0.6))
+        self._chunk_token_size = int(self._retrieve_config.get("chunk_token_size", self._max_tokens * 0.4))
+        self._context_max_tokens = self._max_tokens * 0.8
         self._collection = False  # whether the collection is created
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
-        self._results = []  # the results of the current query
+        self._results = {}  # the results of the current query
 
     @staticmethod
-    def get_max_tokens(model="gpt-3.5"):
-        if "gpt-4-32k" in model:
+    def get_max_tokens(model="gpt-3.5-turbo"):
+        if "32k" in model:
             return 32000
+        elif "16k" in model:
+            return 16000
         elif "gpt-4" in model:
             return 8000
         else:
             return 4000
 
     def _reset(self):
-        self._oai_conversations.clear()
+        # clean only the messages in the conversation, but not _consecutive_auto_reply_counter
+        self._oai_messages.clear()
 
-    def receive(self, message: Union[Dict, str], sender: "Agent"):
+    def reset(self):
+        super().reset()
+        self._doc_idx = -1  # the index of the current used doc
+        self._results = {}  # the results of the current query
+
+    def _get_context(self, results):
+        doc_contents = ""
+        current_tokens = 0
+        _doc_idx = self._doc_idx
+        for idx, doc in enumerate(results["documents"][0]):
+            if idx <= _doc_idx:
+                continue
+            _doc_tokens = num_tokens_from_text(doc)
+            if _doc_tokens > self._context_max_tokens:
+                print(f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context.")
+                self._doc_idx = idx
+                continue
+            if current_tokens + _doc_tokens > self._context_max_tokens:
+                break
+            print(f"Adding doc_id {results['ids'][0][idx]} to context.")
+            current_tokens += _doc_tokens
+            doc_contents += doc + "\n"
+            self._doc_idx = idx
+        return doc_contents
+
+    def _generate_message(self, doc_contents):
+        if self.customized_prompt:
+            message = self.customized_prompt + "\nUser's question is: " + self.problem + "\nContext is: " + doc_contents
+        else:
+            message = PROMPT.format(input_question=self.problem, input_context=doc_contents)
+        return message
+
+    def receive(self, message: Union[Dict, str], sender: Agent):
         """Receive a message from another agent.
-        If "Update Context" in message, update the context and reset the messages in the conversation.
+
+        Once a message is received, this function sends a reply to the sender or stop.
+        The reply can be generated automatically or entered manually by a human.
+
+        Args:
+            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (either content or function_call need to be provided).
+                1. "content": content of the message, can be None.
+                2. "function_call": a dictionary containing the function name and arguments.
+                3. "role": role of the message, can be "assistant", "user", "function".
+                    This field is only needed to distinguish between "function" or "assistant"/"user".
+                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
+                5. "context" (dict): the context of the message, which will be passed to
+                    [autogen.Completion.create](../oai/Completion#create).
+            sender: sender of an Agent instance.
+
+        Raises:
+            ValueError: if the message can't be converted into a valid ChatCompletion message.
         """
         message = self._message_to_dict(message)
         if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
             print("Updating context and resetting conversation.")
             self._reset()
-            results = self._results
-            doc_contents = ""
-            _doc_idx = self._doc_idx
-            for idx, doc in enumerate(results["documents"][0]):
-                if idx <= _doc_idx:
-                    continue
-                _doc_contents = doc_contents + doc + "\n"
-                if num_tokens_from_text(_doc_contents) > self._chunk_token_size:
-                    break
-                print(f"Adding doc_id {results['ids'][0][idx]} to context.")
-                doc_contents = _doc_contents
-                self._doc_idx = idx
-
-            if self.customized_prompt:
-                message = (
-                    self.customized_prompt + "\nUser's question is: " + self.problem + "\nContext is: " + doc_contents
-                )
-            else:
-                message = PROMPT.format(input_question=self.problem, input_context=doc_contents)
-            self.send(message, sender)
+            doc_contents = self._get_context(self._results)
+            self.send(self._generate_message(doc_contents), sender)
         else:
             super().receive(message, sender)
 
@@ -175,42 +211,48 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         """
         self.reset()
         self.retrieve_docs(problem, n_results, search_string)
-        results = self._results
-        doc_contents = ""
-        for idx, doc in enumerate(results["documents"][0]):
-            _doc_contents = doc_contents + doc + "\n"
-            if num_tokens_from_text(_doc_contents) > self._chunk_token_size:
-                break
-            print(f"Adding doc_id {results['ids'][0][idx]} to context.")
-            doc_contents = _doc_contents
-            self._doc_idx = idx
-
+        self.problem = problem
         if customized_prompt:
             self.customized_prompt = customized_prompt
-            msg = customized_prompt + "\nUser's question is:" + problem + "\nContext is:" + doc_contents
         else:
             self.customized_prompt = ""
-            msg = PROMPT.format(input_question=problem, input_context=doc_contents)
-        self.problem = problem
-        return msg
+        doc_contents = self._get_context(self._results)
+        message = self._generate_message(doc_contents)
+        return message
 
     def run_code(self, code, **kwargs):
         lang = kwargs.get("lang", None)
         if code.startswith("!") or code.startswith("pip") or lang in ["bash", "shell", "sh"]:
             return (
                 0,
-                bytes(
-                    "You MUST NOT install any packages because all the packages needed are already installed.", "utf-8"
-                ),
+                "You MUST NOT install any packages because all the packages needed are already installed.",
                 None,
             )
-        result = self._ipython.run_cell(code)
-        log = str(result.result)
-        exitcode = 0 if result.success else 1
-        if result.error_before_exec is not None:
-            log += f"\n{result.error_before_exec}"
-            exitcode = 1
-        if result.error_in_exec is not None:
-            log += f"\n{result.error_in_exec}"
-            exitcode = 1
-        return exitcode, bytes(log, "utf-8"), None
+        if self._ipython is None:
+            return super().run_code(code, **kwargs)
+        else:
+            # # capture may not work as expected
+            # result = self._ipython.run_cell("%%capture --no-display cap\n" + code)
+            # log = self._ipython.ev("cap.stdout")
+            # log += self._ipython.ev("cap.stderr")
+            # if result.result is not None:
+            #     log += str(result.result)
+            # exitcode = 0 if result.success else 1
+            # if result.error_before_exec is not None:
+            #     log += f"\n{result.error_before_exec}"
+            #     exitcode = 1
+            # if result.error_in_exec is not None:
+            #     log += f"\n{result.error_in_exec}"
+            #     exitcode = 1
+            # return exitcode, log, None
+
+            result = self._ipython.run_cell(code)
+            log = str(result.result)
+            exitcode = 0 if result.success else 1
+            if result.error_before_exec is not None:
+                log += f"\n{result.error_before_exec}"
+                exitcode = 1
+            if result.error_in_exec is not None:
+                log += f"\n{result.error_in_exec}"
+                exitcode = 1
+            return exitcode, log, None
