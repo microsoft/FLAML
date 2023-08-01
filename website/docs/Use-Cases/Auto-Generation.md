@@ -357,7 +357,7 @@ response = autogen.Completion.create(
 A template is either a format str, like the example above, or a function which produces a str from several input fields, like the example below.
 
 ```python
-def content(turn, **context):
+def content(turn, context):
     return "\n".join(
         [
             context[f"user_message_{turn}"],
