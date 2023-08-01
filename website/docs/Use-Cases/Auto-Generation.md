@@ -144,7 +144,7 @@ user_proxy.initiate_chat(
 *Interested in trying it yourself? Please check the following notebook examples:*
 * [Automated Task Solving with Code Generation, Execution & Debugging](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_auto_feedback_from_code_execution.ipynb)
 
-* [Task Solving with Auto Code Generation, Execution, Debugging and Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_human_feedback.ipynb)
+* [Auto Code Generation, Execution, Debugging and Human Feedback](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_human_feedback.ipynb)
 
 * [Solve Tasks Requiring Web Info](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_web_info.ipynb)
 
@@ -153,6 +153,8 @@ user_proxy.initiate_chat(
 * [Automated Task Solving with Coding & Planning Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_planning.ipynb)
 
 * [Automated Task Solving with Multiple Human Users](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_two_users.ipynb)
+
+* [Automated Chess Game Playing & Chitchatting by AI Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_chess.ipynb)
 
 ## Enhanced Inference
 
