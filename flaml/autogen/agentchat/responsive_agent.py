@@ -108,6 +108,19 @@ class ResponsiveAgent(Agent):
         self._max_consecutive_auto_reply_dict = defaultdict(self.max_consecutive_auto_reply)
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
+        self._class_specific_reply = []
+
+    def register_class_specific_reply(self, class_type, reply_func: Callable):
+        """Register a class-specific reply function.
+
+        The class-specific reply function will be called when the sender is an instance of the class_type.
+        The function registered later will be checked earlier.
+
+        Args:
+            class_type (Class): the class type.
+            reply_func (Callable): the reply function.
+        """
+        self._class_specific_reply.append((class_type, reply_func))
 
     def update_system_message(self, system_message: str):
         """Update the system message.
@@ -422,6 +435,7 @@ class ResponsiveAgent(Agent):
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
+        class_specific_reply: Optional[bool] = True,
     ) -> Union[str, Dict, None]:
         """Reply based on the conversation history.
 
@@ -439,6 +453,10 @@ class ResponsiveAgent(Agent):
             str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
+        if sender is not None and class_specific_reply:
+            for class_specifc_reply in self._class_specific_reply[-1::-1]:
+                if isinstance(sender, class_specifc_reply[0]):
+                    return class_specifc_reply[1](messages, default_reply, sender)
         if messages is None:
             messages = self._oai_messages[sender.name]
         message = messages[-1]
