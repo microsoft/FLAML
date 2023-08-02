@@ -56,15 +56,13 @@ def test_responsive_agent(monkeypatch):
 def test_long_code_result():
     dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
 
-    longcodeblock = [
-        "python",
-        "print('*' * 5000)",
-    ]
+    longcodeblock = [("python", "print('*' * 5000)")]
     long_error = dummy_agent_1.execute_code_blocks(longcodeblock)
     assert (
-        "Error: The output is too long and is truncated." in long_error
-    ), "The error message should be truncated to 1000 characters."
+        "Error: The output is too long and is truncated." in long_error[1]
+    ), "The error message should be shown in the message."
 
 
 if __name__ == "__main__":
     test_responsive_agent(pytest.monkeypatch)
+    test_long_code_result()
