@@ -25,24 +25,16 @@ class BroadcastAgent(ResponsiveAgent):
             human_input_mode=human_input_mode,
             **kwargs,
         )
+        self.register_class_specific_reply(Agent, self._generate_reply_for_agent)
         self.agents = agents or []
 
-    def generate_reply(
+    def _generate_reply_for_agent(
         self,
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = None,
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
-        """Overriding this method to broadcast a message from an agent in the group chat.
-
-        Args:
-            messages: a list of messages from other agents in the group chat.
-            default_reply: a default reply if no reply is generated.
-            sender: the agent who sent the message.
-
-        Returns:
-            None. This method can be extended, e.g., to reply "invalid" if the message doesn't meet requirements.
-        """
+        """Broadcast a message from an agent in the group chat."""
         if messages is None:
             messages = self._oai_messages[sender.name]
         message = messages[-1]
@@ -79,42 +71,41 @@ class ChatManagerAgent(ResponsiveAgent):
             human_input_mode=human_input_mode,
             **kwargs,
         )
+        self.register_class_specific_reply(BroadcastAgent, self._generate_reply_for_broadcaster)
+        self.register_class_specific_reply(GroupChatParticipant, self._generate_reply_for_participant)
         self.broadcaster = broadcaster
         self.max_round = max_round
         self._agent_names = []
         self._next_speaker = None
         self._random = random.Random(seed)
 
-    def generate_reply(
+    def _generate_reply_for_broadcaster(
         self,
         messages: Optional[List[Dict]] = None,
         default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
-        """Overriding this method to manage a group chat.
-
-        Args:
-            messages: a list of messages from other agents in the group chat.
-            default_reply: a default reply if no reply is generated.
-            sender: the agent who sent the message.
-
-        Returns:
-            None. This method can be extended, e.g., to communicate about the speaker selection.
-        """
         if messages is None:
             messages = self._oai_messages[sender.name]
-        if sender != self.broadcaster:
-            # speaker selection msg from an agent
-            self._next_speaker = self._find_next_speaker(messages[-1])
-        else:
-            # the chat begins
-            self._agent_names = [agent.name for agent in self.broadcaster.agents]
-            self.send(messages[-1], self.broadcaster)
-            for _ in range(self.max_round):
-                self.select_speaker()
-                self.send("speak", self._next_speaker)
+        # the chat begins
+        self._agent_names = [agent.name for agent in self.broadcaster.agents]
+        self.send(messages[-1], self.broadcaster)
+        for _ in range(self.max_round):
+            self._select_speaker()
+            self.send("speak", self._next_speaker)
 
-    def select_speaker(self):
+    def _generate_reply_for_participant(
+        self,
+        messages: Optional[List[Dict]] = None,
+        default_reply: Optional[Union[str, Dict]] = "",
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict, None]:
+        if messages is None:
+            messages = self._oai_messages[sender.name]
+        # speaker selection msg from an agent
+        self._next_speaker = self._find_next_speaker(messages[-1])
+
+    def _select_speaker(self):
         """Select the next speaker."""
         i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
         self.send(self.SELECT_SPEAKER_MSG, self.broadcaster.agents[i])
@@ -125,8 +116,8 @@ class ChatManagerAgent(ResponsiveAgent):
 
 
 class GroupChatParticipant(ResponsiveAgent):
-    # TODO: I don't know how to make it a mixin class
     """(WIP) A group chat participant agent that can participate in a group chat."""
+
     broadcaster: BroadcastAgent
     chat_manager: ChatManagerAgent
 
