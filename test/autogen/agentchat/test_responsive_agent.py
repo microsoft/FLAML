@@ -53,16 +53,43 @@ def test_responsive_agent(monkeypatch):
     assert dummy_agent_1._oai_system_message[0]["content"] == "new system message"
 
 
-def test_long_code_result():
-    dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
+def test_long_auto_reply():
+    # prepare code and function call
+    longcodeblock = [("python", "print('hello world')"), ("python", "print('*' * 5000)")]
 
-    longcodeblock = [("python", "print('*' * 5000)")]
-    long_error = dummy_agent_1.execute_code_blocks(longcodeblock)
+    def return_long_out():
+        return "*" * 5000
+
+    func_call = {"name": "return_long_out", "arguments": "{}"}
+
+    # create agent with pre-defined token limit
+    dummy_agent = ResponsiveAgent(
+        name="dummy_agent",
+        human_input_mode="ALWAYS",
+        function_map={"return_long_out": return_long_out},
+        auto_reply_token_limit=50,
+    )
+    long_error = dummy_agent.execute_code_blocks(longcodeblock)
     assert (
-        "Error: The output is too long and is truncated." in long_error[1]
-    ), "The error message should be shown in the message."
+        "hello world" in long_error[1]
+    ), f"Output from previous code block should be shown in the message. Reuturn: {long_error}"
+    assert (
+        "Error: The output exceeds the length limit and is truncated." in long_error[1]
+    ), "The error message for long reply should be shown in the message."
+    assert (
+        dummy_agent.execute_function(func_call)[1]["content"]
+        == "Error: The return from this call exceeds the token limit."
+    ), "The error message for long reply should be shown in the message."
+
+    # create agent with no token limit
+    dummy_agent = ResponsiveAgent(
+        name="dummy_agent", human_input_mode="ALWAYS", function_map={"return_long_out": return_long_out}
+    )
+    long_return = dummy_agent.execute_code_blocks(longcodeblock)
+    assert "****" in long_return[1], f"The output should be valid. Return: {long_return}"
+    assert "****" in dummy_agent.execute_function(func_call)[1]["content"], "The return from this call should be valid."
 
 
 if __name__ == "__main__":
     test_responsive_agent(pytest.monkeypatch)
-    test_long_code_result()
+    test_long_auto_reply()

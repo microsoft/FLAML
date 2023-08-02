@@ -3,6 +3,7 @@ import json
 from typing import Callable, Dict, List, Optional, Union
 from flaml.autogen import oai
 from .agent import Agent
+from .agent_utils import num_token_from_text
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
 
 try:
@@ -44,6 +45,7 @@ class ResponsiveAgent(Agent):
         code_execution_config: Optional[Union[Dict, bool]] = None,
         llm_config: Optional[Union[Dict, bool]] = None,
         default_auto_reply: Optional[Union[str, Dict, None]] = "",
+        auto_reply_token_limit: Optional[int] = -1,
     ):
         """
         Args:
@@ -84,6 +86,7 @@ class ResponsiveAgent(Agent):
                 for available options.
                 To disable llm-based auto reply, set to False.
             default_auto_reply (str or dict or None): default auto reply when no code execution or llm-based reply is generated.
+            auto_reply_token_limit (int): default to -1 (no limit). When auto_reply_token_limit > 0 and the token count from auto reply (code execution or function) exceeds the limit, the output will be replaced with an error message.
         """
         super().__init__(name)
         # a dictionary of conversations, default value is list
@@ -107,6 +110,7 @@ class ResponsiveAgent(Agent):
         self._consecutive_auto_reply_counter = defaultdict(int)
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
+        self.auto_reply_token_limit = auto_reply_token_limit
 
     def update_system_message(self, system_message: str):
         """Update the system message.
@@ -450,13 +454,15 @@ class ResponsiveAgent(Agent):
                 exitcode, logs, image = 1, f"unknown language {lang}", self._code_execution_config["use_docker"]
                 # raise NotImplementedError
             self._code_execution_config["use_docker"] = image
-            logs_all += "\n" + logs
 
-            if len(logs_all) > 1000:
-                # Hard limit to around 250 tokens 4 char = 1 token.
-                # TODO: Use tiktoken for fine-grained token count, and possibly calcuate token usage and limit
-                logs_all = logs_all[:1000] + "\n... (Error: The output is too long and is truncated. Please revise.)"
+            if (
+                self.auto_reply_token_limit > 0
+                and num_token_from_text(logs_all + "\n" + logs) > self.auto_reply_token_limit
+            ):
+                logs_all += "\n" + "Error: The output exceeds the length limit and is truncated."
                 return 1, logs_all
+
+            logs_all += "\n" + logs
             if exitcode != 0:
                 return exitcode, logs_all
         return exitcode, logs_all
@@ -527,6 +533,10 @@ class ResponsiveAgent(Agent):
                     content = f"Error: {e}"
         else:
             content = f"Error: Function {func_name} not found."
+
+        if self.auto_reply_token_limit > 0 and num_token_from_text(content) > self.auto_reply_token_limit:
+            content = "Error: The return from this call exceeds the token limit."
+            is_exec_success = False
 
         return is_exec_success, {
             "name": func_name,
