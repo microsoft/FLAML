@@ -755,6 +755,7 @@ class Completion(openai_Completion):
             cost = 0
             for i, each_config in enumerate(config_list):
                 base_config = config.copy()
+                base_config["allow_format_str_template"] = allow_format_str_template
                 base_config.update(each_config)
                 if i < last and filter_func is None and "retry_timeout" not in base_config:
                     # retry_timeout = 0 to avoid retrying when no filter is given
@@ -764,7 +765,6 @@ class Completion(openai_Completion):
                         context,
                         use_cache,
                         raise_on_ratelimit_or_timeout=i < last or raise_on_ratelimit_or_timeout,
-                        allow_format_str_template=allow_format_str_template,
                         **base_config,
                     )
                     if response == -1:
