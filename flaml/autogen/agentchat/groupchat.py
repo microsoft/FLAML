@@ -52,7 +52,13 @@ class ChatManagerAgent(ResponsiveAgent):
 
     broadcaster: BroadcastAgent
     max_round: int
-    SELECT_SPEAKER_MSG = "select_speaker prompt"  # TODO: replace the prompt
+
+    def _select_speaker_msg(self):
+        return {
+            "role": "system",
+            "content": f"""You are in a role play game. Read the following conversation.
+Then select the next role from {self._agent_names} to play. Only return the role.""",
+        }
 
     def __init__(
         self,
@@ -108,7 +114,7 @@ class ChatManagerAgent(ResponsiveAgent):
     def _select_speaker(self):
         """Select the next speaker."""
         i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
-        self.send(self.SELECT_SPEAKER_MSG, self.broadcaster.agents[i])
+        self.send(self._select_speaker_msg(), self.broadcaster.agents[i])
 
     def _find_next_speaker(self, message: Dict) -> str:
         """Find the next speaker based on the message."""
@@ -166,12 +172,31 @@ class GroupChatParticipant(ResponsiveAgent):
         if messages is None:
             messages = self._oai_messages[sender.name]
         message = messages[-1]
+        sender = self.chat_manager.broadcaster
         if message["content"] == "speak":
-            sender = self.chat_manager.broadcaster
             reply = super().generate_reply(
                 self.chat_messages[sender.name], default_reply, sender, class_specific_reply=False
             )
             self.send(reply, self.chat_manager.broadcaster)
         else:
             # TODO: run _speaker_selection() and return the result
+            return self._speaker_selection(message)
+
+    def _speaker_selection(self, instruction):
+        """Select the next speaker."""
+        if self.llm_config is False:
             return self.name
+        sender = self.chat_manager.broadcaster
+        roles_msg = {
+            "content": f"""The following roles are available:
+{self._participant_roles()}""",
+            "role": "system",
+        }
+        old_system_msg = self.system_message
+        self.update_system_message(instruction["content"])
+        reply = self._oai_reply([roles_msg] + self.chat_messages[sender.name])
+        self.update_system_message(old_system_msg)
+        return reply
+
+    def _participant_roles(self):
+        return "\n".join([f"{agent.name}: {agent.system_message}" for agent in self.chat_manager.broadcaster.agents])
