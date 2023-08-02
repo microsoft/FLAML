@@ -4,7 +4,7 @@ from flaml import autogen
 def test_broadcast():
     agent1 = autogen.ResponsiveAgent("alice", max_consecutive_auto_reply=0, human_input_mode="NEVER")
     agent2 = autogen.ResponsiveAgent("bob", max_consecutive_auto_reply=0, human_input_mode="NEVER")
-    broadcaster = autogen.BroadcastAgent(agents=[agent1, agent2])
+    broadcaster = autogen.Room(agents=[agent1, agent2])
     agent1.send("start", broadcaster)
     # no auto reply
     assert len(agent1.chat_messages[broadcaster.name]) == 1
@@ -13,8 +13,8 @@ def test_broadcast():
 
 
 def test_chat_manager():
-    broadcaster = autogen.BroadcastAgent()
-    chat_manager = autogen.ChatManagerAgent(broadcaster=broadcaster, max_round=2)
+    broadcaster = autogen.Room()
+    chat_manager = autogen.ChatManagerAgent(room=broadcaster, max_round=2)
     agent1 = autogen.GroupChatParticipant(
         "alice",
         max_consecutive_auto_reply=2,
