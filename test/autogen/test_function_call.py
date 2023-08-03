@@ -124,7 +124,7 @@ def test_execute_function():
 
     user = UserProxyAgent("user", function_map={"get_number": get_number})
     func_call = {"name": "get_number", "arguments": "{}"}
-    assert user._execute_function(func_call)[1]["content"] == "42"
+    assert user.execute_function(func_call)[1]["content"] == "42"
 
 
 if __name__ == "__main__":
