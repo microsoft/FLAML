@@ -231,18 +231,26 @@ class BlendSearch(Searcher):
                 sampler = ot.samplers.TPESampler(seed=gs_seed, multivariate=True, group=True)
             else:
                 sampler = None
-            try:
-                assert evaluated_rewards
-                self._gs = GlobalSearch(
-                    space=gs_space,
-                    metric=metric,
-                    mode=mode,
-                    seed=gs_seed,
-                    sampler=sampler,
-                    points_to_evaluate=self._evaluated_points,
-                    evaluated_rewards=evaluated_rewards,
-                )
-            except (AssertionError, ValueError):
+
+            if evaluated_rewards:
+                try:
+                    self._gs = GlobalSearch(
+                        space=gs_space,
+                        metric=metric,
+                        mode=mode,
+                        seed=gs_seed,
+                        sampler=sampler,
+                        points_to_evaluate=self._evaluated_points,
+                        evaluated_rewards=evaluated_rewards,
+                    )
+                except ValueError:
+                    try_without_warmup = True
+                else:
+                    try_without_warmup = False
+            else:
+                try_without_warmup = True
+
+            if try_without_warmup:
                 self._gs = GlobalSearch(
                     space=gs_space,
                     metric=metric,
