@@ -4,7 +4,7 @@ from .agent import Agent
 from .responsive_agent import ResponsiveAgent
 
 
-class ChatManagerAgent(ResponsiveAgent):
+class GroupChatManager(ResponsiveAgent):
     """(WIP) A chat manager agent that can manage a group chat of multiple agents."""
 
     agents: List["GroupChatParticipant"]
@@ -99,20 +99,20 @@ Then select the next role from {self._agent_names} to play. Only return the role
 class GroupChatParticipant(ResponsiveAgent):
     """(WIP) A group chat participant agent that can participate in a group chat."""
 
-    chat_manager: ChatManagerAgent
+    group_chat_manager: GroupChatManager
 
     def __init__(
         self,
         name,
-        chat_manager=None,
+        group_chat_manager=None,
         **kwargs,
     ):
         super().__init__(
             name=name,
             **kwargs,
         )
-        self.register_auto_reply(ChatManagerAgent, self._generate_reply_for_chat_manager)
-        self.chat_manager = chat_manager
+        self.register_auto_reply(GroupChatManager, self._generate_reply_for_chat_manager)
+        self.group_chat_manager = group_chat_manager
 
     def _generate_reply_for_chat_manager(
         self,
@@ -120,7 +120,7 @@ class GroupChatParticipant(ResponsiveAgent):
         sender: Optional[Agent] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         """Generate reply for the chat manager."""
-        return self.chat_manager.next_speaker != self, None
+        return self.group_chat_manager.next_speaker != self, None
 
 
 #     def _speaker_selection(self, instruction):
