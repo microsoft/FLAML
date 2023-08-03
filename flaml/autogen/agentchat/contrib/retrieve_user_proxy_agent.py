@@ -1,8 +1,8 @@
 import chromadb
 from flaml.autogen.agentchat.agent import Agent
 from flaml.autogen.agentchat import UserProxyAgent
-from flaml.autogen.retrieval_utils import create_vector_db_from_dir, query_vector_db, num_tokens_from_text
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
+from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db, num_tokens_from_text
+from flaml.autogen.code_utils import extract_code
 
 from typing import Callable, Dict, Optional, Union, List
 from IPython import get_ipython
@@ -111,10 +111,6 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         else:
             return 4000
 
-    def _reset(self):
-        # clean only the messages in the conversation, but not _consecutive_auto_reply_counter
-        self._oai_messages.clear()
-
     def reset(self):
         super().reset()
         self._doc_idx = -1  # the index of the current used doc
@@ -147,34 +143,23 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             message = PROMPT.format(input_question=self.problem, input_context=doc_contents)
         return message
 
-    def receive(self, message: Union[Dict, str], sender: Agent):
-        """Receive a message from another agent.
-
-        Once a message is received, this function sends a reply to the sender or stop.
-        The reply can be generated automatically or entered manually by a human.
-
-        Args:
-            message (dict or str): message from the sender. If the type is dict, it may contain the following reserved fields (either content or function_call need to be provided).
-                1. "content": content of the message, can be None.
-                2. "function_call": a dictionary containing the function name and arguments.
-                3. "role": role of the message, can be "assistant", "user", "function".
-                    This field is only needed to distinguish between "function" or "assistant"/"user".
-                4. "name": In most cases, this field is not needed. When the role is "function", this field is needed to indicate the function name.
-                5. "context" (dict): the context of the message, which will be passed to
-                    [autogen.Completion.create](../oai/Completion#create).
-            sender: sender of an Agent instance.
-
-        Raises:
-            ValueError: if the message can't be converted into a valid ChatCompletion message.
-        """
-        message = self._message_to_dict(message)
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict, None]:
+        assert messages is not None or sender is not None, "Either messages or sender must be provided."
+        if messages is None:
+            messages = self._oai_messages[sender.name]
+        message = self._message_to_dict(messages[-1])
         if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
             print("Updating context and resetting conversation.")
-            self._reset()
+            self.clear_history()
+            sender.clear_history()
             doc_contents = self._get_context(self._results)
             self.send(self._generate_message(doc_contents), sender)
         else:
-            super().receive(message, sender)
+            return super().generate_reply(messages, sender)
 
     def retrieve_docs(self, problem: str, n_results: int = 20, search_string: str = ""):
         if not self._collection:
@@ -199,12 +184,14 @@ class RetrieveUserProxyAgent(UserProxyAgent):
     def generate_init_message(
         self, problem: str, customized_prompt: str = "", n_results: int = 20, search_string: str = ""
     ):
-        """Generate a prompt for the assitant agent with the given problem and prompt.
+        """Generate an initial message with the given problem and prompt.
 
         Args:
             problem (str): the problem to be solved.
             customized_prompt (str): a customized prompt to be used. If it is not "", the built-in prompt will be
             ignored.
+            n_results (int): the number of results to be retrieved.
+            search_string (str): only docs containing this string will be retrieved.
 
         Returns:
             str: the generated prompt ready to be sent to the assistant agent.

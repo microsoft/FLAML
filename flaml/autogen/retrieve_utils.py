@@ -175,21 +175,3 @@ def query_vector_db(
         where_document={"$contains": search_string} if search_string else None,  # optional filter
     )
     return results
-
-
-if __name__ == "__main__":
-    client = chromadb.PersistentClient(path="/tmp/chromadb.db")
-    create_vector_db_from_dir(dir_path="./website/docs", client=client, collection_name="flaml-docs")
-    results = query_vector_db(
-        query_texts=[
-            "How can I use FLAML UserProxyAgent and AssistantAgent to do code generation?",
-        ],
-        n_results=4,
-        client=client,
-        collection_name="flaml-docs",
-        search_string="UserProxyAgent",
-    )
-    with open("doc.txt", "w") as f:
-        for doc in results["documents"]:
-            f.write(doc[0])
-            f.write("\n")
