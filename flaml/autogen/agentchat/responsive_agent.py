@@ -112,18 +112,21 @@ class ResponsiveAgent(Agent):
         self.register_auto_reply(Agent, self._generate_oai_reply)
         self.register_auto_reply(Agent, self._generate_code_execution_reply)
         self.register_auto_reply(Agent, self._generate_function_call_reply)
+        self.register_auto_reply(Agent, self._check_termination_and_human_reply)
 
-    def register_auto_reply(self, class_type, reply_func: Callable):
+    def register_auto_reply(self, class_type, reply_func: Callable, position: int = 0):
         """Register a class-specific reply function.
 
         The class-specific reply function will be called when the sender is an instance of the class_type.
-        The function registered later will be checked earlier.
+        The function registered later will be checked earlier by default.
+        To change the order, set the position to a positive integer.
 
         Args:
             class_type (Class): the class type.
             reply_func (Callable): the reply function.
+            position (int): the position of the reply function in the reply function list.
         """
-        self._class_specific_reply.append((class_type, reply_func))
+        self._class_specific_reply.insert(position, (class_type, reply_func))
 
     def system_message(self):
         """Return the system message."""
@@ -493,29 +496,38 @@ class ResponsiveAgent(Agent):
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        exclude: Optional[List[Callable]] = None,
     ) -> Union[str, Dict, None]:
-        """Reply based on the conversation history.
+        """Reply based on the conversation history and the sender.
 
-        First, execute function or code and return the result.
-        AI replies are generated only when no code execution is performed.
-        Subclasses can override this method to customize the reply.
         Either messages or sender must be provided.
+        Use registered class-specific reply functions to generate replies.
+        By default, the following functions are checked in order:
+        1. _check_termination_and_human_reply
+        2. _generate_function_call_reply
+        3. _generate_code_execution_reply
+        4. _generate_oai_reply
+        Every function returns a tuple (final, reply).
+        When a function returns final=False, the next function will be checked.
+        So by default, termination and human reply will be checked first.
+        If not terminating and human reply is skipped, execute function or code and return the result.
+        AI replies are generated only when no code execution is performed.
 
         Args:
             messages: a list of messages in the conversation history.
             default_reply (str or dict): default reply.
             sender: sender of an Agent instance.
+            exclude: a list of functions to exclude.
 
         Returns:
             str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
-        final, reply = self._check_termination_and_human_reply(sender=sender)
-        if final:
-            return reply
         if sender is not None:
-            for class_specifc_reply in self._class_specific_reply[-1::-1]:
-                if isinstance(sender, class_specifc_reply[0]):
+            for class_specifc_reply in self._class_specific_reply:
+                if isinstance(sender, class_specifc_reply[0]) and (
+                    not exclude or class_specifc_reply[1] not in exclude
+                ):
                     final, reply = class_specifc_reply[1](messages, sender)
                     if final:
                         return reply
