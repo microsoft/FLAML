@@ -1,6 +1,6 @@
 from collections import defaultdict
 import json
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from flaml.autogen import oai
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
@@ -109,8 +109,11 @@ class ResponsiveAgent(Agent):
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
         self._class_specific_reply = []
+        self.register_auto_reply(Agent, self._generate_oai_reply)
+        self.register_auto_reply(Agent, self._generate_code_execution_reply)
+        self.register_auto_reply(Agent, self._generate_function_call_reply)
 
-    def register_class_specific_reply(self, class_type, reply_func: Callable):
+    def register_auto_reply(self, class_type, reply_func: Callable):
         """Register a class-specific reply function.
 
         The class-specific reply function will be called when the sender is an instance of the class_type.
@@ -321,7 +324,7 @@ class ResponsiveAgent(Agent):
                 "Received message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
             )
         self._print_received_message(message, sender)
-        reply = self.generate_reply(sender=sender, default_reply=self._default_auto_reply)
+        reply = self.generate_reply(sender=sender)
         if reply is not None:
             self.send(reply, sender)
 
@@ -368,45 +371,30 @@ class ResponsiveAgent(Agent):
         else:
             self._oai_messages[agent.name].clear()
 
-    def _oai_reply(self, messages: List[Dict]) -> Union[str, Dict]:
+    def _generate_oai_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        if self.llm_config is False:
+            return False, None
+        if messages is None:
+            messages = self._oai_messages[sender.name]
+
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
             context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **self.llm_config
         )
-        return oai.ChatCompletion.extract_text_or_function_call(response)[0]
+        return True, oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
-    def generate_reply(
+    def _check_termination_and_human_reply(
         self,
         messages: Optional[List[Dict]] = None,
-        default_reply: Optional[Union[str, Dict]] = "",
         sender: Optional[Agent] = None,
-        class_specific_reply: Optional[bool] = True,
-    ) -> Union[str, Dict, None]:
-        """Reply based on the conversation history.
-
-        First, execute function or code and return the result.
-        AI replies are generated only when no code execution is performed.
-        Subclasses can override this method to customize the reply.
-        Either messages or sender must be provided.
-
-        Args:
-            messages: a list of messages in the conversation history.
-            default_reply (str or dict): default reply.
-            sender: sender of an Agent instance.
-
-        Returns:
-            str or dict or None: reply. None if no reply is generated.
-        """
-        assert messages is not None or sender is not None, "Either messages or sender must be provided."
-        if sender is not None and class_specific_reply:
-            for class_specifc_reply in self._class_specific_reply[-1::-1]:
-                if isinstance(sender, class_specifc_reply[0]):
-                    return class_specifc_reply[1](messages, default_reply, sender)
+    ) -> Tuple[bool, Union[str, Dict, None]]:
         if messages is None:
             messages = self._oai_messages[sender.name]
         message = messages[-1]
-
-        # default reply is empty (i.e., no reply, in this case we will try to generate auto reply)
         reply = ""
         no_human_input_msg = ""
         if self.human_input_mode == "ALWAYS":
@@ -451,37 +439,87 @@ class ResponsiveAgent(Agent):
         if reply == "exit":
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
-            return
+            return True, None
 
         # send the human reply
         if reply or self._max_consecutive_auto_reply_dict[sender.name] == 0:
             # reset the consecutive_auto_reply_counter
             self._consecutive_auto_reply_counter[sender.name] = 0
-            self.send(reply, sender)
-            return
+            return True, reply
 
-        # send the auto reply
+        # increment the consecutive_auto_reply_counter
         self._consecutive_auto_reply_counter[sender.name] += 1
         if self.human_input_mode != "NEVER":
             print(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
+
+        return False, None
+
+    def _generate_function_call_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ):
+        if messages is None:
+            messages = self._oai_messages[sender.name]
+        message = messages[-1]
         if "function_call" in message:
             _, func_return = self.execute_function(message["function_call"])
-            return func_return
+            return True, func_return
+        return False, None
+
+    def _generate_code_execution_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ):
         if self._code_execution_config is False:
-            return default_reply if self.llm_config is False else self._oai_reply(messages)
+            return False, None
+        if messages is None:
+            messages = self._oai_messages[sender.name]
+        message = messages[-1]
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             # no code block is found, lang should be `UNKNOWN`
-            if self.llm_config is False:
-                return default_reply
+            return False, None
             # code_blocks, _ = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
             # if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
             #     return code_blocks[0][1]
-            return self._oai_reply(messages)
         # try to execute the code
         exitcode, logs = self.execute_code_blocks(code_blocks)
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-        return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
+        return True, f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
+
+    def generate_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ) -> Union[str, Dict, None]:
+        """Reply based on the conversation history.
+
+        First, execute function or code and return the result.
+        AI replies are generated only when no code execution is performed.
+        Subclasses can override this method to customize the reply.
+        Either messages or sender must be provided.
+
+        Args:
+            messages: a list of messages in the conversation history.
+            default_reply (str or dict): default reply.
+            sender: sender of an Agent instance.
+
+        Returns:
+            str or dict or None: reply. None if no reply is generated.
+        """
+        assert messages is not None or sender is not None, "Either messages or sender must be provided."
+        final, reply = self._check_termination_and_human_reply(sender=sender)
+        if final:
+            return reply
+        if sender is not None:
+            for class_specifc_reply in self._class_specific_reply[-1::-1]:
+                if isinstance(sender, class_specifc_reply[0]):
+                    final, reply = class_specifc_reply[1](messages, sender)
+                    if final:
+                        return reply
+        return self._default_auto_reply
 
     def get_human_input(self, prompt: str) -> str:
         """Get human input.

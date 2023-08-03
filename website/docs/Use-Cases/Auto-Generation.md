@@ -23,7 +23,7 @@ By default, the automatically generated reply is crafted based on automatic code
 When `llm_config` is set to a dict, `UserProxyAgent` can generate replies using an LLM when code execution is not performed.
 
 The auto-reply capability of `ResponsiveAgent` allows for more autonomous multi-agent communication while retaining the possibility of human intervention.
-One can also easily extend it by overriding the `generate_reply` function of the `UserProxyAgent` to add or modify responses.
+One can also easily extend it by registering auto_reply functions with the `register_auto_reply()` method.
 
 Example usage of the agents to solve a task with code:
 ```python

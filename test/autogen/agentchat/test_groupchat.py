@@ -1,20 +1,8 @@
 from flaml import autogen
 
 
-def test_broadcast():
-    agent1 = autogen.ResponsiveAgent("alice", max_consecutive_auto_reply=0, human_input_mode="NEVER")
-    agent2 = autogen.ResponsiveAgent("bob", max_consecutive_auto_reply=0, human_input_mode="NEVER")
-    broadcaster = autogen.Room(agents=[agent1, agent2])
-    agent1.send("start", broadcaster)
-    # no auto reply
-    assert len(agent1.chat_messages[broadcaster.name]) == 1
-    assert len(agent2.chat_messages[broadcaster.name]) == 1
-    assert agent2.last_message(broadcaster)["name"] == agent1.name
-
-
 def test_chat_manager():
-    broadcaster = autogen.Room()
-    chat_manager = autogen.ChatManagerAgent(room=broadcaster, max_round=2)
+    chat_manager = autogen.ChatManagerAgent(max_round=2, llm_config=False)
     agent1 = autogen.GroupChatParticipant(
         "alice",
         max_consecutive_auto_reply=2,
@@ -31,11 +19,15 @@ def test_chat_manager():
         default_auto_reply="This is bob speaking.",
         chat_manager=chat_manager,
     )
-    broadcaster.agents = [agent1, agent2]
-    broadcaster.send("start", chat_manager)
+    chat_manager.agents = [agent1, agent2]
+    agent1.send("start", chat_manager)
 
-    # no auto reply
-    assert len(broadcaster.chat_messages[chat_manager.name]) == 2
+    assert len(agent1.chat_messages[chat_manager.name]) == 2
+
+    chat_manager.reset()
+    agent1.reset()
+    agent2.reset()
+    agent2.send("start", chat_manager)
 
 
 if __name__ == "__main__":
