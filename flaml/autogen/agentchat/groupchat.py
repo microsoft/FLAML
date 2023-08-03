@@ -51,7 +51,7 @@ Then select the next role from {self._agent_names} to play. Only return the role
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = messages[-1]
         # set the name to sender's name if the role is not function
         if message["role"] != "function":
@@ -138,6 +138,6 @@ class GroupChatParticipant(ResponsiveAgent):
 #         }
 #         old_system_msg = self.system_message
 #         self.update_system_message(instruction["content"])
-#         reply = self._generate_oai_reply([roles_msg] + self.chat_messages[sender.name])
+#         reply = self._generate_oai_reply([roles_msg] + self.chat_messages[sender])
 #         self.update_system_message(old_system_msg)
 #         return reply

@@ -22,7 +22,7 @@ def test_chat_manager():
     group_chat_manager.agents = [agent1, agent2]
     agent1.send("start", group_chat_manager)
 
-    assert len(agent1.chat_messages[group_chat_manager.name]) == 2
+    assert len(agent1.chat_messages[group_chat_manager]) == 2
 
     group_chat_manager.reset()
     agent1.reset()

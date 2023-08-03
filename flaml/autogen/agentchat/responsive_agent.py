@@ -152,13 +152,11 @@ class ResponsiveAgent(Agent):
             for k in self._max_consecutive_auto_reply_dict:
                 self._max_consecutive_auto_reply_dict[k] = value
         else:
-            self._max_consecutive_auto_reply_dict[sender.name] = value
+            self._max_consecutive_auto_reply_dict[sender] = value
 
     def max_consecutive_auto_reply(self, sender: Optional[Agent] = None) -> int:
         """The maximum number of consecutive auto replies."""
-        return (
-            self._max_consecutive_auto_reply if sender is None else self._max_consecutive_auto_reply_dict[sender.name]
-        )
+        return self._max_consecutive_auto_reply if sender is None else self._max_consecutive_auto_reply_dict[sender]
 
     @property
     def chat_messages(self) -> Dict[str, List[Dict]]:
@@ -184,7 +182,7 @@ class ResponsiveAgent(Agent):
                 for conversation in self._oai_messages.values():
                     return conversation[-1]
             raise ValueError("More than one conversation is found. Please specify the sender to get the last message.")
-        return self._oai_messages[agent.name][-1]
+        return self._oai_messages[agent][-1]
 
     @property
     def use_docker(self) -> Union[bool, str, None]:
@@ -203,7 +201,7 @@ class ResponsiveAgent(Agent):
         else:
             return message
 
-    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id) -> bool:
+    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id: Agent) -> bool:
         """Append a message to the ChatCompletion conversation.
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
@@ -213,7 +211,7 @@ class ResponsiveAgent(Agent):
         Args:
             message (dict or str): message to be appended to the ChatCompletion conversation.
             role (str): role of the message, can be "assistant" or "function".
-            conversation_id (str): id of the conversation, should be the name of the recipient or sender.
+            conversation_id (Agent): id of the conversation, should be the recipient or sender.
 
         Returns:
             bool: whether the message is appended to the ChatCompletion conversation.
@@ -261,7 +259,7 @@ class ResponsiveAgent(Agent):
         """
         # When the agent composes and sends the message, the role of the message is "assistant"
         # unless it's "function".
-        valid = self._append_oai_message(message, "assistant", recipient.name)
+        valid = self._append_oai_message(message, "assistant", recipient)
         if valid:
             recipient.receive(message, self)
         else:
@@ -321,7 +319,7 @@ class ResponsiveAgent(Agent):
         """
         message = self._message_to_dict(message)
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
-        valid = self._append_oai_message(message, "user", sender.name)
+        valid = self._append_oai_message(message, "user", sender)
         if not valid:
             raise ValueError(
                 "Received message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
@@ -361,7 +359,7 @@ class ResponsiveAgent(Agent):
         if sender is None:
             self._consecutive_auto_reply_counter.clear()
         else:
-            self._consecutive_auto_reply_counter[sender.name] = 0
+            self._consecutive_auto_reply_counter[sender] = 0
 
     def clear_history(self, agent: Optional[Agent] = None):
         """Clear the chat history of the agent.
@@ -372,7 +370,7 @@ class ResponsiveAgent(Agent):
         if agent is None:
             self._oai_messages.clear()
         else:
-            self._oai_messages[agent.name].clear()
+            self._oai_messages[agent].clear()
 
     def _generate_oai_reply(
         self,
@@ -382,7 +380,7 @@ class ResponsiveAgent(Agent):
         if self.llm_config is False:
             return False, None
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
 
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
@@ -396,7 +394,7 @@ class ResponsiveAgent(Agent):
         sender: Optional[Agent] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = messages[-1]
         reply = ""
         no_human_input_msg = ""
@@ -408,7 +406,7 @@ class ResponsiveAgent(Agent):
             # if the human input is empty, and the message is a termination message, then we will terminate the conversation
             reply = reply if reply or not self._is_termination_msg(message) else "exit"
         else:
-            if self._consecutive_auto_reply_counter[sender.name] >= self._max_consecutive_auto_reply_dict[sender.name]:
+            if self._consecutive_auto_reply_counter[sender] >= self._max_consecutive_auto_reply_dict[sender]:
                 if self.human_input_mode == "NEVER":
                     reply = "exit"
                 else:
@@ -441,17 +439,17 @@ class ResponsiveAgent(Agent):
         # stop the conversation
         if reply == "exit":
             # reset the consecutive_auto_reply_counter
-            self._consecutive_auto_reply_counter[sender.name] = 0
+            self._consecutive_auto_reply_counter[sender] = 0
             return True, None
 
         # send the human reply
-        if reply or self._max_consecutive_auto_reply_dict[sender.name] == 0:
+        if reply or self._max_consecutive_auto_reply_dict[sender] == 0:
             # reset the consecutive_auto_reply_counter
-            self._consecutive_auto_reply_counter[sender.name] = 0
+            self._consecutive_auto_reply_counter[sender] = 0
             return True, reply
 
         # increment the consecutive_auto_reply_counter
-        self._consecutive_auto_reply_counter[sender.name] += 1
+        self._consecutive_auto_reply_counter[sender] += 1
         if self.human_input_mode != "NEVER":
             print(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
 
@@ -463,7 +461,7 @@ class ResponsiveAgent(Agent):
         sender: Optional[Agent] = None,
     ):
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = messages[-1]
         if "function_call" in message:
             _, func_return = self.execute_function(message["function_call"])
@@ -478,7 +476,7 @@ class ResponsiveAgent(Agent):
         if self._code_execution_config is False:
             return False, None
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = messages[-1]
         code_blocks = extract_code(message["content"])
         if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
