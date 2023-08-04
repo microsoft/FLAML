@@ -313,7 +313,7 @@ class MathUserProxyAgent(UserProxyAgent):
         reply = reply.strip()
 
         if self.last_reply == reply:
-            return reply + "\nYour query or result is same from the last, please try a new approach."
+            return True, reply + "\nYour query or result is same from the last, please try a new approach."
         self.last_reply = reply
 
         if not all_success:
