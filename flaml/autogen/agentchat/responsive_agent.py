@@ -12,6 +12,25 @@ except ImportError:
     def colored(x, *args, **kwargs):
         return x
 
+def register_auto_reply(class_type, position=0):
+    """Register a class-specific reply function.
+    We achieve this by decorate the function with _regster_for and _insert_pos attributes.
+
+    The class-specific reply function will be called when the sender is an instance of the class_type.
+    The function registered later will be checked earlier by default.
+    To change the order, set the position to a positive integer.
+
+    The decorated reply_func (Callable): the reply function.
+
+    Args:
+        class_type (Class): the class type.
+        position (int): the position of the reply function in the reply function list.
+    """
+    def decorator(reply_func):
+        reply_func._registered_for = class_type
+        reply_func._insert_pos = position
+        return reply_func
+    return decorator
 
 class ResponsiveAgent(Agent):
     """(Experimental) A class for generic responsive agents which can be configured as assistant or user proxy.
@@ -110,24 +129,15 @@ class ResponsiveAgent(Agent):
         self._default_auto_reply = default_auto_reply
         self._class_specific_reply = []
         self.reply_at_receive = defaultdict(bool)
-        self.register_auto_reply(Agent, self._generate_oai_reply)
-        self.register_auto_reply(Agent, self._generate_code_execution_reply)
-        self.register_auto_reply(Agent, self._generate_function_call_reply)
-        self.register_auto_reply(Agent, self._check_termination_and_human_reply)
 
-    def register_auto_reply(self, class_type, reply_func: Callable, position: int = 0):
-        """Register a class-specific reply function.
+        # Handle class-specific reply defined in the "register_auto_reply" decorator.
+        for name, method in vars(type(self)).items():
+            if hasattr(method, '_registered_for') and hasattr(method, '_insert_pos'):
+                self._class_specific_reply.insert(method._insert_pos, (method._registered_for, method))
 
-        The class-specific reply function will be called when the sender is an instance of the class_type.
-        The function registered later will be checked earlier by default.
-        To change the order, set the position to a positive integer.
 
-        Args:
-            class_type (Class): the class type.
-            reply_func (Callable): the reply function.
-            position (int): the position of the reply function in the reply function list.
-        """
-        self._class_specific_reply.insert(position, (class_type, reply_func))
+
+
 
     @property
     def system_message(self):
@@ -388,6 +398,7 @@ class ResponsiveAgent(Agent):
         else:
             self._oai_messages[agent].clear()
 
+    @register_auto_reply(Agent)
     def _generate_oai_reply(
         self,
         messages: Optional[List[Dict]] = None,
@@ -404,6 +415,7 @@ class ResponsiveAgent(Agent):
         )
         return True, oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
+    @register_auto_reply(Agent)
     def _generate_code_execution_reply(
         self,
         messages: Optional[List[Dict]] = None,
@@ -426,6 +438,7 @@ class ResponsiveAgent(Agent):
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
         return True, f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
+    @register_auto_reply(Agent)
     def _generate_function_call_reply(
         self,
         messages: Optional[List[Dict]] = None,
@@ -439,6 +452,7 @@ class ResponsiveAgent(Agent):
             return True, func_return
         return False, None
 
+    @register_auto_reply(Agent)
     def _check_termination_and_human_reply(
         self,
         messages: Optional[List[Dict]] = None,

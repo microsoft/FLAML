@@ -4,7 +4,7 @@ from pydantic import BaseModel, Extra, root_validator
 from typing import Any, Callable, Dict, List, Optional, Union
 from time import sleep
 
-from flaml.autogen.agentchat import Agent, UserProxyAgent
+from flaml.autogen.agentchat import Agent, UserProxyAgent, register_auto_reply
 from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
 from flaml.autogen.math_utils import get_answer
 
@@ -165,7 +165,6 @@ class MathUserProxyAgent(UserProxyAgent):
             default_auto_reply=default_auto_reply,
             **kwargs,
         )
-        self.register_auto_reply(Agent, self._generate_math_reply, 1)
         # fixed var
         self._max_invalid_q_per_step = max_invalid_q_per_step
 
@@ -276,6 +275,7 @@ class MathUserProxyAgent(UserProxyAgent):
             is_success = False
         return output, is_success
 
+    @register_auto_reply(Agent, 1)
     def _generate_math_reply(
         self,
         messages: Optional[List[Dict]] = None,

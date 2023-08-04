@@ -1,7 +1,7 @@
 import sys
 from typing import Dict, List, Optional, Union
 from .agent import Agent
-from .responsive_agent import ResponsiveAgent
+from .responsive_agent import ResponsiveAgent, register_auto_reply
 
 
 class GroupChatManager(ResponsiveAgent):
@@ -35,12 +35,12 @@ Then select the next role from {self._agent_names} to play. Only return the role
             human_input_mode=human_input_mode,
             **kwargs,
         )
-        self.register_auto_reply(Agent, self._generate_reply_for_participant)
         self.max_round = max_round
         self._agent_names = []
         self._messages = []
         # self._random = random.Random(seed)
 
+    @register_auto_reply(Agent)
     def _generate_reply_for_participant(
         self,
         messages: Optional[List[Dict]] = None,
