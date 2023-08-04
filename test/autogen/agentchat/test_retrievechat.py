@@ -1,11 +1,19 @@
 import pytest
 import sys
 from flaml import autogen
-from flaml.autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
-from flaml.autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
-from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db
-import chromadb
 from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
+
+try:
+    from flaml.autogen.agentchat.contrib.retrieve_assistant_agent import (
+        RetrieveAssistantAgent,
+    )
+    from flaml.autogen.agentchat.contrib.retrieve_user_proxy_agent import (
+        RetrieveUserProxyAgent,
+    )
+    from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db
+    import chromadb
+except ImportError:
+    pass
 
 
 @pytest.mark.skipif(
@@ -42,9 +50,9 @@ def test_retrievechat():
     ragproxyagent = RetrieveUserProxyAgent(
         name="ragproxyagent",
         human_input_mode="NEVER",
-        max_consecutive_auto_reply=3,
+        max_consecutive_auto_reply=2,
         retrieve_config={
-            "docs_path": "./website/docs/reference",
+            "docs_path": "./website/docs",
             "chunk_token_size": 2000,
             "model": config_list[0]["model"],
             "client": chromadb.PersistentClient(path="/tmp/chromadb"),
@@ -75,7 +83,8 @@ def test_retrieve_utils():
         collection_name="flaml-docs",
         search_string="FLAML",
     )
-    assert len(results["documents"][0]) == 4
+    print(results["ids"][0])
+    assert len(results["ids"][0]) == 4
 
 
 if __name__ == "__main__":
