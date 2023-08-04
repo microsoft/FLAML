@@ -12,6 +12,7 @@ except ImportError:
     def colored(x, *args, **kwargs):
         return x
 
+
 def register_auto_reply(class_type, position=0):
     """Register a class-specific reply function.
     We achieve this by decorate the function with _regster_for and _insert_pos attributes.
@@ -26,11 +27,14 @@ def register_auto_reply(class_type, position=0):
         class_type (Class): the class type.
         position (int): the position of the reply function in the reply function list.
     """
+
     def decorator(reply_func):
         reply_func._registered_for = class_type
         reply_func._insert_pos = position
         return reply_func
+
     return decorator
+
 
 class ResponsiveAgent(Agent):
     """(Experimental) A class for generic responsive agents which can be configured as assistant or user proxy.
@@ -132,12 +136,8 @@ class ResponsiveAgent(Agent):
 
         # Handle class-specific reply defined in the "register_auto_reply" decorator.
         for name, method in vars(type(self)).items():
-            if hasattr(method, '_registered_for') and hasattr(method, '_insert_pos'):
+            if hasattr(method, "_registered_for") and hasattr(method, "_insert_pos"):
                 self._class_specific_reply.insert(method._insert_pos, (method._registered_for, method))
-
-
-
-
 
     @property
     def system_message(self):
@@ -556,7 +556,7 @@ class ResponsiveAgent(Agent):
                 if isinstance(sender, class_specifc_reply[0]) and (
                     not exclude or class_specifc_reply[1] not in exclude
                 ):
-                    final, reply = class_specifc_reply[1](messages, sender)
+                    final, reply = class_specifc_reply[1](self, messages, sender)
                     if final:
                         return reply
         return self._default_auto_reply
