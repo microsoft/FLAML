@@ -63,7 +63,7 @@ def test_max_consecutive_auto_reply():
     assert len(agent.chat_messages[agent1]) > 2
 
     assert agent1.reply_at_receive[agent] == agent.reply_at_receive[agent1] is True
-    agent1.reset_reply_at_receive(agent)
+    agent1.stop_reply_at_receive(agent)
     assert agent1.reply_at_receive[agent] is False and agent.reply_at_receive[agent1] is True
 
 

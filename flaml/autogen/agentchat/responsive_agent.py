@@ -361,9 +361,9 @@ class ResponsiveAgent(Agent):
         """Reset the agent."""
         self.clear_history()
         self.reset_consecutive_auto_reply_counter()
-        self.reset_reply_at_receive()
+        self.stop_reply_at_receive()
 
-    def reset_reply_at_receive(self, sender: Optional[Agent] = None):
+    def stop_reply_at_receive(self, sender: Optional[Agent] = None):
         """Reset the reply_at_receive of the sender."""
         if sender is None:
             self.reply_at_receive.clear()
@@ -403,6 +403,41 @@ class ResponsiveAgent(Agent):
             context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **self.llm_config
         )
         return True, oai.ChatCompletion.extract_text_or_function_call(response)[0]
+
+    def _generate_code_execution_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ):
+        if self._code_execution_config is False:
+            return False, None
+        if messages is None:
+            messages = self._oai_messages[sender]
+        message = messages[-1]
+        code_blocks = extract_code(message["content"])
+        if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
+            # no code block is found, lang should be `UNKNOWN`
+            return False, None
+            # code_blocks, _ = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
+            # if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
+            #     return code_blocks[0][1]
+        # try to execute the code
+        exitcode, logs = self.execute_code_blocks(code_blocks)
+        exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
+        return True, f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
+
+    def _generate_function_call_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+    ):
+        if messages is None:
+            messages = self._oai_messages[sender]
+        message = messages[-1]
+        if "function_call" in message:
+            _, func_return = self.execute_function(message["function_call"])
+            return True, func_return
+        return False, None
 
     def _check_termination_and_human_reply(
         self,
@@ -470,41 +505,6 @@ class ResponsiveAgent(Agent):
             print(colored("\n>>>>>>>> USING AUTO REPLY...", "red"), flush=True)
 
         return False, None
-
-    def _generate_function_call_reply(
-        self,
-        messages: Optional[List[Dict]] = None,
-        sender: Optional[Agent] = None,
-    ):
-        if messages is None:
-            messages = self._oai_messages[sender]
-        message = messages[-1]
-        if "function_call" in message:
-            _, func_return = self.execute_function(message["function_call"])
-            return True, func_return
-        return False, None
-
-    def _generate_code_execution_reply(
-        self,
-        messages: Optional[List[Dict]] = None,
-        sender: Optional[Agent] = None,
-    ):
-        if self._code_execution_config is False:
-            return False, None
-        if messages is None:
-            messages = self._oai_messages[sender]
-        message = messages[-1]
-        code_blocks = extract_code(message["content"])
-        if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
-            # no code block is found, lang should be `UNKNOWN`
-            return False, None
-            # code_blocks, _ = find_code(messages, sys_msg=self._oai_system_message, **self.llm_config)
-            # if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
-            #     return code_blocks[0][1]
-        # try to execute the code
-        exitcode, logs = self.execute_code_blocks(code_blocks)
-        exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
-        return True, f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
     def generate_reply(
         self,
