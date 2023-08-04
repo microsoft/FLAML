@@ -1,5 +1,3 @@
-import sys
-from io import StringIO
 import pytest
 from flaml.autogen.agentchat import ResponsiveAgent
 
@@ -64,14 +62,18 @@ def test_max_consecutive_auto_reply():
     assert len(agent1.chat_messages[agent]) > 2
     assert len(agent.chat_messages[agent1]) > 2
 
+    assert agent1.reply_at_receive[agent] == agent.reply_at_receive[agent1] is True
+    agent1.reset_reply_at_receive(agent)
+    assert agent1.reply_at_receive[agent] is False and agent.reply_at_receive[agent1] is True
 
-def test_responsive_agent(monkeypatch):
+
+def test_responsive_agent():
     dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
     dummy_agent_2 = ResponsiveAgent(name="dummy_agent_2", human_input_mode="TERMINATE")
 
-    monkeypatch.setattr(sys, "stdin", StringIO("exit"))
+    # monkeypatch.setattr(sys, "stdin", StringIO("exit"))
     dummy_agent_1.receive("hello", dummy_agent_2)  # receive a str
-    monkeypatch.setattr(sys, "stdin", StringIO("TERMINATE\n\n"))
+    # monkeypatch.setattr(sys, "stdin", StringIO("TERMINATE\n\n"))
     dummy_agent_1.receive(
         {
             "content": "hello {name}",
@@ -81,7 +83,7 @@ def test_responsive_agent(monkeypatch):
         },
         dummy_agent_2,
     )  # receive a dict
-    assert "context" in dummy_agent_1.chat_messages[dummy_agent_2][-2]
+    assert "context" in dummy_agent_1.chat_messages[dummy_agent_2][-1]
     # receive dict without openai fields to be printed, such as "content", 'function_call'. There should be no error raised.
     pre_len = len(dummy_agent_1.chat_messages[dummy_agent_2])
     with pytest.raises(ValueError):
@@ -90,9 +92,9 @@ def test_responsive_agent(monkeypatch):
         dummy_agent_1.chat_messages[dummy_agent_2]
     ), "When the message is not an valid openai message, it should not be appended to the oai conversation."
 
-    monkeypatch.setattr(sys, "stdin", StringIO("exit"))
+    # monkeypatch.setattr(sys, "stdin", StringIO("exit"))
     dummy_agent_1.send("TERMINATE", dummy_agent_2)  # send a str
-    monkeypatch.setattr(sys, "stdin", StringIO("exit"))
+    # monkeypatch.setattr(sys, "stdin", StringIO("exit"))
     dummy_agent_1.send(
         {
             "content": "TERMINATE",

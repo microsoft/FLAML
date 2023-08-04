@@ -109,6 +109,7 @@ class ResponsiveAgent(Agent):
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
         self._class_specific_reply = []
+        self.reply_at_receive = defaultdict(bool)
         self.register_auto_reply(Agent, self._generate_oai_reply)
         self.register_auto_reply(Agent, self._generate_code_execution_reply)
         self.register_auto_reply(Agent, self._generate_function_call_reply)
@@ -227,7 +228,7 @@ class ResponsiveAgent(Agent):
         self._oai_messages[conversation_id].append(oai_message)
         return True
 
-    def send(self, message: Union[Dict, str], recipient: Agent):
+    def send(self, message: Union[Dict, str], recipient: Agent, request_reply: Optional[bool] = None) -> bool:
         """Send a message to another agent.
 
         Args:
@@ -254,6 +255,7 @@ class ResponsiveAgent(Agent):
                     So effectively, this provides a way for an agent to send a "link" and modify
                     the content of the "link" later.
             recipient (Agent): the recipient of the message.
+            request_reply (bool or None): whether to request a reply from the recipient.
 
         Raises:
             ValueError: if the message can't be converted into a valid ChatCompletion message.
@@ -262,7 +264,7 @@ class ResponsiveAgent(Agent):
         # unless it's "function".
         valid = self._append_oai_message(message, "assistant", recipient)
         if valid:
-            recipient.receive(message, self)
+            recipient.receive(message, self, request_reply)
         else:
             raise ValueError(
                 "Message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
@@ -298,7 +300,7 @@ class ResponsiveAgent(Agent):
                 print(colored("*" * len(func_print), "green"), flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
-    def receive(self, message: Union[Dict, str], sender: Agent):
+    def receive(self, message: Union[Dict, str], sender: Agent, request_reply: Optional[bool] = None):
         """Receive a message from another agent.
 
         Once a message is received, this function sends a reply to the sender or stop.
@@ -314,6 +316,8 @@ class ResponsiveAgent(Agent):
                 5. "context" (dict): the context of the message, which will be passed to
                     [autogen.Completion.create](../oai/Completion#create).
             sender: sender of an Agent instance.
+            request_reply (bool or None): whether a reply is requested from the sender.
+                If None, the value is determined by `self.reply_at_receive[sender]`.
 
         Raises:
             ValueError: if the message can't be converted into a valid ChatCompletion message.
@@ -326,6 +330,8 @@ class ResponsiveAgent(Agent):
                 "Received message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
             )
         self._print_received_message(message, sender)
+        if request_reply is False or request_reply is None and self.reply_at_receive[sender] is False:
+            return
         reply = self.generate_reply(sender=sender)
         if reply is not None:
             self.send(reply, sender)
@@ -345,6 +351,7 @@ class ResponsiveAgent(Agent):
         """
         self.reset_consecutive_auto_reply_counter(recipient)
         recipient.reset_consecutive_auto_reply_counter(self)
+        self.reply_at_receive[recipient] = recipient.reply_at_receive[self] = True
         if clear_history:
             self.clear_history(recipient)
             recipient.clear_history(self)
@@ -354,6 +361,14 @@ class ResponsiveAgent(Agent):
         """Reset the agent."""
         self.clear_history()
         self.reset_consecutive_auto_reply_counter()
+        self.reset_reply_at_receive()
+
+    def reset_reply_at_receive(self, sender: Optional[Agent] = None):
+        """Reset the reply_at_receive of the sender."""
+        if sender is None:
+            self.reply_at_receive.clear()
+        else:
+            self.reply_at_receive[sender] = False
 
     def reset_consecutive_auto_reply_counter(self, sender: Optional[Agent] = None):
         """Reset the consecutive_auto_reply_counter of the sender."""
