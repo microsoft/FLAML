@@ -128,6 +128,7 @@ class ResponsiveAgent(Agent):
         """
         self._class_specific_reply.insert(position, (class_type, reply_func))
 
+    @property
     def system_message(self):
         """Return the system message."""
         return self._oai_system_message[0]["content"]
