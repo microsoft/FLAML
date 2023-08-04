@@ -13,6 +13,15 @@ except ImportError:
         return x
 
 
+def register(agent):
+    agent._class_specific_reply = []
+    reply_funcs = [func for func in dir(agent) if func.endswith("__auto_reply__") is True]
+    for reply_func in reply_funcs:
+        agent.register_auto_reply(agent, Agent, reply_func)
+    return agent
+
+
+@register
 class ResponsiveAgent(Agent):
     """(Experimental) A class for generic responsive agents which can be configured as assistant or user proxy.
 
@@ -108,10 +117,16 @@ class ResponsiveAgent(Agent):
         self._max_consecutive_auto_reply_dict = defaultdict(self.max_consecutive_auto_reply)
         self._function_map = {} if function_map is None else function_map
         self._default_auto_reply = default_auto_reply
-        self._class_specific_reply = []
-        self.register_auto_reply(Agent, self._generate_oai_reply)
-        self.register_auto_reply(Agent, self._generate_code_execution_reply)
-        self.register_auto_reply(Agent, self._generate_function_call_reply)
+        # self._class_specific_reply = []
+        # print("self._class_specific_reply: ", self._class_specific_reply)
+
+    # def register(class_type):
+    #     def register_reply_func(reply_func: Callable):
+    #         def wrapper(self, *args, **kwargs):
+    #             self.register_auto_reply(class_type, reply_func)
+    #             return reply_func(*args, **kwargs)
+    #         return wrapper
+    #     return register_reply_func
 
     def register_auto_reply(self, class_type, reply_func: Callable):
         """Register a class-specific reply function.
@@ -371,7 +386,7 @@ class ResponsiveAgent(Agent):
         else:
             self._oai_messages[agent.name].clear()
 
-    def _generate_oai_reply(
+    def _generate_oai_reply__auto_reply__(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
@@ -454,7 +469,7 @@ class ResponsiveAgent(Agent):
 
         return False, None
 
-    def _generate_function_call_reply(
+    def _generate_function_call_reply__auto_reply__(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
@@ -467,7 +482,8 @@ class ResponsiveAgent(Agent):
             return True, func_return
         return False, None
 
-    def _generate_code_execution_reply(
+    # @register(Agent)
+    def _generate_code_execution_reply__auto_reply__(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,

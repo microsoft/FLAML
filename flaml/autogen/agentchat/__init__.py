@@ -1,5 +1,5 @@
 from .agent import Agent
-from .responsive_agent import ResponsiveAgent
+from .responsive_agent import ResponsiveAgent, register
 from .assistant_agent import AssistantAgent
 from .user_proxy_agent import UserProxyAgent
 from .groupchat import GroupChatManager, GroupChatParticipant
@@ -11,4 +11,5 @@ __all__ = [
     "UserProxyAgent",
     "GroupChatManager",
     "GroupChatParticipant",
+    "register",
 ]
