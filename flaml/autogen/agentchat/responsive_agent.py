@@ -135,9 +135,10 @@ class ResponsiveAgent(Agent):
         self.reply_at_receive = defaultdict(bool)
 
         # Handle class-specific reply defined in the "register_auto_reply" decorator.
-        for name, method in vars(type(self)).items():
-            if hasattr(method, "_registered_for") and hasattr(method, "_insert_pos"):
-                self._class_specific_reply.insert(method._insert_pos, (method._registered_for, method))
+        for cls in reversed(type(self).__mro__):  # loop all supers
+            for name, method in vars(cls).items():  # loop all functions
+                if hasattr(method, "_registered_for") and hasattr(method, "_insert_pos"):
+                    self._class_specific_reply.insert(method._insert_pos, (method._registered_for, method))
 
     @property
     def system_message(self):
