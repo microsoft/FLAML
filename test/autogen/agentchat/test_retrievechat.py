@@ -12,20 +12,17 @@ try:
     )
     from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db
     import chromadb
+
+    skip_test = False
 except ImportError:
-    pass
+    skip_test = True
 
 
 @pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"],
+    sys.platform in ["darwin", "win32"] or skip_test,
     reason="do not run on MacOS or windows",
 )
 def test_retrievechat():
-    try:
-        import openai
-    except ImportError:
-        return
-
     conversations = {}
     autogen.ChatCompletion.start_logging(conversations)
 
@@ -68,7 +65,7 @@ def test_retrievechat():
 
 
 @pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"],
+    sys.platform in ["darwin", "win32"] or skip_test,
     reason="do not run on MacOS or windows",
 )
 def test_retrieve_utils():
@@ -88,5 +85,5 @@ def test_retrieve_utils():
 
 
 if __name__ == "__main__":
-    test_retrieve_utils()
     test_retrievechat()
+    test_retrieve_utils()
