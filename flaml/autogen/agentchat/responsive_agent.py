@@ -1,6 +1,7 @@
 from collections import defaultdict
+import copy
 import json
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from flaml.autogen import oai
 from .agent import Agent
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
@@ -110,12 +111,19 @@ class ResponsiveAgent(Agent):
         self._default_auto_reply = default_auto_reply
         self._class_specific_reply = []
         self.reply_at_receive = defaultdict(bool)
-        self.register_auto_reply(Agent, self._generate_oai_reply)
-        self.register_auto_reply(Agent, self._generate_code_execution_reply)
-        self.register_auto_reply(Agent, self._generate_function_call_reply)
-        self.register_auto_reply(Agent, self._check_termination_and_human_reply)
+        self.register_auto_reply(Agent, ResponsiveAgent.generate_oai_reply)
+        self.register_auto_reply(Agent, ResponsiveAgent.generate_code_execution_reply)
+        self.register_auto_reply(Agent, ResponsiveAgent.generate_function_call_reply)
+        self.register_auto_reply(Agent, ResponsiveAgent.check_termination_and_human_reply)
 
-    def register_auto_reply(self, class_type, reply_func: Callable, position: int = 0):
+    def register_auto_reply(
+        self,
+        class_type,
+        reply_func: Callable,
+        position: Optional[int] = 0,
+        context: Optional[Any] = None,
+        reset_context: Optional[Callable] = None,
+    ):
         """Register a class-specific reply function.
 
         The class-specific reply function will be called when the sender is an instance of the class_type.
@@ -125,9 +133,33 @@ class ResponsiveAgent(Agent):
         Args:
             class_type (Class): the class type.
             reply_func (Callable): the reply function.
+                The function takes a recipient agent, a list of messages, a sender agent and a context as input and returns a reply message.
+        ```python
+        def reply_func(
+            recipient: ResponsiveAgent,
+            messages: Optional[List[Dict]] = None,
+            sender: Optional[Agent] = None,
+            context: Optional[Any] = None,
+        ) -> Union[str, Dict, None]:
+        ```
             position (int): the position of the reply function in the reply function list.
+                The function registered later will be checked earlier by default.
+                To change the order, set the position to a positive integer.
+            context (Any): the context to be passed to the reply function.
+                When an agent is reset, the context will be reset to the original value.
+            reset_context (Callable): the function to reset the context.
+                The function returns None. Signature: ```def reset_context(context: Any)```
         """
-        self._class_specific_reply.insert(position, (class_type, reply_func))
+        self._class_specific_reply.insert(
+            position,
+            {
+                "class_type": class_type,
+                "reply_func": reply_func,
+                "context": copy.copy(context),
+                "init_context": context,
+                "reset_context": reset_context,
+            },
+        )
 
     @property
     def system_message(self):
@@ -362,6 +394,11 @@ class ResponsiveAgent(Agent):
         self.clear_history()
         self.reset_consecutive_auto_reply_counter()
         self.stop_reply_at_receive()
+        for class_specific_reply in self._class_specific_reply:
+            if class_specific_reply["reset_context"] is not None:
+                class_specific_reply["reset_context"](class_specific_reply["context"])
+            else:
+                class_specific_reply["context"] = copy.copy(class_specific_reply["init_context"])
 
     def stop_reply_at_receive(self, sender: Optional[Agent] = None):
         """Reset the reply_at_receive of the sender."""
@@ -388,28 +425,34 @@ class ResponsiveAgent(Agent):
         else:
             self._oai_messages[agent].clear()
 
-    def _generate_oai_reply(
+    def generate_oai_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        context: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
-        if self.llm_config is False:
+        """Generate a reply using autogen.oai."""
+        llm_config = self.llm_config if context is None else context
+        if llm_config is False:
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
 
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
-            context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **self.llm_config
+            context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **llm_config
         )
         return True, oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
-    def _generate_code_execution_reply(
+    def generate_code_execution_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        context: Optional[Any] = None,
     ):
-        if self._code_execution_config is False:
+        """Generate a reply using code execution."""
+        code_execution_config = context if context is not None else self._code_execution_config
+        if code_execution_config is False:
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
@@ -426,11 +469,15 @@ class ResponsiveAgent(Agent):
         exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
         return True, f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
-    def _generate_function_call_reply(
+    def generate_function_call_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        context: Optional[Any] = None,
     ):
+        """Generate a reply using function call."""
+        if context is None:
+            context = self
         if messages is None:
             messages = self._oai_messages[sender]
         message = messages[-1]
@@ -439,11 +486,15 @@ class ResponsiveAgent(Agent):
             return True, func_return
         return False, None
 
-    def _check_termination_and_human_reply(
+    def check_termination_and_human_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        context: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
+        """Check if the conversation should be terminated, and if human reply is provided."""
+        if context is None:
+            context = self
         if messages is None:
             messages = self._oai_messages[sender]
         message = messages[-1]
@@ -539,10 +590,12 @@ class ResponsiveAgent(Agent):
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
         if sender is not None:
             for class_specifc_reply in self._class_specific_reply:
-                if isinstance(sender, class_specifc_reply[0]) and (
-                    not exclude or class_specifc_reply[1] not in exclude
+                if isinstance(sender, class_specifc_reply["class_type"]) and (
+                    not exclude or class_specifc_reply["reply_func"] not in exclude
                 ):
-                    final, reply = class_specifc_reply[1](messages, sender)
+                    final, reply = class_specifc_reply["reply_func"](
+                        self, messages=messages, sender=sender, context=class_specifc_reply["context"]
+                    )
                     if final:
                         return reply
         return self._default_auto_reply
