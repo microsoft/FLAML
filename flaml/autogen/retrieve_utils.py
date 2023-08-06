@@ -10,6 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 # https://www.sbert.net/docs/pretrained_models.html
 embedding_function = ef.SentenceTransformerEmbeddingFunction("all-mpnet-base-v2")
+TEXT_FORMATS = ["txt", "json", "csv", "tsv", "md", "html", "htm", "rtf", "rst"]
 
 
 def num_tokens_from_text(
@@ -107,15 +108,19 @@ def split_files_to_chunks(files: list, max_tokens: int = 4000):
     return chunks
 
 
-def get_files_from_dir(dir_path: str, types: list = [".md", ".MD"], recursive: bool = True):
+def get_files_from_dir(dir_path: str, types: list = TEXT_FORMATS, recursive: bool = True):
     """Return a list of all the files in a given directory."""
+    if len(types) == 0:
+        raise ValueError("types cannot be empty.")
+    types = [t[1:].lower() if t.startswith(".") else t.lower() for t in set(types)]
+    types += [t.upper() for t in types]
     files = []
     if os.path.exists(dir_path):
         for type in types:
             if recursive:
-                files += glob.glob(os.path.join(dir_path, f"**/*{type}"), recursive=True)
+                files += glob.glob(os.path.join(dir_path, f"**/*.{type}"), recursive=True)
             else:
-                files += glob.glob(os.path.join(dir_path, f"*{type}"), recursive=False)
+                files += glob.glob(os.path.join(dir_path, f"*.{type}"), recursive=False)
     else:
         logger.error(f"Directory {dir_path} does not exist.")
         raise ValueError(f"Directory {dir_path} does not exist.")

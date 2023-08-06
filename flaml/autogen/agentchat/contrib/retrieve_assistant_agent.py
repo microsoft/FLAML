@@ -14,21 +14,24 @@ class RetrieveAssistantAgent(AssistantAgent):
     This agent doesn't execute code by default, and expects the user to execute the code.
     """
 
-    def generate_reply(
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.register_auto_reply(Agent, self._generate_retrieve_assistant_reply)
+
+    def _generate_retrieve_assistant_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
-        assert messages is not None or sender is not None, "Either messages or sender must be provided."
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = self._message_to_dict(messages[-1])
         if "exitcode: 0 (execution succeeded)" in message.get("content", ""):
             # Terminate the conversation when the code execution succeeds. Although sometimes even when the
             # code execution succeeds, the task is not solved, but it's hard to tell. If the human_input_mode
             # of RetrieveUserProxyAgent is "TERMINATE" or "ALWAYS", user can still continue the conversation.
-            return "TERMINATE"
+            return True, "TERMINATE"
         elif "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
-            return "UPDATE CONTEXT"
+            return True, "UPDATE CONTEXT"
         else:
-            return super().generate_reply(messages, sender)
+            return False, None

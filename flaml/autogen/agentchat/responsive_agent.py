@@ -3,7 +3,13 @@ import json
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from flaml.autogen import oai
 from .agent import Agent
-from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
+from flaml.autogen.code_utils import (
+    DEFAULT_MODEL,
+    UNKNOWN,
+    execute_code,
+    extract_code,
+    infer_lang,
+)
 
 try:
     from termcolor import colored
@@ -189,7 +195,8 @@ class ResponsiveAgent(Agent):
     @property
     def use_docker(self) -> Union[bool, str, None]:
         """Bool value of whether to use docker to execute the code,
-        or str value of the docker image name to use, or None when code execution is disabled."""
+        or str value of the docker image name to use, or None when code execution is disabled.
+        """
         return None if self._code_execution_config is False else self._code_execution_config.get("use_docker")
 
     @staticmethod
@@ -228,7 +235,12 @@ class ResponsiveAgent(Agent):
         self._oai_messages[conversation_id].append(oai_message)
         return True
 
-    def send(self, message: Union[Dict, str], recipient: Agent, request_reply: Optional[bool] = None) -> bool:
+    def send(
+        self,
+        message: Union[Dict, str],
+        recipient: Agent,
+        request_reply: Optional[bool] = None,
+    ) -> bool:
         """Send a message to another agent.
 
         Args:
@@ -300,7 +312,12 @@ class ResponsiveAgent(Agent):
                 print(colored("*" * len(func_print), "green"), flush=True)
         print("\n", "-" * 80, flush=True, sep="")
 
-    def receive(self, message: Union[Dict, str], sender: Agent, request_reply: Optional[bool] = None):
+    def receive(
+        self,
+        message: Union[Dict, str],
+        sender: Agent,
+        request_reply: Optional[bool] = None,
+    ):
         """Receive a message from another agent.
 
         Once a message is received, this function sends a reply to the sender or stop.
@@ -336,7 +353,12 @@ class ResponsiveAgent(Agent):
         if reply is not None:
             self.send(reply, sender)
 
-    def initiate_chat(self, recipient: "ResponsiveAgent", clear_history: Optional[bool] = True, **context):
+    def initiate_chat(
+        self,
+        recipient: "ResponsiveAgent",
+        clear_history: Optional[bool] = True,
+        **context,
+    ):
         """Initiate a chat with the recipient agent.
 
         Reset the consecutive auto reply counter.
@@ -357,11 +379,12 @@ class ResponsiveAgent(Agent):
             recipient.clear_history(self)
         self.send(self.generate_init_message(**context), recipient)
 
-    def reset(self):
+    def reset(self, stop_reply_at_receive: bool = True):
         """Reset the agent."""
         self.clear_history()
         self.reset_consecutive_auto_reply_counter()
-        self.stop_reply_at_receive()
+        if stop_reply_at_receive:
+            self.stop_reply_at_receive()
 
     def stop_reply_at_receive(self, sender: Optional[Agent] = None):
         """Reset the reply_at_receive of the sender."""
@@ -400,7 +423,9 @@ class ResponsiveAgent(Agent):
 
         # TODO: #1143 handle token limit exceeded error
         response = oai.ChatCompletion.create(
-            context=messages[-1].pop("context", None), messages=self._oai_system_message + messages, **self.llm_config
+            context=messages[-1].pop("context", None),
+            messages=self._oai_system_message + messages,
+            **self.llm_config,
         )
         return True, oai.ChatCompletion.extract_text_or_function_call(response)[0]
 
@@ -584,7 +609,13 @@ class ResponsiveAgent(Agent):
             lang, code = code_block
             if not lang:
                 lang = infer_lang(code)
-            print(colored(f"\n>>>>>>>> EXECUTING CODE BLOCK {i} (inferred language is {lang})...", "red"), flush=True)
+            print(
+                colored(
+                    f"\n>>>>>>>> EXECUTING CODE BLOCK {i} (inferred language is {lang})...",
+                    "red",
+                ),
+                flush=True,
+            )
             if lang in ["bash", "shell", "sh"]:
                 exitcode, logs, image = self.run_code(code, lang=lang, **self._code_execution_config)
             elif lang in ["python", "Python"]:
@@ -599,7 +630,11 @@ class ResponsiveAgent(Agent):
                 )
             else:
                 # In case the language is not supported, we return an error message.
-                exitcode, logs, image = 1, f"unknown language {lang}", self._code_execution_config["use_docker"]
+                exitcode, logs, image = (
+                    1,
+                    f"unknown language {lang}",
+                    self._code_execution_config["use_docker"],
+                )
                 # raise NotImplementedError
             self._code_execution_config["use_docker"] = image
             logs_all += "\n" + logs
@@ -665,7 +700,10 @@ class ResponsiveAgent(Agent):
 
             # Try to execute the function
             if arguments:
-                print(colored(f"\n>>>>>>>> EXECUTING FUNCTION {func_name}...", "magenta"), flush=True)
+                print(
+                    colored(f"\n>>>>>>>> EXECUTING FUNCTION {func_name}...", "magenta"),
+                    flush=True,
+                )
                 try:
                     content = func(**arguments)
                     is_exec_success = True

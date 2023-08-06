@@ -99,6 +99,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
+        self.register_auto_reply(Agent, self._generate_retrieve_user_reply)
 
     @staticmethod
     def get_max_tokens(model="gpt-3.5-turbo"):
@@ -111,8 +112,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         else:
             return 4000
 
-    def reset(self):
-        super().reset()
+    def reset(self, stop_reply_at_receive=False):
+        super().reset(stop_reply_at_receive)
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
 
@@ -143,14 +144,13 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             message = PROMPT.format(input_question=self.problem, input_context=doc_contents)
         return message
 
-    def generate_reply(
+    def _generate_retrieve_user_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
     ) -> Union[str, Dict, None]:
-        assert messages is not None or sender is not None, "Either messages or sender must be provided."
         if messages is None:
-            messages = self._oai_messages[sender.name]
+            messages = self._oai_messages[sender]
         message = self._message_to_dict(messages[-1])
         if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
             print("Updating context and resetting conversation.")
@@ -159,7 +159,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             doc_contents = self._get_context(self._results)
             self.send(self._generate_message(doc_contents), sender)
         else:
-            return super().generate_reply(messages, sender)
+            return False, None
+        return True, None
 
     def retrieve_docs(self, problem: str, n_results: int = 20, search_string: str = ""):
         if not self._collection:
