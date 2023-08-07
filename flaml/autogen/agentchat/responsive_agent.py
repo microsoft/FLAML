@@ -15,7 +15,7 @@ except ImportError:
 
 def register_auto_reply(class_type, position=0):
     """Register a class-specific reply function.
-    We achieve this by decorate the function with _regster_for and _insert_pos attributes.
+    We achieve this by decorating the function with _regster_for and _insert_pos attributes.
 
     The class-specific reply function will be called when the sender is an instance of the class_type.
     The function registered later will be checked earlier by default.
@@ -26,6 +26,9 @@ def register_auto_reply(class_type, position=0):
     Args:
         class_type (Class): the class type.
         position (int): the position of the reply function in the reply function list.
+
+    Returns:
+        callable: the decorated reply function.
     """
 
     def decorator(reply_func):
@@ -135,10 +138,14 @@ class ResponsiveAgent(Agent):
         self.reply_at_receive = defaultdict(bool)
 
         # Handle class-specific reply defined in the "register_auto_reply" decorator.
+        _registered = []  # avoid registering the same function twice
         for cls in reversed(type(self).__mro__):  # loop all supers
             for name, method in vars(cls).items():  # loop all functions
+                if method in _registered:
+                    continue  # already added
                 if hasattr(method, "_registered_for") and hasattr(method, "_insert_pos"):
                     self._class_specific_reply.insert(method._insert_pos, (method._registered_for, method))
+                    _registered.append(method)
 
     @property
     def system_message(self):
@@ -710,3 +717,6 @@ class ResponsiveAgent(Agent):
             function_map: a dictionary mapping function names to functions.
         """
         self._function_map.update(function_map)
+
+
+agent = ResponsiveAgent("xyz")
