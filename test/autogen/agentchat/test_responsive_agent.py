@@ -1,5 +1,5 @@
 import pytest
-from flaml.autogen.agentchat import ResponsiveAgent
+from flaml.autogen.agentchat import ResponsiveAgent, register_auto_reply
 
 
 def test_context():
@@ -67,6 +67,57 @@ def test_max_consecutive_auto_reply():
     assert agent1.reply_at_receive[agent] is False and agent.reply_at_receive[agent1] is True
 
 
+def test_inherit_responsive_agent():
+    message_c = "Auto reply from child agent. "
+    message_c2 = "Auto reply from child agent 2. "
+    message_gc = "Auto reply from grandchild agent. "
+    message_t = "Auto reply from Test agent. "
+
+    class ChildAgent(ResponsiveAgent):
+        def __init__(self, name, **kwargs):
+            super().__init__(name, **kwargs)
+
+        @register_auto_reply(ResponsiveAgent)
+        def _auto_reply_dummy(self, message, sender):
+            sender.temporary_mem += message_c
+            return False, message
+
+    class ChildAgent2(ResponsiveAgent):
+        def __init__(self, name, **kwargs):
+            super().__init__(name, **kwargs)
+
+        @register_auto_reply(ResponsiveAgent)
+        def _auto_reply_dummy(self, message, sender):
+            sender.temporary_mem += message_c2
+            return False, message
+
+    class GrandChildAgent(ChildAgent2):
+        def __init__(self, name, **kwargs):
+            super().__init__(name, **kwargs)
+
+        @register_auto_reply(ResponsiveAgent)
+        def _auto_reply_dummy(self, message, sender):
+            sender.temporary_mem += message_gc
+            return False, message
+
+    class TestAgent(ChildAgent, GrandChildAgent):
+        def __init__(self, name, **kwargs):
+            super().__init__(name, **kwargs)
+
+        @register_auto_reply(ResponsiveAgent)
+        def _auto_reply_dummy(self, message, sender):
+            sender.temporary_mem += message_t
+            return False, message
+
+    dummy_agent_1 = ResponsiveAgent("ra")
+    dummy_agent_1.temporary_mem = ""
+    agent = TestAgent("test agent")
+    agent.receive("Hi, tester.", sender=dummy_agent_1, request_reply=True)
+
+    print(dummy_agent_1.temporary_mem)
+    assert dummy_agent_1.temporary_mem == message_t + message_c + message_gc + message_c2, "Wrong inheritance order."
+
+
 def test_responsive_agent():
     dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
     dummy_agent_2 = ResponsiveAgent(name="dummy_agent_2", human_input_mode="TERMINATE")
@@ -117,6 +168,7 @@ def test_responsive_agent():
 
 
 if __name__ == "__main__":
-    test_context()
+    # test_context()
     # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)
+    test_inherit_responsive_agent()
