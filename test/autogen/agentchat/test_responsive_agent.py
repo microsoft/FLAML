@@ -26,6 +26,18 @@ def test_trigger():
     )
     agent1.initiate_chat(agent, message="hi")
     assert agent1.last_message(agent)["content"] == "hello a"
+    agent.register_auto_reply(
+        ["agent2", agent1], lambda recipient, messages, sender, context: (True, "hello agent2 or agent1")
+    )
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello agent2 or agent1"
+    agent.register_auto_reply(
+        ["agent2", "agent3"], lambda recipient, messages, sender, context: (True, "hello agent2 or agent3")
+    )
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello agent2 or agent1"
+    pytest.raises(ValueError, agent.register_auto_reply, 1, lambda recipient, messages, sender, context: (True, "hi"))
+    pytest.raises(ValueError, agent._match_trigger, 1, agent1)
 
 
 def test_context():

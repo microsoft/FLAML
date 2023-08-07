@@ -118,7 +118,7 @@ class ResponsiveAgent(Agent):
 
     def register_auto_reply(
         self,
-        trigger: Union[Type[Agent], str, Agent, Callable[[Agent], bool]],
+        trigger: Union[Type[Agent], str, Agent, Callable[[Agent], bool], List],
         reply_func: Callable,
         position: Optional[int] = 0,
         context: Optional[Any] = None,
@@ -131,11 +131,12 @@ class ResponsiveAgent(Agent):
         To change the order, set the position to a positive integer.
 
         Args:
-            trigger (Agent class, str, Agent instance, or Callable): the trigger.
+            trigger (Agent class, str, Agent instance, callable, or list): the trigger.
                 - If a class is provided, the reply function will be called when the sender is an instance of the class.
                 - If a string is provided, the reply function will be called when the sender's name matches the string.
                 - If an agent instance is provided, the reply function will be called when the sender is the agent instance.
                 - If a callable is provided, the reply function will be called when the callable returns True.
+                - If a list is provided, the reply function will be called when any of the triggers in the list is activated.
             reply_func (Callable): the reply function.
                 The function takes a recipient agent, a list of messages, a sender agent and a context as input and returns a reply message.
         ```python
@@ -154,6 +155,8 @@ class ResponsiveAgent(Agent):
             reset_context (Callable): the function to reset the context.
                 The function returns None. Signature: ```def reset_context(context: Any)```
         """
+        if not isinstance(trigger, (type, str, Agent, Callable, list)):
+            raise ValueError("trigger must be a class, a string, an agent, a callable or a list.")
         self._reply_func_list.insert(
             position,
             {
