@@ -54,7 +54,7 @@ class Agent:
             str or dict or None: the generated reply. If None, no reply is generated.
         """
 
-    def a_generate_reply(
+    async def a_generate_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional["Agent"] = None,
