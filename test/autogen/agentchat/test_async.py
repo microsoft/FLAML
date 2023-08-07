@@ -86,7 +86,7 @@ async def test_stream():
 
     async def add_data_reply(recipient, messages, sender, context):
         await asyncio.sleep(0.1)
-        data = context["data"]
+        data = context["news_stream"]
         if data.done():
             result = data.result()
             if result:
@@ -98,7 +98,7 @@ async def test_stream():
                 )
             return False, None
 
-    user_proxy.register_auto_reply(autogen.AssistantAgent, add_data_reply, 1, context={"data": data})
+    user_proxy.register_auto_reply(autogen.AssistantAgent, add_data_reply, 1, context={"news_stream": data})
 
     await user_proxy.a_initiate_chat(
         assistant,
