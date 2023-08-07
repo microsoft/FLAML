@@ -2,6 +2,32 @@ import pytest
 from flaml.autogen.agentchat import ResponsiveAgent
 
 
+def test_trigger():
+    agent = ResponsiveAgent("a0", max_consecutive_auto_reply=0, llm_config=False, human_input_mode="NEVER")
+    agent1 = ResponsiveAgent("a1", max_consecutive_auto_reply=0, human_input_mode="NEVER")
+    agent.register_auto_reply(agent1, lambda recipient, messages, sender, context: (True, "hello"))
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello"
+    agent.register_auto_reply("a1", lambda recipient, messages, sender, context: (True, "hello a1"))
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello a1"
+    agent.register_auto_reply(
+        ResponsiveAgent, lambda recipient, messages, sender, context: (True, "hello responsive agent")
+    )
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello responsive agent"
+    agent.register_auto_reply(
+        lambda sender: sender.name.startswith("a"), lambda recipient, messages, sender, context: (True, "hello a")
+    )
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello a"
+    agent.register_auto_reply(
+        lambda sender: sender.name.startswith("b"), lambda recipient, messages, sender, context: (True, "hello b")
+    )
+    agent1.initiate_chat(agent, message="hi")
+    assert agent1.last_message(agent)["content"] == "hello a"
+
+
 def test_context():
     agent = ResponsiveAgent("a0", max_consecutive_auto_reply=0, llm_config=False, human_input_mode="NEVER")
     agent1 = ResponsiveAgent("a1", max_consecutive_auto_reply=0, human_input_mode="NEVER")
@@ -117,6 +143,7 @@ def test_responsive_agent():
 
 
 if __name__ == "__main__":
-    test_context()
+    test_trigger()
+    # test_context()
     # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)
