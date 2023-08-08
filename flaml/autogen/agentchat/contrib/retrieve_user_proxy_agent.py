@@ -4,23 +4,25 @@ from flaml.autogen.agentchat import UserProxyAgent
 from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db, num_tokens_from_text
 from flaml.autogen.code_utils import extract_code
 
-from typing import Callable, Dict, Optional, Union, List
+from typing import Callable, Dict, Optional, Union, List, Tuple, Any
 from IPython import get_ipython
 
 
 PROMPT = """You're a retrieve augmented chatbot. You answer user's questions based on your own knowledge and the
 context provided by the user. You should follow the following steps to answer a question:
 Step 1, you estimate the user's intent based on the question and context. The intent can be a code generation task or
-a QA task.
-Step 2, you generate code or answer the question based on the intent.
-You should leverage the context provided by the user as much as possible. If you think the context is not enough, you
-can reply exactly "UPDATE CONTEXT" to ask the user to provide more contexts.
-For code generation, you must obey the following rules:
-You MUST NOT install any packages because all the packages needed are already installed.
-The code will be executed in IPython, you must follow the formats below to write your code:
-```python
+a question answering task.
+Step 2, you reply based on the intent.
+You should leverage the context provided by the user as much as possible. If you need more context, you should reply
+"UPDATE CONTEXT".
+For code generation task, you must obey the following rules:
+Rule 1. You MUST NOT install any packages because all the packages needed are already installed.
+Rule 2. You must follow the formats below to write your code:
+```language
 # your code
 ```
+
+For question answering task, you must give as short an answer as possible.
 
 User's question is: {input_question}
 
@@ -78,6 +80,13 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                     If key not provided, a default size `max_tokens * 0.4` will be used.
                 - context_max_tokens (Optional, int): the context max token size for the retrieve chat.
                     If key not provided, a default size `max_tokens * 0.8` will be used.
+                - chunk_mode (Optional, str): the chunk mode for the retrieve chat. Possible values are
+                    "multi_lines" and "one_line". If key not provided, a default mode `multi_lines` will be used.
+                - embedding_model (Optional, str): the embedding model to use for the retrieve chat.
+                    If key not provided, a default model `all-MiniLM-L6-v2` will be used. All available models
+                    can be found at `https://www.sbert.net/docs/pretrained_models.html`. The default model is a
+                    fast model. If you want to use a high performance model, `all-mpnet-base-v2` is recommended.
+                - customized_prompt (Optional, str): the customized prompt for the retrieve chat. Default is None.
             **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
         """
         super().__init__(
@@ -94,12 +103,15 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._model = self._retrieve_config.get("model", "gpt-4")
         self._max_tokens = self.get_max_tokens(self._model)
         self._chunk_token_size = int(self._retrieve_config.get("chunk_token_size", self._max_tokens * 0.4))
+        self._chunk_mode = self._retrieve_config.get("chunk_mode", "multi_lines")
+        self._embedding_model = self._retrieve_config.get("embedding_model", "all-MiniLM-L6-v2")
+        self.customized_prompt = self._retrieve_config.get("customized_prompt", None)
         self._context_max_tokens = self._max_tokens * 0.8
         self._collection = False  # whether the collection is created
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
-        self.register_auto_reply(Agent, self._generate_retrieve_user_reply)
+        self.register_auto_reply(Agent, RetrieveUserProxyAgent._generate_retrieve_user_reply)
 
     @staticmethod
     def get_max_tokens(model="gpt-3.5-turbo"):
@@ -148,10 +160,13 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
-    ) -> Union[str, Dict, None]:
+        context: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        if context is None:
+            context = self
         if messages is None:
             messages = self._oai_messages[sender]
-        message = self._message_to_dict(messages[-1])
+        message = messages[-1]
         if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
             print("Updating context and resetting conversation.")
             self.clear_history()
@@ -169,6 +184,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 max_tokens=self._chunk_token_size,
                 client=self._client,
                 collection_name=self._collection_name,
+                chunk_mode=self._chunk_mode,
+                embedding_model=self._embedding_model,
             )
             self._collection = True
 
@@ -178,19 +195,16 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             search_string=search_string,
             client=self._client,
             collection_name=self._collection_name,
+            embedding_model=self._embedding_model,
         )
         self._results = results
         print("doc_ids: ", results["ids"])
 
-    def generate_init_message(
-        self, problem: str, customized_prompt: str = "", n_results: int = 20, search_string: str = ""
-    ):
+    def generate_init_message(self, problem: str, n_results: int = 20, search_string: str = ""):
         """Generate an initial message with the given problem and prompt.
 
         Args:
             problem (str): the problem to be solved.
-            customized_prompt (str): a customized prompt to be used. If it is not "", the built-in prompt will be
-            ignored.
             n_results (int): the number of results to be retrieved.
             search_string (str): only docs containing this string will be retrieved.
 
@@ -200,10 +214,6 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self.reset()
         self.retrieve_docs(problem, n_results, search_string)
         self.problem = problem
-        if customized_prompt:
-            self.customized_prompt = customized_prompt
-        else:
-            self.customized_prompt = ""
         doc_contents = self._get_context(self._results)
         message = self._generate_message(doc_contents)
         return message

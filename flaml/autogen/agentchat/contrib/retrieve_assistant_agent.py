@@ -1,6 +1,6 @@
 from flaml.autogen.agentchat.agent import Agent
 from flaml.autogen.agentchat.assistant_agent import AssistantAgent
-from typing import Callable, Dict, Optional, Union, List
+from typing import Callable, Dict, Optional, Union, List, Tuple, Any
 
 
 class RetrieveAssistantAgent(AssistantAgent):
@@ -16,16 +16,19 @@ class RetrieveAssistantAgent(AssistantAgent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.register_auto_reply(Agent, self._generate_retrieve_assistant_reply)
+        self.register_auto_reply(Agent, RetrieveAssistantAgent._generate_retrieve_assistant_reply)
 
     def _generate_retrieve_assistant_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
-    ) -> Union[str, Dict, None]:
+        context: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        if context is None:
+            context = self
         if messages is None:
             messages = self._oai_messages[sender]
-        message = self._message_to_dict(messages[-1])
+        message = messages[-1]
         if "exitcode: 0 (execution succeeded)" in message.get("content", ""):
             # Terminate the conversation when the code execution succeeds. Although sometimes even when the
             # code execution succeeds, the task is not solved, but it's hard to tell. If the human_input_mode

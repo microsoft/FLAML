@@ -8,9 +8,7 @@ import chromadb.utils.embedding_functions as ef
 import logging
 
 logger = logging.getLogger(__name__)
-# https://www.sbert.net/docs/pretrained_models.html
-embedding_function = ef.SentenceTransformerEmbeddingFunction("all-mpnet-base-v2")
-TEXT_FORMATS = ["txt", "json", "csv", "tsv", "md", "html", "htm", "rtf", "rst"]
+TEXT_FORMATS = ["txt", "json", "csv", "tsv", "md", "html", "htm", "rtf", "rst", "jsonl", "log", "xml", "yaml", "yml"]
 
 
 def num_tokens_from_text(
@@ -70,16 +68,20 @@ def num_tokens_from_messages(messages: dict, model: str = "gpt-3.5-turbo-0613"):
     return num_tokens
 
 
-def split_text_to_chunks(text: str, max_tokens: int = 4000):
+def split_text_to_chunks(text: str, max_tokens: int = 4000, chunk_mode: str = "multi_lines"):
     """Split a long text into chunks of max_tokens."""
+    assert chunk_mode in {"one_line", "multi_lines"}
 
-    def chunk_text(text_to_chunk: str, must_break_at_empty_line: bool = True):
+    def chunk_text(text_to_chunk: str, must_break_at_empty_line: bool = True, chunk_mode: str = "multi_lines"):
         """Split a long text into chunks of max_tokens."""
         if num_tokens_from_text(text_to_chunk) <= max_tokens:
             return [text_to_chunk]
         else:
             lines = text_to_chunk.split("\n")
-            estimated_line_cut = int(max_tokens / num_tokens_from_text(text_to_chunk) * len(lines))
+            if chunk_mode == "one_line":
+                estimated_line_cut = 2
+            else:
+                estimated_line_cut = int(max_tokens / num_tokens_from_text(text_to_chunk) * len(lines))
             cnt = 0
             for cnt in reversed(range(estimated_line_cut)):
                 if must_break_at_empty_line and lines[cnt] != "":
@@ -93,18 +95,18 @@ def split_text_to_chunks(text: str, max_tokens: int = 4000):
             return [prev] + chunk_text(post, must_break_at_empty_line)
 
     try:
-        return chunk_text(text, must_break_at_empty_line=True)
+        return chunk_text(text, must_break_at_empty_line=True, chunk_mode=chunk_mode)
     except ValueError:
-        return chunk_text(text, must_break_at_empty_line=False)
+        return chunk_text(text, must_break_at_empty_line=False, chunk_mode=chunk_mode)
 
 
-def split_files_to_chunks(files: list, max_tokens: int = 4000):
+def split_files_to_chunks(files: list, max_tokens: int = 4000, chunk_mode: str = "multi_lines"):
     """Split a list of files into chunks of max_tokens."""
     chunks = []
     for file in files:
         with open(file, "r") as f:
             text = f.read()
-        chunks += split_text_to_chunks(text, max_tokens)
+        chunks += split_text_to_chunks(text, max_tokens, chunk_mode)
     return chunks
 
 
@@ -114,6 +116,8 @@ def get_files_from_dir(dir_path: str, types: list = TEXT_FORMATS, recursive: boo
         raise ValueError("types cannot be empty.")
     types = [t[1:].lower() if t.startswith(".") else t.lower() for t in set(types)]
     types += [t.upper() for t in types]
+    if os.path.isfile(dir_path):
+        return [dir_path]
     files = []
     if os.path.exists(dir_path):
         for type in types:
@@ -133,13 +137,16 @@ def create_vector_db_from_dir(
     client: API = None,
     db_path: str = "/tmp/chromadb.db",
     collection_name: str = "all-my-documents",
-    get_or_create=False,
+    get_or_create: bool = False,
+    chunk_mode: str = "multi_lines",
+    embedding_model: str = "all-MiniLM-L6-v2",
 ):
     """Create a vector db from all the files in a given directory."""
-    chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens)
+    chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens, chunk_mode)
     if client is None:
         client = chromadb.PersistentClient(path=db_path)
     try:
+        embedding_function = ef.SentenceTransformerEmbeddingFunction(embedding_model)
         collection = client.create_collection(
             collection_name,
             get_or_create=get_or_create,
@@ -165,6 +172,7 @@ def query_vector_db(
     db_path: str = "/tmp/chromadb.db",
     collection_name: str = "all-my-documents",
     search_string: str = "",
+    embedding_model: str = "all-MiniLM-L6-v2",
 ) -> Dict[str, List[str]]:
     """Query a vector db."""
     if client is None:
@@ -172,6 +180,7 @@ def query_vector_db(
     # the collection's embedding function is always the default one, but we want to use the one we used to create the
     # collection. So we compute the embeddings ourselves and pass it to the query function.
     collection = client.get_collection(collection_name)
+    embedding_function = ef.SentenceTransformerEmbeddingFunction(embedding_model)
     query_embeddings = embedding_function(query_texts)
     # Query/search n most similar results. You can also .get by id
     results = collection.query(
