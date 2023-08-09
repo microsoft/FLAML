@@ -1,5 +1,7 @@
 from typing import List, Union, Dict, Tuple
 import os
+import requests
+from urllib.parse import urlparse
 import glob
 import tiktoken
 import chromadb
@@ -116,8 +118,15 @@ def get_files_from_dir(dir_path: str, types: list = TEXT_FORMATS, recursive: boo
         raise ValueError("types cannot be empty.")
     types = [t[1:].lower() if t.startswith(".") else t.lower() for t in set(types)]
     types += [t.upper() for t in types]
+
+    # If the path is a file, return it
     if os.path.isfile(dir_path):
         return [dir_path]
+
+    # If the path is a url, download it and return the downloaded file
+    if is_url(dir_path):
+        return [get_file_from_url(dir_path)]
+
     files = []
     if os.path.exists(dir_path):
         for type in types:
@@ -129,6 +138,27 @@ def get_files_from_dir(dir_path: str, types: list = TEXT_FORMATS, recursive: boo
         logger.error(f"Directory {dir_path} does not exist.")
         raise ValueError(f"Directory {dir_path} does not exist.")
     return files
+
+
+def get_file_from_url(url: str, save_path: str = None):
+    """Download a file from a URL."""
+    if save_path is None:
+        save_path = os.path.join("/tmp/chromadb", os.path.basename(url))
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(save_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return save_path
+
+
+def is_url(string: str):
+    """Return True if the string is a valid URL."""
+    try:
+        result = urlparse(string)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 
 
 def create_vector_db_from_dir(

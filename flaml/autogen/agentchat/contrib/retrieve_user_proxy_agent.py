@@ -70,8 +70,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 To use default config, set to None. Otherwise, set to a dictionary with the following keys:
                 - client (Optional, chromadb.Client): the chromadb client.
                     If key not provided, a default client `chromadb.Client()` will be used.
-                - docs_path (Optional, str): the path to the docs directory.
-                    If key not provided, a default path `./docs` will be used.
+                - docs_path (Optional, str): the path to the docs directory. It can also be the path to a single file,
+                    or the url to a single file. If key not provided, a default path `./docs` will be used.
                 - collection_name (Optional, str): the name of the collection.
                     If key not provided, a default name `flaml-docs` will be used.
                 - model (Optional, str): the model to use for the retrieve chat.
@@ -124,8 +124,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         else:
             return 4000
 
-    def reset(self, stop_reply_at_receive=False):
-        super().reset(stop_reply_at_receive)
+    def _reset(self):
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
 
@@ -211,7 +210,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         Returns:
             str: the generated prompt ready to be sent to the assistant agent.
         """
-        self.reset()
+        self._reset()
         self.retrieve_docs(problem, n_results, search_string)
         self.problem = problem
         doc_contents = self._get_context(self._results)
@@ -226,7 +225,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 "You MUST NOT install any packages because all the packages needed are already installed.",
                 None,
             )
-        if self._ipython is None:
+        if self._ipython is None or lang != "python":
             return super().run_code(code, **kwargs)
         else:
             # # capture may not work as expected

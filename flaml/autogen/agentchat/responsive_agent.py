@@ -502,12 +502,11 @@ class ResponsiveAgent(Agent):
         self._prepare_chat(recipient, clear_history)
         await self.a_send(self.generate_init_message(**context), recipient)
 
-    def reset(self, stop_reply_at_receive: Optional[bool] = True):
+    def reset(self):
         """Reset the agent."""
         self.clear_history()
         self.reset_consecutive_auto_reply_counter()
-        if stop_reply_at_receive:
-            self.stop_reply_at_receive()
+        self.stop_reply_at_receive()
         for reply_func_tuple in self._reply_func_list:
             if reply_func_tuple["reset_context"] is not None:
                 reply_func_tuple["reset_context"](reply_func_tuple["context"])
@@ -834,6 +833,7 @@ class ResponsiveAgent(Agent):
                     filename = None
                 exitcode, logs, image = self.run_code(
                     code,
+                    lang="python",
                     filename=filename,
                     **self._code_execution_config,
                 )
