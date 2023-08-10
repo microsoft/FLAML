@@ -70,45 +70,60 @@ def num_tokens_from_messages(messages: dict, model: str = "gpt-3.5-turbo-0613"):
     return num_tokens
 
 
-def split_text_to_chunks(text: str, max_tokens: int = 4000, chunk_mode: str = "multi_lines"):
+def split_text_to_chunks(
+    text: str,
+    max_tokens: int = 4000,
+    chunk_mode: str = "multi_lines",
+    must_break_at_empty_line: bool = True,
+    overlap: int = 10,
+):
     """Split a long text into chunks of max_tokens."""
     assert chunk_mode in {"one_line", "multi_lines"}
-
-    def chunk_text(text_to_chunk: str, must_break_at_empty_line: bool = True, chunk_mode: str = "multi_lines"):
-        """Split a long text into chunks of max_tokens."""
-        if num_tokens_from_text(text_to_chunk) <= max_tokens:
-            return [text_to_chunk]
+    if chunk_mode == "one_line":
+        must_break_at_empty_line = False
+    chunks = []
+    lines = text.split("\n")
+    lines_tokens = [num_tokens_from_text(line) for line in lines]
+    sum_tokens = sum(lines_tokens)
+    while sum_tokens > max_tokens:
+        if chunk_mode == "one_line":
+            estimated_line_cut = 2
         else:
-            lines = text_to_chunk.split("\n")
-            if chunk_mode == "one_line":
-                estimated_line_cut = 2
-            else:
-                estimated_line_cut = int(max_tokens / num_tokens_from_text(text_to_chunk) * len(lines))
-            cnt = 0
-            for cnt in reversed(range(estimated_line_cut)):
-                if must_break_at_empty_line and lines[cnt] != "":
-                    continue
+            estimated_line_cut = int(max_tokens / sum_tokens * len(lines)) + 1
+        cnt = 0
+        prev = ""
+        for cnt in reversed(range(estimated_line_cut)):
+            if must_break_at_empty_line and lines[cnt] != "":
+                continue
+            if sum(lines_tokens[:cnt]) <= max_tokens:
                 prev = "\n".join(lines[:cnt])
-                post = "\n".join(lines[cnt:])
-                if num_tokens_from_text(prev) <= max_tokens:
-                    break
-            if cnt == 0:
-                raise ValueError("max_tokens is too small to fit a single line of text.")
-            return [prev] + chunk_text(post, must_break_at_empty_line)
+                break
+        if cnt == 0:
+            logger.warning(
+                f"max_tokens is too small to fit a single line of text. Breaking this line:\n\t{lines[0][:100]} ..."
+            )
+            split_len = int(max_tokens / lines_tokens[0] * 0.9 * len(lines[0]))
+            prev = lines[0][:split_len]
+            lines[0] = lines[0][split_len:]
+            lines_tokens[0] = num_tokens_from_text(lines[0])
+        chunks.append(prev) if len(prev) > 10 else None  # don't add chunks less than 10 characters
+        lines = lines[cnt:]
+        lines_tokens = lines_tokens[cnt:]
+        sum_tokens = sum(lines_tokens)
+    text_to_chunk = "\n".join(lines)
+    chunks.append(text_to_chunk) if len(text_to_chunk) > 10 else None  # don't add chunks less than 10 characters
+    return chunks
 
-    try:
-        return chunk_text(text, must_break_at_empty_line=True, chunk_mode=chunk_mode)
-    except ValueError:
-        return chunk_text(text, must_break_at_empty_line=False, chunk_mode=chunk_mode)
 
-
-def split_files_to_chunks(files: list, max_tokens: int = 4000, chunk_mode: str = "multi_lines"):
+def split_files_to_chunks(
+    files: list, max_tokens: int = 4000, chunk_mode: str = "multi_lines", must_break_at_empty_line: bool = True
+):
     """Split a list of files into chunks of max_tokens."""
     chunks = []
     for file in files:
         with open(file, "r") as f:
             text = f.read()
-        chunks += split_text_to_chunks(text, max_tokens, chunk_mode)
+        chunks += split_text_to_chunks(text, max_tokens, chunk_mode, must_break_at_empty_line)
     return chunks
 
 
@@ -167,12 +182,13 @@ def create_vector_db_from_dir(
     client: API = None,
     db_path: str = "/tmp/chromadb.db",
     collection_name: str = "all-my-documents",
-    get_or_create: bool = False,
+    get_or_create: bool = True,
     chunk_mode: str = "multi_lines",
+    must_break_at_empty_line: bool = True,
     embedding_model: str = "all-MiniLM-L6-v2",
 ):
     """Create a vector db from all the files in a given directory."""
-    chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens, chunk_mode)
+    chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens, chunk_mode, must_break_at_empty_line)
     if client is None:
         client = chromadb.PersistentClient(path=db_path)
     try:

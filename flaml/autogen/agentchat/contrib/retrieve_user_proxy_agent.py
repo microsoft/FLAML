@@ -21,15 +21,15 @@ Step 1, you estimate the user's intent based on the question and context. The in
 a question answering task.
 Step 2, you reply based on the intent.
 You should leverage the context provided by the user as much as possible. If you need more context, you should reply
-"UPDATE CONTEXT".
-For code generation task, you must obey the following rules:
+exactly `UPDATE CONTEXT`.
+If user's intent is code generation, you must obey the following rules:
 Rule 1. You MUST NOT install any packages because all the packages needed are already installed.
 Rule 2. You must follow the formats below to write your code:
 ```language
 # your code
 ```
 
-For question answering task, you must give as short an answer as possible.
+If user's intent is question answering, you must give as short an answer as possible.
 
 User's question is: {input_question}
 
@@ -89,6 +89,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                     If key not provided, a default size `max_tokens * 0.8` will be used.
                 - chunk_mode (Optional, str): the chunk mode for the retrieve chat. Possible values are
                     "multi_lines" and "one_line". If key not provided, a default mode `multi_lines` will be used.
+                - must_break_at_empty_line (Optional, bool): chunk will only break at empty line if True. Default is True.
+                    If chunk_mode is "one_line", this parameter will be ignored.
                 - embedding_model (Optional, str): the embedding model to use for the retrieve chat.
                     If key not provided, a default model `all-MiniLM-L6-v2` will be used. All available models
                     can be found at `https://www.sbert.net/docs/pretrained_models.html`. The default model is a
@@ -111,6 +113,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._max_tokens = self.get_max_tokens(self._model)
         self._chunk_token_size = int(self._retrieve_config.get("chunk_token_size", self._max_tokens * 0.4))
         self._chunk_mode = self._retrieve_config.get("chunk_mode", "multi_lines")
+        self._must_break_at_empty_line = self._retrieve_config.get("must_break_at_empty_line", True)
         self._embedding_model = self._retrieve_config.get("embedding_model", "all-MiniLM-L6-v2")
         self.customized_prompt = self._retrieve_config.get("customized_prompt", None)
         self._context_max_tokens = self._max_tokens * 0.8
@@ -191,6 +194,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 client=self._client,
                 collection_name=self._collection_name,
                 chunk_mode=self._chunk_mode,
+                must_break_at_empty_line=self._must_break_at_empty_line,
                 embedding_model=self._embedding_model,
             )
             self._collection = True
