@@ -93,7 +93,7 @@ def split_text_to_chunks(
         cnt = 0
         prev = ""
         for cnt in reversed(range(estimated_line_cut)):
-            if must_break_at_empty_line and lines[cnt] != "":
+            if must_break_at_empty_line and lines[cnt].strip() != "":
                 continue
             if sum(lines_tokens[:cnt]) <= max_tokens:
                 prev = "\n".join(lines[:cnt])
@@ -102,10 +102,14 @@ def split_text_to_chunks(
             logger.warning(
                 f"max_tokens is too small to fit a single line of text. Breaking this line:\n\t{lines[0][:100]} ..."
             )
-            split_len = int(max_tokens / lines_tokens[0] * 0.9 * len(lines[0]))
-            prev = lines[0][:split_len]
-            lines[0] = lines[0][split_len:]
-            lines_tokens[0] = num_tokens_from_text(lines[0])
+            if not must_break_at_empty_line:
+                split_len = int(max_tokens / lines_tokens[0] * 0.9 * len(lines[0]))
+                prev = lines[0][:split_len]
+                lines[0] = lines[0][split_len:]
+                lines_tokens[0] = num_tokens_from_text(lines[0])
+            else:
+                logger.warning("Failed to split docs with must_break_at_empty_line being True, set to False.")
+                must_break_at_empty_line = False
         chunks.append(prev) if len(prev) > 10 else None  # don't add chunks less than 10 characters
         lines = lines[cnt:]
         lines_tokens = lines_tokens[cnt:]
