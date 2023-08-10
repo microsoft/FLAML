@@ -7,6 +7,13 @@ from flaml.autogen.code_utils import extract_code
 from typing import Callable, Dict, Optional, Union, List, Tuple, Any
 from IPython import get_ipython
 
+try:
+    from termcolor import colored
+except ImportError:
+
+    def colored(x, *args, **kwargs):
+        return x
+
 
 PROMPT = """You're a retrieve augmented chatbot. You answer user's questions based on your own knowledge and the
 context provided by the user. You should follow the following steps to answer a question:
@@ -137,12 +144,14 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                 continue
             _doc_tokens = num_tokens_from_text(doc)
             if _doc_tokens > self._context_max_tokens:
-                print(f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context.")
+                func_print = f"Skip doc_id {results['ids'][0][idx]} as it is too long to fit in the context."
+                print(colored(func_print, "green"), flush=True)
                 self._doc_idx = idx
                 continue
             if current_tokens + _doc_tokens > self._context_max_tokens:
                 break
-            print(f"Adding doc_id {results['ids'][0][idx]} to context.")
+            func_print = f"Adding doc_id {results['ids'][0][idx]} to context."
+            print(colored(func_print, "green"), flush=True)
             current_tokens += _doc_tokens
             doc_contents += doc + "\n"
             self._doc_idx = idx
@@ -167,14 +176,12 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             messages = self._oai_messages[sender]
         message = messages[-1]
         if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
-            print("Updating context and resetting conversation.")
+            print(colored("Updating context and resetting conversation.", "green"), flush=True)
             self.clear_history()
             sender.clear_history()
             doc_contents = self._get_context(self._results)
-            self.send(self._generate_message(doc_contents), sender)
-        else:
-            return False, None
-        return True, None
+            return True, self._generate_message(doc_contents)
+        return False, None
 
     def retrieve_docs(self, problem: str, n_results: int = 20, search_string: str = ""):
         if not self._collection:
