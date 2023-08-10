@@ -202,8 +202,8 @@ def create_vector_db_from_dir(
             # https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md
             metadata={"hnsw:space": "ip", "hnsw:construction_ef": 30, "hnsw:M": 32},  # ip, l2, cosine
         )
-        # Add docs to the collection. Can also update and delete. Row-based API coming soon!
-        collection.add(
+        # updates existing items, or adds them if they don't yet exist.
+        collection.upsert(
             documents=chunks,  # we handle tokenization, embedding, and indexing automatically. You can skip that and add your own embeddings as well
             ids=[f"doc_{i}" for i in range(len(chunks))],  # unique for each doc
         )

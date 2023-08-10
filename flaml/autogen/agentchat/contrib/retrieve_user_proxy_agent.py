@@ -117,7 +117,11 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._embedding_model = self._retrieve_config.get("embedding_model", "all-MiniLM-L6-v2")
         self.customized_prompt = self._retrieve_config.get("customized_prompt", None)
         self._context_max_tokens = self._max_tokens * 0.8
-        self._collection = False  # whether the collection is created
+        try:
+            self._client.get_collection(name=self._collection_name)
+            self._collection = True  # the collection is created
+        except ValueError:
+            self._collection = False  # the collection is not created
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
