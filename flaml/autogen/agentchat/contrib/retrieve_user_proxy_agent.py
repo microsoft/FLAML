@@ -15,13 +15,12 @@ except ImportError:
         return x
 
 
-PROMPT = """You're a retrieve augmented chatbot. You answer user's questions based on your own knowledge and the
+PROMPT_DEFAULT = """You're a retrieve augmented chatbot. You answer user's questions based on your own knowledge and the
 context provided by the user. You should follow the following steps to answer a question:
 Step 1, you estimate the user's intent based on the question and context. The intent can be a code generation task or
 a question answering task.
 Step 2, you reply based on the intent.
-You should leverage the context provided by the user as much as possible. If you need more context, you should reply
-exactly `UPDATE CONTEXT`.
+If you can't answer the question with or without the current context, you should reply exactly `UPDATE CONTEXT`.
 If user's intent is code generation, you must obey the following rules:
 Rule 1. You MUST NOT install any packages because all the packages needed are already installed.
 Rule 2. You must follow the formats below to write your code:
@@ -30,6 +29,31 @@ Rule 2. You must follow the formats below to write your code:
 ```
 
 If user's intent is question answering, you must give as short an answer as possible.
+
+User's question is: {input_question}
+
+Context is: {input_context}
+"""
+
+PROMPT_CODE = """You're a retrieve augmented coding assistant. You answer user's questions based on your own knowledge and the
+context provided by the user.
+If you can't answer the question with or without the current context, you should reply exactly `UPDATE CONTEXT`.
+For code generation, you must obey the following rules:
+Rule 1. You MUST NOT install any packages because all the packages needed are already installed.
+Rule 2. You must follow the formats below to write your code:
+```language
+# your code
+```
+
+User's question is: {input_question}
+
+Context is: {input_context}
+"""
+
+PROMPT_QA = """You're a retrieve augmented chatbot. You answer user's questions based on your own knowledge and the
+context provided by the user.
+If you can't answer the question with or without the current context, you should reply exactly `UPDATE CONTEXT`.
+You must give as short an answer as possible.
 
 User's question is: {input_question}
 
@@ -75,6 +99,8 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
             retrieve_config (dict or None): config for the retrieve agent.
                 To use default config, set to None. Otherwise, set to a dictionary with the following keys:
+                - task (Optional, str): the task of the retrieve chat. Possible values are "code", "qa" and "default". System
+                    prompt will be different for different tasks. The default value is `default`, which supports both code and qa.
                 - client (Optional, chromadb.Client): the chromadb client.
                     If key not provided, a default client `chromadb.Client()` will be used.
                 - docs_path (Optional, str): the path to the docs directory. It can also be the path to a single file,
@@ -106,6 +132,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         )
 
         self._retrieve_config = {} if retrieve_config is None else retrieve_config
+        self._task = self._retrieve_config.get("task", "default")
         self._client = self._retrieve_config.get("client", chromadb.Client())
         self._docs_path = self._retrieve_config.get("docs_path", "./docs")
         self._collection_name = self._retrieve_config.get("collection_name", "flaml-docs")
@@ -117,11 +144,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self._embedding_model = self._retrieve_config.get("embedding_model", "all-MiniLM-L6-v2")
         self.customized_prompt = self._retrieve_config.get("customized_prompt", None)
         self._context_max_tokens = self._max_tokens * 0.8
-        try:
-            self._client.get_collection(name=self._collection_name)
-            self._collection = True  # the collection is created
-        except ValueError:
-            self._collection = False  # the collection is not created
+        self._collection = False  # the collection is not created
         self._ipython = get_ipython()
         self._doc_idx = -1  # the index of the current used doc
         self._results = {}  # the results of the current query
@@ -164,14 +187,20 @@ class RetrieveUserProxyAgent(UserProxyAgent):
             self._doc_idx = idx
         return doc_contents
 
-    def _generate_message(self, doc_contents):
+    def _generate_message(self, doc_contents, task="default"):
         if not doc_contents:
             print(colored("No more context, will terminate.", "green"), flush=True)
             return "TERMINATE"
         if self.customized_prompt:
             message = self.customized_prompt + "\nUser's question is: " + self.problem + "\nContext is: " + doc_contents
+        elif task.upper() == "CODE":
+            message = PROMPT_CODE.format(input_question=self.problem, input_context=doc_contents)
+        elif task.upper() == "QA":
+            message = PROMPT_QA.format(input_question=self.problem, input_context=doc_contents)
+        elif task.upper() == "DEFAULT":
+            message = PROMPT_DEFAULT.format(input_question=self.problem, input_context=doc_contents)
         else:
-            message = PROMPT.format(input_question=self.problem, input_context=doc_contents)
+            raise NotImplementedError(f"task {task} is not implemented.")
         return message
 
     def _generate_retrieve_user_reply(
@@ -185,12 +214,15 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         if messages is None:
             messages = self._oai_messages[sender]
         message = messages[-1]
-        if "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
+        if (
+            "UPDATE CONTEXT" in message.get("content", "")[-20:].upper()
+            or "UPDATE CONTEXT" in message.get("content", "")[:20].upper()
+        ):
             print(colored("Updating context and resetting conversation.", "green"), flush=True)
             self.clear_history()
             sender.clear_history()
             doc_contents = self._get_context(self._results)
-            return True, self._generate_message(doc_contents)
+            return True, self._generate_message(doc_contents, task=self._task)
         return False, None
 
     def retrieve_docs(self, problem: str, n_results: int = 20, search_string: str = ""):
@@ -232,7 +264,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         self.retrieve_docs(problem, n_results, search_string)
         self.problem = problem
         doc_contents = self._get_context(self._results)
-        message = self._generate_message(doc_contents)
+        message = self._generate_message(doc_contents, self._task)
         return message
 
     def run_code(self, code, **kwargs):

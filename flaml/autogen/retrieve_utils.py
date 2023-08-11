@@ -186,13 +186,12 @@ def create_vector_db_from_dir(
     client: API = None,
     db_path: str = "/tmp/chromadb.db",
     collection_name: str = "all-my-documents",
-    get_or_create: bool = True,
+    get_or_create: bool = False,
     chunk_mode: str = "multi_lines",
     must_break_at_empty_line: bool = True,
     embedding_model: str = "all-MiniLM-L6-v2",
 ):
     """Create a vector db from all the files in a given directory."""
-    chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens, chunk_mode, must_break_at_empty_line)
     if client is None:
         client = chromadb.PersistentClient(path=db_path)
     try:
@@ -206,13 +205,15 @@ def create_vector_db_from_dir(
             # https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md
             metadata={"hnsw:space": "ip", "hnsw:construction_ef": 30, "hnsw:M": 32},  # ip, l2, cosine
         )
+
+        chunks = split_files_to_chunks(get_files_from_dir(dir_path), max_tokens, chunk_mode, must_break_at_empty_line)
         # updates existing items, or adds them if they don't yet exist.
         collection.upsert(
             documents=chunks,  # we handle tokenization, embedding, and indexing automatically. You can skip that and add your own embeddings as well
             ids=[f"doc_{i}" for i in range(len(chunks))],  # unique for each doc
         )
     except ValueError as e:
-        logger.error(f"{e}")
+        logger.warning(f"{e}")
 
 
 def query_vector_db(

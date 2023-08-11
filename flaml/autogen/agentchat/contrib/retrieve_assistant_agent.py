@@ -34,7 +34,10 @@ class RetrieveAssistantAgent(AssistantAgent):
             # code execution succeeds, the task is not solved, but it's hard to tell. If the human_input_mode
             # of RetrieveUserProxyAgent is "TERMINATE" or "ALWAYS", user can still continue the conversation.
             return True, "TERMINATE"
-        elif "UPDATE CONTEXT" in message.get("content", "")[-20::].upper():
+        elif (
+            "UPDATE CONTEXT" in message.get("content", "")[-20:].upper()
+            or "UPDATE CONTEXT" in message.get("content", "")[:20].upper()
+        ):
             return True, "UPDATE CONTEXT"
         else:
             return False, None
