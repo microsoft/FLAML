@@ -165,6 +165,9 @@ class RetrieveUserProxyAgent(UserProxyAgent):
         return doc_contents
 
     def _generate_message(self, doc_contents):
+        if not doc_contents:
+            print(colored("No more context, will terminate.", "green"), flush=True)
+            return "TERMINATE"
         if self.customized_prompt:
             message = self.customized_prompt + "\nUser's question is: " + self.problem + "\nContext is: " + doc_contents
         else:
