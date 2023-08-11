@@ -20,7 +20,7 @@ Install FLAML from pip: `pip install flaml`. Find more options in [Installation]
 
 There are several ways of using flaml:
 
-#### (New) [Auto Generation](/docs/Use-Cases/Auto-Generation)
+#### (New) [Autogen](/docs/Use-Cases/Autogen)
 
 Maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4, including:
 - A drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
@@ -117,7 +117,7 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 
 ### Where to Go Next?
 
-* Understand the use cases for [Auto Generation](/docs/Use-Cases/Auto-Generation), [Task-oriented AutoML](/docs/Use-Cases/Task-Oriented-Automl), [Tune user-defined function](/docs/Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](/docs/Use-Cases/Zero-Shot-AutoML).
+* Understand the use cases for [Autogen](/docs/Use-Cases/Auto-Generation), [Task-oriented AutoML](/docs/Use-Cases/Task-Oriented-Automl), [Tune user-defined function](/docs/Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](/docs/Use-Cases/Zero-Shot-AutoML).
 * Find code examples under "Examples": from [AutoGen - OpenAI](/docs/Examples/AutoGen-OpenAI) to [Tune - PyTorch](/docs/Examples/Tune-PyTorch).
 * Learn about [research](/docs/Research) around FLAML and check [blogposts](/blog).
 * Chat on [Discord](https://discord.gg/Cppx2vSPVP).

@@ -60,6 +60,7 @@ class UserProxyAgent(ResponsiveAgent):
                     If the code is executed in the current environment,
                     the code must be trusted.
                 - timeout (Optional, int): The maximum execution time in seconds.
+                - last_n_messages (Experimental, Optional, int): The number of messages to look back for code execution. Default to 1.
             default_auto_reply (str or dict or None): the default auto reply message when no code execution or llm based reply is generated.
             llm_config (dict or False): llm inference configuration.
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
