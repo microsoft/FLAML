@@ -5,8 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-def token_left(messages, model="gpt-3.5-turbo-0613"):
+def get_max_token_limit(model="gpt-3.5-turbo-0613"):
     max_token_limit = {
         "gpt-3.5-turbo": 4096,
         "gpt-3.5-turbo-0301": 4096,
@@ -20,11 +19,26 @@ def token_left(messages, model="gpt-3.5-turbo-0613"):
         "gpt-4-0613": 8192,
         "gpt-4-32k-0613": 32768,
     }
+    return max_token_limit[model]
 
-    return max_token_limit[model] - num_tokens_from_messages(messages, model=model)
+
+def percentile_used(input, model="gpt-3.5-turbo-0613"):
+    return count_token(input) / get_max_token_limit(model)
+
+def token_left(input, model="gpt-3.5-turbo-0613"):
+    return get_max_token_limit(model) - count_token(input, model=model)
 
 
-def num_token_from_text(text: str, model: str = "gpt-3.5-turbo-0613"):
+def count_token(input: Union[str, List, Dict], model: str = "gpt-3.5-turbo-0613"):
+    if isinstance(input, str):
+        return _num_token_from_text(input, model=model)
+    elif isinstance(input, list) or isinstance(input, dict):
+        return _num_token_from_messages(input, model=model)
+    else:
+        raise ValueError("input must be str, list or dict")
+
+
+def _num_token_from_text(text: str, model: str = "gpt-3.5-turbo-0613"):
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
@@ -33,7 +47,7 @@ def num_token_from_text(text: str, model: str = "gpt-3.5-turbo-0613"):
     return len(encoding.encode(text))
 
 
-def num_tokens_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0613"):
+def _num_token_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0613"):
     """Return the number of tokens used by a list of messages.
 
     retrieved from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb/
@@ -61,10 +75,10 @@ def num_tokens_from_messages(messages: Union[List, Dict], model="gpt-3.5-turbo-0
         tokens_per_name = -1  # if there's a name, the role is omitted
     elif "gpt-3.5-turbo" in model:
         print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
-        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+        return _num_token_from_messages(messages, model="gpt-3.5-turbo-0613")
     elif "gpt-4" in model:
         print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
-        return num_tokens_from_messages(messages, model="gpt-4-0613")
+        return _num_token_from_messages(messages, model="gpt-4-0613")
     else:
         raise NotImplementedError(
             f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens."""
