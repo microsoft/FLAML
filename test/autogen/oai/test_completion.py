@@ -137,6 +137,7 @@ def test_nocontext():
                     "gpt-3.5-turbo-0301",
                     "chatgpt-35-turbo-0301",
                     "gpt-35-turbo-v0301",
+                    "gpt",
                 },
             },
         ),
@@ -171,6 +172,7 @@ def test_humaneval(num_samples=1):
                 "gpt-3.5-turbo-0301",
                 "chatgpt-35-turbo-0301",
                 "gpt-35-turbo-v0301",
+                "gpt",
             },
         },
     )
@@ -427,10 +429,9 @@ if __name__ == "__main__":
     assert len(config_list) >= 3, config_list
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
-    # test_filter()
+    test_filter()
     test_chatcompletion()
-    # test_multi_model()
-    # test_improve()
-    # test_nocontext()
-    # test_humaneval(1)
-    # test_math(1)
+    test_multi_model()
+    test_nocontext()
+    test_humaneval(1)
+    test_math(1)
