@@ -254,6 +254,7 @@ def test_humaneval(num_samples=1):
         messages=[{"role": "user", "content": "{definition}"}],
         config_list=config_list,
         allow_format_str_template=True,
+        request_timeout=120,
     )
     response = autogen.ChatCompletion.create(context=test_data[0], config_list=config_list, **config)
     print(response)
