@@ -33,7 +33,7 @@ user_proxy.initiate_chat(assistant, message="Show me the YTD gain of 10 largest 
 # This initiates an automated chat between the two agents to solve the task
 ```
 
-Autogen also helps maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4. It offers a drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
+Autogen also helps maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4. It offers a drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, error handling, templating. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
 ```python
 # perform tuning
 config, analysis = autogen.Completion.tune(
