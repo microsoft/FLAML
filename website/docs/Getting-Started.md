@@ -22,7 +22,7 @@ There are several ways of using flaml:
 
 #### (New) [Autogen](/docs/Use-Cases/Autogen)
 
-Autogen enables the next-gen GPT-X applications with a multi-agent conversation framework.
+Autogen enables the next-gen GPT-X applications with a generic multi-agent conversation framework.
 It offers customizable and conversable agents which integrate LLMs, tools and human.
 By automating chat among multiple capable agents, one can easily make them collectively perform tasks autonomously or with human feedback, including tasks that require using tools via code. For example,
 ```python
