@@ -280,6 +280,7 @@ class MathUserProxyAgent(UserProxyAgent):
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
+        config: Optional[Any] = None,
     ):
         """Generate an auto reply."""
         if messages is None:
