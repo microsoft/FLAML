@@ -13,3 +13,4 @@ Links to notebook examples:
 * [Automated Chess Game Playing & Chitchatting by GPT-4 Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_chess.ipynb)
 * [Automated Task Solving by Group Chat](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_groupchat.ipynb)
 * [Automated Continual Learning from New Data](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_stream.ipynb)
+* [Automated Code Generation and Question Answering with Retrieval Augemented Agents](https://github.com/microsoft/FLAML/blob/main/notebook/autogen_agentchat_RetrieveChat.ipynb)
