@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def get_max_token_limit(model="gpt-3.5-turbo-0613"):
     max_token_limit = {
         "gpt-3.5-turbo": 4096,
@@ -24,6 +25,7 @@ def get_max_token_limit(model="gpt-3.5-turbo-0613"):
 
 def percentile_used(input, model="gpt-3.5-turbo-0613"):
     return count_token(input) / get_max_token_limit(model)
+
 
 def token_left(input, model="gpt-3.5-turbo-0613"):
     return get_max_token_limit(model) - count_token(input, model=model)

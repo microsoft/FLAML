@@ -1,9 +1,16 @@
-
 from typing import Callable, Dict, Optional, Union, Tuple, List, Any
 from flaml.autogen import oai
 from ..agent import Agent
 from ..responsive_agent import ResponsiveAgent
 from ..agent_utils import count_token, token_left
+
+try:
+    from termcolor import colored
+except ImportError:
+
+    def colored(x, *args, **kwargs):
+        return x
+
 
 class CompressionAgent(ResponsiveAgent):
     """(Experimental) Assistant agent, designed to solve a task with LLM.
@@ -16,16 +23,15 @@ class CompressionAgent(ResponsiveAgent):
     This agent doesn't execute code by default, and expects the user to execute the code.
     """
 
-#     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will summarize and compress previous messages. The user will input a whole chunk of conversation history. Possible titles include "user", "assistant", "Function Call" and "Function Return".
+    #     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will summarize and compress previous messages. The user will input a whole chunk of conversation history. Possible titles include "user", "assistant", "Function Call" and "Function Return".
 
-# Please follow the rules:
-# 1. You should summarize each of the message and reserve the titles mentioned above. You should also reserve important subtitles and structure within each message, for example, "case", "step" or bullet points. 
-# 2. For very short messages, you can choose to not summarize them. For important information like the desription of a problem or task, you should reserve them (if it is not too long).
-# 3. For code snippets, you have two options: 1. reserve the whole exact code snippet. 2. summerize it use this format:
-# CODE: <code type, python, etc>
-# GOAL: <purpose of this code snippet in a short sentence>
-# IMPLEMENTATION: <overall structure of the code>"""
-
+    # Please follow the rules:
+    # 1. You should summarize each of the message and reserve the titles mentioned above. You should also reserve important subtitles and structure within each message, for example, "case", "step" or bullet points.
+    # 2. For very short messages, you can choose to not summarize them. For important information like the desription of a problem or task, you should reserve them (if it is not too long).
+    # 3. For code snippets, you have two options: 1. reserve the whole exact code snippet. 2. summerize it use this format:
+    # CODE: <code type, python, etc>
+    # GOAL: <purpose of this code snippet in a short sentence>
+    # IMPLEMENTATION: <overall structure of the code>"""
 
     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will compress messages.
 Rules:
@@ -34,10 +40,9 @@ Rules:
 3. Keep the exact result from code execution or function call. Summarize the result when it returns error or is too long.
 """
 
-
     def __init__(
         self,
-        name: str = "compressor" ,
+        name: str = "compressor",
         system_message: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
         llm_config: Optional[Union[Dict, bool]] = None,
         is_termination_msg: Optional[Callable[[Dict], bool]] = None,
@@ -76,21 +81,19 @@ Rules:
 
         self._reply_func_list.clear()
         self.register_auto_reply(Agent, CompressionAgent.generate_compressed_reply)
-        print(self._reply_func_list)
 
     def generate_compressed_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
-        context: Optional[Any] = None,
+        config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None, List]]:
-        
-        print("*"*30, "Start Compression:", "*"*30)
-        # TOTHINK: different models have different max_length, right now we will use context passed in, so the model will be the same with the source model.
+        print(colored("*" * 30 + "Start Compression:" + "*" * 30, "magenta"), flush=True)
+        # TOTHINK: different models have different max_length, right now we will use config passed in, so the model will be the same with the source model.
         # If original model is gpt-4; we start compressing at 70% of usage, 70% of 8092 = 5664; and we use gpt 3.5 here max_toke = 4096, it will raise error. choosinng model automatically?
-        
-        # use passed in context and messages
-        llm_config = self.llm_config if context is None else context
+
+        # use passed in config and messages
+        llm_config = self.llm_config if config is None else config
         if llm_config is False:
             return False, None
         if messages is None:
@@ -109,7 +112,7 @@ Rules:
                 chat_to_compress += f"{m['role'].upper()}:\n{m['content']}\n"
                 if "function_call" in m:
                     chat_to_compress += f"FUNCTION_CALL:\"{m['function_call']}\"\n"
-        
+
         chat_to_compress = [{"role": "user", "content": chat_to_compress}]
         print(chat_to_compress[0]["content"])
         # 2. ask LLM to compress
@@ -120,16 +123,14 @@ Rules:
         assert isinstance(compressed_message, str), f"compressed_message should be a string: {compressed_message}"
 
         # 3. add compressed message to the first message and return
-        messages = [messages[0], {"content": "Compressed Content of Previous Chat:\n" + compressed_message, "role": "user"}]
-        print("*"*30, "After Compression:", "*"*30)
-        print(messages[1]["content"], '\n'+"*"*80)
+        messages = [
+            messages[0],
+            {"content": "Compressed Content of Previous Chat:\n" + compressed_message, "role": "user"},
+        ]
+        print(colored("*" * 30 + "After Compression:" + "*" * 30, "magenta"), flush=True)
+        print(messages[1]["content"], colored("\n" + "*" * 80, "magenta"))
         return True, messages
 
     def generate_summarized_reply():
         """For all chat history, direct summarize what has been done instead of distingushing agents like userproxy, assistant and functions."""
         pass
-
-
-
-
-

@@ -15,7 +15,6 @@ from flaml.autogen.code_utils import (
 )
 
 
-
 try:
     from termcolor import colored
 except ImportError:
@@ -100,7 +99,7 @@ class ResponsiveAgent(Agent):
             compress_config (dict): config for compression before oai_reply. Default to None, meaning no compression will be used and the conversation will terminate when the token count exceeds the limit.
                 You should contain the following keys:
                     "agent" (Optional, "Agent", default to CompressionAgent): the agent to call before oai_reply. the `generate_reply` method from this will be called.
-                    "trigger_count" (Optional, float, int, default to 0.7): the threshold to trigger compression. If a float between (0, 1], it is the percentage of token used. if a int, it is the number of tokens used. 
+                    "trigger_count" (Optional, float, int, default to 0.7): the threshold to trigger compression. If a float between (0, 1], it is the percentage of token used. if a int, it is the number of tokens used.
                     "async" (Optional, bool, default to False): whether to compress asynchronously.
                     "broadcast" (Optional, bool, default to False): whether to update the compressed message history to sender.
             default_auto_reply (str or dict or None): default auto reply when no code execution or llm-based reply is generated.
@@ -135,6 +134,7 @@ class ResponsiveAgent(Agent):
         self.compress_config = compress_config
         if self.compress_config is not None:
             from .contrib.compression_agent import CompressionAgent
+
             if self.compress_config is True:
                 self.compress_config = {}
             self.compress_config = {
@@ -145,7 +145,7 @@ class ResponsiveAgent(Agent):
             }
 
         self.register_auto_reply(Agent, ResponsiveAgent.generate_oai_reply)
-        self.register_auto_reply(Agent, ResponsiveAgent.on_oai_token_limit) # called before generate_oai_reply
+        self.register_auto_reply(Agent, ResponsiveAgent.on_oai_token_limit)  # called before generate_oai_reply
         self.register_auto_reply(Agent, ResponsiveAgent.generate_code_execution_reply)
         self.register_auto_reply(Agent, ResponsiveAgent.generate_function_call_reply)
         self.register_auto_reply(Agent, ResponsiveAgent.check_termination_and_human_reply)
@@ -604,53 +604,60 @@ class ResponsiveAgent(Agent):
             self._oai_messages.clear()
         else:
             self._oai_messages[agent].clear()
-            
+
     def on_oai_token_limit(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
         config: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
-           
         # routine
         llm_config = self.llm_config if config is None else config
         if llm_config is False:
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
-        
+
         # if compress_config is None, no compression will be used and the conversation will terminate when the token count exceeds the limit.
         if self.compress_config is None:
-            if token_left(self._oai_system_message + messages, llm_config['model']) <= 0:
+            if token_left(self._oai_system_message + messages, llm_config["model"]) <= 0:
                 # Teminate if no token left.
                 print(colored("Warning: Terminate due to no token left for oai reply.", "yellow"), flush=True)
                 return True, None
             return False, None
 
         # if token limit threshold is not reached, abort
-        token_used = count_token(self._oai_system_message + messages, llm_config['model'])
-        max_token = get_max_token_limit(llm_config['model'])
-        if isinstance(self.compress_config['trigger_count'], float) and token_used/max_token < self.compress_config['trigger_count'] \
-            or token_used < self.compress_config['trigger_count']:
+        token_used = count_token(self._oai_system_message + messages, llm_config["model"])
+        max_token = get_max_token_limit(llm_config["model"])
+        if (
+            isinstance(self.compress_config["trigger_count"], float)
+            and token_used / max_token < self.compress_config["trigger_count"]
+            or token_used < self.compress_config["trigger_count"]
+        ):
             return False, None
 
-        if self.compress_config['async']:
+        if self.compress_config["async"]:
             # TODO: async compress
             pass
 
-        compressed_messages = self.compress_config['agent'].generate_reply(messages, None)
+        compressed_messages = self.compress_config["agent"].generate_reply(messages, None)
         if compressed_messages is not None:
             # TODO:  maintain a list for old oai messages (messages before compression)
             # TOTHINK: If two assistant are talking, and one assistant is compressing the message, should the compressed message be broadcasted to the other assistant? How?
             # sender._oai_messages[self] = compressed_messages
             # TOTHINK: GroupChatManager from groupchat.py should manage the compression of messages and broadcast with multiple agents.
-            print("Init message count:", count_token(self._oai_messages[sender][0], llm_config['model']))
-            print("Token-Used(exclude init message): Before compression:", count_token(self._oai_messages[sender][1:], llm_config['model']), "After:", count_token(compressed_messages[1:], llm_config['model']))
-            print("-"*80)
+            print("Init message count:", count_token(self._oai_messages[sender][0], llm_config["model"]))
+            print(
+                "Token-Used(exclude init message): Before compression:",
+                count_token(self._oai_messages[sender][1:], llm_config["model"]),
+                "After:",
+                count_token(compressed_messages[1:], llm_config["model"]),
+            )
+            print("-" * 80)
             self._oai_messages[sender] = compressed_messages
 
         return False, None
-    
+
     def generate_oai_reply(
         self,
         messages: Optional[List[Dict]] = None,
@@ -833,9 +840,7 @@ class ResponsiveAgent(Agent):
             if asyncio.coroutines.iscoroutinefunction(reply_func):
                 continue
             if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
-                final, reply = reply_func(
-                    self, messages=messages, sender=sender, config=reply_func_tuple["config"]
-                )
+                final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
                 if final:
                     return reply
 
@@ -972,10 +977,7 @@ class ResponsiveAgent(Agent):
                 # raise NotImplementedError
             self._code_execution_config["use_docker"] = image
 
-            if (
-                self.auto_reply_token_limit > 0
-                and count_token(logs_all + "\n" + logs) > self.auto_reply_token_limit
-            ):
+            if self.auto_reply_token_limit > 0 and count_token(logs_all + "\n" + logs) > self.auto_reply_token_limit:
                 logs_all += "\n" + "Error: The output exceeds the length limit and is truncated."
                 return 1, logs_all
 
