@@ -1,7 +1,7 @@
 import re
 import os
 from pydantic import BaseModel, Extra, root_validator
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 from time import sleep
 
 from flaml.autogen.agentchat import Agent, UserProxyAgent
@@ -197,12 +197,11 @@ class MathUserProxyAgent(UserProxyAgent):
         Returns:
             str: the generated prompt ready to be sent to the assistant agent.
         """
-        self._reset()
         if customized_prompt is not None:
             return customized_prompt + problem
         return PROMPTS[prompt_type] + problem
 
-    def _reset(self):
+    def reset(self):
         super().reset()
         self._valid_q_count = 0
         self._total_q_count = 0
@@ -280,7 +279,9 @@ class MathUserProxyAgent(UserProxyAgent):
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
-    ):
+        context: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        
         """Generate an auto reply."""
         if messages is None:
             messages = self._oai_messages[sender]
