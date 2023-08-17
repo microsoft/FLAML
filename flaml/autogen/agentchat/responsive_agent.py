@@ -5,10 +5,10 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from flaml.autogen import oai
 from .agent import Agent
-from .agent_utils import count_token, token_left, percentile_used
+from .agent_utils import count_token, token_left, get_max_token_limit
 from flaml.autogen.code_utils import DEFAULT_MODEL, UNKNOWN, execute_code, extract_code, infer_lang
 
-from .contrib.compression_agent import CompressionAgent
+
 
 try:
     from termcolor import colored
@@ -127,8 +127,11 @@ class ResponsiveAgent(Agent):
 
         self.compress_config = compress_config
         if self.compress_config is not None:
+            from .contrib.compression_agent import CompressionAgent
+            if self.compress_config is True:
+                self.compress_config = {}
             self.compress_config = {
-                "agent": self.compress_config.get("agent", CompressionAgent()),
+                "agent": self.compress_config.get("agent", CompressionAgent(llm_config=llm_config)),
                 "trigger_count": self.compress_config.get("trigger_count", 0.7),
                 "async": self.compress_config.get("async", False),
                 "broadcast": self.compress_config.get("broadcast", False),
@@ -557,40 +560,44 @@ class ResponsiveAgent(Agent):
         sender: Optional[Agent] = None,
         context: Optional[Any] = None,
     ) -> Tuple[bool, Union[str, Dict, None]]:
-        
+           
         # routine
         llm_config = self.llm_config if context is None else context
         if llm_config is False:
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
-
-        # if no compress_config, then terminate if no token left
-        if self.compress_config is None and token_left(self._oai_system_message + messages, llm_config['model']) <= 0:
-            # Teminate if no token left.
-            print(colored("Warning: Terminate due to no token left for oai reply.", "yellow"), flush=True)
-            return True, None
         
-        # if threshold is not reached, abort
-        if isinstance(self.compress_config['trigger_count'], float) and percentile_used(self._oai_system_message + messages, llm_config['model']) < self.compress_config['trigger_count'] \
-            or count_token(self._oai_system_message + messages, llm_config['model']) < self.compress_config['trigger_count']:
+        # if compress_config is None, no compression will be used and the conversation will terminate when the token count exceeds the limit.
+        if self.compress_config is None:
+            if token_left(self._oai_system_message + messages, llm_config['model']) <= 0:
+                # Teminate if no token left.
+                print(colored("Warning: Terminate due to no token left for oai reply.", "yellow"), flush=True)
+                return True, None
             return False, None
 
+        # if token limit threshold is not reached, abort
+        token_used = count_token(self._oai_system_message + messages, llm_config['model'])
+        max_token = get_max_token_limit(llm_config['model'])
+        if isinstance(self.compress_config['trigger_count'], float) and token_used/max_token < self.compress_config['trigger_count'] \
+            or token_used < self.compress_config['trigger_count']:
+            return False, None
 
         if self.compress_config['async']:
             # TODO: async compress
             pass
 
-        _, compressed_messages = self.compress_config['agent'].generate_reply(messages, None, context=llm_config)
+        compressed_messages = self.compress_config['agent'].generate_reply(messages, None)
         if compressed_messages is not None:
-            # TOTHINK: update _oai_messages or maintain a separate compress_message? -> maintain a list for old oai messages.
-        
-            self._oai_messages[sender] = compressed_messages
-            # compress config: choose to update sender's history?
+            # TODO:  maintain a list for old oai messages (messages before compression)
             # TOTHINK: If two assistant are talking, and one assistant is compressing the message, should the compressed message be broadcasted to the other assistant? How?
+            # sender._oai_messages[self] = compressed_messages
             # TOTHINK: GroupChatManager from groupchat.py should manage the compression of messages and broadcast with multiple agents.
-            sender._oai_messages[self] = compressed_messages
-        # TODO: name of chat history?
+            print("Init message count:", count_token(self._oai_messages[sender][0], llm_config['model']))
+            print("Token-Used(exclude init message): Before compression:", count_token(self._oai_messages[sender][1:], llm_config['model']), "After:", count_token(compressed_messages[1:], llm_config['model']))
+            print("-"*80)
+            self._oai_messages[sender] = compressed_messages
+
         return False, None
 
     def generate_oai_reply(
@@ -730,7 +737,7 @@ class ResponsiveAgent(Agent):
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
         exclude: Optional[List[Callable]] = None,
-    ) -> Union[str, Dict, None]:
+    ) -> Union[str, Dict, None, List]:
         """Reply based on the conversation history and the sender.
 
         Either messages or sender must be provided.
@@ -756,19 +763,23 @@ class ResponsiveAgent(Agent):
             str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
-        if sender is not None:
-            for reply_func_tuple in self._reply_func_list:
-                reply_func = reply_func_tuple["reply_func"]
-                if exclude and reply_func in exclude:
-                    continue
-                if asyncio.coroutines.iscoroutinefunction(reply_func):
-                    continue
-                if self._match_trigger(reply_func_tuple["trigger"], sender):
-                    final, reply = reply_func(
-                        self, messages=messages, sender=sender, context=reply_func_tuple["context"]
-                    )
-                    if final:
-                        return reply
+
+        if messages is None:
+            messages = self._oai_messages[sender]
+
+        for reply_func_tuple in self._reply_func_list:
+            reply_func = reply_func_tuple["reply_func"]
+            if exclude and reply_func in exclude:
+                continue
+            if asyncio.coroutines.iscoroutinefunction(reply_func):
+                continue
+            if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
+                final, reply = reply_func(
+                    self, messages=messages, sender=sender, context=reply_func_tuple["context"]
+                )
+                if final:
+                    return reply
+
         return self._default_auto_reply
 
     async def a_generate_reply(

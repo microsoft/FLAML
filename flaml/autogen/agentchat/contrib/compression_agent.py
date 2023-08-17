@@ -16,15 +16,24 @@ class CompressionAgent(ResponsiveAgent):
     This agent doesn't execute code by default, and expects the user to execute the code.
     """
 
-    DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will summarize and compress previous messages. The user will input a whole chunk of conversation history. Possible titles include "User", "Assistant", "Function Call" and "Function Return".
+#     DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will summarize and compress previous messages. The user will input a whole chunk of conversation history. Possible titles include "user", "assistant", "Function Call" and "Function Return".
 
-Please follow the rules:
-1. You should summarize each of the message and reserve these titles. You should also reserve important subtitles and structure within each message, for example, "case", "step" or bullet points. 
-2. For very short messages, you can choose to not summarize them. For important information like the desription of a problem or task, you should reserve them (if it is not too long).
-3. For code snippets, you have two options: 1. reserve the whole exact code snippet. 2. summerize it use this format:
-CODE: <code type, python, etc>
-GOAL: <purpose of this code snippet in a short sentence>
-IMPLEMENTATION: <overall structure of the code>"""
+# Please follow the rules:
+# 1. You should summarize each of the message and reserve the titles mentioned above. You should also reserve important subtitles and structure within each message, for example, "case", "step" or bullet points. 
+# 2. For very short messages, you can choose to not summarize them. For important information like the desription of a problem or task, you should reserve them (if it is not too long).
+# 3. For code snippets, you have two options: 1. reserve the whole exact code snippet. 2. summerize it use this format:
+# CODE: <code type, python, etc>
+# GOAL: <purpose of this code snippet in a short sentence>
+# IMPLEMENTATION: <overall structure of the code>"""
+
+
+    DEFAULT_SYSTEM_MESSAGE = """You are a helpful AI assistant that will compress messages.
+Rules:
+1. Please summarize each of the message and reserve the titles: USER, ASSISTANT, FUNCTION_CALL, FUNCTION_RETURN
+2. If a message contains code, Use indicator "CODE:" and summarize what the code is doing with as few words as possible and include details like exact numbers and defined varibles.
+3. Keep the exact result from code execution or function call. Summarize the result when it returns error or is too long.
+"""
+
 
     def __init__(
         self,
@@ -67,14 +76,16 @@ IMPLEMENTATION: <overall structure of the code>"""
 
         self._reply_func_list.clear()
         self.register_auto_reply(Agent, CompressionAgent.generate_compressed_reply)
+        print(self._reply_func_list)
 
     def generate_compressed_reply(
         self,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Agent] = None,
         context: Optional[Any] = None,
-    ) -> Tuple[bool, Union[str, Dict, None]]:
-            
+    ) -> Tuple[bool, Union[str, Dict, None, List]]:
+        
+        print("*"*30, "Start Compression:", "*"*30)
         # TOTHINK: different models have different max_length, right now we will use context passed in, so the model will be the same with the source model.
         # If original model is gpt-4; we start compressing at 70% of usage, 70% of 8092 = 5664; and we use gpt 3.5 here max_toke = 4096, it will raise error. choosinng model automatically?
         
@@ -90,25 +101,33 @@ IMPLEMENTATION: <overall structure of the code>"""
             return False, None
 
         # 1. put all history into one, except the first one
-        user_message = "Chat History:\n"
+        chat_to_compress = "To be compressed:\n"
         for m in messages[1:]:
             if m.get("role") == "function":
-                user_message += f"Function Return: \"{m['name']}\"\n {m['content']}\n"
+                chat_to_compress += f"FUNCTION_RETURN: \"{m['name']}\"\n {m['content']}\n"
             else:
-                user_message += f"{m['role']}: \n {m['content']}\n"
+                chat_to_compress += f"{m['role'].upper()}:\n{m['content']}\n"
                 if "function_call" in m:
-                    user_message += f"Function Call: \"{m['function_call']}\"\n"
+                    chat_to_compress += f"FUNCTION_CALL:\"{m['function_call']}\"\n"
         
+        chat_to_compress = [{"role": "user", "content": chat_to_compress}]
+        print(chat_to_compress[0]["content"])
         # 2. ask LLM to compress
         response = oai.ChatCompletion.create(
-            context=messages[-1].pop("context", None), messages=self._oai_system_message + [user_message], **llm_config
+            context=None, messages=self._oai_system_message + chat_to_compress, **llm_config
         )
         compressed_message = oai.ChatCompletion.extract_text_or_function_call(response)[0]
         assert isinstance(compressed_message, str), f"compressed_message should be a string: {compressed_message}"
 
         # 3. add compressed message to the first message and return
-        messages = messages[0] + compressed_message [{"content": "Compressed Content of Chat History:\n" + compressed_message, "role": "user", "name": "Compressed User"}]
+        messages = [messages[0], {"content": "Compressed Content of Previous Chat:\n" + compressed_message, "role": "user"}]
+        print("*"*30, "After Compression:", "*"*30)
+        print(messages[1]["content"], '\n'+"*"*80)
         return True, messages
+
+    def generate_summarized_reply():
+        """For all chat history, direct summarize what has been done instead of distingushing agents like userproxy, assistant and functions."""
+        pass
 
 
 
