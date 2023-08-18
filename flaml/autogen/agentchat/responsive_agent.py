@@ -748,17 +748,19 @@ class ResponsiveAgent(Agent):
             str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
-        if sender is not None:
-            for reply_func_tuple in self._reply_func_list:
-                reply_func = reply_func_tuple["reply_func"]
-                if exclude and reply_func in exclude:
-                    continue
-                if asyncio.coroutines.iscoroutinefunction(reply_func):
-                    continue
-                if self._match_trigger(reply_func_tuple["trigger"], sender):
-                    final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
-                    if final:
-                        return reply
+        if messages is None:
+            messages = self._oai_messages[sender]
+
+        for reply_func_tuple in self._reply_func_list:
+            reply_func = reply_func_tuple["reply_func"]
+            if exclude and reply_func in exclude:
+                continue
+            if asyncio.coroutines.iscoroutinefunction(reply_func):
+                continue
+            if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
+                final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
+                if final:
+                    return reply
         return self._default_auto_reply
 
     async def a_generate_reply(
@@ -792,22 +794,24 @@ class ResponsiveAgent(Agent):
             str or dict or None: reply. None if no reply is generated.
         """
         assert messages is not None or sender is not None, "Either messages or sender must be provided."
-        if sender is not None:
-            for reply_func_tuple in self._reply_func_list:
-                reply_func = reply_func_tuple["reply_func"]
-                if exclude and reply_func in exclude:
-                    continue
-                if self._match_trigger(reply_func_tuple["trigger"], sender):
-                    if asyncio.coroutines.iscoroutinefunction(reply_func):
-                        final, reply = await reply_func(
-                            self, messages=messages, sender=sender, config=reply_func_tuple["config"]
-                        )
-                    else:
-                        final, reply = reply_func(
-                            self, messages=messages, sender=sender, config=reply_func_tuple["config"]
-                        )
-                    if final:
-                        return reply
+        if messages is None:
+            messages = self._oai_messages[sender]
+
+        for reply_func_tuple in self._reply_func_list:
+            reply_func = reply_func_tuple["reply_func"]
+            if exclude and reply_func in exclude:
+                continue
+            if self._match_trigger(reply_func_tuple["trigger"], sender):
+                if asyncio.coroutines.iscoroutinefunction(reply_func):
+                    final, reply = await reply_func(
+                        self, messages=messages, sender=sender, config=reply_func_tuple["config"]
+                    )
+                else:
+                    final, reply = reply_func(
+                        self, messages=messages, sender=sender, config=reply_func_tuple["config"]
+                    )
+                if final:
+                    return reply
         return self._default_auto_reply
 
     def _match_trigger(self, trigger, sender):
