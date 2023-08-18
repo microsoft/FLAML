@@ -41,7 +41,15 @@ Then select the next role from {self.agent_names} to play. Only return the role.
     def select_speaker(self, last_speaker: Agent, selctor: ResponsiveAgent):
         """Select the next speaker."""
         selctor.update_system_message(self.select_speaker_msg())
-        final, name = selctor.generate_oai_reply(self.messages)
+        final, name = selctor.generate_oai_reply(
+            self.messages
+            + [
+                {
+                    "role": "system",
+                    "content": f"Read the above conversation. Then select the next role from {self.agent_names} to play. Only return the role.",
+                }
+            ]
+        )
         if not final:
             # i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
             return self.next_agent(last_speaker)
