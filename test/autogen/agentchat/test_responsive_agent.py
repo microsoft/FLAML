@@ -169,6 +169,7 @@ def test_long_auto_reply():
         human_input_mode="ALWAYS",
         function_map={"return_long_out": return_long_out},
         auto_reply_token_limit=50,
+        code_execution_config={"use_docker": False},
     )
     long_error = dummy_agent.execute_code_blocks(longcodeblock)
     assert (
@@ -192,7 +193,7 @@ def test_long_auto_reply():
 
 
 if __name__ == "__main__":
-    test_trigger()
+    # test_trigger()
     # test_context()
     # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)
