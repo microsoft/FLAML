@@ -807,9 +807,7 @@ class ResponsiveAgent(Agent):
                         self, messages=messages, sender=sender, config=reply_func_tuple["config"]
                     )
                 else:
-                    final, reply = reply_func(
-                        self, messages=messages, sender=sender, config=reply_func_tuple["config"]
-                    )
+                    final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
                 if final:
                     return reply
         return self._default_auto_reply
