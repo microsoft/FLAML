@@ -801,7 +801,7 @@ class ResponsiveAgent(Agent):
             reply_func = reply_func_tuple["reply_func"]
             if exclude and reply_func in exclude:
                 continue
-            if self._match_trigger(reply_func_tuple["trigger"], sender):
+            if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
                 if asyncio.coroutines.iscoroutinefunction(reply_func):
                     final, reply = await reply_func(
                         self, messages=messages, sender=sender, config=reply_func_tuple["config"]
