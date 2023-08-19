@@ -185,7 +185,10 @@ def test_long_auto_reply():
 
     # create agent with no token limit
     dummy_agent = ResponsiveAgent(
-        name="dummy_agent", human_input_mode="ALWAYS", function_map={"return_long_out": return_long_out}
+        name="dummy_agent",
+        human_input_mode="ALWAYS",
+        function_map={"return_long_out": return_long_out},
+        code_execution_config={"use_docker": False},
     )
     long_return = dummy_agent.execute_code_blocks(longcodeblock)
     assert "****" in long_return[1], f"The output should be valid. Return: {long_return}"
