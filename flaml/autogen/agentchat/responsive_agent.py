@@ -119,10 +119,10 @@ class ResponsiveAgent(Agent):
         self._default_auto_reply = default_auto_reply
         self._reply_func_list = []
         self.reply_at_receive = defaultdict(bool)
-        self.register_auto_reply(Agent, ResponsiveAgent.generate_oai_reply)
-        self.register_auto_reply(Agent, ResponsiveAgent.generate_code_execution_reply)
-        self.register_auto_reply(Agent, ResponsiveAgent.generate_function_call_reply)
-        self.register_auto_reply(Agent, ResponsiveAgent.check_termination_and_human_reply)
+        self.register_auto_reply([Agent, None], ResponsiveAgent.generate_oai_reply)
+        self.register_auto_reply([Agent, None], ResponsiveAgent.generate_code_execution_reply)
+        self.register_auto_reply([Agent, None], ResponsiveAgent.generate_function_call_reply)
+        self.register_auto_reply([Agent, None], ResponsiveAgent.check_termination_and_human_reply)
 
     def register_auto_reply(
         self,
@@ -757,7 +757,7 @@ class ResponsiveAgent(Agent):
                 continue
             if asyncio.coroutines.iscoroutinefunction(reply_func):
                 continue
-            if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
+            if self._match_trigger(reply_func_tuple["trigger"], sender):
                 final, reply = reply_func(self, messages=messages, sender=sender, config=reply_func_tuple["config"])
                 if final:
                     return reply
@@ -801,7 +801,7 @@ class ResponsiveAgent(Agent):
             reply_func = reply_func_tuple["reply_func"]
             if exclude and reply_func in exclude:
                 continue
-            if sender is None or self._match_trigger(reply_func_tuple["trigger"], sender):
+            if self._match_trigger(reply_func_tuple["trigger"], sender):
                 if asyncio.coroutines.iscoroutinefunction(reply_func):
                     final, reply = await reply_func(
                         self, messages=messages, sender=sender, config=reply_func_tuple["config"]
@@ -814,7 +814,9 @@ class ResponsiveAgent(Agent):
 
     def _match_trigger(self, trigger, sender):
         """Check if the sender matches the trigger."""
-        if isinstance(trigger, str):
+        if trigger is None:
+            return sender is None
+        elif isinstance(trigger, str):
             return trigger == sender.name
         elif isinstance(trigger, type):
             return isinstance(sender, trigger)
