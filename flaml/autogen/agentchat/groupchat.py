@@ -63,7 +63,7 @@ Then select the next role from {self.agent_names} to play. Only return the role.
 
 
 class GroupChatManager(ResponsiveAgent):
-    """(WIP) A chat manager agent that can manage a group chat of multiple agents."""
+    """(In preview) A chat manager agent that can manage a group chat of multiple agents."""
 
     def __init__(
         self,
