@@ -172,7 +172,7 @@ def test_generate_reply():
     dummy_agent_2._oai_messages[dummy_agent_1] = messsages
     assert (
         dummy_agent_2.generate_reply(messages=None, sender=dummy_agent_1)["content"] == "15"
-    ), "generate_reply not working"
+    ), "generate_reply not working when messages is None"
 
 
 if __name__ == "__main__":
