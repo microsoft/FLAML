@@ -165,7 +165,7 @@ def test_generate_reply():
     # when sender is None, messages is provided
     assert (
         dummy_agent_2.generate_reply(messages=messsages, sender=None)["content"] == "15"
-    ), "generate_reply not working"
+    ), "generate_reply not working when sender is None"
 
     # when sender is provided, messages is None
     dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
