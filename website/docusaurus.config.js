@@ -22,6 +22,12 @@ module.exports = {
       items: [
         {
           type: 'doc',
+          docId: 'Autogen',
+          position: 'left',
+          label: 'AutoGen',
+        },
+        {
+          type: 'doc',
           docId: 'Getting-Started',
           position: 'left',
           label: 'Docs',
