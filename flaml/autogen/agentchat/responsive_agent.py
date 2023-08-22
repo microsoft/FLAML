@@ -146,7 +146,7 @@ class ResponsiveAgent(Agent):
                 - If a callable is provided, the reply function will be called when the callable returns True.
                 - If a list is provided, the reply function will be called when any of the triggers in the list is activated.
                 - If None is provided, the reply function will be called only when the sender is None.
-                Note: Be sure to register `None` as a trigger if you might call `generate_reply` directly with non-empty messages and `sender=None`.
+                Note: Be sure to register `None` as a trigger if you would like to trigger an auto-reply function with non-empty messages and `sender=None`.
             reply_func (Callable): the reply function.
                 The function takes a recipient agent, a list of messages, a sender agent and a config as input and returns a reply message.
         ```python
