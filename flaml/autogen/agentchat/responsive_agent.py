@@ -260,7 +260,7 @@ class ResponsiveAgent(Agent):
 
         Args:
             message (dict or str): message to be appended to the ChatCompletion conversation.
-            role (str): role of the message, can be "assistant" or "function".
+            role (str): role of the message, can be "assistant", "user" or "function", this will overwrite the `role` in the message.
             conversation_id (Agent): id of the conversation, should be the recipient or sender.
 
         Returns:
@@ -268,11 +268,11 @@ class ResponsiveAgent(Agent):
         """
         message = self._message_to_dict(message)
         # create oai message to be appended to the oai conversation that can be passed to oai directly.
-        oai_message = {k: message[k] for k in ("content", "function_call", "name", "context") if k in message}
-        if "content" not in oai_message and "function_call" not in oai_message:
+        oai_message = {k: message[k] for k in ("content", "function_call", "name", "role") if k in message}
+        # 'content' is a required field
+        if "content" not in oai_message or role not in ("assistant", "user", "function"):
             return False
-
-        oai_message["role"] = "function" if message.get("role") == "function" else role
+        oai_message["role"] = role
         self._oai_messages[conversation_id].append(oai_message)
         return True
 
