@@ -89,6 +89,7 @@ setuptools.setup(
             "sympy",
             "wolframalpha",
             "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
+            "tiktoken",
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": [
@@ -138,7 +139,7 @@ setuptools.setup(
             "tensorboardX==2.6",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
-        "openai": ["openai==0.27.8", "diskcache"],
+        "openai": ["openai==0.27.8", "diskcache", "tiktoken"],
         "autogen": ["openai==0.27.8", "diskcache", "termcolor"],
         "mathchat": ["openai==0.27.8", "diskcache", "termcolor", "sympy", "pydantic==1.10.9", "wolframalpha"],
         "retrievechat": [

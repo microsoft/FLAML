@@ -4,6 +4,7 @@ import copy
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from flaml.autogen import oai
+from flaml.autogen.token_count_utils import count_token
 from .agent import Agent
 from flaml.autogen.code_utils import (
     DEFAULT_MODEL,
@@ -52,6 +53,7 @@ class ResponsiveAgent(Agent):
         code_execution_config: Optional[Union[Dict, bool]] = None,
         llm_config: Optional[Union[Dict, bool]] = None,
         default_auto_reply: Optional[Union[str, Dict, None]] = "",
+        auto_reply_token_limit: Optional[int] = -1,
     ):
         """
         Args:
@@ -93,6 +95,8 @@ class ResponsiveAgent(Agent):
                 for available options.
                 To disable llm-based auto reply, set to False.
             default_auto_reply (str or dict or None): default auto reply when no code execution or llm-based reply is generated.
+            auto_reply_token_limit (int): default to -1 (no limit). When auto_reply_token_limit > 0 and the token count from auto reply
+                (code execution or function) exceeds the limit, the output will be replaced with an error message.
         """
         super().__init__(name)
         # a dictionary of conversations, default value is list
@@ -123,6 +127,8 @@ class ResponsiveAgent(Agent):
         self.register_auto_reply(Agent, ResponsiveAgent.generate_code_execution_reply)
         self.register_auto_reply(Agent, ResponsiveAgent.generate_function_call_reply)
         self.register_auto_reply(Agent, ResponsiveAgent.check_termination_and_human_reply)
+
+        self.auto_reply_token_limit = auto_reply_token_limit
 
     def register_auto_reply(
         self,
@@ -891,6 +897,11 @@ class ResponsiveAgent(Agent):
                 )
                 # raise NotImplementedError
             self._code_execution_config["use_docker"] = image
+
+            if self.auto_reply_token_limit > 0 and count_token(logs_all + "\n" + logs) > self.auto_reply_token_limit:
+                logs_all += "\n" + "Error: The output exceeds the length limit and is truncated."
+                return 1, logs_all
+
             logs_all += "\n" + logs
             if exitcode != 0:
                 return exitcode, logs_all
@@ -965,6 +976,10 @@ class ResponsiveAgent(Agent):
                     content = f"Error: {e}"
         else:
             content = f"Error: Function {func_name} not found."
+
+        if self.auto_reply_token_limit > 0 and count_token(content) > self.auto_reply_token_limit:
+            content = "Error: The return from this call exceeds the token limit."
+            is_exec_success = False
 
         return is_exec_success, {
             "name": func_name,
