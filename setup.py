@@ -139,8 +139,8 @@ setuptools.setup(
             "tensorboardX==2.6",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
-        "openai": ["openai==0.27.8", "diskcache", "tiktoken"],
-        "autogen": ["openai==0.27.8", "diskcache", "termcolor"],
+        "openai": ["openai==0.27.8", "diskcache"],
+        "autogen": ["openai==0.27.8", "diskcache", "termcolor", "tiktoken"],
         "mathchat": ["openai==0.27.8", "diskcache", "termcolor", "sympy", "pydantic==1.10.9", "wolframalpha"],
         "retrievechat": [
             "openai==0.27.8",
