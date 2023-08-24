@@ -251,7 +251,9 @@ class ResponsiveAgent(Agent):
         else:
             return message
 
-    def _append_oai_message(self, message: Union[Dict, str], role, conversation_id: Agent) -> bool:
+    def _append_oai_message(
+        self, message: Union[Dict, str], conversation_id: Agent, role: Optional[str] = None
+    ) -> bool:
         """Append a message to the ChatCompletion conversation.
 
         If the message received is a string, it will be put in the "content" field of the new dictionary.
@@ -268,11 +270,16 @@ class ResponsiveAgent(Agent):
         """
         message = self._message_to_dict(message)
         # create oai message to be appended to the oai conversation that can be passed to oai directly.
-        oai_message = {k: message[k] for k in ("content", "function_call", "name", "role") if k in message}
+        oai_message = {k: message[k] for k in ("content", "function_call", "name", "role", "context") if k in message}
         # 'content' is a required field
-        if "content" not in oai_message or role not in ("assistant", "user", "function"):
+        if "content" not in oai_message:
             return False
-        oai_message["role"] = role
+        if role is not None:
+            oai_message["role"] = role
+        elif oai_message.get("role", "") not in ("assistant", "user", "function"):
+            # role is None and oai_message["role"] is not valid.
+            return False
+
         self._oai_messages[conversation_id].append(oai_message)
         return True
 
@@ -317,7 +324,7 @@ class ResponsiveAgent(Agent):
         """
         # When the agent composes and sends the message, the role of the message is "assistant"
         # unless it's "function".
-        valid = self._append_oai_message(message, "assistant", recipient)
+        valid = self._append_oai_message(message, recipient, role="assistant")
         if valid:
             recipient.receive(message, self, request_reply, silent)
         else:
@@ -366,7 +373,7 @@ class ResponsiveAgent(Agent):
         """
         # When the agent composes and sends the message, the role of the message is "assistant"
         # unless it's "function".
-        valid = self._append_oai_message(message, "assistant", recipient)
+        valid = self._append_oai_message(message, recipient, role="assistant")
         if valid:
             await recipient.a_receive(message, self, request_reply, silent)
         else:
@@ -407,7 +414,7 @@ class ResponsiveAgent(Agent):
     def _process_received_message(self, message, sender, silent):
         message = self._message_to_dict(message)
         # When the agent receives a message, the role of the message is "user". (If 'role' exists and is 'function', it will remain unchanged.)
-        valid = self._append_oai_message(message, "user", sender)
+        valid = self._append_oai_message(message, sender, role="user")
         if not valid:
             raise ValueError(
                 "Received message can't be converted into a valid ChatCompletion message. Either content or function_call must be provided."
