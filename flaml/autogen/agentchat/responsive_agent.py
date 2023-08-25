@@ -76,10 +76,10 @@ class ResponsiveAgent(Agent):
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
             function_map (dict[str, callable]): Mapping function names (passed to openai) to callable functions.
             function_call_config (dict or False): config for the function call.
-                - return_limit (Optional, int): default to -1 (no limit), if set, the "on_return_limit" will be triggered.
-                - on_return_limit(Optional, callable): The function to call when the 'return_limit' is exceeded.
-                    Required for the "on_return_limit" function: 1st Arg: (str, required) the output of the function call. Return: str, the new output/message.
-                    If None/ not passed, it will replace the long output with an error message.
+                - token_limit (Optional, int): Max token limit, default to -1 (no limit). If the limit is reached, the "on_token_limit" will be triggered.
+                - on_token_limit (Optional, callable): The function to call when the 'token_limit' is exceeded.
+                    Required for the "on_token_limit" function: 1st Arg: (str, required) the output of the function call. Return: str, the new output/message.
+                    If None / not passed, by default it will replace the long output with an error message. The error message has 12 tokens, so the total number of tokens could be at most 12 tokens above the limit.
             code_execution_config (dict or False): config for the code execution.
                 To disable code execution, set to False. Otherwise, set to a dictionary with the following keys:
                 - work_dir (Optional, str): The working directory for the code execution.
@@ -94,14 +94,14 @@ class ResponsiveAgent(Agent):
                     If the code is executed in the current environment,
                     the code must be trusted.
                 - timeout (Optional, int): The maximum execution time in seconds.
-                - output_limit (Optional, int): default to -1 (no limit), if set, the "output_limit" will be triggered.
-                - on_output_limit(Optional, callable): The function to call when the 'output_limit' is exceeded.
+                - token_limit (Optional, int): Max token limit, default to -1 (no limit).  if the limit is reached, the "on_token_limit" will be triggered.
+                - on_token_limit (Optional, callable): The function to call when the 'token_limit' is exceeded.
                     Note: if several code snippets are given in one reply, they will be executed one by one. The logs will be accumulated.
-                    Required for the "on_output_limit" function:
+                    If None / not passed, by default it will replace the output from current code block with an error message, and append it to previous logs. This could result in at most 13 tokens above the limit.
+                    Required for the "on_token_limit" function:
                         1st Arg: (str, required) outputs from previous code snippets (will input an empty string if there is only one code snippet from the reply).
                         2nd Arg: (str, required), output from current code snippet.
-                        Return: (str, required), the new output/message, it will replace the whole logs. You might want include the previous outputs in the new output if they are still needed.
-                    If None/ not passed, it will replace the output from current code block with an error message, and append it to previous logs.
+                        Return: (str, required), the new output/message, it will replace the whole logs. You might want to include the previous outputs in the new output if they are still needed.
                 - last_n_messages (Experimental, Optional, int): The number of messages to look back for code execution. Default to 1.
             llm_config (dict or False): llm inference configuration.
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
@@ -909,11 +909,11 @@ class ResponsiveAgent(Agent):
             self._code_execution_config["use_docker"] = image
 
             if (
-                self._code_execution_config.get("output_limit", -1) > 0
-                and count_token(logs_all + "\n" + logs) > self._code_execution_config["output_limit"]
+                self._code_execution_config.get("token_limit", -1) > 0
+                and count_token(logs_all + "\n" + logs) > self._code_execution_config["token_limit"]
             ):
-                if self._code_execution_config.get("on_output_limit", None) is not None:
-                    logs_all = self._code_execution_config["on_output_limit"](logs_all, logs)  # replace the whole log
+                if self._code_execution_config.get("on_token_limit", None) is not None:
+                    logs_all = self._code_execution_config["on_token_limit"](logs_all, logs)  # replace the whole log
                 else:
                     logs_all += "\n" + "Error: The output exceeds the length limit and is truncated."
                 return 1, logs_all
@@ -994,13 +994,13 @@ class ResponsiveAgent(Agent):
             content = f"Error: Function {func_name} not found."
 
         if (
-            self._function_call_config.get("return_limit", -1) > 0
-            and count_token(content) > self._function_call_config["return_limit"]
+            self._function_call_config.get("token_limit", -1) > 0
+            and count_token(content) > self._function_call_config["token_limit"]
         ):
-            if self._function_call_config.get("on_return_limit", None) is not None:
-                content = self._function_call_config["on_return_limit"](content)
+            if self._function_call_config.get("on_token_limit", None) is not None:
+                content = self._function_call_config["on_token_limit"](content)
             else:
-                content = "Error: The return from this call exceeds the token limit. You can choss"
+                content = "Error: The return from this call exceeds the token limit."
             is_exec_success = False
 
         return is_exec_success, {

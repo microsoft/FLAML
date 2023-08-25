@@ -168,13 +168,13 @@ def test_long_auto_reply():
         name="dummy_agent",
         human_input_mode="ALWAYS",
         function_map={"return_long_out": return_long_out},
-        auto_reply_token_limit=50,
-        code_execution_config={"use_docker": False},
+        code_execution_config={"use_docker": False, "token_limit": 50},
+        function_call_config={"token_limit": 50},
     )
     long_error = dummy_agent.execute_code_blocks(longcodeblock)
     assert (
         "hello world" in long_error[1]
-    ), f"Output from previous code block should be shown in the message. Reuturn: {long_error}"
+    ), f"Output from previous code block should be shown in the message. Return: {long_error}"
     assert (
         "Error: The output exceeds the length limit and is truncated." in long_error[1]
     ), "The error message for long reply should be shown in the message."
@@ -196,7 +196,7 @@ def test_long_auto_reply():
 
 
 if __name__ == "__main__":
-    # test_trigger()
+    test_trigger()
     # test_context()
     # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)
