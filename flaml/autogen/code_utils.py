@@ -188,6 +188,7 @@ def execute_code(
     work_dir: Optional[str] = None,
     use_docker: Optional[Union[List[str], str, bool]] = docker is not None,
     lang: Optional[str] = "python",
+    **kwargs,
 ) -> Tuple[int, str, str]:
     """Execute code in a docker container.
     This function is not tested on MacOS.
@@ -214,6 +215,7 @@ def execute_code(
             If the code is executed in the current environment,
             the code must be trusted.
         lang (Optional, str): The language of the code. Default is "python".
+        kwargs (Optional, dict): Other arguments.
 
     Returns:
         int: 0 if the code executes successfully.
