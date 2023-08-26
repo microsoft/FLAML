@@ -154,6 +154,27 @@ def test_responsive_agent():
     assert dummy_agent_1.system_message == "new system message"
 
 
+def test_generate_reply():
+    def add_num(num_to_be_added):
+        given_num = 10
+        return num_to_be_added + given_num
+
+    dummy_agent_2 = ResponsiveAgent(name="user_proxy", human_input_mode="TERMINATE", function_map={"add_num": add_num})
+    messsages = [{"function_call": {"name": "add_num", "arguments": '{ "num_to_be_added": 5 }'}, "role": "assistant"}]
+
+    # when sender is None, messages is provided
+    assert (
+        dummy_agent_2.generate_reply(messages=messsages, sender=None)["content"] == "15"
+    ), "generate_reply not working when sender is None"
+
+    # when sender is provided, messages is None
+    dummy_agent_1 = ResponsiveAgent(name="dummy_agent_1", human_input_mode="ALWAYS")
+    dummy_agent_2._oai_messages[dummy_agent_1] = messsages
+    assert (
+        dummy_agent_2.generate_reply(messages=None, sender=dummy_agent_1)["content"] == "15"
+    ), "generate_reply not working when messages is None"
+
+
 def test_long_auto_reply():
     # prepare code and function call
     longcodeblock = [("python", "print('hello world')"), ("python", "print('*' * 5000)")]
@@ -200,4 +221,5 @@ if __name__ == "__main__":
     # test_context()
     # test_max_consecutive_auto_reply()
     # test_responsive_agent(pytest.monkeypatch)
+    test_generate_reply()
     test_long_auto_reply()
