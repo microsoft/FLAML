@@ -264,7 +264,7 @@ class ResponsiveAgent(Agent):
 
         Args:
             message (dict or str): message to be appended to the ChatCompletion conversation.
-            role (str): role of the message, can be "assistant", "user" or "function", this will overwrite the `role` in the message.
+            role (str): role of the message, can be "assistant", "user" or "function", this will overwrite the `role` in the message only when original role is not "function".
             conversation_id (Agent): id of the conversation, should be the recipient or sender.
 
         Returns:
@@ -277,8 +277,11 @@ class ResponsiveAgent(Agent):
         if "content" not in oai_message:
             return False
         if role is not None:
+            if oai_message["role"] is "function" and role is not "function":
+                print(f"Warning: Attempt to overwrite role 'function' with {role}. Rejected.")
+                return False
             oai_message["role"] = role
-        elif oai_message.get("role", "") not in ("assistant", "user", "function"):
+        elif oai_message.get("role", "") not in ("assistant", "user", "function", "system"):
             # role is None and oai_message["role"] is not valid.
             return False
 
