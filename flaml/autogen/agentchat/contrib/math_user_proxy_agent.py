@@ -220,7 +220,7 @@ class MathUserProxyAgent(UserProxyAgent):
         pycode = pycode.replace("; ", "\n").replace(";", "\n")
         pycode = self._previous_code + _add_print_to_last_line(pycode)
 
-        return_code, output, _ = execute_code(pycode, **self._code_execution_config, timeout=5)
+        return_code, output, _ = execute_code(pycode, timeout=5, **self._code_execution_config)
         is_success = return_code == 0
 
         if not is_success:
