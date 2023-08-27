@@ -277,7 +277,7 @@ class ResponsiveAgent(Agent):
         if "content" not in oai_message:
             return False
         if role is not None:
-            if oai_message.get("role", "") is "function" and role is not "function":
+            if oai_message.get("role", "") == "function" and role != "function":
                 print(f"Warning: Attempt to overwrite role 'function' with {role}. Rejected.")
             else:
                 oai_message["role"] = role
