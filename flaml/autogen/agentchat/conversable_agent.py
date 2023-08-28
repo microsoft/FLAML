@@ -22,7 +22,7 @@ except ImportError:
 
 
 class ConversableAgent(Agent):
-    """(Experimental) A class for generic conversable agents which can be configured as assistant or user proxy.
+    """(In preview) A class for generic conversable agents which can be configured as assistant or user proxy.
 
     After receiving each message, the agent will send a reply to the sender unless the msg is a termination msg.
     For example, AssistantAgent and UserProxyAgent are subclasses of this class,
