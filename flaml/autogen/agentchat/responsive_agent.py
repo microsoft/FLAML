@@ -264,7 +264,7 @@ class ResponsiveAgent(Agent):
 
         Args:
             message (dict or str): message to be appended to the ChatCompletion conversation.
-            role (str): role of the message, can be "assistant", "user" or "function", this will overwrite the `role` in the message only when original role is not "function".
+            role (str): role of the message, can be "assistant", "user" or "function", this will overwrite the "role" in the message only when original role is not "function".
             conversation_id (Agent): id of the conversation, should be the recipient or sender.
 
         Returns:
