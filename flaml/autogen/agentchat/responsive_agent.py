@@ -76,7 +76,7 @@ class ResponsiveAgent(Agent):
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
             function_map (dict[str, callable]): Mapping function names (passed to openai) to callable functions.
             function_call_config (dict or False): config for the function call.
-                - token_limit (Optional, int): Max token limit, default to -1 (no limit). If the limit is reached, the "on_token_limit" will be triggered.
+                - token_limit (Optional, int): Max token limit, default to -1 (no limit). If the limit is reached, the function from key "on_token_limit"  will be triggered.
                 - on_token_limit (Optional, callable): The function to call when the 'token_limit' is exceeded.
                     Required for the "on_token_limit" function: 1st Arg: (str, required) the output of the function call. Return: str, the new output/message.
                     If None / not passed, by default it will replace the long output with an error message. The error message has 12 tokens, so the total number of tokens could be at most 12 tokens above the limit.
@@ -94,14 +94,15 @@ class ResponsiveAgent(Agent):
                     If the code is executed in the current environment,
                     the code must be trusted.
                 - timeout (Optional, int): The maximum execution time in seconds.
-                - token_limit (Optional, int): Max token limit, default to -1 (no limit).  if the limit is reached, the "on_token_limit" will be triggered.
-                - on_token_limit (Optional, callable): The function to call when the 'token_limit' is exceeded.
-                    Note: if several code snippets are given in one reply, they will be executed one by one. The logs will be accumulated.
-                    If None / not passed, by default it will replace the output from current code block with an error message, and append it to previous logs. This could result in at most 13 tokens above the limit.
+                - token_limit (Optional, int): Max token limit, default to -1 (no limit). If the limit is reached, the function from key "on_token_limit" will be triggered.
+                - on_token_limit (Optional, callable): The function to call when the token count of code output exceeds 'token_limit'.
                     Required for the "on_token_limit" function:
                         1st Arg: (str, required) outputs from previous code snippets (will input an empty string if there is only one code snippet from the reply).
                         2nd Arg: (str, required), output from current code snippet.
                         Return: (str, required), the new output/message, it will replace the whole logs. You might want to include the previous outputs in the new output if they are still needed.
+                    If None / not passed, by default the "on_token_limit" function will replace the output from current code block with an error message, and append it to previous logs. This could result in at most 13 tokens above the limit.
+                    If several code snippets are given in one reply, they will be executed one by one. The logs will be accumulated.
+                    After this function is called, the code execution will be terminated immediately with exitcode=1 and the message returned from the function.
                 - last_n_messages (Experimental, Optional, int): The number of messages to look back for code execution. Default to 1.
             llm_config (dict or False): llm inference configuration.
                 Please refer to [autogen.Completion.create](/docs/reference/autogen/oai/completion#create)
