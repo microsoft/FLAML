@@ -911,10 +911,11 @@ class ResponsiveAgent(Agent):
                 exitcode, logs, image = (
                     1,
                     f"unknown language {lang}",
-                    self._code_execution_config["use_docker"],
+                    None,
                 )
                 # raise NotImplementedError
-            self._code_execution_config["use_docker"] = image
+            if image is not None:
+                self._code_execution_config["use_docker"] = image
 
             if (
                 self._code_execution_config.get("token_limit", -1) > 0
