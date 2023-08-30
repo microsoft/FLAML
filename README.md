@@ -14,6 +14,8 @@
     <br>
 </p>
 
+:fire: Heads-up: We will be migrating [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) into a resperate github repository with a dedicated discord server and a dedicated website for documentation. The migration is expected to happend around Sep 18, 2023.
+
 :fire: The automated multi-agent chat framework in [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) is in preview from v2.0.0.
 
 :fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
