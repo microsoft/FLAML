@@ -14,7 +14,7 @@
     <br>
 </p>
 
-:fire: Heads-up: We're excited to inform the community that we will be migrating [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) into a dedicated github repository. Alongside this move, we'll also be launching a dedicated Discord server and a website for comprehensive documentation.
+:fire: Heads-up: We're preparing to migrate [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) into a dedicated github repository. Alongside this move, we'll also launch a dedicated Discord server and a website for comprehensive documentation.
 
 :fire: The automated multi-agent chat framework in [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) is in preview from v2.0.0.
 
