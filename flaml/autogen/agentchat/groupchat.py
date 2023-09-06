@@ -108,21 +108,26 @@ class GroupChatManager(ResponsiveAgent):
             for agent in groupchat.agents:
                 if agent != speaker:
                     self.send(message, agent, request_reply=False, silent=True)
-            if i != groupchat.max_round - 1:
-                try:
-                    speaker = groupchat.select_speaker(speaker, self)
+            if i == groupchat.max_round - 1:
+                # the last round
+                break
+            try:
+                # select the next speaker
+                speaker = groupchat.select_speaker(speaker, self)
+                # let the speaker speak
+                reply = speaker.generate_reply(sender=self)
+            except KeyboardInterrupt:
+                # let the admin agent speak if interrupted
+                if groupchat.admin_name in groupchat.agent_names:
+                    # admin agent is one of the participants
+                    speaker = groupchat.agent_by_name(groupchat.admin_name)
                     reply = speaker.generate_reply(sender=self)
-                except KeyboardInterrupt:
-                    # let the admin agent speak if interrupted
-                    if groupchat.admin_name in groupchat.agent_names:
-                        # admin agent is one of the participants
-                        speaker = groupchat.agent_by_name(groupchat.admin_name)
-                        reply = speaker.generate_reply(sender=self)
-                    else:
-                        # admin agent is not found in the participants
-                        raise
-                if reply is None:
-                    break
-                speaker.send(reply, self, request_reply=False)
-                message = self.last_message(speaker)
+                else:
+                    # admin agent is not found in the participants
+                    raise
+            if reply is None:
+                break
+            # The speaker sends the message without requesting a reply
+            speaker.send(reply, self, request_reply=False)
+            message = self.last_message(speaker)
         return True, None
