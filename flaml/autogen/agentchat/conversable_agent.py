@@ -119,12 +119,12 @@ class ConversableAgent(Agent):
         self._default_auto_reply = default_auto_reply
         self._reply_func_list = []
         self.reply_at_receive = defaultdict(bool)
-        self.register_auto_reply([Agent, None], ConversableAgent.generate_oai_reply)
-        self.register_auto_reply([Agent, None], ConversableAgent.generate_code_execution_reply)
-        self.register_auto_reply([Agent, None], ConversableAgent.generate_function_call_reply)
-        self.register_auto_reply([Agent, None], ConversableAgent.check_termination_and_human_reply)
+        self.register_reply([Agent, None], ConversableAgent.generate_oai_reply)
+        self.register_reply([Agent, None], ConversableAgent.generate_code_execution_reply)
+        self.register_reply([Agent, None], ConversableAgent.generate_function_call_reply)
+        self.register_reply([Agent, None], ConversableAgent.check_termination_and_human_reply)
 
-    def register_auto_reply(
+    def register_reply(
         self,
         trigger: Union[Type[Agent], str, Agent, Callable[[Agent], bool], List],
         reply_func: Callable,

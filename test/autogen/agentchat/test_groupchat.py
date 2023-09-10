@@ -49,7 +49,7 @@ def test_plugin():
     )
     groupchat = autogen.GroupChat(agents=[agent1, agent2], messages=[], max_round=2)
     group_chat_manager = autogen.ConversableAgent(name="deputy_manager", llm_config=False)
-    group_chat_manager.register_auto_reply(
+    group_chat_manager.register_reply(
         autogen.Agent,
         reply_func=autogen.GroupChatManager.run_chat,
         config=groupchat,
