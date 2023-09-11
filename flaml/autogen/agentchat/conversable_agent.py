@@ -610,8 +610,8 @@ class ConversableAgent(Agent):
             return False, None
         if messages is None:
             messages = self._oai_messages[sender]
-        last_n_messages = min(len(messages), code_execution_config.pop("last_n_messages", 1))
-        for i in range(last_n_messages):
+        last_n_messages = code_execution_config.pop("last_n_messages", 1)
+        for i in range(min(len(messages), last_n_messages)):
             message = messages[-(i + 1)]
             code_blocks = extract_code(message["content"])
             if len(code_blocks) == 1 and code_blocks[0][0] == UNKNOWN:
