@@ -1412,7 +1412,7 @@ class LGBMEstimator(BaseEstimator):
                 callbacks = self.params.pop("callbacks")
                 self._model.set_params(callbacks=callbacks[:-1])
             best_iteration = (
-                self._model.get_booster().best_iteration
+                getattr(self._model.get_booster(), "best_iteration", None)
                 if isinstance(self, XGBoostSklearnEstimator)
                 else self._model.best_iteration_
             )
@@ -1559,7 +1559,7 @@ class XGBoostEstimator(SKLearnEstimator):
                 obj=obj,
                 callbacks=callbacks,
             )
-            self.params["n_estimators"] = self._model.best_iteration + 1
+            self.params["n_estimators"] = getattr(self._model, "best_iteration", _n_estimators - 1) + 1
         else:
             self._model = xgb.train(self.params, dtrain, _n_estimators, obj=obj)
             self.params["n_estimators"] = _n_estimators
