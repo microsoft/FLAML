@@ -64,7 +64,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           pip install "ray[tune]<2.5.0"
-      - name: If mac, install ray and xgboost 1.0
+      - name: If mac, install ray and xgboost 1
         if: matrix.os == 'macOS-latest'
         run: |
           pip install -e .[ray]

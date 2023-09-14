@@ -32,6 +32,7 @@ try:
     from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.dummy import DummyClassifier, DummyRegressor
+    from xgboost import __version__ as xgboost_version
 except ImportError:
     pass
 
@@ -1510,8 +1511,6 @@ class XGBoostEstimator(SKLearnEstimator):
         # params["booster"] = params.get("booster", "gbtree")
 
         # use_label_encoder is deprecated in 1.7.
-        from xgboost import __version__ as xgboost_version
-
         if xgboost_version < "1.7.0":
             params["use_label_encoder"] = params.get("use_label_encoder", False)
         if "n_jobs" in config:
@@ -1620,7 +1619,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         if max_depth == 0:
             params["grow_policy"] = params.get("grow_policy", "lossguide")
             params["tree_method"] = params.get("tree_method", "hist")
-        params["use_label_encoder"] = params.get("use_label_encoder", False)
+        # use_label_encoder is deprecated in 1.7.
+        if xgboost_version < "1.7.0":
+            params["use_label_encoder"] = params.get("use_label_encoder", False)
         return params
 
     def __init__(
