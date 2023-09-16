@@ -68,6 +68,7 @@ jobs:
         if: matrix.os == 'macOS-latest'
         run: |
           pip install -e .[ray]
+          pip uninstall xgboost -y
           pip install "xgboost<2"
       - name: If linux or mac, install prophet on python < 3.9
         if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9' && matrix.python-version != '3.10'
