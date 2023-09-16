@@ -91,7 +91,7 @@ def test_groups():
 def test_stratified_groupkfold():
     from sklearn.model_selection import StratifiedGroupKFold
     from minio.error import ServerError
-    from flaml.data import load_openml_dataset
+    from flaml.automl.data import load_openml_dataset
 
     try:
         X_train, _, y_train, _ = load_openml_dataset(dataset_id=1169, data_dir="test/")

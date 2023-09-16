@@ -45,7 +45,7 @@ LGBMRegressor(colsample_bytree=0.7019911744574896,
 ### Suggest hyperparameters without training
 
 ```
-from flaml.data import load_openml_dataset
+from flaml.automl.data import load_openml_dataset
 from flaml.default import LGBMRegressor
 from flaml.ml import sklearn_metric_loss_score
 
