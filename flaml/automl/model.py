@@ -213,10 +213,10 @@ class BaseEstimator:
         model = self.estimator_class(**self.params)
         if logger.level == logging.DEBUG:
             # xgboost 1.6 doesn't display all the params in the model str
-            logger.debug(f"flaml.model - {model} fit started with params {self.params}")
+            logger.debug(f"flaml.automl.model - {model} fit started with params {self.params}")
         model.fit(X_train, y_train, **kwargs)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {model} fit finished")
+            logger.debug(f"flaml.automl.model - {model} fit finished")
         train_time = time.time() - current_time
         self._model = model
         return train_time
@@ -456,10 +456,10 @@ class SparkEstimator(BaseEstimator):
         current_time = time.time()
         pipeline_model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {pipeline_model} fit started with params {self.params}")
+            logger.debug(f"flaml.automl.model - {pipeline_model} fit started with params {self.params}")
         pipeline_model.fit(df_train)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {pipeline_model} fit finished")
+            logger.debug(f"flaml.automl.model - {pipeline_model} fit finished")
         train_time = time.time() - current_time
         self._model = pipeline_model
         return train_time
@@ -691,12 +691,12 @@ class SparkLGBMEstimator(SparkEstimator):
         current_time = time.time()
         model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {model} fit started with params {self.params}")
+            logger.debug(f"flaml.automl.model - {model} fit started with params {self.params}")
         self._model = model.fit(df_train)
         self._model.classes_ = self.model_classes_
         self._model.n_classes_ = self.model_n_classes_
         if logger.level == logging.DEBUG:
-            logger.debug(f"flaml.model - {model} fit finished")
+            logger.debug(f"flaml.automl.model - {model} fit finished")
         train_time = time.time() - current_time
         return train_time
 
