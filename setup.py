@@ -36,8 +36,8 @@ setuptools.setup(
     extras_require={
         "automl": [
             "lightgbm>=2.3.1",
-            "xgboost>=0.90; sys_platfrom!= 'darwin'",
-            "xgboost>=0.90,<2; sys_platfrom=='darwin'",
+            "xgboost>=0.90; sys_platform!='darwin'",
+            "xgboost>=0.90,<2; sys_platform=='darwin'",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
             "scikit-learn>=0.24",
@@ -52,8 +52,8 @@ setuptools.setup(
         ],
         "test": [
             "lightgbm>=2.3.1",
-            "xgboost>=0.90; sys_platfrom!='darwin'",
-            "xgboost>=0.90,<2; sys_platfrom=='darwin'",
+            "xgboost>=0.90; sys_platform!='darwin'",
+            "xgboost>=0.90,<2; sys_platform=='darwin'",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
             "scikit-learn>=0.24",
