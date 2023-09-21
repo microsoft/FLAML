@@ -8,42 +8,38 @@ from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
 
 warnings.simplefilter(action="ignore")
-if sys.platform == "darwin" or "nt" in os.name:
-    # skip this test if the platform is not linux
-    skip_spark = True
-else:
-    try:
-        import pyspark
-        from pyspark.ml.feature import VectorAssembler
-        from flaml.automl.spark.utils import to_pandas_on_spark
+try:
+    import pyspark
+    from pyspark.ml.feature import VectorAssembler
+    from flaml.automl.spark.utils import to_pandas_on_spark
 
-        spark = (
-            pyspark.sql.SparkSession.builder.appName("MyApp")
-            .master("local[2]")
-            .config(
-                "spark.jars.packages",
-                (
-                    "com.microsoft.azure:synapseml_2.12:0.10.2,"
-                    "org.apache.hadoop:hadoop-azure:3.3.5,"
-                    "com.microsoft.azure:azure-storage:8.6.6,"
-                    f"org.mlflow:mlflow-spark:{mlflow.__version__}"
-                ),
-            )
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-            .config("spark.sql.debug.maxToStringFields", "100")
-            .config("spark.driver.extraJavaOptions", "-Xss1m")
-            .config("spark.executor.extraJavaOptions", "-Xss1m")
-            .getOrCreate()
+    spark = (
+        pyspark.sql.SparkSession.builder.appName("MyApp")
+        .master("local[2]")
+        .config(
+            "spark.jars.packages",
+            (
+                "com.microsoft.azure:synapseml_2.12:0.10.2,"
+                "org.apache.hadoop:hadoop-azure:3.3.5,"
+                "com.microsoft.azure:azure-storage:8.6.6,"
+                f"org.mlflow:mlflow-spark:{mlflow.__version__}"
+            ),
         )
-        spark.sparkContext._conf.set(
-            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
-            "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
-        )
-        # spark.sparkContext.setLogLevel("ERROR")
-        spark_available, _ = check_spark()
-        skip_spark = not spark_available
-    except ImportError:
-        skip_spark = True
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .config("spark.sql.debug.maxToStringFields", "100")
+        .config("spark.driver.extraJavaOptions", "-Xss1m")
+        .config("spark.executor.extraJavaOptions", "-Xss1m")
+        .getOrCreate()
+    )
+    spark.sparkContext._conf.set(
+        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
+        "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
+    )
+    # spark.sparkContext.setLogLevel("ERROR")
+    spark_available, _ = check_spark()
+    skip_spark = not spark_available
+except ImportError:
+    skip_spark = True
 
 
 pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
