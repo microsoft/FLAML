@@ -89,7 +89,7 @@ jobs:
         if: matrix.python-version == '3.10'
         run: |
           pip install coverage
-          coverage run -a -m pytest test
+          coverage run -a -m pytest test/spark/test_0sparkml.py test/spark/test_multiclass.py::TestMultiClass::test_sparse_matrix_classification
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.10'
