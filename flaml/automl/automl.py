@@ -1078,10 +1078,6 @@ class AutoML(BaseEstimator):
         mem_res = self._mem_thres
 
         def train(config: dict, state, is_report=True):
-            import xgboost as xgb
-
-            print("xgboost version executor:", xgb.__version__)
-            assert xgb.__version__ == "1.7.6"
             # handle spark broadcast variables
             state = get_broadcast_data(state)
             is_report = get_broadcast_data(is_report)
@@ -2494,10 +2490,6 @@ class AutoML(BaseEstimator):
             self._selected = self._search_states[self._best_estimator]
             self.modelcount = sum(search_state.total_iter for search_state in self._search_states.values())
             if self._trained_estimator:
-                import xgboost as xgb
-
-                print("xgboost version driver:", xgb.__version__)
-                assert xgb.__version__ == "1.7.6"
                 logger.info(f"selected model: {self._trained_estimator.model}")
             estimators = []
             if self._ensemble and self._state.task in (
