@@ -89,7 +89,7 @@ jobs:
         if: matrix.python-version == '3.10'
         run: |
           pip install coverage
-          coverage run -a -m pytest test/spark
+          coverage run -a -m pytest test
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.10'
