@@ -22,7 +22,7 @@ except ImportError:
 import numpy as np
 
 from flaml import tune
-from flaml.model import (
+from flaml.automl.model import (
     suppress_stdout_stderr,
     SKLearnEstimator,
     logger,
@@ -33,7 +33,7 @@ from flaml.model import (
     XGBoostLimitDepthEstimator,
     CatBoostEstimator,
 )
-from flaml.data import TS_TIMESTAMP_COL, TS_VALUE_COL
+from flaml.automl.data import TS_TIMESTAMP_COL, TS_VALUE_COL
 from flaml.automl.time_series.ts_data import (
     TimeSeriesDataset,
     enrich_dataset,

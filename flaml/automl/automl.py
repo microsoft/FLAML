@@ -606,7 +606,7 @@ class AutoML(BaseEstimator):
 
         Args:
             learner_name: A string of the learner's name.
-            learner_class: A subclass of flaml.model.BaseEstimator.
+            learner_class: A subclass of flaml.automl.model.BaseEstimator.
         """
         self._state.learner_classes[learner_name] = learner_class
 

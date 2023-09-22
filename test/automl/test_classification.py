@@ -277,12 +277,15 @@ class TestClassification(unittest.TestCase):
         import subprocess
         import sys
 
+        current_xgboost_version = xgb.__version__
         subprocess.check_call([sys.executable, "-m", "pip", "install", "xgboost==1.3.3", "--user"])
         automl = AutoML()
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl.feature_names_in_)
         print(automl.feature_importances_)
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "xgboost", "--user"])
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "-U", f"xgboost=={current_xgboost_version}", "--user"]
+        )
 
     def test_ray_classification(self):
         X, y = load_breast_cancer(return_X_y=True)
