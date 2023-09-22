@@ -246,7 +246,7 @@ class AutoML(BaseEstimator):
                 search is considered to converge.
             force_cancel: boolean, default=False | Whether to forcely cancel Spark jobs if the
                 search time exceeded the time budget.
-            append_log: boolean, default=False | Whetehr to directly append the log
+            append_log: boolean, default=False | Whether to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
@@ -1381,7 +1381,7 @@ class AutoML(BaseEstimator):
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
-            append_log: boolean, default=False | Whetehr to directly append the log
+            append_log: boolean, default=False | Whether to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
