@@ -1622,8 +1622,6 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         # use_label_encoder is deprecated in 1.7.
         if xgboost_version < "1.7.0":
             params["use_label_encoder"] = params.get("use_label_encoder", False)
-        else:
-            assert "use_label_encoder" not in params, "use_label_encoder is deprecated in xgboost>=1.7.0"
         return params
 
     def __init__(
