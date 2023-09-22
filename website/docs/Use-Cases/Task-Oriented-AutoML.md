@@ -135,7 +135,7 @@ The estimator list can contain one or more estimator names, each corresponding t
 #### Guidelines on tuning a custom estimator
 
 To tune a custom estimator that is not built-in, you need to:
-1. Build a custom estimator by inheritting [`flaml.model.BaseEstimator`](/docs/reference/automl/model#baseestimator-objects) or a derived class.
+1. Build a custom estimator by inheritting [`flaml.automl.model.BaseEstimator`](/docs/reference/automl/model#baseestimator-objects) or a derived class.
 For example, if you have a estimator class with scikit-learn style `fit()` and `predict()` functions, you only need to set `self.estimator_class` to be that class in your constructor.
 
 ```python
@@ -177,7 +177,7 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
         return space
 ```
 
-In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.model.BaseEstimator`, like [XGBoostEstimator](/docs/reference/automl/model#xgboostestimator-objects). Importantly, we also add the `task="binary"` parameter in the signature of `__init__` so that it doesn't get grouped together with the `**config` kwargs that determines the parameters with which the underlying estimator (`self.estimator_class`) is constructed. If your estimator doesn't use one of the parameters that it is passed, for example some regressors in `scikit-learn` don't use the `n_jobs` parameter, it is enough to add `n_jobs=None` to the signature so that it is ignored by the `**config` dict.
+In the constructor, we set `self.estimator_class` as `RGFClassifier` or `RGFRegressor` according to the task type. If the estimator you want to tune does not have a scikit-learn style `fit()` and `predict()` API, you can override the `fit()` and `predict()` function of `flaml.automl.model.BaseEstimator`, like [XGBoostEstimator](/docs/reference/automl/model#xgboostestimator-objects). Importantly, we also add the `task="binary"` parameter in the signature of `__init__` so that it doesn't get grouped together with the `**config` kwargs that determines the parameters with which the underlying estimator (`self.estimator_class`) is constructed. If your estimator doesn't use one of the parameters that it is passed, for example some regressors in `scikit-learn` don't use the `n_jobs` parameter, it is enough to add `n_jobs=None` to the signature so that it is ignored by the `**config` dict.
 
 2. Give the custom estimator a name and add it in AutoML. E.g.,
 
@@ -524,10 +524,10 @@ The best model can be obtained by the `model` property of an `AutoML` instance. 
 ```python
 automl.fit(X_train, y_train, task="regression")
 print(automl.model)
-# <flaml.model.LGBMEstimator object at 0x7f9b502c4550>
+# <flaml.automl.model.LGBMEstimator object at 0x7f9b502c4550>
 ```
 
-[`flaml.model.LGBMEstimator`](/docs/reference/automl/model#lgbmestimator-objects) is a wrapper class for LightGBM models. To access the underlying model, use the `estimator` property of the `flaml.model.LGBMEstimator` instance.
+[`flaml.automl.model.LGBMEstimator`](/docs/reference/automl/model#lgbmestimator-objects) is a wrapper class for LightGBM models. To access the underlying model, use the `estimator` property of the `flaml.automl.model.LGBMEstimator` instance.
 
 ```python
 print(automl.model.estimator)
