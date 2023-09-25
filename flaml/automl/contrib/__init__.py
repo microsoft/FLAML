@@ -1,1 +1,3 @@
-
+from .histgb import (
+    HistGradientBoostingEstimator
+)
