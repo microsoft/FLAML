@@ -17,13 +17,14 @@ else:
         from pyspark.ml.feature import VectorAssembler
         from flaml.automl.spark.utils import to_pandas_on_spark
 
+        postfix_version = "-spark3.3," if pyspark.__version__ > "3.2" else ","
         spark = (
             pyspark.sql.SparkSession.builder.appName("MyApp")
             .master("local[2]")
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:0.10.2,"
+                    f"com.microsoft.azure:synapseml_2.12:0.11.3{postfix_version}"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
                     f"org.mlflow:mlflow-spark:{mlflow.__version__}"
