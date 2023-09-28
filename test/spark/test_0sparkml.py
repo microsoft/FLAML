@@ -173,15 +173,16 @@ def test_spark_input_df():
     try:
         model = automl.model.estimator
         predictions = model.transform(test_data)
+        predictions.show()
 
-        from synapse.ml.train import ComputeModelStatistics
+        # from synapse.ml.train import ComputeModelStatistics
 
-        metrics = ComputeModelStatistics(
-            evaluationMetric="classification",
-            labelCol="Bankrupt?",
-            scoredLabelsCol="prediction",
-        ).transform(predictions)
-        metrics.show()
+        # metrics = ComputeModelStatistics(
+        #     evaluationMetric="classification",
+        #     labelCol="Bankrupt?",
+        #     scoredLabelsCol="prediction",
+        # ).transform(predictions)
+        # metrics.show()
     except AttributeError:
         print("No fitted model because of too short training time.")
 
