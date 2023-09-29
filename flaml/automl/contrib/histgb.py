@@ -1,5 +1,5 @@
 try:
-    from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
+    from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 except ImportError:
     pass
 
@@ -8,12 +8,14 @@ try:
 except ImportError:
     DataFrame = None
 
+import numpy as np
+
 from flaml import tune
 from flaml.automl.model import (
-    suppress_stdout_stderr,
+    LGBMEstimator,
     SKLearnEstimator,
     logger,
-    LGBMEstimator,
+    suppress_stdout_stderr,
 )
 from flaml.automl.task import Task
 
@@ -91,11 +93,11 @@ class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
             X = DataFrame(X)
             for col in X.columns:
                 if isinstance(X[col][0], str):
-                    X[col] = np.clip(
-                        X[col].astype("category").cat.codes.replace(-1, np.nan),
-                        0,
-                        self.params["max_bins"] #  [0, max_bins - 1]
-                    )
+                    X[col] = X[col].astype("category").cat.codes
+                    # sklearn hgb cannot encode categorical vars with
+                    # cardincality > nbins, so we remove them
+                    if X[col].max() > self.params["max_bins"]:
+                        self.params["categorical_features"].pop(col)
             X = X.to_numpy()
         return X
 
