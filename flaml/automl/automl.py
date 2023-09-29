@@ -476,12 +476,12 @@ class AutoML(BaseEstimator):
 
     @property
     def feature_transformer(self):
-        """Returns AutoML Transformer"""
+        """Returns feature transformer which is used to preprocess data before applying training or inference."""
         return getattr(self, "_transformer", None)
 
     @property
     def label_transformer(self):
-        """Returns AutoML label transformer"""
+        """Returns label transformer which is used to preprocess labels before scoring, and inverse transform labels after inference."""
         return getattr(self, "_label_transformer", None)
 
     @property
