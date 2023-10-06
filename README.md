@@ -14,7 +14,7 @@
     <br>
 </p>
 
-:fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we are happy to launnch a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
+:fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we have also launched a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
 
 :fire: The automated multi-agent chat framework in [AutoGen](https://microsoft.github.io/autogen/) is in preview from v2.0.0.
 
