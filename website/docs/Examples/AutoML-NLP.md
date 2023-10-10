@@ -27,8 +27,7 @@ automl_settings = {
     "time_budget": 100,
     "task": "seq-classification",
     "fit_kwargs_by_estimator": {
-        "transformer":
-       {
+        "transformer":{
            "output_dir": "data/output/"  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
        }
     },  # setting the huggingface arguments: output directory
