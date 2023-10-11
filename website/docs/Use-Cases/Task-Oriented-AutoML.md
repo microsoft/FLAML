@@ -168,10 +168,11 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
             "domain": tune.lograndint(lower=1, upper=data_size),
             "low_cost_init_value": 1,
         },
-        "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-        "min_samples_leaf": {
-            "domain": tune.lograndint(lower=1, upper=20),
-            "init_value": 20,
+        "learning_rate": {
+            "domain": tune.loguniform(lower=0.01, upper=20.0)},
+            "min_samples_leaf": {
+                "domain": tune.lograndint(lower=1, upper=20),
+                "init_value": 20,
         },
         }
         return space
