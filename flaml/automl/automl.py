@@ -246,7 +246,7 @@ class AutoML(BaseEstimator):
                 search is considered to converge.
             force_cancel: boolean, default=False | Whether to forcely cancel Spark jobs if the
                 search time exceeded the time budget.
-            append_log: boolean, default=False | Whetehr to directly append the log
+            append_log: boolean, default=False | Whether to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
@@ -476,12 +476,12 @@ class AutoML(BaseEstimator):
 
     @property
     def feature_transformer(self):
-        """Returns AutoML Transformer"""
+        """Returns feature transformer which is used to preprocess data before applying training or inference."""
         return getattr(self, "_transformer", None)
 
     @property
     def label_transformer(self):
-        """Returns AutoML label transformer"""
+        """Returns label transformer which is used to preprocess labels before scoring, and inverse transform labels after inference."""
         return getattr(self, "_label_transformer", None)
 
     @property
@@ -606,7 +606,7 @@ class AutoML(BaseEstimator):
 
         Args:
             learner_name: A string of the learner's name.
-            learner_class: A subclass of flaml.model.BaseEstimator.
+            learner_class: A subclass of flaml.automl.model.BaseEstimator.
         """
         self._state.learner_classes[learner_name] = learner_class
 
@@ -1381,7 +1381,7 @@ class AutoML(BaseEstimator):
             early_stop: boolean, default=False | Whether to stop early if the
                 search is considered to converge.
             force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
-            append_log: boolean, default=False | Whetehr to directly append the log
+            append_log: boolean, default=False | Whether to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.

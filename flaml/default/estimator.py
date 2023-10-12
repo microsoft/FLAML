@@ -105,7 +105,12 @@ def flamlize_estimator(super_class, name: str, task: str, alternatives=None):
                 # if hasattr(self, "_classes"):
                 #     self._classes = self._label_transformer.classes_
                 # else:
-                self.classes_ = self._label_transformer.classes_
+                try:
+                    self.classes_ = self._label_transformer.classes_
+                except AttributeError:
+                    # xgboost 2: AttributeError: can't set attribute
+                    if "xgb" not in estimator_name:
+                        raise
                 if "xgb" not in estimator_name:
                     # rf and et would do inverse transform automatically; xgb doesn't
                     self._label_transformer = None

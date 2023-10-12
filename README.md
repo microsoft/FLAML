@@ -14,13 +14,13 @@
     <br>
 </p>
 
-:fire: Heads-up: We're preparing to migrate [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) into a dedicated github repository. Alongside this move, we'll also launch a dedicated Discord server and a website for comprehensive documentation.
+:fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we have also launched a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
 
-:fire: The automated multi-agent chat framework in [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) is in preview from v2.0.0.
+:fire: The automated multi-agent chat framework in [AutoGen](https://microsoft.github.io/autogen/) is in preview from v2.0.0.
 
 :fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
 
-:fire: [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
+:fire: [autogen](https://microsoft.github.io/autogen/) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
 
 :fire: FLAML supports Code-First AutoML & Tuning – Private Preview in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/).
 
@@ -34,7 +34,7 @@ and optimizes their performance.
 * For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It is easy to customize or extend. Users can find their desired customizability from a smooth range.
 * It supports fast and economical automatic tuning (e.g., inference hyperparameters for foundation models, configurations in MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations), capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping.
 
-FLAML is powered by a series of [research studies](/docs/Research) from Microsoft Research and collaborators such as Penn State University, Stevens Institute of Technology, University of Washington, and University of Waterloo.
+FLAML is powered by a series of [research studies](https://microsoft.github.io/FLAML/docs/Research/) from Microsoft Research and collaborators such as Penn State University, Stevens Institute of Technology, University of Washington, and University of Waterloo.
 
 FLAML has a .NET implementation in [ML.NET](http://dot.net/ml), an open-source, cross-platform machine learning framework for .NET.
 
@@ -46,7 +46,7 @@ FLAML requires **Python version >= 3.8**. It can be installed from pip:
 pip install flaml
 ```
 
-Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`autogen`](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) package.
+Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`autogen`](https://microsoft.github.io/autogen/) package.
 ```bash
 pip install "flaml[autogen]"
 ```
@@ -56,7 +56,7 @@ Each of the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/n
 
 ## Quickstart
 
-* (New) The [autogen](https://microsoft.github.io/FLAML/docs/Use-Cases/Autogen) package enables the next-gen GPT-X applications with a generic multi-agent conversation framework.
+* (New) The [autogen](https://microsoft.github.io/autogen/) package enables the next-gen GPT-X applications with a generic multi-agent conversation framework.
 It offers customizable and conversable agents which integrate LLMs, tools and human.
 By automating chat among multiple capable agents, one can easily make them collectively perform tasks autonomously or with human feedback, including tasks that require using tools via code. For example,
 ```python
