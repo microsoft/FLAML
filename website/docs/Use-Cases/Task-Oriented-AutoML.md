@@ -149,29 +149,27 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
         super().__init__(task, **config)
 
         if task in CLASSIFICATION:
-        from rgf.sklearn import RGFClassifier
-
-        self.estimator_class = RGFClassifier
+            from rgf.sklearn import RGFClassifier
+            self.estimator_class = RGFClassifier
         else:
-        from rgf.sklearn import RGFRegressor
-
-        self.estimator_class = RGFRegressor
+            from rgf.sklearn import RGFRegressor
+            self.estimator_class = RGFRegressor
 
     @classmethod
     def search_space(cls, data_size, task):
         space = {
-        "max_leaf": {
-            "domain": tune.lograndint(lower=4, upper=data_size),
-            "low_cost_init_value": 4,
-        },
-        "n_iter": {
-            "domain": tune.lograndint(lower=1, upper=data_size),
-            "low_cost_init_value": 1,
-        },
-        "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-        "min_samples_leaf": {
-            "domain": tune.lograndint(lower=1, upper=20),
-            "init_value": 20,
+            "max_leaf": {
+                "domain": tune.lograndint(lower=4, upper=data_size),
+                "low_cost_init_value": 4,
+            },
+            "n_iter": {
+                "domain": tune.lograndint(lower=1, upper=data_size),
+                "low_cost_init_value": 1,
+            },
+            "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
+            "min_samples_leaf": {
+                "domain": tune.lograndint(lower=1, upper=20),
+                "init_value": 20,
         },
         }
         return space
