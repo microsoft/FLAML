@@ -360,7 +360,8 @@ By default, flaml decides the resampling automatically according to the data siz
 For holdout, you can also set:
 * `split_ratio`: the fraction for validation data, 0.1 by default.
 * `X_val`, `y_val`: a separate validation dataset. When they are passed, the validation metrics will be computed against this given validation dataset. If they are not passed, then a validation dataset will be split from the training data and held out from training during the model search. After the model search, flaml will retrain the model with best configuration on the full training data.
-You can set`retrain_full` to be `False` to skip the final retraining or "budget" to ask flaml to do its best to retrain within the time budget.
+You can set`retrain_full` to be `False` to skip the final retraining or "budget" to ask flaml to do its best to retrain within the time budget.When `retrain_full` is set to `True`,the user-provided validation data is not used in the final retraining of the model.
+
 
 For cross validation, you can also set `n_splits` of the number of folds. By default it is 5.
 
