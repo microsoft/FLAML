@@ -2,36 +2,42 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import logging
+import math
+import os
+import shutil
+import signal
+import sys
+import time
 from contextlib import contextmanager
 from functools import partial
-import signal
-import os
 from typing import Callable, List, Union
+
 import numpy as np
-import time
-import logging
-import shutil
-import sys
-import math
+
 from flaml import tune
 from flaml.automl.data import (
     group_counts,
 )
+from flaml.automl.task.factory import task_factory
 from flaml.automl.task.task import (
-    Task,
+    NLG_TASKS,
     SEQCLASSIFICATION,
     SEQREGRESSION,
-    TOKENCLASSIFICATION,
     SUMMARIZATION,
-    NLG_TASKS,
+    TOKENCLASSIFICATION,
+    Task,
 )
-from flaml.automl.task.factory import task_factory
 
 try:
-    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-    from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
-    from sklearn.linear_model import LogisticRegression
     from sklearn.dummy import DummyClassifier, DummyRegressor
+    from sklearn.ensemble import (
+        ExtraTreesClassifier,
+        ExtraTreesRegressor,
+        RandomForestClassifier,
+        RandomForestRegressor,
+    )
+    from sklearn.linear_model import LogisticRegression
     from xgboost import __version__ as xgboost_version
 except ImportError:
     pass
@@ -41,13 +47,14 @@ try:
 except ImportError:
     pass
 
-from flaml.automl.spark import psDataFrame, sparkDataFrame, psSeries, ERROR as SPARK_ERROR, DataFrame, Series
-from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
+from flaml.automl.spark import ERROR as SPARK_ERROR
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
 from flaml.automl.spark.configs import (
     ParamList_LightGBM_Classifier,
-    ParamList_LightGBM_Regressor,
     ParamList_LightGBM_Ranker,
+    ParamList_LightGBM_Regressor,
 )
+from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
 
 if DataFrame is not None:
     from pandas import to_datetime
@@ -62,7 +69,7 @@ except ImportError:
     resource = None
 
 try:
-    from lightgbm import LGBMClassifier, LGBMRegressor, LGBMRanker
+    from lightgbm import LGBMClassifier, LGBMRanker, LGBMRegressor
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
 
@@ -320,8 +327,7 @@ class BaseEstimator:
         Returns:
             The evaluation score on the validation dataset.
         """
-        from .ml import metric_loss_score
-        from .ml import is_min_metric
+        from .ml import is_min_metric, metric_loss_score
 
         if self._model is not None:
             if self._task == "rank":
@@ -759,7 +765,7 @@ class TransformersEstimator(BaseEstimator):
         return not self._kwargs.get("gpu_per_trial")
 
     def _set_training_args(self, **kwargs):
-        from .nlp.utils import date_str, Counter
+        from .nlp.utils import Counter, date_str
 
         for key, val in kwargs.items():
             assert key not in self.params, (
@@ -873,10 +879,10 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from flaml.automl.task.task import Task
         from flaml.automl.nlp.huggingface.data_collator import (
             task_to_datacollator_class,
         )
+        from flaml.automl.task.task import Task
 
         data_collator_class = task_to_datacollator_class.get(
             self._task.name if isinstance(self._task, Task) else self._task
@@ -917,6 +923,7 @@ class TransformersEstimator(BaseEstimator):
 
         from transformers import TrainerCallback
         from transformers.trainer_utils import set_seed
+
         from .nlp.huggingface.trainer import TrainerForAuto
 
         try:
@@ -1146,6 +1153,7 @@ class TransformersEstimator(BaseEstimator):
     def predict(self, X, **pred_kwargs):
         import transformers
         from datasets import Dataset
+
         from .nlp.huggingface.utils import postprocess_prediction_and_true
 
         transformers.logging.set_verbosity_error()

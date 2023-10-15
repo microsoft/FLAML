@@ -118,7 +118,7 @@ The estimator list can contain one or more estimator names, each corresponding t
     it uses a fixed random_state by default.
     - 'extra_tree': ExtraTreesEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
     it uses a fixed random_state by default.
-    - 'histgb': HistGradientBoostingEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaf_nodes, min_samples_leaf, learning_rate, max_bins, l2_regularization. It uses a fixed random_state by default.
+    - 'histgb': HistGradientBoostingEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, min_samples_leaf, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), l2_regularization. It uses a fixed random_state by default.
     - 'lrl1': LRL1Classifier (sklearn.LogisticRegression with L1 regularization) for task "classification". Hyperparameters: C.
     - 'lrl2': LRL2Classifier (sklearn.LogisticRegression with L2 regularization) for task "classification". Hyperparameters: C.
     - 'catboost': CatBoostEstimator for task "classification" and "regression". Hyperparameters: early_stopping_rounds, learning_rate, n_estimators.

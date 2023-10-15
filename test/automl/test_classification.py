@@ -203,11 +203,10 @@ class TestClassification(unittest.TestCase):
             "estimator_list": ["histgb"],
             "eval_method": "cv",
             "n_splits": 3,
-            "metric": "roc_auc_weighted",
+            "metric": "accuracy",
             "log_training_metric": True,
             # "verbose": 4,
             "ensemble": True,
-            "skip_transform": True,
         }
         automl.fit(X, y, **automl_settings)
         del automl

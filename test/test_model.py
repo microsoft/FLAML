@@ -1,18 +1,20 @@
-from sklearn.datasets import make_classification
+from datetime import datetime
+
 import numpy as np
 from pandas import DataFrame
-from datetime import datetime
-from flaml.automl.model import (
-    KNeighborsEstimator,
-    LRL2Classifier,
-    BaseEstimator,
-    LGBMEstimator,
-    CatBoostEstimator,
-    XGBoostEstimator,
-    RandomForestEstimator,
-)
-from flaml.automl.time_series import Prophet, ARIMA, LGBM_TS, TimeSeriesDataset
+from sklearn.datasets import make_classification
+
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
+from flaml.automl.model import (
+    BaseEstimator,
+    CatBoostEstimator,
+    KNeighborsEstimator,
+    LGBMEstimator,
+    LRL2Classifier,
+    RandomForestEstimator,
+    XGBoostEstimator,
+)
+from flaml.automl.time_series import ARIMA, LGBM_TS, Prophet, TimeSeriesDataset
 
 
 def test_lrl2():

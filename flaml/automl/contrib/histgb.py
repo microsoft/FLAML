@@ -3,32 +3,20 @@ try:
 except ImportError:
     pass
 
-try:
-    from pandas import DataFrame
-except ImportError:
-    DataFrame = None
-
-import numpy as np
-
 from flaml import tune
-from flaml.automl.model import (
-    LGBMEstimator,
-    SKLearnEstimator,
-    logger,
-    suppress_stdout_stderr,
-)
+from flaml.automl.model import SKLearnEstimator
 from flaml.automl.task import Task
 
 
-class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
+class HistGradientBoostingEstimator(SKLearnEstimator):
     """The class for tuning Histogram Gradient Boosting."""
 
-    ITER_HP = "n_estimators"
+    ITER_HP = "max_iter"
     HAS_CALLBACK = False
     DEFAULT_ITER = 100
 
     @classmethod
-    def search_space(cls, data_size, task, **params):
+    def search_space(cls, data_size: int, task, **params) -> dict:
         upper = max(5, min(32768, int(data_size[0])))  # upper must be larger than lower
         return {
             "n_estimators": {
@@ -36,7 +24,7 @@ class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
-            "max_leaf_nodes": {
+            "max_leaves": {
                 "domain": tune.lograndint(lower=4, upper=upper),
                 "init_value": 4,
                 "low_cost_init_value": 4,
@@ -49,8 +37,8 @@ class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
                 "domain": tune.loguniform(lower=1 / 1024, upper=1.0),
                 "init_value": 0.1,
             },
-            "log_max_bin": {  # log transformed with base 2
-                "domain": tune.lograndint(lower=3, upper=11),
+            "log_max_bin": {  # log transformed with base 2, <= 256
+                "domain": tune.lograndint(lower=3, upper=9),
                 "init_value": 8,
             },
             "l2_regularization": {
@@ -63,6 +51,10 @@ class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
         params = super().config2params(config)
         if "log_max_bin" in params:
             params["max_bins"] = (1 << params.pop("log_max_bin")) - 1
+        if "max_leaves" in params:
+            params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
+        if "n_estimators" in params:
+            params["max_iter"] = params.get("max_iter", params.pop("n_estimators"))
         if "random_state" not in params:
             params["random_state"] = 24092023
         if "n_jobs" in params:
@@ -72,39 +64,12 @@ class HistGradientBoostingEstimator(SKLearnEstimator, LGBMEstimator):
     def __init__(
         self,
         task: Task,
-        **params,
+        **config,
     ):
-        super().__init__(task, **params)
+        super().__init__(task, **config)
         self.params["verbose"] = 0
 
         if self._task.is_classification():
             self.estimator_class = HistGradientBoostingClassifier
         else:
             self.estimator_class = HistGradientBoostingRegressor
-
-    def _preprocess(self, X):
-        if isinstance(X, DataFrame):
-            cat_columns = X.select_dtypes(include=["category"]).columns
-            if not cat_columns.empty:
-                X = X.copy()
-                X[cat_columns] = X[cat_columns].apply(lambda x: x.cat.codes)
-        elif isinstance(X, np.ndarray) and X.dtype.kind not in "buif":
-            # numpy array is not of numeric dtype
-            X = DataFrame(X)
-            for col in X.columns:
-                if isinstance(X[col][0], str):
-                    X[col] = X[col].astype("category").cat.codes
-                    # sklearn hgb cannot encode categorical vars with
-                    # cardincality > nbins, so we remove them
-                    if X[col].max() > self.params["max_bins"]:
-                        self.params["categorical_features"].pop(col)
-            X = X.to_numpy()
-        return X
-
-    def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
-        if isinstance(X_train, DataFrame):
-            cat_features = list(X_train.select_dtypes(include="category").columns)
-        else:
-            cat_features = []
-        self.params["categorical_features"] = cat_features
-        return super().fit(X_train, y_train, budget, free_mem_ratio, **kwargs)
