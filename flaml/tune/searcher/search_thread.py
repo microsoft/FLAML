@@ -23,6 +23,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def recursive_update(d:dict, u:dict):
+    """
+    Args:
+        d (dict): The target dictionary to be updated.
+        u (dict): A dictionary containing values to be merged into `d`.
+    """
+    for k, v in u.items():
+        if isinstance(v, dict) and k in d and isinstance(d[k], dict):
+            recursive_update(d[k], v)
+        else:
+            d[k] = v
+
+
 class SearchThread:
     """Class of global or local search thread."""
 
@@ -63,7 +76,7 @@ class SearchThread:
             try:
                 config = self._search_alg.suggest(trial_id)
                 if isinstance(self._search_alg._space, dict):
-                    config.update(self._const)
+                    recursive_update(config, self._const)
                 else:
                     # define by run
                     config, self.space = unflatten_hierarchical(config, self._space)
