@@ -1,16 +1,17 @@
-from typing import Optional, Union
 import logging
+from typing import Optional, Union
+
+from flaml.onlineml import OnlineTrialRunner
+from flaml.onlineml.trial import get_ns_feature_dim_from_vw_example
 from flaml.tune import (
-    Trial,
     Categorical,
     Float,
     PolynomialExpansionSet,
+    Trial,
     polynomial_expansion_set,
 )
-from flaml.onlineml import OnlineTrialRunner
 from flaml.tune.scheduler import ChaChaScheduler
 from flaml.tune.searcher import ChampionFrontierSearcher
-from flaml.onlineml.trial import get_ns_feature_dim_from_vw_example
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ class AutoVW:
             max_live_model_num=self._max_live_model_num,
             searcher=searcher,
             scheduler=scheduler,
-            **self._automl_runner_args
+            **self._automl_runner_args,
         )
 
     def predict(self, data_sample):

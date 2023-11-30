@@ -6,8 +6,10 @@ try:
     import pyspark.pandas as ps
     import pyspark.sql.functions as F
     import pyspark.sql.types as T
+    from pyspark.pandas import DataFrame as psDataFrame
+    from pyspark.pandas import Series as psSeries
+    from pyspark.pandas import set_option
     from pyspark.sql import DataFrame as sparkDataFrame
-    from pyspark.pandas import DataFrame as psDataFrame, Series as psSeries, set_option
     from pyspark.util import VersionUtils
 except ImportError:
 

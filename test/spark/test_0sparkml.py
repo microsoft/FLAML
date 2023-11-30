@@ -1,9 +1,11 @@
 import os
 import sys
 import warnings
-import pytest
+
 import mlflow
+import pytest
 import sklearn.datasets as skds
+
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
 
@@ -15,6 +17,7 @@ else:
     try:
         import pyspark
         from pyspark.ml.feature import VectorAssembler
+
         from flaml.automl.spark.utils import to_pandas_on_spark
 
         postfix_version = "-spark3.3," if pyspark.__version__ > "3.2" else ","
@@ -183,6 +186,7 @@ def test_spark_input_df():
         #     scoredLabelsCol="prediction",
         # ).transform(predictions)
         # metrics.show()
+
     except AttributeError:
         print("No fitted model because of too short training time.")
 

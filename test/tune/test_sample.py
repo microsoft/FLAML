@@ -1,19 +1,19 @@
+from flaml.tune import choice
 from flaml.tune.sample import (
     BaseSampler,
-    PolynomialExpansionSet,
     Domain,
-    uniform,
+    PolynomialExpansionSet,
+    lograndint,
+    loguniform,
+    qlograndint,
+    qloguniform,
+    qrandint,
+    qrandn,
     quniform,
     randint,
-    qrandint,
     randn,
-    qrandn,
-    loguniform,
-    qloguniform,
-    lograndint,
-    qlograndint,
+    uniform,
 )
-from flaml.tune import choice
 
 
 def test_sampler():

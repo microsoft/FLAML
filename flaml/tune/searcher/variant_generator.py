@@ -17,9 +17,11 @@
 # Copyright (c) Microsoft Corporation.
 import copy
 import logging
-from typing import Any, Dict, Generator, List, Tuple
-import numpy
 import random
+from typing import Any, Dict, Generator, List, Tuple
+
+import numpy
+
 from ..sample import Categorical, Domain, RandomState
 
 try:

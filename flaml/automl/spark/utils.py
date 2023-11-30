@@ -1,17 +1,19 @@
 import logging
-from typing import Union, List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
+
 import numpy as np
+
 from flaml.automl.spark import (
-    sparkDataFrame,
-    ps,
+    DataFrame,
     F,
+    Series,
     T,
+    _spark_major_minor_version,
+    ps,
     psDataFrame,
     psSeries,
-    _spark_major_minor_version,
-    DataFrame,
-    Series,
     set_option,
+    sparkDataFrame,
 )
 
 logger = logging.getLogger(__name__)

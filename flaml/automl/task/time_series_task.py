@@ -2,26 +2,25 @@ import logging
 import time
 from typing import List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.sparse import issparse
 from sklearn.model_selection import (
     GroupKFold,
     TimeSeriesSplit,
 )
 
-from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
-from flaml.automl.time_series.ts_data import (
-    TimeSeriesDataset,
-    DataTransformerTS,
-    normalize_ts_data,
-)
-
+from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
 from flaml.automl.task.task import (
-    Task,
-    get_classification_objective,
     TS_FORECAST,
     TS_FORECASTPANEL,
+    Task,
+    get_classification_objective,
+)
+from flaml.automl.time_series.ts_data import (
+    DataTransformerTS,
+    TimeSeriesDataset,
+    normalize_ts_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,18 +32,18 @@ class TimeSeriesTask(Task):
         if self._estimators is None:
             # put this into a function to avoid circular dependency
             from flaml.automl.time_series import (
+                ARIMA,
+                LGBM_TS,
+                RF_TS,
+                SARIMAX,
+                CatBoost_TS,
+                ExtraTrees_TS,
+                HoltWinters,
+                Orbit,
+                Prophet,
+                TemporalFusionTransformerEstimator,
                 XGBoost_TS,
                 XGBoostLimitDepth_TS,
-                RF_TS,
-                LGBM_TS,
-                ExtraTrees_TS,
-                CatBoost_TS,
-                Prophet,
-                Orbit,
-                ARIMA,
-                SARIMAX,
-                TemporalFusionTransformerEstimator,
-                HoltWinters,
             )
 
             self._estimators = {

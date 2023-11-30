@@ -2,7 +2,7 @@ import copy
 import datetime
 import math
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable, Dict, Generator, Union
+from typing import Callable, Dict, Generator, List, Optional, Union
 
 import numpy as np
 
@@ -10,9 +10,9 @@ try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
     from scipy.sparse import issparse
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.impute import SimpleImputer
     from sklearn.compose import ColumnTransformer
+    from sklearn.impute import SimpleImputer
+    from sklearn.preprocessing import LabelEncoder
 
     from .feature import monthly_fourier_features
 except ImportError:

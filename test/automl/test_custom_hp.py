@@ -1,11 +1,13 @@
 import sys
+
 import pytest
+
 from flaml import AutoML, tune
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def test_custom_hp_nlp():
-    from test.nlp.utils import get_toy_data_seqclassification, get_automl_settings
+    from test.nlp.utils import get_automl_settings, get_toy_data_seqclassification
 
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 

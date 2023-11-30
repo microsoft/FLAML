@@ -1,14 +1,16 @@
-import numpy as np
-import logging
-import time
-import math
-import copy
 import collections
+import copy
+import logging
+import math
+import time
 from typing import Optional, Union
+
+import numpy as np
+
 from flaml.tune import Trial
 
 try:
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
+    from sklearn.metrics import mean_absolute_error, mean_squared_error
 except ImportError:
     pass
 

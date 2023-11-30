@@ -1,12 +1,14 @@
-import torch
+import math
+from collections import defaultdict
+
+import numpy as np
 import thop
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+
 from flaml import tune
-from collections import defaultdict
-import math
-import numpy as np
 
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128

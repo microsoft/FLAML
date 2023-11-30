@@ -1,18 +1,20 @@
-import unittest
-import numpy as np
-import scipy.sparse
-import pandas as pd
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 import logging
-from flaml.tune import loguniform, polynomial_expansion_set
-from flaml import AutoVW
-import string
 import os
-import openml
-from requests.exceptions import SSLError
-from minio.error import ServerError
+import string
 import sys
+import unittest
+
+import numpy as np
+import openml
+import pandas as pd
 import pytest
+import scipy.sparse
+from minio.error import ServerError
+from requests.exceptions import SSLError
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+from flaml import AutoVW
+from flaml.tune import loguniform, polynomial_expansion_set
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)

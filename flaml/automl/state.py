@@ -1,13 +1,15 @@
-import inspect
 import copy
+import inspect
 import time
 from typing import Any, Optional
+
 import numpy as np
+
 from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
-from flaml.automl.spark import psDataFrame, psSeries, DataFrame, Series
 
 
 class SearchState:

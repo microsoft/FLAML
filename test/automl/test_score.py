@@ -1,6 +1,7 @@
-from flaml import AutoML
 import pandas as pd
 from sklearn.datasets import fetch_california_housing, fetch_openml
+
+from flaml import AutoML
 
 
 class TestScore:

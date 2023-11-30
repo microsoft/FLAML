@@ -1,5 +1,7 @@
 from functools import wraps
+
 from flaml.automl.task.task import CLASSIFICATION
+
 from .suggest import preprocess_and_suggest_hyperparams
 
 DEFAULT_LOCATION = "default_location"

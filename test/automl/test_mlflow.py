@@ -1,8 +1,9 @@
+import mlflow
+import mlflow.entities
 import pytest
 from pandas import DataFrame
 from sklearn.datasets import load_iris
-import mlflow
-import mlflow.entities
+
 from flaml import AutoML
 
 

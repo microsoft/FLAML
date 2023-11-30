@@ -11,9 +11,10 @@ try:
 except (ImportError, AssertionError):
     from . import sample
     from .searcher.variant_generator import generate_variants
-from typing import Dict, Optional, Any, Tuple, Generator, List, Union
-import numpy as np
 import logging
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

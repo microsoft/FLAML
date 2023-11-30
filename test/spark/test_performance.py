@@ -1,10 +1,12 @@
+import os
 import sys
+
+import pytest
+from minio.error import ServerError
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
-from minio.error import ServerError
+
 from flaml.tune.spark.utils import check_spark
-import os
-import pytest
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
@@ -15,8 +17,9 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
 def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
-    from flaml.automl.data import load_openml_dataset
     import urllib3
+
+    from flaml.automl.data import load_openml_dataset
 
     performance_check_budget = 3600
     if sys.platform == "darwin" or "nt" in os.name or "3.10" not in sys.version:

@@ -1,9 +1,10 @@
 # import unittest
-import numpy as np
-
 # require: pip install flaml[blendsearch, ray]
 # require: pip install flaml[ray]
 import time
+
+import numpy as np
+
 from flaml import tune
 
 
@@ -28,7 +29,7 @@ low_cost_partial_config = {"x": 1}
 
 
 def setup_searcher(searcher_name):
-    from flaml.tune.searcher.blendsearch import BlendSearch, CFO, RandomSearch
+    from flaml.tune.searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
     if "cfo" in searcher_name:
         searcher = CFO(space=config_search_space, low_cost_partial_config=low_cost_partial_config)
@@ -48,7 +49,8 @@ def setup_searcher(searcher_name):
 
 def _test_flaml_raytune_consistency(num_samples=-1, max_concurrent_trials=1, searcher_name="cfo"):
     try:
-        from ray import tune as raytune, __version__ as ray_version
+        from ray import __version__ as ray_version
+        from ray import tune as raytune
 
         if ray_version.startswith("1."):
             from ray.tune.suggest import ConcurrencyLimiter

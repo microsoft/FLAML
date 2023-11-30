@@ -2,15 +2,17 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-import numpy as np
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Union
-import os
+
+import numpy as np
+
+from flaml.automl.spark import DataFrame, Series, pd, ps, psDataFrame, psSeries
 from flaml.automl.training_log import training_log_reader
-from flaml.automl.spark import ps, psDataFrame, psSeries, DataFrame, Series, pd
 
 try:
-    from scipy.sparse import vstack, issparse
+    from scipy.sparse import issparse, vstack
 except ImportError:
     pass
 
@@ -41,8 +43,9 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
         y_train: A series or array of labels for training data.
         y_test:  A series or array of labels for test data.
     """
-    import openml
     import pickle
+
+    import openml
     from sklearn.model_selection import train_test_split
 
     filename = "openml_ds" + str(dataset_id) + ".pkl"
@@ -93,8 +96,9 @@ def load_openml_task(task_id, data_dir):
         y_train: A series of labels for training data.
         y_test:  A series of labels for test data.
     """
-    import openml
     import pickle
+
+    import openml
 
     task = openml.tasks.get_task(task_id)
     filename = "openml_task" + str(task_id) + ".pkl"
@@ -341,8 +345,8 @@ class DataTransformer:
                     drop = True
                 else:
                     drop = False
-                from sklearn.impute import SimpleImputer
                 from sklearn.compose import ColumnTransformer
+                from sklearn.impute import SimpleImputer
 
                 self.transformer = ColumnTransformer(
                     [

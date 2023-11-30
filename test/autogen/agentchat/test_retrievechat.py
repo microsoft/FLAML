@@ -1,9 +1,13 @@
-import pytest
 import sys
-from flaml import autogen
+
+import pytest
 from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
 
+from flaml import autogen
+
 try:
+    import chromadb
+
     from flaml.autogen.agentchat.contrib.retrieve_assistant_agent import (
         RetrieveAssistantAgent,
     )
@@ -11,7 +15,6 @@ try:
         RetrieveUserProxyAgent,
     )
     from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db
-    import chromadb
 
     skip_test = False
 except ImportError:

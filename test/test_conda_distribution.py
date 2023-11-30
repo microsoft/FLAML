@@ -1,7 +1,9 @@
-import pytest
 from pathlib import Path
-from flaml import AutoML
+
+import pytest
 from sklearn.datasets import load_iris
+
+from flaml import AutoML
 
 
 @pytest.mark.conda

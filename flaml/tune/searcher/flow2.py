@@ -2,31 +2,34 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from typing import Dict, Optional, Tuple
-import numpy as np
 import logging
 from collections import defaultdict
+from typing import Dict, Optional, Tuple
+
+import numpy as np
 
 try:
     from ray import __version__ as ray_version
 
     assert ray_version >= "1.0.0"
     if ray_version.startswith("1."):
-        from ray.tune.suggest import Searcher
         from ray.tune import sample
+        from ray.tune.suggest import Searcher
     else:
         from ray.tune.search import Searcher, sample
     from ray.tune.utils.util import flatten_dict, unflatten_dict
 except (ImportError, AssertionError):
-    from .suggestion import Searcher
     from flaml.tune import sample
+
     from ..trial import flatten_dict, unflatten_dict
+    from .suggestion import Searcher
 from flaml.config import SAMPLE_MULTIPLY_FACTOR
+
 from ..space import (
     complete_config,
     denormalize,
-    normalize,
     generate_variants_compatible,
+    normalize,
 )
 
 logger = logging.getLogger(__name__)

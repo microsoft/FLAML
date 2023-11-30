@@ -4,9 +4,9 @@
 """
 
 import json
-from typing import IO
-from contextlib import contextmanager
 import logging
+from contextlib import contextmanager
+from typing import IO
 
 logger = logging.getLogger("flaml.automl")
 

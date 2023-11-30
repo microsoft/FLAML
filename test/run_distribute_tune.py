@@ -1,6 +1,7 @@
 import time
-from azureml.core import Workspace, Experiment, ScriptRunConfig, Environment
-from azureml.core.runconfig import RunConfiguration, DockerConfiguration
+
+from azureml.core import Environment, Experiment, ScriptRunConfig, Workspace
+from azureml.core.runconfig import DockerConfiguration, RunConfiguration
 
 ws = Workspace.from_config()
 ray_environment_name = "aml-ray-cpu"
