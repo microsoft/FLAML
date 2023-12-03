@@ -4,7 +4,8 @@ from typing import Dict
 import numpy as np
 
 from flaml.tune import Trial
-from flaml.tune.scheduler import TrialScheduler
+
+from .trial_scheduler import TrialScheduler
 
 logger = logging.getLogger(__name__)
 

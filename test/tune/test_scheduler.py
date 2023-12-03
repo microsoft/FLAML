@@ -3,7 +3,7 @@
 import numpy as np
 
 from flaml import tune
-from flaml.tune.scheduler.trial_scheduler import TrialScheduler
+from flaml.tune.scheduler import TrialScheduler
 
 
 def rand_vector_unit_sphere(dim):
