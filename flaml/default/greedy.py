@@ -12,7 +12,7 @@ def _augment(row):
 def construct_portfolio(regret_matrix, meta_features, regret_bound):
     """The portfolio construction algorithm.
 
-    (Reference)[https://arxiv.org/abs/2202.09927].
+    See: `Mining Robust Default Configurations for Resource-constrained AutoML <https://arxiv.org/abs/2202.09927>`_.
 
     Args:
         regret_matrix: A dataframe of regret matrix.
