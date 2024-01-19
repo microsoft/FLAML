@@ -611,6 +611,11 @@ class ConversableAgent(Agent):
         if messages is None:
             messages = self._oai_messages[sender]
         last_n_messages = code_execution_config.pop("last_n_messages", 1)
+        
+        logs = ""
+        exitcode = 0
+        exitcode2str = "execution succeeded"
+        
         for i in range(min(len(messages), last_n_messages)):
             message = messages[-(i + 1)]
             code_blocks = extract_code(message["content"])
