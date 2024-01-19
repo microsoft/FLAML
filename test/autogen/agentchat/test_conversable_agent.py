@@ -2,6 +2,17 @@ import pytest
 from flaml.autogen.agentchat import ConversableAgent
 
 
+def test_generate_oai_reply_empty_messages():
+    agent = ConversableAgent(
+        "a0", max_consecutive_auto_reply=0,
+        llm_config=False, human_input_mode="NEVER"
+    )
+
+    _, output = agent.generate_code_execution_reply(messages=[], config={})
+
+    assert output == 'exitcode: 0 (execution succeeded)\nCode output: '
+
+
 def test_trigger():
     agent = ConversableAgent("a0", max_consecutive_auto_reply=0, llm_config=False, human_input_mode="NEVER")
     agent1 = ConversableAgent("a1", max_consecutive_auto_reply=0, human_input_mode="NEVER")
@@ -177,6 +188,7 @@ def test_generate_reply():
 
 if __name__ == "__main__":
     test_trigger()
+    test_generate_oai_reply_empty_messages()
     # test_context()
     # test_max_consecutive_auto_reply()
     # test_conversable_agent(pytest.monkeypatch)
