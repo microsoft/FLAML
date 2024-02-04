@@ -92,10 +92,12 @@ class ExperimentAnalysis(EA):
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
-                    f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                    if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
-                    else f_best[k_metric]
-                    * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))),
+                    (
+                        f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                        if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
+                        else f_best[k_metric]
+                        * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", "")))
+                    ),
                     k_target,
                 )
             )[0]
@@ -735,9 +737,14 @@ def run(
                         )
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            results = parallel(
-                                delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
-                            )
+                            try:
+                                results = parallel(
+                                    delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
+                                )
+                            except Exception as e:
+                                # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
+                                # We use Exception to catch it for simplicity
+                                logger.warning(f"Joblib exception: {e}")
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
