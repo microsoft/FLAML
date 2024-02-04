@@ -744,7 +744,7 @@ def run(
                             except Exception as e:
                                 # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
                                 # We use Exception to catch it for simplicity
-                                logger.warning(f"Joblib exception: {e}")
+                                logger.debug(f"Force cancel exception: {e}")
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
