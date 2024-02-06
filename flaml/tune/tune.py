@@ -737,14 +737,9 @@ def run(
                         )
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            try:
-                                results = parallel(
-                                    delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
-                                )
-                            except Exception as e:
-                                # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
-                                # We use Exception to catch it for simplicity
-                                logger.debug(f"Force cancel exception: {e}")
+                            results = parallel(
+                                delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
+                            )
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
