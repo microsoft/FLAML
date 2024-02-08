@@ -1,8 +1,7 @@
-NOTICES
+# NOTICES
 
 This repository incorporates material as listed below or described in the code.
 
-#
 ## Component. Ray.
 
 Code in tune/[analysis.py, sample.py, trial.py, result.py],
