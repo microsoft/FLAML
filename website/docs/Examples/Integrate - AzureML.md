@@ -2,16 +2,22 @@ FLAML can be used together with AzureML. On top of that, using mlflow and ray is
 
 ### Prerequisites
 
-Install the [automl,azureml] option.
+Install the \[automl,azureml\] option.
+
 ```bash
 pip install "flaml[automl,azureml]"
 ```
 
 Setup a AzureML workspace:
+
 ```python
 from azureml.core import Workspace
 
-ws = Workspace.create(name='myworkspace', subscription_id='<azure-subscription-id>', resource_group='myresourcegroup')
+ws = Workspace.create(
+    name="myworkspace",
+    subscription_id="<azure-subscription-id>",
+    resource_group="myresourcegroup",
+)
 ```
 
 ### Enable mlflow in AzureML workspace
@@ -49,10 +55,14 @@ with mlflow.start_run() as run:  # create a mlflow run
 The metrics in the run will be automatically logged in an experiment named "flaml" in your AzureML workspace. They can be retrieved by `mlflow.search_runs`:
 
 ```python
-mlflow.search_runs(experiment_ids=[experiment.experiment_id], filter_string="params.learner = 'xgboost'")
+mlflow.search_runs(
+    experiment_ids=[experiment.experiment_id],
+    filter_string="params.learner = 'xgboost'",
+)
 ```
 
 The logged model can be loaded and used to make predictions:
+
 ```python
 automl = mlflow.sklearn.load_model(f"{run.info.artifact_uri}/automl")
 print(automl.predict(X_test))
@@ -75,13 +85,18 @@ ray_environment_name = "aml-ray-cpu"
 ray_environment_dockerfile_path = "./Docker/Dockerfile-cpu"
 
 # Build CPU image for Ray
-ray_cpu_env = Environment.from_dockerfile(name=ray_environment_name, dockerfile=ray_environment_dockerfile_path)
+ray_cpu_env = Environment.from_dockerfile(
+    name=ray_environment_name, dockerfile=ray_environment_dockerfile_path
+)
 ray_cpu_env.register(workspace=ws)
 ray_cpu_build_details = ray_cpu_env.build(workspace=ws)
 
 import time
+
 while ray_cpu_build_details.status not in ["Succeeded", "Failed"]:
-    print(f"Awaiting completion of ray CPU environment build. Current status is: {ray_cpu_build_details.status}")
+    print(
+        f"Awaiting completion of ray CPU environment build. Current status is: {ray_cpu_build_details.status}"
+    )
     time.sleep(10)
 ```
 
@@ -105,20 +120,23 @@ if compute_target_name in ws.compute_targets:
             print("Found compute target; using it:", compute_target_name)
         else:
             raise Exception(
-                "Found compute target but it is in state", compute_target.provisioning_state)
+                "Found compute target but it is in state",
+                compute_target.provisioning_state,
+            )
 else:
     print("creating a new compute target...")
     provisioning_config = AmlCompute.provisioning_configuration(
-        vm_size=compute_target_size,
-        min_nodes=0,
-        max_nodes=node_count)
+        vm_size=compute_target_size, min_nodes=0, max_nodes=node_count
+    )
 
     # Create the cluster
     compute_target = ComputeTarget.create(ws, compute_target_name, provisioning_config)
 
     # Can poll for a minimum number of nodes and for a specific timeout.
     # If no min node count is provided it will use the scale settings for the cluster
-    compute_target.wait_for_completion(show_output=True, min_node_count=None, timeout_in_minutes=20)
+    compute_target.wait_for_completion(
+        show_output=True, min_node_count=None, timeout_in_minutes=20
+    )
 
     # For a more detailed view of current AmlCompute status, use get_status()
     print(compute_target.get_status().serialize())

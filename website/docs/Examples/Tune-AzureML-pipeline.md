@@ -1,6 +1,6 @@
 # Tune - AzureML pipeline
 
-This example uses flaml to tune an Azure ML pipeline that fits a lightgbm classifier on the [sklearn breast cancer dataset](https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)).
+This example uses flaml to tune an Azure ML pipeline that fits a lightgbm classifier on the [sklearn breast cancer dataset](<https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)>).
 If you already have an Azure ML pipeline, you can use the approach to tune your pipeline with flaml.
 
 ## Prepare for tuning
@@ -51,7 +51,7 @@ Dataset.File.upload_directory(
     overwrite=True,
 )
 
-dataset = Dataset.File.from_files(path=(datastore, 'classification_data'))
+dataset = Dataset.File.from_files(path=(datastore, "classification_data"))
 ```
 
 ### Configurations for the pipeline
@@ -124,7 +124,6 @@ def tune_pipeline(concurrent_run=1):
     mode = "max"
     num_samples = 2
 
-
     if concurrent_run > 1:
         import ray  # For parallel tuning
 
@@ -158,8 +157,7 @@ The interaction between FLAML and AzureML pipeline jobs is in `tuner_func.run_wi
 
 ```python
 def run_with_config(config: dict):
-    """Run the pipeline with a given config dict
-    """
+    """Run the pipeline with a given config dict"""
 
     # pass the hyperparameters to AzureML jobs by overwriting the config file.
     overrides = [f"{key}={value}" for key, value in config.items()]
@@ -174,25 +172,25 @@ def run_with_config(config: dict):
     while not stop:
         # get status
         status = run._core_run.get_status()
-        print(f'status: {status}')
+        print(f"status: {status}")
 
         # get metrics
         metrics = run._core_run.get_metrics(recursive=True)
         if metrics:
             run_metrics = list(metrics.values())
 
-            new_metric = run_metrics[0]['eval_binary_error']
+            new_metric = run_metrics[0]["eval_binary_error"]
 
             if type(new_metric) == list:
                 new_metric = new_metric[-1]
 
-            print(f'eval_binary_error: {new_metric}')
+            print(f"eval_binary_error: {new_metric}")
 
             tune.report(eval_binary_error=new_metric)
 
         time.sleep(5)
 
-        if status == 'FAILED' or status == 'Completed':
+        if status == "FAILED" or status == "Completed":
             stop = True
 
     print("The run is terminated.")

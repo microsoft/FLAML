@@ -9,6 +9,7 @@ It may be easier to use that API unless you have special requirements not handle
 ### Requirements
 
 This example requires GPU. Install dependencies:
+
 ```python
 pip install torch transformers datasets "flaml[blendsearch,ray]"
 ```
@@ -24,6 +25,7 @@ MODEL_NAME = "distilbert-base-uncased"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 COLUMN_NAME = "sentence"
 
+
 def tokenize(examples):
     return tokenizer(examples[COLUMN_NAME], truncation=True)
 ```
@@ -37,6 +39,7 @@ from transformers import AutoModelForSequenceClassification
 
 TASK = "cola"
 NUM_LABELS = 2
+
 
 def train_distilbert(config: dict):
     # Load CoLA dataset and apply tokenizer
@@ -55,7 +58,7 @@ def train_distilbert(config: dict):
         return metric.compute(predictions=predictions, references=labels)
 
     training_args = TrainingArguments(
-        output_dir='.',
+        output_dir=".",
         do_eval=False,
         disable_tqdm=True,
         logging_steps=20000,
@@ -96,12 +99,12 @@ We are now ready to define our search. This includes:
 ```python
 max_num_epoch = 64
 search_space = {
-        # You can mix constants with search space objects.
-        "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
-        "learning_rate": flaml.tune.loguniform(1e-6, 1e-4),
-        "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
-        "adam_beta1": flaml.tune.uniform(0.8, 0.99),
-        "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
+    # You can mix constants with search space objects.
+    "num_train_epochs": flaml.tune.loguniform(1, max_num_epoch),
+    "learning_rate": flaml.tune.loguniform(1e-6, 1e-4),
+    "adam_epsilon": flaml.tune.loguniform(1e-9, 1e-7),
+    "adam_beta1": flaml.tune.uniform(0.8, 0.99),
+    "adam_beta2": flaml.tune.loguniform(98e-2, 9999e-4),
 }
 
 # optimization objective
@@ -131,9 +134,10 @@ analysis = flaml.tune.run(
         space=search_space,
         metric=HP_METRIC,
         mode=MODE,
-        low_cost_partial_config={"num_train_epochs": 1}),
+        low_cost_partial_config={"num_train_epochs": 1},
+    ),
     resources_per_trial={"gpu": num_gpus, "cpu": num_cpus},
-    local_dir='logs/',
+    local_dir="logs/",
     num_samples=num_samples,
     time_budget_s=time_budget_s,
     use_ray=True,
@@ -141,6 +145,7 @@ analysis = flaml.tune.run(
 ```
 
 This will run tuning for one hour. At the end we will see a summary.
+
 ```
 == Status ==
 Memory usage on this node: 32.0/251.6 GiB
