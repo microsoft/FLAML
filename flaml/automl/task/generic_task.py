@@ -1,43 +1,44 @@
 import logging
 import time
 from typing import List, Optional
-import numpy as np
-from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import EstimatorSubclass, get_val_loss, default_cv_score_agg_func
 
-from flaml.automl.task.task import (
-    Task,
-    get_classification_objective,
-    TS_FORECAST,
-    TS_FORECASTPANEL,
-)
-from flaml.config import RANDOM_SEED
-from flaml.automl.spark import ps, psDataFrame, psSeries, pd
+import numpy as np
+
+from flaml.automl.data import TS_TIMESTAMP_COL, concat
+from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
+from flaml.automl.spark import pd, ps, psDataFrame, psSeries
 from flaml.automl.spark.utils import (
     iloc_pandas_on_spark,
+    len_labels,
+    set_option,
     spark_kFold,
     train_test_split_pyspark,
     unique_pandas_on_spark,
     unique_value_first_index,
-    len_labels,
-    set_option,
 )
+from flaml.automl.task.task import (
+    TS_FORECAST,
+    TS_FORECASTPANEL,
+    Task,
+    get_classification_objective,
+)
+from flaml.config import RANDOM_SEED
 
 try:
     from scipy.sparse import issparse
 except ImportError:
     pass
 try:
-    from sklearn.utils import shuffle
     from sklearn.model_selection import (
-        train_test_split,
-        RepeatedStratifiedKFold,
-        RepeatedKFold,
         GroupKFold,
-        TimeSeriesSplit,
         GroupShuffleSplit,
+        RepeatedKFold,
+        RepeatedStratifiedKFold,
         StratifiedGroupKFold,
+        TimeSeriesSplit,
+        train_test_split,
     )
+    from sklearn.utils import shuffle
 except ImportError:
     pass
 
@@ -49,19 +50,20 @@ class GenericTask(Task):
     def estimators(self):
         if self._estimators is None:
             # put this into a function to avoid circular dependency
+            from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
             from flaml.automl.model import (
-                XGBoostSklearnEstimator,
-                XGBoostLimitDepthEstimator,
-                RandomForestEstimator,
-                LGBMEstimator,
-                LRL1Classifier,
-                LRL2Classifier,
                 CatBoostEstimator,
                 ExtraTreesEstimator,
                 KNeighborsEstimator,
+                LGBMEstimator,
+                LRL1Classifier,
+                LRL2Classifier,
+                RandomForestEstimator,
+                SparkLGBMEstimator,
                 TransformersEstimator,
                 TransformersEstimatorModelSelection,
-                SparkLGBMEstimator,
+                XGBoostLimitDepthEstimator,
+                XGBoostSklearnEstimator,
             )
 
             self._estimators = {
@@ -77,6 +79,7 @@ class GenericTask(Task):
                 "kneighbor": KNeighborsEstimator,
                 "transformer": TransformersEstimator,
                 "transformer_ms": TransformersEstimatorModelSelection,
+                "histgb": HistGradientBoostingEstimator,
             }
         return self._estimators
 

@@ -1,13 +1,14 @@
 import unittest
+from datetime import datetime
+
 import numpy as np
+import pandas as pd
 import scipy.sparse
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
-import pandas as pd
-from datetime import datetime
-from flaml import AutoML
+
+from flaml import AutoML, tune
 from flaml.automl.model import LGBMEstimator
-from flaml import tune
 
 
 class MyLargeLGBM(LGBMEstimator):
@@ -190,6 +191,22 @@ class TestClassification(unittest.TestCase):
             # "verbose": 4,
             "ensemble": True,
             "skip_transform": True,
+        }
+        automl.fit(X, y, **automl_settings)
+        del automl
+
+        automl = AutoML()
+        automl_settings = {
+            "time_budget": 3,
+            "task": "classification",
+            "n_jobs": 1,
+            "estimator_list": ["histgb"],
+            "eval_method": "cv",
+            "n_splits": 3,
+            "metric": "accuracy",
+            "log_training_metric": True,
+            # "verbose": 4,
+            "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
         del automl
