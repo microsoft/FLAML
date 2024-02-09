@@ -13,6 +13,8 @@ on:
       - 'notebook/autogen_chatgpt_gpt4.ipynb'
       - '.github/workflows/openai.yml'
 
+permissions: {}
+
 jobs:
   test:
     strategy:
