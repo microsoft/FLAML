@@ -30,7 +30,7 @@ else:
                     f"com.microsoft.azure:synapseml_2.12:0.11.3{postfix_version}"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
-                    f"org.mlflow:mlflow-spark:{mlflow.__version__}"
+                    f"org.mlflow:mlflow-spark:2.6.0"
                 ),
             )
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
