@@ -1,6 +1,7 @@
 import argparse
-import lightgbm as lgb
 import os
+
+import lightgbm as lgb
 import pandas as pd
 from azureml.core import Run
 

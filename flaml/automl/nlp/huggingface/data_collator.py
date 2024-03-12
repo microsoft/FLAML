@@ -1,17 +1,18 @@
-from dataclasses import dataclass
-from transformers.data.data_collator import (
-    DataCollatorWithPadding,
-    DataCollatorForTokenClassification,
-    DataCollatorForSeq2Seq,
-)
 from collections import OrderedDict
+from dataclasses import dataclass
+
+from transformers.data.data_collator import (
+    DataCollatorForSeq2Seq,
+    DataCollatorForTokenClassification,
+    DataCollatorWithPadding,
+)
 
 from flaml.automl.task.task import (
-    TOKENCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
-    SUMMARIZATION,
     SEQCLASSIFICATION,
     SEQREGRESSION,
+    SUMMARIZATION,
+    TOKENCLASSIFICATION,
 )
 
 
@@ -19,6 +20,7 @@ from flaml.automl.task.task import (
 class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
     def __call__(self, features):
         from itertools import chain
+
         import torch
 
         label_name = "label" if "label" in features[0].keys() else "labels"

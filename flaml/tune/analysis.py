@@ -15,10 +15,12 @@
 # This source file is adapted here because ray does not fully support Windows.
 
 # Copyright (c) Microsoft Corporation.
-from typing import Dict, Optional
-import numpy as np
-from .trial import Trial
 import logging
+from typing import Dict, Optional
+
+import numpy as np
+
+from .trial import Trial
 
 logger = logging.getLogger(__name__)
 

@@ -1,15 +1,18 @@
-import sys
 import pickle
-from sklearn.datasets import load_iris, fetch_california_housing, load_breast_cancer
-from sklearn.model_selection import train_test_split
+import sys
+
 import pandas as pd
+from sklearn.datasets import fetch_california_housing, load_breast_cancer, load_iris
+from sklearn.model_selection import train_test_split
+
 from flaml import AutoML
 from flaml.default import (
+    portfolio,
     preprocess_and_suggest_hyperparams,
+    regret,
     suggest_hyperparams,
     suggest_learner,
 )
-from flaml.default import portfolio, regret
 
 
 def test_greedy_feedback(path="test/default", strategy="greedy-feedback"):
@@ -124,7 +127,7 @@ def test_suggest_regression():
 
 
 def test_rf():
-    from flaml.default import RandomForestRegressor, RandomForestClassifier
+    from flaml.default import RandomForestClassifier, RandomForestRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     rf = RandomForestClassifier()
@@ -142,7 +145,7 @@ def test_rf():
 
 
 def test_extratrees():
-    from flaml.default import ExtraTreesRegressor, ExtraTreesClassifier
+    from flaml.default import ExtraTreesClassifier, ExtraTreesRegressor
 
     X_train, y_train = load_iris(return_X_y=True, as_frame=True)
     classifier = ExtraTreesClassifier()
@@ -160,7 +163,7 @@ def test_extratrees():
 
 
 def test_lgbm():
-    from flaml.default import LGBMRegressor, LGBMClassifier
+    from flaml.default import LGBMClassifier, LGBMRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     classifier = LGBMClassifier(n_jobs=1)
@@ -180,7 +183,7 @@ def test_lgbm():
 
 
 def test_xgboost():
-    from flaml.default import XGBRegressor, XGBClassifier
+    from flaml.default import XGBClassifier, XGBRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     classifier = XGBClassifier(max_depth=0)

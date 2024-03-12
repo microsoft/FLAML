@@ -1,10 +1,10 @@
 """Require: pip install torchvision ray flaml[blendsearch]
 """
+import logging
 import os
 import time
-import numpy as np
 
-import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 os.makedirs("logs", exist_ok=True)
@@ -17,9 +17,9 @@ try:
     import torch.nn as nn
     import torch.nn.functional as F
     import torch.optim as optim
-    from torch.utils.data import random_split
     import torchvision
     import torchvision.transforms as transforms
+    from torch.utils.data import random_split
 
     # __net_begin__
     class Net(nn.Module):
@@ -42,6 +42,7 @@ try:
             return x
 
     # __net_end__
+
 except ImportError:
     print("skip test_pytorch because torchvision cannot be imported.")
 
@@ -251,8 +252,8 @@ def cifar10_main(method="BlendSearch", num_samples=10, max_num_epochs=100, gpus_
                 }
             )
         elif "Nevergrad" == method:
-            from ray.tune.suggest.nevergrad import NevergradSearch
             import nevergrad as ng
+            from ray.tune.suggest.nevergrad import NevergradSearch
 
             algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
         if method != "BOHB":

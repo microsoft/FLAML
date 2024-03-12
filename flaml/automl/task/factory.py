@@ -1,8 +1,9 @@
 from typing import Optional, Union
+
 import numpy as np
 
 from flaml.automl.data import DataFrame, Series
-from flaml.automl.task.task import Task, TS_FORECAST
+from flaml.automl.task.task import TS_FORECAST, Task
 
 
 def task_factory(

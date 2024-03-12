@@ -1,13 +1,14 @@
-from utils import (
-    get_toy_data_regression,
-    get_toy_data_binclassification,
-    get_toy_data_multiclassclassification,
-    get_automl_settings,
-)
-import sys
-import pytest
 import os
 import shutil
+import sys
+
+import pytest
+from utils import (
+    get_automl_settings,
+    get_toy_data_binclassification,
+    get_toy_data_multiclassclassification,
+    get_toy_data_regression,
+)
 
 data_list = [
     "get_toy_data_regression",
@@ -67,8 +68,9 @@ def test_switch_3_3():
 
 
 def _test_switch_classificationhead(each_data, each_model_path):
-    from flaml import AutoML
     import requests
+
+    from flaml import AutoML
 
     automl = AutoML()
 

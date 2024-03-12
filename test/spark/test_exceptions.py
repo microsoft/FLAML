@@ -1,8 +1,10 @@
-from flaml.automl.data import load_openml_dataset
-from flaml import AutoML
-from flaml.tune.spark.utils import check_spark
 import os
+
 import pytest
+
+from flaml import AutoML
+from flaml.automl.data import load_openml_dataset
+from flaml.tune.spark.utils import check_spark
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
@@ -55,6 +57,7 @@ def test_verboses():
 
 def test_import_error():
     from importlib import reload
+
     import flaml.tune.spark.utils as utils
 
     reload(utils)

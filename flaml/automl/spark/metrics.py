@@ -1,13 +1,15 @@
-import numpy as np
 from typing import Union
-from flaml.automl.spark import psSeries, F
+
+import numpy as np
 from pyspark.ml.evaluation import (
     BinaryClassificationEvaluator,
-    RegressionEvaluator,
     MulticlassClassificationEvaluator,
     MultilabelClassificationEvaluator,
     RankingEvaluator,
+    RegressionEvaluator,
 )
+
+from flaml.automl.spark import F, psSeries
 
 
 def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:

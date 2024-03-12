@@ -5,7 +5,6 @@ import threading
 import time
 from functools import lru_cache, partial
 
-
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
@@ -13,10 +12,10 @@ logger_formatter = logging.Formatter(
 logger.propagate = False
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
+    import py4j
     import pyspark
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
-    import py4j
 except ImportError:
     _have_spark = False
     py4j = None

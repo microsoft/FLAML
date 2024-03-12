@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 
 from flaml import AutoML
-
 from flaml.automl.task.time_series_task import TimeSeriesTask
 
 
@@ -153,6 +152,7 @@ def test_numpy():
 def test_numpy_large():
     import numpy as np
     import pandas as pd
+
     from flaml import AutoML
 
     X_train = pd.date_range("2017-01-01", periods=70000, freq="T")

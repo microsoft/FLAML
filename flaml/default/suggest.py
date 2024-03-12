@@ -1,11 +1,13 @@
-import numpy as np
+import json
 import logging
 import pathlib
-import json
+
+import numpy as np
+
 from flaml.automl.data import DataTransformer
-from flaml.automl.task.task import CLASSIFICATION, get_classification_objective
-from flaml.automl.task.generic_task import len_labels
 from flaml.automl.task.factory import task_factory
+from flaml.automl.task.generic_task import len_labels
+from flaml.automl.task.task import CLASSIFICATION, get_classification_objective
 from flaml.version import __version__
 
 try:

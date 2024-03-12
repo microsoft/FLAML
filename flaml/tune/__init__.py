@@ -3,16 +3,16 @@ try:
 
     assert ray_version >= "1.10.0"
     from ray.tune import (
-        uniform,
+        lograndint,
+        loguniform,
+        qlograndint,
+        qloguniform,
+        qrandint,
+        qrandn,
         quniform,
         randint,
-        qrandint,
         randn,
-        qrandn,
-        loguniform,
-        qloguniform,
-        lograndint,
-        qlograndint,
+        uniform,
     )
 
     if ray_version.startswith("1."):
@@ -20,21 +20,20 @@ try:
     else:
         from ray.tune.search import sample
 except (ImportError, AssertionError):
+    from . import sample
     from .sample import (
-        uniform,
+        lograndint,
+        loguniform,
+        qlograndint,
+        qloguniform,
+        qrandint,
+        qrandn,
         quniform,
         randint,
-        qrandint,
         randn,
-        qrandn,
-        loguniform,
-        qloguniform,
-        lograndint,
-        qlograndint,
+        uniform,
     )
-    from . import sample
-from .tune import run, report, INCUMBENT_RESULT
-from .sample import polynomial_expansion_set
-from .sample import PolynomialExpansionSet, Categorical, Float
+from .sample import Categorical, Float, PolynomialExpansionSet, polynomial_expansion_set
 from .trial import Trial
+from .tune import INCUMBENT_RESULT, report, run
 from .utils import choice

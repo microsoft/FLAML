@@ -1,5 +1,6 @@
-import setuptools
 import os
+
+import setuptools
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -14,7 +15,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.17.0rc1",
+    "NumPy>=1.17",
 ]
 
 

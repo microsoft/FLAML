@@ -1,5 +1,6 @@
-from .conversable_agent import ConversableAgent
 from typing import Callable, Dict, Optional, Union
+
+from .conversable_agent import ConversableAgent
 
 
 class AssistantAgent(ConversableAgent):

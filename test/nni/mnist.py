@@ -8,9 +8,10 @@ This file is a modification of the official pytorch mnist example:
 https://github.com/pytorch/examples/blob/master/mnist/main.py
 """
 
-import os
 import argparse
 import logging
+import os
+
 import nni
 import torch
 import torch.nn as nn
@@ -111,7 +112,7 @@ def main(args):
         ),
         batch_size=args["batch_size"],
         shuffle=True,
-        **kwargs
+        **kwargs,
     )
     test_loader = torch.utils.data.DataLoader(
         datasets.MNIST(
@@ -121,7 +122,7 @@ def main(args):
         ),
         batch_size=1000,
         shuffle=True,
-        **kwargs
+        **kwargs,
     )
 
     hidden_size = args["hidden_size"]

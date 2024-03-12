@@ -2,30 +2,30 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-import time
-from typing import Union, Callable, TypeVar, Optional, Tuple
 import logging
+import time
+from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
-
 from flaml.automl.data import group_counts
-from flaml.automl.task.task import Task
 from flaml.automl.model import BaseEstimator, TransformersEstimator
-from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR, Series, DataFrame
+from flaml.automl.spark import ERROR as SPARK_ERROR
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.task.task import Task
 
 try:
     from sklearn.metrics import (
-        mean_squared_error,
-        r2_score,
-        roc_auc_score,
         accuracy_score,
-        mean_absolute_error,
-        log_loss,
         average_precision_score,
         f1_score,
+        log_loss,
+        mean_absolute_error,
         mean_absolute_percentage_error,
+        mean_squared_error,
         ndcg_score,
+        r2_score,
+        roc_auc_score,
     )
 except ImportError:
     pass
@@ -323,7 +323,7 @@ def compute_estimator(
     estimator_name: str,
     eval_method: str,
     eval_metric: Union[str, Callable],
-    best_val_loss=np.Inf,
+    best_val_loss=np.inf,
     n_jobs: Optional[int] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
     estimator_class: Optional[EstimatorSubclass] = None,
     cv_score_agg_func: Optional[callable] = None,

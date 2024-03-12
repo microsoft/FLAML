@@ -15,10 +15,10 @@
 # This source file is adapted here because ray does not fully support Windows.
 
 # Copyright (c) Microsoft Corporation.
-import uuid
 import time
-from numbers import Number
+import uuid
 from collections import deque
+from numbers import Number
 
 
 def flatten_dict(dt, delimiter="/", prevent_delimiter=False):

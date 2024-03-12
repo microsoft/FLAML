@@ -1,10 +1,12 @@
-from urllib.error import URLError
-from sklearn.datasets import fetch_openml
-from sklearn.model_selection import train_test_split
-from sklearn.externals._arff import ArffException
 from functools import partial
-from flaml.automl import AutoML, size
+from urllib.error import URLError
+
+from sklearn.datasets import fetch_openml
+from sklearn.externals._arff import ArffException
+from sklearn.model_selection import train_test_split
+
 from flaml import tune
+from flaml.automl import AutoML, size
 
 dataset = "credit-g"
 
@@ -71,8 +73,9 @@ def custom_metric(
     weight_train,
     *args,
 ):
-    from sklearn.metrics import log_loss
     import time
+
+    from sklearn.metrics import log_loss
 
     start = time.time()
     y_pred = estimator.predict_proba(X_val)

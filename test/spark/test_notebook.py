@@ -1,9 +1,10 @@
-import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor
-from nbconvert.preprocessors import CellExecutionError
-from flaml.tune.spark.utils import check_spark
 import os
+
+import nbformat
 import pytest
+from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
+
+from flaml.tune.spark.utils import check_spark
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
