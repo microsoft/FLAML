@@ -489,7 +489,7 @@ def complete_config(
             elif domain.bounded:
                 up, low, gauss_std = 1, 0, 1.0
             else:
-                up, low, gauss_std = np.Inf, -np.Inf, 1.0
+                up, low, gauss_std = np.inf, -np.inf, 1.0
             if domain.bounded:
                 if isinstance(up, list):
                     up[-1] = min(up[-1], 1)
