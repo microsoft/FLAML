@@ -14,7 +14,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.17.0rc1",
+    "NumPy>=1.17",
 ]
 
 
@@ -47,7 +47,6 @@ setuptools.setup(
         "spark": [
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "test": [
             "lightgbm>=2.3.1",
@@ -88,7 +87,6 @@ setuptools.setup(
             "pydantic==1.10.9",
             "sympy",
             "wolframalpha",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": [
@@ -153,7 +151,6 @@ setuptools.setup(
             "joblibspark>=0.5.0",
             "optuna==2.8.0",
             "pyspark>=3.2.0",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
     },
