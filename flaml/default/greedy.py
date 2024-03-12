@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import RobustScaler
 
 
 def _augment(row):

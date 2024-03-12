@@ -1,12 +1,14 @@
 import sys
+
+from minio.error import ServerError
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
-from minio.error import ServerError
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
-    from flaml.automl.data import load_openml_dataset
     import urllib3
+
+    from flaml.automl.data import load_openml_dataset
 
     performance_check_budget = 600
     if (
@@ -118,6 +120,7 @@ def _test_nobudget():
 def test_mlflow():
     # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
+
     from flaml.automl.data import load_openml_task
 
     try:
@@ -159,8 +162,9 @@ def test_mlflow():
 
 
 def test_mlflow_iris():
-    from sklearn.datasets import load_iris
     import mlflow
+    from sklearn.datasets import load_iris
+
     from flaml import AutoML
 
     with mlflow.start_run():

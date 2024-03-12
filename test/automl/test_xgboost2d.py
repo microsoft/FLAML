@@ -2,10 +2,10 @@ import unittest
 
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
+
+from flaml import tune
 from flaml.automl import AutoML
 from flaml.automl.model import XGBoostSklearnEstimator
-from flaml import tune
-
 
 dataset = "credit-g"
 
@@ -59,9 +59,10 @@ def test_simple(method=None):
     config = automl.best_config.copy()
     config["learner"] = automl.best_estimator
     automl.trainable(config)
+    from functools import partial
+
     from flaml import tune
     from flaml.automl import size
-    from functools import partial
 
     analysis = tune.run(
         automl.trainable,

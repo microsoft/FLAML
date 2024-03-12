@@ -1,6 +1,6 @@
-from .trial_scheduler import TrialScheduler
 from .online_scheduler import (
+    ChaChaScheduler,
     OnlineScheduler,
     OnlineSuccessiveDoublingScheduler,
-    ChaChaScheduler,
 )
+from .trial_scheduler import TrialScheduler

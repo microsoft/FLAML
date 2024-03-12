@@ -1,6 +1,7 @@
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 from flaml.autogen.agentchat.agent import Agent
 from flaml.autogen.agentchat.assistant_agent import AssistantAgent
-from typing import Callable, Dict, Optional, Union, List, Tuple, Any
 
 
 class RetrieveAssistantAgent(AssistantAgent):

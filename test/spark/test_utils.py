@@ -1,32 +1,34 @@
-import numpy as np
-import pandas as pd
+import os
 from functools import partial
 from timeit import timeit
+
+import numpy as np
+import pandas as pd
 import pytest
-import os
 
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    from pyspark.sql import SparkSession
     import pyspark
     import pyspark.pandas as ps
-    from flaml.tune.spark.utils import (
-        with_parameters,
-        check_spark,
-        get_n_cpus,
-        get_broadcast_data,
-    )
+    from pyspark.ml.linalg import Vectors
+    from pyspark.sql import SparkSession
+
+    from flaml.automl.ml import sklearn_metric_loss_score
+    from flaml.automl.spark.metrics import spark_metric_loss_score
     from flaml.automl.spark.utils import (
+        iloc_pandas_on_spark,
+        len_labels,
         to_pandas_on_spark,
         train_test_split_pyspark,
         unique_pandas_on_spark,
-        len_labels,
         unique_value_first_index,
-        iloc_pandas_on_spark,
     )
-    from flaml.automl.spark.metrics import spark_metric_loss_score
-    from flaml.automl.ml import sklearn_metric_loss_score
-    from pyspark.ml.linalg import Vectors
+    from flaml.tune.spark.utils import (
+        check_spark,
+        get_broadcast_data,
+        get_n_cpus,
+        with_parameters,
+    )
 
     spark_available, _ = check_spark()
     skip_spark = not spark_available
@@ -69,8 +71,8 @@ def test_get_n_cpus_spark():
 
 
 def test_broadcast_code():
-    from flaml.tune.spark.utils import broadcast_code
     from flaml.automl.model import LGBMEstimator
+    from flaml.tune.spark.utils import broadcast_code
 
     custom_code = """
     from flaml.automl.model import LGBMEstimator

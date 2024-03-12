@@ -1,8 +1,8 @@
-import time
 import logging
-import os
-from datetime import datetime
 import math
+import os
+import time
+from datetime import datetime
 from typing import List, Optional, Union
 
 try:
@@ -22,26 +22,26 @@ except ImportError:
 import numpy as np
 
 from flaml import tune
-from flaml.automl.model import (
-    suppress_stdout_stderr,
-    SKLearnEstimator,
-    logger,
-    LGBMEstimator,
-    XGBoostSklearnEstimator,
-    RandomForestEstimator,
-    ExtraTreesEstimator,
-    XGBoostLimitDepthEstimator,
-    CatBoostEstimator,
-)
 from flaml.automl.data import TS_TIMESTAMP_COL, TS_VALUE_COL
-from flaml.automl.time_series.ts_data import (
-    TimeSeriesDataset,
-    enrich_dataset,
-    enrich_dataframe,
-    normalize_ts_data,
-    create_forward_frame,
+from flaml.automl.model import (
+    CatBoostEstimator,
+    ExtraTreesEstimator,
+    LGBMEstimator,
+    RandomForestEstimator,
+    SKLearnEstimator,
+    XGBoostLimitDepthEstimator,
+    XGBoostSklearnEstimator,
+    logger,
+    suppress_stdout_stderr,
 )
 from flaml.automl.task import Task
+from flaml.automl.time_series.ts_data import (
+    TimeSeriesDataset,
+    create_forward_frame,
+    enrich_dataframe,
+    enrich_dataset,
+    normalize_ts_data,
+)
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
@@ -143,6 +143,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
+
         from ..ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)

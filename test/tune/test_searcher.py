@@ -1,4 +1,5 @@
 from time import sleep
+
 import numpy as np
 
 try:
@@ -32,13 +33,13 @@ def wrong_define_search_space(trial):
 
 
 def test_searchers():
+    from flaml.tune import sample as flamlsample
+    from flaml.tune.searcher.blendsearch import CFO, BlendSearch, RandomSearch
     from flaml.tune.searcher.suggestion import (
+        ConcurrencyLimiter,
         OptunaSearch,
         Searcher,
-        ConcurrencyLimiter,
     )
-    from flaml.tune.searcher.blendsearch import BlendSearch, CFO, RandomSearch
-    from flaml.tune import sample as flamlsample
 
     searcher = Searcher()
     try:

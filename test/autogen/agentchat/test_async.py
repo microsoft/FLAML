@@ -1,6 +1,8 @@
 import asyncio
-from flaml import autogen
+
 from test_assistant_agent import KEY_LOC, OAI_CONFIG_LIST
+
+from flaml import autogen
 
 
 def get_market_news(ind, ind_upper):

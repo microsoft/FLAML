@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 import scipy.sparse
 from sklearn.datasets import (

@@ -2,10 +2,11 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from typing import Dict, Optional, List, Tuple, Callable, Union
-import numpy as np
-import time
 import pickle
+import time
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 try:
     from ray import __version__ as ray_version
@@ -18,16 +19,16 @@ try:
         from ray.tune.search import Searcher
         from ray.tune.search.optuna import OptunaSearch as GlobalSearch
 except (ImportError, AssertionError):
-    from .suggestion import Searcher
     from .suggestion import OptunaSearch as GlobalSearch
-from ..trial import unflatten_dict, flatten_dict
-from .. import INCUMBENT_RESULT
-from .search_thread import SearchThread
-from .flow2 import FLOW2
-from ..space import add_cost_to_space, indexof, normalize, define_by_run_func
-from ..result import TIME_TOTAL_S
-
+    from .suggestion import Searcher
 import logging
+
+from .. import INCUMBENT_RESULT
+from ..result import TIME_TOTAL_S
+from ..space import add_cost_to_space, define_by_run_func, indexof, normalize
+from ..trial import flatten_dict, unflatten_dict
+from .flow2 import FLOW2
+from .search_thread import SearchThread
 
 SEARCH_THREAD_EPS = 1.0
 PENALTY = 1e10  # penalty term for constraints
@@ -931,27 +932,27 @@ try:
 
     assert ray_version >= "1.10.0"
     from ray.tune import (
-        uniform,
-        quniform,
         choice,
-        randint,
-        qrandint,
-        randn,
-        qrandn,
         loguniform,
         qloguniform,
+        qrandint,
+        qrandn,
+        quniform,
+        randint,
+        randn,
+        uniform,
     )
 except (ImportError, AssertionError):
     from ..sample import (
-        uniform,
-        quniform,
         choice,
-        randint,
-        qrandint,
-        randn,
-        qrandn,
         loguniform,
         qloguniform,
+        qrandint,
+        qrandn,
+        quniform,
+        randint,
+        randn,
+        uniform,
     )
 
 try:
@@ -978,7 +979,7 @@ class BlendSearchTuner(BlendSearch, NNITuner):
         result = {
             "config": parameters,
             self._metric: extract_scalar_reward(value),
-            self.cost_attr: 1 if isinstance(value, float) else value.get(self.cost_attr, value.get("sequence", 1))
+            self.cost_attr: 1 if isinstance(value, float) else value.get(self.cost_attr, value.get("sequence", 1)),
             # if nni does not report training cost,
             # using sequence as an approximation.
             # if no sequence, using a constant 1

@@ -1,15 +1,17 @@
-import sys
-import pytest
 import pickle
 import shutil
+import sys
+
+import pytest
 
 
 def test_xgboost():
-    from flaml import AutoML
-    from sklearn.datasets import make_moons
-    import scipy.sparse
     import numpy as np
+    import scipy.sparse
+    from sklearn.datasets import make_moons
     from xgboost.core import XGBoostError
+
+    from flaml import AutoML
 
     try:
         X_train = scipy.sparse.eye(900000)
@@ -45,9 +47,10 @@ def test_xgboost():
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def _test_hf_data():
-    from flaml import AutoML
     import requests
     from datasets import load_dataset
+
+    from flaml import AutoML
 
     try:
         train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()

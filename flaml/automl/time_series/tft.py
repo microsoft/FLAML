@@ -105,6 +105,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         import warnings
+
         import pytorch_lightning as pl
         import torch
         from pytorch_forecasting import TemporalFusionTransformer

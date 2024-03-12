@@ -1,9 +1,11 @@
+import os
+
 import numpy as np
+import pytest
 import scipy.sparse
+
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
-import os
-import pytest
 
 # For spark, we need to put customized learner in a separate file
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "mylearner.py")):

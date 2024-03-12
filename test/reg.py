@@ -1,5 +1,6 @@
-from flaml import AutoML
 from sklearn.datasets import fetch_california_housing
+
+from flaml import AutoML
 
 # Initialize an AutoML instance
 automl = AutoML()

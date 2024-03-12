@@ -2,11 +2,13 @@ try:
     import openai
 except ImportError:
     openai = None
-import pytest
 import json
+
+import pytest
+from test_code import KEY_LOC
+
 from flaml import autogen
 from flaml.autogen.math_utils import eval_math_responses
-from test_code import KEY_LOC
 
 
 @pytest.mark.skipif(openai is None, reason="openai not installed")

@@ -1,11 +1,12 @@
-import chromadb
-from flaml.autogen.agentchat.agent import Agent
-from flaml.autogen.agentchat import UserProxyAgent
-from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db, num_tokens_from_text
-from flaml.autogen.code_utils import extract_code
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from typing import Callable, Dict, Optional, Union, List, Tuple, Any
+import chromadb
 from IPython import get_ipython
+
+from flaml.autogen.agentchat import UserProxyAgent
+from flaml.autogen.agentchat.agent import Agent
+from flaml.autogen.code_utils import extract_code
+from flaml.autogen.retrieve_utils import create_vector_db_from_dir, num_tokens_from_text, query_vector_db
 
 try:
     from termcolor import colored

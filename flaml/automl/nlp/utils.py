@@ -1,11 +1,12 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 import numpy as np
 
 from flaml.automl.task.task import (
-    SUMMARIZATION,
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
     MULTICHOICECLASSIFICATION,
+    SEQCLASSIFICATION,
+    SEQREGRESSION,
+    SUMMARIZATION,
     TOKENCLASSIFICATION,
 )
 
