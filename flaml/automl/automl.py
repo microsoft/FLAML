@@ -2647,7 +2647,7 @@ class AutoML(BaseEstimator):
             if self._estimator_index == len(estimator_list):
                 self._estimator_index = 0
             return estimator_list[self._estimator_index]
-        min_estimated_cost, selected = np.Inf, None
+        min_estimated_cost, selected = np.inf, None
         inv = []
         untried_exists = False
         for i, estimator in enumerate(estimator_list):

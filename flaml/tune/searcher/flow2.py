@@ -135,7 +135,7 @@ class FLOW2(Searcher):
         self.max_resource = max_resource
         self._resource = None
         self._f_best = None  # only use for lexico_comapre. It represent the best value achieved by lexico_flow.
-        self._step_lb = np.Inf
+        self._step_lb = np.inf
         self._histories = None  # only use for lexico_comapre. It records the result of historical configurations.
         if space is not None:
             self._init_search()

@@ -323,7 +323,7 @@ def compute_estimator(
     estimator_name: str,
     eval_method: str,
     eval_metric: Union[str, Callable],
-    best_val_loss=np.Inf,
+    best_val_loss=np.inf,
     n_jobs: Optional[int] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
     estimator_class: Optional[EstimatorSubclass] = None,
     cv_score_agg_func: Optional[callable] = None,
