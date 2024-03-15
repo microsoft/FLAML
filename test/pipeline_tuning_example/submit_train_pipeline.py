@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from pathlib import Path
+
 import azureml.core
-from azureml.core import Workspace, Dataset, Run
+import hydra
 from azure.ml.component import (
     Component,
     dsl,
 )
-import hydra
+from azureml.core import Dataset, Run, Workspace
 from hydra.core.config_store import ConfigStore
 from hydra.utils import to_absolute_path
 

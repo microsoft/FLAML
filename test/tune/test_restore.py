@@ -2,10 +2,11 @@ import os
 import shutil
 import tempfile
 import unittest
+
 import numpy as np
+
+from flaml import CFO, tune
 from flaml.tune.searcher.suggestion import ConcurrencyLimiter
-from flaml import tune
-from flaml import CFO
 
 
 class AbstractWarmStartTest:

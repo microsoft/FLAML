@@ -1,8 +1,8 @@
 from sklearn.datasets import fetch_openml
-from flaml.automl import AutoML
-from sklearn.model_selection import GroupKFold, train_test_split, KFold
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GroupKFold, KFold, train_test_split
 
+from flaml.automl import AutoML
 
 dataset = "credit-g"
 
@@ -89,8 +89,9 @@ def test_groups():
 
 
 def test_stratified_groupkfold():
-    from sklearn.model_selection import StratifiedGroupKFold
     from minio.error import ServerError
+    from sklearn.model_selection import StratifiedGroupKFold
+
     from flaml.automl.data import load_openml_dataset
 
     try:

@@ -1,14 +1,16 @@
 """Require: pip install flaml[test,ray]
 """
-from flaml import BlendSearch, CFO
-import time
-import os
-from sklearn.model_selection import train_test_split
-import sklearn.metrics
-import sklearn.datasets
-import xgboost as xgb
 import logging
 import math
+import os
+import time
+
+import sklearn.datasets
+import sklearn.metrics
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+
+from flaml import CFO, BlendSearch
 
 try:
     from ray.tune.integration.xgboost import TuneReportCheckpointCallback
@@ -189,8 +191,8 @@ def _test_xgboost(method="BlendSearch"):
 
                     algo = SkOptSearch()
                 elif "Nevergrad" == method:
-                    from ray.tune.suggest.nevergrad import NevergradSearch
                     import nevergrad as ng
+                    from ray.tune.suggest.nevergrad import NevergradSearch
 
                     algo = NevergradSearch(optimizer=ng.optimizers.OnePlusOne)
                 elif "ZOOpt" == method:
@@ -240,7 +242,7 @@ def _test_xgboost(method="BlendSearch"):
 
 
 def test_nested_space():
-    from flaml import tune, CFO
+    from flaml import CFO, tune
 
     search_space = {
         # test nested search space

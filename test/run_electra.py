@@ -1,4 +1,4 @@
-from azureml.core import Workspace, Experiment, ScriptRunConfig
+from azureml.core import Experiment, ScriptRunConfig, Workspace
 
 ws = Workspace.from_config()
 

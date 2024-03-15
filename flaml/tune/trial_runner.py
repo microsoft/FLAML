@@ -2,6 +2,7 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import logging
 from typing import Optional
 
 # try:
@@ -10,7 +11,6 @@ from typing import Optional
 #     from ray.tune.trial import Trial
 # except (ImportError, AssertionError):
 from .trial import Trial
-import logging
 
 logger = logging.getLogger(__name__)
 

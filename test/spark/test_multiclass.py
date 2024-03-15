@@ -1,12 +1,14 @@
+import os
 import unittest
+
 import numpy as np
 import scipy.sparse
 from sklearn.datasets import load_iris, load_wine
+
 from flaml import AutoML
 from flaml.automl.data import get_output_from_log
 from flaml.automl.training_log import training_log_reader
 from flaml.tune.spark.utils import check_spark
-import os
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
@@ -17,11 +19,12 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.py")):
     try:
         from test.spark.custom_mylearner import *
+
         from flaml.tune.spark.mylearner import (
-            MyRegularizedGreedyForest,
-            custom_metric,
             MyLargeLGBM,
             MyLargeXGB,
+            MyRegularizedGreedyForest,
+            custom_metric,
         )
 
         skip_my_learner = False
@@ -170,10 +173,10 @@ class TestMultiClass(unittest.TestCase):
         estimator = automl_experiment_macro.model
         y_pred = estimator.predict(X_train)
         y_pred_proba = estimator.predict_proba(X_train)
-        from flaml.automl.ml import norm_confusion_matrix, multi_class_curves
+        from flaml.automl.ml import multi_class_curves, norm_confusion_matrix
 
         print(norm_confusion_matrix(y_train, y_pred))
-        from sklearn.metrics import roc_curve, precision_recall_curve
+        from sklearn.metrics import precision_recall_curve, roc_curve
 
         print(multi_class_curves(y_train, y_pred_proba, roc_curve))
         print(multi_class_curves(y_train, y_pred_proba, precision_recall_curve))

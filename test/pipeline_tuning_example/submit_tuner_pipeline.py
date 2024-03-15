@@ -1,11 +1,12 @@
+import argparse
 import logging
-from azureml.core import Workspace
+from pathlib import Path
+
 from azure.ml.component import (
     Component,
     dsl,
 )
-import argparse
-from pathlib import Path
+from azureml.core import Workspace
 
 LOCAL_DIR = Path(__file__).parent.absolute()
 

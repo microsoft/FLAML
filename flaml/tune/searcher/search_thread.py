@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 from typing import Dict, Optional
+
 import numpy as np
 
 try:
@@ -15,10 +16,11 @@ try:
         from ray.tune.search import Searcher
 except (ImportError, AssertionError):
     from .suggestion import Searcher
-from .flow2 import FLOW2
-from ..space import add_cost_to_space, unflatten_hierarchical
-from ..result import TIME_TOTAL_S
 import logging
+
+from ..result import TIME_TOTAL_S
+from ..space import add_cost_to_space, unflatten_hierarchical
+from .flow2 import FLOW2
 
 logger = logging.getLogger(__name__)
 

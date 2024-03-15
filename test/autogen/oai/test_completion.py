@@ -1,16 +1,18 @@
-import datasets
+import json
+import os
 import sys
+from functools import partial
+
+import datasets
 import numpy as np
 import pytest
-from functools import partial
-import os
-import json
+
 from flaml import autogen
 from flaml.autogen.code_utils import (
     eval_function_completions,
     generate_assertions,
-    implement,
     generate_code,
+    implement,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
@@ -117,8 +119,8 @@ def test_multi_model():
 
 def test_nocontext():
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return
@@ -206,8 +208,8 @@ def test_humaneval(num_samples=1):
     autogen.Completion.clear_cache(cache_path_root="{here}/cache")
     autogen.Completion.set_cache(seed)
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return
@@ -325,8 +327,8 @@ def test_humaneval(num_samples=1):
 
 def test_math(num_samples=-1):
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return

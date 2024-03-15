@@ -1,9 +1,10 @@
-import sys
-import pytest
-import requests
-from utils import get_toy_data_seqclassification, get_automl_settings
 import os
 import shutil
+import sys
+
+import pytest
+import requests
+from utils import get_automl_settings, get_toy_data_seqclassification
 
 
 @pytest.mark.skipif(

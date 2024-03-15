@@ -1,9 +1,11 @@
-from utils import get_toy_data_seqclassification, get_automl_settings
-import sys
-from flaml.default import portfolio
 import os
 import shutil
+import sys
+
 import pytest
+from utils import get_automl_settings, get_toy_data_seqclassification
+
+from flaml.default import portfolio
 
 
 def pop_args(fit_kwargs):

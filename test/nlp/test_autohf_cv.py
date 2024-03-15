@@ -1,14 +1,16 @@
-import sys
-import pytest
-from utils import get_toy_data_seqclassification, get_automl_settings
 import os
 import shutil
+import sys
+
+import pytest
+from utils import get_automl_settings, get_toy_data_seqclassification
 
 
 @pytest.mark.skipif(sys.platform in ["darwin", "win32"], reason="do not run on mac os or windows")
 def test_cv():
-    from flaml import AutoML
     import requests
+
+    from flaml import AutoML
 
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
     automl = AutoML()

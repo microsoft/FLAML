@@ -14,8 +14,9 @@ except ImportError:
 
 try:
     import pyspark
-    from flaml.tune.spark.utils import check_spark
+
     from flaml.tune.spark.mylearner import lazy_metric
+    from flaml.tune.spark.utils import check_spark
 
     os.environ["FLAML_MAX_CONCURRENT"] = "10"
     spark = pyspark.sql.SparkSession.builder.appName("App4OvertimeTest").getOrCreate()

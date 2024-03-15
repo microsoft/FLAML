@@ -2,13 +2,14 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from typing import Optional, Union, List, Callable, Tuple, Dict
-import numpy as np
 import datetime
-import time
 import os
 import sys
+import time
 from collections import defaultdict
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 try:
     from ray import __version__ as ray_version
@@ -21,10 +22,12 @@ except (ImportError, AssertionError):
 else:
     ray_available = True
 
-from .trial import Trial
-from .result import DEFAULT_METRIC
 import logging
+
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
+
+from .result import DEFAULT_METRIC
+from .trial import Trial
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -92,10 +95,12 @@ class ExperimentAnalysis(EA):
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
-                    f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                    if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
-                    else f_best[k_metric]
-                    * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))),
+                    (
+                        f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                        if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
+                        else f_best[k_metric]
+                        * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", "")))
+                    ),
                     k_target,
                 )
             )[0]
@@ -481,7 +486,7 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from .searcher.blendsearch import BlendSearch, CFO, RandomSearch
+    from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
     if lexico_objectives is not None:
         if "modes" not in lexico_objectives.keys():
@@ -650,12 +655,13 @@ def run(
         if not spark_available:
             raise spark_error_msg
         try:
-            from pyspark.sql import SparkSession
             from joblib import Parallel, delayed, parallel_backend
             from joblibspark import register_spark
+            from pyspark.sql import SparkSession
         except ImportError as e:
             raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
         from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+
         from .trial_runner import SparkTrialRunner
 
         register_spark()

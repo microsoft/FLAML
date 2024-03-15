@@ -2,8 +2,8 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from .flow2 import FLOW2
 from .blendsearch import CFO
+from .flow2 import FLOW2
 
 
 class FLOW2Cat(FLOW2):

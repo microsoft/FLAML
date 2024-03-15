@@ -15,15 +15,17 @@
 # This source file is adapted here because ray does not fully support Windows.
 
 # Copyright (c) Microsoft Corporation.
-import time
-import functools
-import warnings
 import copy
-import numpy as np
+import functools
 import logging
-from typing import Any, Dict, Optional, Union, List, Tuple, Callable
 import pickle
-from .variant_generator import parse_spec_vars
+import time
+import warnings
+from collections import defaultdict
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
 from ..sample import (
     Categorical,
     Domain,
@@ -34,7 +36,7 @@ from ..sample import (
     Uniform,
 )
 from ..trial import flatten_dict, unflatten_dict
-from collections import defaultdict
+from .variant_generator import parse_spec_vars
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +185,7 @@ class ConcurrencyLimiter(Searcher):
     """
 
     def __init__(self, searcher: Searcher, max_concurrent: int, batch: bool = False):
-        assert type(max_concurrent) is int and max_concurrent > 0
+        assert isinstance(max_concurrent, int) and max_concurrent > 0
         self.searcher = searcher
         self.max_concurrent = max_concurrent
         self.batch = batch
@@ -252,8 +254,8 @@ try:
     import optuna as ot
     from optuna.distributions import BaseDistribution as OptunaDistribution
     from optuna.samplers import BaseSampler
-    from optuna.trial import TrialState as OptunaTrialState
     from optuna.trial import Trial as OptunaTrial
+    from optuna.trial import TrialState as OptunaTrialState
 except ImportError:
     ot = None
     OptunaDistribution = None
