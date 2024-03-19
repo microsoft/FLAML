@@ -6,7 +6,7 @@ Flamlized estimators automatically use data-dependent default hyperparameter con
 
 ### Prerequisites
 
-This example requires the [autozero] option.
+This example requires the \[autozero\] option.
 
 ```bash
 pip install flaml[autozero] lightgbm openml
@@ -56,6 +56,7 @@ print(hyperparams)
 ```
 
 #### Sample output
+
 ```
 load dataset from ./openml_ds537.pkl
 Dataset name: houses
@@ -83,7 +84,11 @@ X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir
 xgb = XGBClassifier()
 xgb.fit(X_train, y_train)
 y_pred = xgb.predict(X_test)
-print("flamlized xgb accuracy", "=", 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test))
+print(
+    "flamlized xgb accuracy",
+    "=",
+    1 - sklearn_metric_loss_score("accuracy", y_pred, y_test),
+)
 print(xgb)
 ```
 

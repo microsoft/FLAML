@@ -5,45 +5,47 @@ It can be used standalone, or together with ray tune or nni. Please find detaile
 
 Below are some quick examples.
 
-* Example for sequential tuning (recommended when compute resource is limited and each trial can consume all the resources):
+- Example for sequential tuning (recommended when compute resource is limited and each trial can consume all the resources):
 
 ```python
 # require: pip install flaml[blendsearch]
 from flaml import tune
 import time
 
+
 def evaluate_config(config):
-    '''evaluate a hyperparameter configuration'''
+    """evaluate a hyperparameter configuration"""
     # we uss a toy example with 2 hyperparameters
-    metric = (round(config['x'])-85000)**2 - config['x']/config['y']
+    metric = (round(config["x"]) - 85000) ** 2 - config["x"] / config["y"]
     # usually the evaluation takes an non-neglible cost
     # and the cost could be related to certain hyperparameters
     # in this example, we assume it's proportional to x
-    time.sleep(config['x']/100000)
+    time.sleep(config["x"] / 100000)
     # use tune.report to report the metric to optimize
     tune.report(metric=metric)
 
+
 analysis = tune.run(
-    evaluate_config,    # the function to evaluate a config
+    evaluate_config,  # the function to evaluate a config
     config={
-        'x': tune.lograndint(lower=1, upper=100000),
-        'y': tune.randint(lower=1, upper=100000)
-    }, # the search space
-    low_cost_partial_config={'x':1},    # a initial (partial) config with low cost
-    metric='metric',    # the name of the metric used for optimization
-    mode='min',         # the optimization mode, 'min' or 'max'
-    num_samples=-1,    # the maximal number of configs to try, -1 means infinite
-    time_budget_s=60,   # the time budget in seconds
-    local_dir='logs/',  # the local directory to store logs
+        "x": tune.lograndint(lower=1, upper=100000),
+        "y": tune.randint(lower=1, upper=100000),
+    },  # the search space
+    low_cost_partial_config={"x": 1},  # a initial (partial) config with low cost
+    metric="metric",  # the name of the metric used for optimization
+    mode="min",  # the optimization mode, 'min' or 'max'
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=60,  # the time budget in seconds
+    local_dir="logs/",  # the local directory to store logs
     # verbose=0,          # verbosity
     # use_ray=True, # uncomment when performing parallel tuning using ray
-    )
+)
 
 print(analysis.best_trial.last_result)  # the best trial's result
-print(analysis.best_config) # the best config
+print(analysis.best_config)  # the best config
 ```
 
-* Example for using ray tune's API:
+- Example for using ray tune's API:
 
 ```python
 # require: pip install flaml[blendsearch,ray]
@@ -51,36 +53,39 @@ from ray import tune as raytune
 from flaml import CFO, BlendSearch
 import time
 
+
 def evaluate_config(config):
-    '''evaluate a hyperparameter configuration'''
+    """evaluate a hyperparameter configuration"""
     # we use a toy example with 2 hyperparameters
-    metric = (round(config['x'])-85000)**2 - config['x']/config['y']
+    metric = (round(config["x"]) - 85000) ** 2 - config["x"] / config["y"]
     # usually the evaluation takes a non-neglible cost
     # and the cost could be related to certain hyperparameters
     # in this example, we assume it's proportional to x
-    time.sleep(config['x']/100000)
+    time.sleep(config["x"] / 100000)
     # use tune.report to report the metric to optimize
     tune.report(metric=metric)
+
 
 # provide a time budget (in seconds) for the tuning process
 time_budget_s = 60
 # provide the search space
 config_search_space = {
-        'x': tune.lograndint(lower=1, upper=100000),
-        'y': tune.randint(lower=1, upper=100000)
-    }
+    "x": tune.lograndint(lower=1, upper=100000),
+    "y": tune.randint(lower=1, upper=100000),
+}
 # provide the low cost partial config
-low_cost_partial_config={'x':1}
+low_cost_partial_config = {"x": 1}
 
 # set up CFO
 cfo = CFO(low_cost_partial_config=low_cost_partial_config)
 
 # set up BlendSearch
 blendsearch = BlendSearch(
-    metric="metric", mode="min",
+    metric="metric",
+    mode="min",
     space=config_search_space,
     low_cost_partial_config=low_cost_partial_config,
-    time_budget_s=time_budget_s
+    time_budget_s=time_budget_s,
 )
 # NOTE: when using BlendSearch as a search_alg in ray tune, you need to
 # configure the 'time_budget_s' for BlendSearch accordingly such that
@@ -89,28 +94,28 @@ blendsearch = BlendSearch(
 # automatically in flaml.
 
 analysis = raytune.run(
-    evaluate_config,    # the function to evaluate a config
+    evaluate_config,  # the function to evaluate a config
     config=config_search_space,
-    metric='metric',    # the name of the metric used for optimization
-    mode='min',         # the optimization mode, 'min' or 'max'
-    num_samples=-1,     # the maximal number of configs to try, -1 means infinite
-    time_budget_s=time_budget_s,   # the time budget in seconds
-    local_dir='logs/',  # the local directory to store logs
-    search_alg=blendsearch  # or cfo
+    metric="metric",  # the name of the metric used for optimization
+    mode="min",  # the optimization mode, 'min' or 'max'
+    num_samples=-1,  # the maximal number of configs to try, -1 means infinite
+    time_budget_s=time_budget_s,  # the time budget in seconds
+    local_dir="logs/",  # the local directory to store logs
+    search_alg=blendsearch,  # or cfo
 )
 
 print(analysis.best_trial.last_result)  # the best trial's result
 print(analysis.best_config)  # the best config
 ```
 
-* Example for using NNI: An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni). CFO can be used as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
+- Example for using NNI: An example of using BlendSearch with NNI can be seen in [test](https://github.com/microsoft/FLAML/tree/main/test/nni). CFO can be used as well in a similar manner. To run the example, first make sure you have [NNI](https://nni.readthedocs.io/en/stable/) installed, then run:
 
 ```shell
 $nnictl create --config ./config.yml
 ```
 
-* For more examples, please check out
-[notebooks](https://github.com/microsoft/FLAML/tree/main/notebook/).
+- For more examples, please check out
+  [notebooks](https://github.com/microsoft/FLAML/tree/main/notebook/).
 
 `flaml` offers two HPO methods: CFO and BlendSearch.
 `flaml.tune` uses BlendSearch by default.
@@ -185,16 +190,16 @@ tune.run(...
 )
 ```
 
-* Recommended scenario: cost-related hyperparameters exist, a low-cost
-initial point is known, and the search space is complex such that local search
-is prone to be stuck at local optima.
+- Recommended scenario: cost-related hyperparameters exist, a low-cost
+  initial point is known, and the search space is complex such that local search
+  is prone to be stuck at local optima.
 
-* Suggestion about using larger search space in BlendSearch:
-In hyperparameter optimization, a larger search space is desirable because it is more likely to include the optimal configuration (or one of the optimal configurations) in hindsight. However the performance (especially anytime performance) of most existing HPO methods is undesirable if the cost of the configurations in the search space has a large variation. Thus hand-crafted small search spaces (with relatively homogeneous cost) are often used in practice for these methods, which is subject to idiosyncrasy. BlendSearch combines the benefits of local search and global search, which enables a smart (economical) way of deciding where to explore in the search space even though it is larger than necessary. This allows users to specify a larger search space in BlendSearch, which is often easier and a better practice than narrowing down the search space by hand.
+- Suggestion about using larger search space in BlendSearch:
+  In hyperparameter optimization, a larger search space is desirable because it is more likely to include the optimal configuration (or one of the optimal configurations) in hindsight. However the performance (especially anytime performance) of most existing HPO methods is undesirable if the cost of the configurations in the search space has a large variation. Thus hand-crafted small search spaces (with relatively homogeneous cost) are often used in practice for these methods, which is subject to idiosyncrasy. BlendSearch combines the benefits of local search and global search, which enables a smart (economical) way of deciding where to explore in the search space even though it is larger than necessary. This allows users to specify a larger search space in BlendSearch, which is often easier and a better practice than narrowing down the search space by hand.
 
 For more technical details, please check our papers.
 
-* [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
+- [Frugal Optimization for Cost-related Hyperparameters](https://arxiv.org/abs/2005.01571). Qingyun Wu, Chi Wang, Silu Huang. AAAI 2021.
 
 ```bibtex
 @inproceedings{wu2021cfo,
@@ -205,7 +210,7 @@ For more technical details, please check our papers.
 }
 ```
 
-* [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. ICLR 2021.
+- [Economical Hyperparameter Optimization With Blended Search Strategy](https://www.microsoft.com/en-us/research/publication/economical-hyperparameter-optimization-with-blended-search-strategy/). Chi Wang, Qingyun Wu, Silu Huang, Amin Saied. ICLR 2021.
 
 ```bibtex
 @inproceedings{wang2021blendsearch,

@@ -14,7 +14,6 @@ estimator.fit(X_train, y_train)
 estimator.predict(X_test, y_test)
 ```
 
-
 1. Use AutoML.fit(). set `starting_points="data"` and `max_iter=0`.
 
 ```python
@@ -36,10 +35,17 @@ automl.fit(X_train, y_train, **automl_settings)
 from flaml.default import preprocess_and_suggest_hyperparams
 
 X, y = load_iris(return_X_y=True, as_frame=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
-hyperparams, estimator_class, X_transformed, y_transformed, feature_transformer, label_transformer = preprocess_and_suggest_hyperparams(
-    "classification", X_train, y_train, "lgbm"
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=42
 )
+(
+    hyperparams,
+    estimator_class,
+    X_transformed,
+    y_transformed,
+    feature_transformer,
+    label_transformer,
+) = preprocess_and_suggest_hyperparams("classification", X_train, y_train, "lgbm")
 model = estimator_class(**hyperparams)  # estimator_class is LGBMClassifier
 model.fit(X_transformed, y_train)  # LGBMClassifier can handle raw labels
 X_test = feature_transformer.transform(X_test)  # preprocess test data
@@ -172,7 +178,7 @@ Change "binary" into "multiclass" or "regression" for the other tasks.
 
 For more technical details, please check our research paper.
 
-* [Mining Robust Default Configurations for Resource-constrained AutoML](https://arxiv.org/abs/2202.09927). Moe Kayali, Chi Wang. arXiv preprint arXiv:2202.09927 (2022).
+- [Mining Robust Default Configurations for Resource-constrained AutoML](https://arxiv.org/abs/2202.09927). Moe Kayali, Chi Wang. arXiv preprint arXiv:2202.09927 (2022).
 
 ```bibtex
 @article{Kayali2022default,

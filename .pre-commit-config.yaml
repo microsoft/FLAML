@@ -22,10 +22,21 @@ repos:
     - id: trailing-whitespace
     - id: end-of-file-fixer
     - id: no-commit-to-branch
+
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
     - id: black
+
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-black
+          - mdformat_frontmatter
+
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.0.261
     hooks:
