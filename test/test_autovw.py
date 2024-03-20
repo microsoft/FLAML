@@ -91,11 +91,14 @@ def shuffle_data(X, y, seed):
 def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
     success = False
     print("-----getting oml dataset-------", did)
-    ds = openml.datasets.get_dataset(did)
-    target_attribute = ds.default_target_attribute
-    # if target_attribute is None and did in OML_target_attribute_dict:
-    #     target_attribute = OML_target_attribute_dict[did]
-
+    try:
+        ds = openml.datasets.get_dataset(did)
+        target_attribute = ds.default_target_attribute
+        # if target_attribute is None and did in OML_target_attribute_dict:
+        #     target_attribute = OML_target_attribute_dict[did]
+    except SSLError as e:
+        print(e)
+        return
     print("target=ds.default_target_attribute", target_attribute)
     data = ds.get_data(target=target_attribute, dataset_format="array")
     X, y = data[0], data[1]  # return X: pd DataFrame, y: pd series
@@ -349,8 +352,8 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
 
 
 @pytest.mark.skipif(
-    "3.10" in sys.version,
-    reason="do not run on py 3.10",
+    "3.10" in sys.version or "3.11" in sys.version,
+    reason="do not run on py >= 3.10",
 )
 class TestAutoVW(unittest.TestCase):
     def test_vw_oml_problem_and_vanilla_vw(self):

@@ -66,7 +66,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     POLY_EXPANSION_ADDITION_NUM = 1
     # the order of polynomial expansions to add based on the given seed interactions
     EXPANSION_ORDER = 2
-    # the number of new challengers with new numerical hyperparamter configs
+    # the number of new challengers with new numerical hyperparameter configs
     NUMERICAL_NUM = 2
 
     # In order to use CFO, a loss name and loss values of configs are need
@@ -80,7 +80,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     CFO_SEARCHER_METRIC_NAME = "pseudo_loss"
     CFO_SEARCHER_LARGE_LOSS = 1e6
 
-    # the random seed used in generating numerical hyperparamter configs (when CFO is not used)
+    # the random seed used in generating numerical hyperparameter configs (when CFO is not used)
     NUM_RANDOM_SEED = 111
 
     CHAMPION_TRIAL_NAME = "champion_trial"

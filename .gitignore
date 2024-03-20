@@ -165,3 +165,4 @@ flaml/tune/spark/mylearner.py
 
 # local config files
 *.config.local
+patch.diff

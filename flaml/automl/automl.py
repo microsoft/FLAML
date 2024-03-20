@@ -212,9 +212,9 @@ class AutoML(BaseEstimator):
                     - if "data:path" use data-dependent defaults which are stored at path;
                     - if "static", use data-independent defaults.
                 If dict, keys are the name of the estimators, and values are the starting
-                hyperparamter configurations for the corresponding estimators.
-                The value can be a single hyperparamter configuration dict or a list
-                of hyperparamter configuration dicts.
+                hyperparameter configurations for the corresponding estimators.
+                The value can be a single hyperparameter configuration dict or a list
+                of hyperparameter configuration dicts.
                 In the following code example, we get starting_points from the
                 `automl` object and use them in the `new_automl` object.
                 e.g.,
@@ -1348,9 +1348,9 @@ class AutoML(BaseEstimator):
                     - if "data:path" use data-dependent defaults which are stored at path;
                     - if "static", use data-independent defaults.
                 If dict, keys are the name of the estimators, and values are the starting
-                hyperparamter configurations for the corresponding estimators.
-                The value can be a single hyperparamter configuration dict or a list
-                of hyperparamter configuration dicts.
+                hyperparameter configurations for the corresponding estimators.
+                The value can be a single hyperparameter configuration dict or a list
+                of hyperparameter configuration dicts.
                 In the following code example, we get starting_points from the
                 `automl` object and use them in the `new_automl` object.
                 e.g.,
@@ -2326,7 +2326,7 @@ class AutoML(BaseEstimator):
             )
             time_used = time.time() - start_run_time
             better = False
-            if analysis.trials:
+            if analysis.trials and analysis.trials[-1].last_result:
                 result = analysis.trials[-1].last_result
                 search_state.update(result, time_used=time_used)
                 if self._estimator_index is None:
