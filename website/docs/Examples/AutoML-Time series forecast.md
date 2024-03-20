@@ -2,7 +2,8 @@
 
 ### Prerequisites
 
-Install the [automl,ts_forecast] option.
+Install the \[automl,ts_forecast\] option.
+
 ```bash
 pip install "flaml[automl,ts_forecast]"
 ```
@@ -13,16 +14,18 @@ pip install "flaml[automl,ts_forecast]"
 import numpy as np
 from flaml import AutoML
 
-X_train = np.arange('2014-01', '2022-01', dtype='datetime64[M]')
+X_train = np.arange("2014-01", "2022-01", dtype="datetime64[M]")
 y_train = np.random.random(size=84)
 automl = AutoML()
-automl.fit(X_train=X_train[:84],  # a single column of timestamp
-           y_train=y_train,  # value for each timestamp
-           period=12,  # time horizon to forecast, e.g., 12 months
-           task='ts_forecast', time_budget=15,  # time budget in seconds
-           log_file_name="ts_forecast.log",
-           eval_method="holdout",
-          )
+automl.fit(
+    X_train=X_train[:84],  # a single column of timestamp
+    y_train=y_train,  # value for each timestamp
+    period=12,  # time horizon to forecast, e.g., 12 months
+    task="ts_forecast",
+    time_budget=15,  # time budget in seconds
+    log_file_name="ts_forecast.log",
+    eval_method="holdout",
+)
 print(automl.predict(X_train[84:]))
 ```
 
@@ -246,32 +249,40 @@ import statsmodels.api as sm
 
 data = sm.datasets.co2.load_pandas().data
 # data is given in weeks, but the task is to predict monthly, so use monthly averages instead
-data = data['co2'].resample('MS').mean()
+data = data["co2"].resample("MS").mean()
 data = data.bfill().ffill()  # makes sure there are no missing values
 data = data.to_frame().reset_index()
 num_samples = data.shape[0]
 time_horizon = 12
 split_idx = num_samples - time_horizon
-train_df = data[:split_idx]  # train_df is a dataframe with two columns: timestamp and label
-X_test = data[split_idx:]['index'].to_frame()  # X_test is a dataframe with dates for prediction
-y_test = data[split_idx:]['co2']  # y_test is a series of the values corresponding to the dates for prediction
+train_df = data[
+    :split_idx
+]  # train_df is a dataframe with two columns: timestamp and label
+X_test = data[split_idx:][
+    "index"
+].to_frame()  # X_test is a dataframe with dates for prediction
+y_test = data[split_idx:][
+    "co2"
+]  # y_test is a series of the values corresponding to the dates for prediction
 
 from flaml import AutoML
 
 automl = AutoML()
 settings = {
     "time_budget": 10,  # total running time in seconds
-    "metric": 'mape',  # primary metric for validation: 'mape' is generally used for forecast tasks
-    "task": 'ts_forecast',  # task type
-    "log_file_name": 'CO2_forecast.log',  # flaml log file
+    "metric": "mape",  # primary metric for validation: 'mape' is generally used for forecast tasks
+    "task": "ts_forecast",  # task type
+    "log_file_name": "CO2_forecast.log",  # flaml log file
     "eval_method": "holdout",  # validation method can be chosen from ['auto', 'holdout', 'cv']
     "seed": 7654321,  # random seed
 }
 
-automl.fit(dataframe=train_df,  # training data
-           label='co2',  # label column
-           period=time_horizon,  # key word argument 'period' must be included for forecast task)
-           **settings)
+automl.fit(
+    dataframe=train_df,  # training data
+    label="co2",  # label column
+    period=time_horizon,  # key word argument 'period' must be included for forecast task)
+    **settings
+)
 ```
 
 #### Sample output
@@ -417,16 +428,17 @@ The example plotting code requires matplotlib.
 flaml_y_pred = automl.predict(X_test)
 import matplotlib.pyplot as plt
 
-plt.plot(X_test, y_test, label='Actual level')
-plt.plot(X_test, flaml_y_pred, label='FLAML forecast')
-plt.xlabel('Date')
-plt.ylabel('CO2 Levels')
+plt.plot(X_test, y_test, label="Actual level")
+plt.plot(X_test, flaml_y_pred, label="FLAML forecast")
+plt.xlabel("Date")
+plt.ylabel("CO2 Levels")
 plt.legend()
 ```
 
 ![png](images/CO2.png)
 
 ### Multivariate Time Series (Forecasting with Exogenous Variables)
+
 ```python
 import pandas as pd
 
@@ -444,6 +456,7 @@ multi_df["precip"] = multi_df["precip"].fillna(method="ffill")
 multi_df = multi_df[:-2]  # last two rows are NaN for 'demand' column so remove them
 multi_df = multi_df.reset_index()
 
+
 # Using temperature values create categorical values
 # where 1 denotes daily tempurature is above monthly average and 0 is below.
 def get_monthly_avg(data):
@@ -452,7 +465,9 @@ def get_monthly_avg(data):
     data = data.agg({"temp": "mean"})
     return data
 
+
 monthly_avg = get_monthly_avg(multi_df).to_dict().get("temp")
+
 
 def above_monthly_avg(date, temp):
     month = date.month
@@ -460,6 +475,7 @@ def above_monthly_avg(date, temp):
         return 1
     else:
         return 0
+
 
 multi_df["temp_above_monthly_avg"] = multi_df.apply(
     lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1
@@ -536,6 +552,7 @@ print(automl.predict(multi_X_test))
 ```
 
 ### Forecasting Discrete Variables
+
 ```python
 from hcrystalball.utils import get_sales_data
 import numpy as np
@@ -557,7 +574,10 @@ discrete_X_train, discrete_X_test = (
     discrete_train_df[["Date", "Open", "Promo", "Promo2"]],
     discrete_test_df[["Date", "Open", "Promo", "Promo2"]],
 )
-discrete_y_train, discrete_y_test = discrete_train_df["above_mean_sales"], discrete_test_df["above_mean_sales"]
+discrete_y_train, discrete_y_test = (
+    discrete_train_df["above_mean_sales"],
+    discrete_test_df["above_mean_sales"],
+)
 
 # initialize AutoML instance
 automl = AutoML()
@@ -572,10 +592,9 @@ settings = {
 }
 
 # train the model
-automl.fit(X_train=discrete_X_train,
-           y_train=discrete_y_train,
-           **settings,
-           period=time_horizon)
+automl.fit(
+    X_train=discrete_X_train, y_train=discrete_y_train, **settings, period=time_horizon
+)
 
 # make predictions
 discrete_y_pred = automl.predict(discrete_X_test)
@@ -712,6 +731,7 @@ def get_stalliion_data():
         .astype("category")
     )
     return data, special_days
+
 
 data, special_days = get_stalliion_data()
 time_horizon = 6  # predict six months

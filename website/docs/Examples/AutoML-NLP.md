@@ -2,7 +2,8 @@
 
 ### Requirements
 
-This example requires GPU. Install the [automl,hf] option:
+This example requires GPU. Install the \[automl,hf\] option:
+
 ```python
 pip install "flaml[automl,hf]"
 ```
@@ -31,9 +32,11 @@ automl_settings = {
             "output_dir": "data/output/"  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
         }
     },  # setting the huggingface arguments: output directory
-    "gpu_per_trial": 1,                         # set to 0 if no GPU is available
+    "gpu_per_trial": 1,  # set to 0 if no GPU is available
 }
-automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
 automl.predict(X_test)
 ```
 
@@ -68,12 +71,8 @@ if os.path.exists("data/output/"):
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = (
-    load_dataset("glue", "stsb", split="train").to_pandas()
-)
-dev_dataset = (
-    load_dataset("glue", "stsb", split="train").to_pandas()
-)
+train_dataset = load_dataset("glue", "stsb", split="train").to_pandas()
+dev_dataset = load_dataset("glue", "stsb", split="train").to_pandas()
 custom_sent_keys = ["sentence1", "sentence2"]
 label_key = "label"
 X_train = train_dataset[custom_sent_keys]
@@ -90,10 +89,10 @@ automl_settings = {
 }
 automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface arguments
     "transformer": {
-        "model_path": "google/electra-small-discriminator", # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
-        "output_dir": "data/output/",                       # setting the output directory
+        "model_path": "google/electra-small-discriminator",  # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+        "output_dir": "data/output/",  # setting the output directory
         "fp16": False,
-    }   # setting whether to use FP16
+    }  # setting whether to use FP16
 }
 automl.fit(
     X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
@@ -117,12 +116,8 @@ automl.fit(
 from flaml import AutoML
 from datasets import load_dataset
 
-train_dataset = (
-    load_dataset("xsum", split="train").to_pandas()
-)
-dev_dataset = (
-    load_dataset("xsum", split="validation").to_pandas()
-)
+train_dataset = load_dataset("xsum", split="train").to_pandas()
+dev_dataset = load_dataset("xsum", split="validation").to_pandas()
 custom_sent_keys = ["document"]
 label_key = "summary"
 
@@ -139,17 +134,18 @@ automl_settings = {
     "task": "summarization",
     "metric": "rouge1",
 }
-automl_settings["fit_kwargs_by_estimator"] = {      # setting the huggingface arguments
+automl_settings["fit_kwargs_by_estimator"] = {  # setting the huggingface arguments
     "transformer": {
-        "model_path": "t5-small",             # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
-        "output_dir": "data/output/",         # setting the output directory
+        "model_path": "t5-small",  # if model_path is not set, the default model is t5-small: https://huggingface.co/t5-small
+        "output_dir": "data/output/",  # setting the output directory
         "fp16": False,
-    } # setting whether to use FP16
+    }  # setting whether to use FP16
 }
 automl.fit(
     X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
 )
 ```
+
 #### Sample Output
 
 ```
@@ -234,7 +230,15 @@ train_dataset = {
     ],
     "tokens": [
         [
-            "EU", "rejects", "German", "call", "to", "boycott", "British", "lamb", ".",
+            "EU",
+            "rejects",
+            "German",
+            "call",
+            "to",
+            "boycott",
+            "British",
+            "lamb",
+            ".",
         ],
         ["Peter", "Blackburn"],
     ],
@@ -244,18 +248,14 @@ dev_dataset = {
     "ner_tags": [
         ["O"],
     ],
-    "tokens": [
-        ["1996-08-22"]
-    ],
+    "tokens": [["1996-08-22"]],
 }
 test_dataset = {
     "id": ["0"],
     "ner_tags": [
         ["O"],
     ],
-    "tokens": [
-        ['.']
-    ],
+    "tokens": [["."]],
 }
 custom_sent_keys = ["tokens"]
 label_key = "ner_tags"
@@ -273,17 +273,18 @@ automl_settings = {
     "time_budget": 10,
     "task": "token-classification",
     "fit_kwargs_by_estimator": {
-        "transformer":
-            {
-                "output_dir": "data/output/"
-                # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
-            }
+        "transformer": {
+            "output_dir": "data/output/"
+            # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+        }
     },  # setting the huggingface arguments: output directory
     "gpu_per_trial": 1,  # set to 0 if no GPU is available
-    "metric": "seqeval:overall_f1"
+    "metric": "seqeval:overall_f1",
 }
 
-automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
 automl.predict(X_test)
 ```
 
@@ -294,35 +295,39 @@ from flaml import AutoML
 import pandas as pd
 
 train_dataset = {
-        "id": ["0", "1"],
-        "ner_tags": [
-            [3, 0, 7, 0, 0, 0, 7, 0, 0],
-            [1, 2],
+    "id": ["0", "1"],
+    "ner_tags": [
+        [3, 0, 7, 0, 0, 0, 7, 0, 0],
+        [1, 2],
+    ],
+    "tokens": [
+        [
+            "EU",
+            "rejects",
+            "German",
+            "call",
+            "to",
+            "boycott",
+            "British",
+            "lamb",
+            ".",
         ],
-        "tokens": [
-            [
-                "EU", "rejects", "German", "call", "to", "boycott", "British", "lamb", ".",
-            ],
-            ["Peter", "Blackburn"],
-        ],
-    }
+        ["Peter", "Blackburn"],
+    ],
+}
 dev_dataset = {
     "id": ["0"],
     "ner_tags": [
         [0],
     ],
-    "tokens": [
-        ["1996-08-22"]
-    ],
+    "tokens": [["1996-08-22"]],
 }
 test_dataset = {
     "id": ["0"],
     "ner_tags": [
         [0],
     ],
-    "tokens": [
-        ['.']
-    ],
+    "tokens": [["."]],
 }
 custom_sent_keys = ["tokens"]
 label_key = "ner_tags"
@@ -340,18 +345,29 @@ automl_settings = {
     "time_budget": 10,
     "task": "token-classification",
     "fit_kwargs_by_estimator": {
-        "transformer":
-            {
-                "output_dir": "data/output/",
-                # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
-                "label_list": [ "O","B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC" ]
-            }
+        "transformer": {
+            "output_dir": "data/output/",
+            # if model_path is not set, the default model is facebook/muppet-roberta-base: https://huggingface.co/facebook/muppet-roberta-base
+            "label_list": [
+                "O",
+                "B-PER",
+                "I-PER",
+                "B-ORG",
+                "I-ORG",
+                "B-LOC",
+                "I-LOC",
+                "B-MISC",
+                "I-MISC",
+            ],
+        }
     },  # setting the huggingface arguments: output directory
     "gpu_per_trial": 1,  # set to 0 if no GPU is available
-    "metric": "seqeval:overall_f1"
+    "metric": "seqeval:overall_f1",
 }
 
-automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
+automl.fit(
+    X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings
+)
 automl.predict(X_test)
 ```
 

@@ -4,7 +4,8 @@ FLAML includes *ChaCha* which is an automatic hyperparameter tuning solution for
 
 For more technical details about *ChaCha*, please check our paper.
 
-* [ChaCha for Online AutoML](https://www.microsoft.com/en-us/research/publication/chacha-for-online-automl/). Qingyun Wu, Chi Wang, John Langford, Paul Mineiro and Marco Rossi. ICML 2021.
+- [ChaCha for Online AutoML](https://www.microsoft.com/en-us/research/publication/chacha-for-online-automl/). Qingyun Wu, Chi Wang, John Langford, Paul Mineiro and Marco Rossi. ICML 2021.
+
 ```
 @inproceedings{wu2021chacha,
     title={ChaCha for online AutoML},
@@ -23,8 +24,9 @@ An example of online namespace interactions tuning in VW:
 ```python
 # require: pip install flaml[vw]
 from flaml import AutoVW
-'''create an AutoVW instance for tuning namespace interactions'''
-autovw = AutoVW(max_live_model_num=5, search_space={'interactions': AutoVW.AUTOMATIC})
+
+"""create an AutoVW instance for tuning namespace interactions"""
+autovw = AutoVW(max_live_model_num=5, search_space={"interactions": AutoVW.AUTOMATIC})
 ```
 
 An example of online tuning of both namespace interactions and learning rate in VW:
@@ -33,12 +35,18 @@ An example of online tuning of both namespace interactions and learning rate in 
 # require: pip install flaml[vw]
 from flaml import AutoVW
 from flaml.tune import loguniform
-''' create an AutoVW instance for tuning namespace interactions and learning rate'''
+
+""" create an AutoVW instance for tuning namespace interactions and learning rate"""
 # set up the search space and init config
-search_space_nilr = {'interactions': AutoVW.AUTOMATIC, 'learning_rate': loguniform(lower=2e-10, upper=1.0)}
-init_config_nilr = {'interactions': set(), 'learning_rate': 0.5}
+search_space_nilr = {
+    "interactions": AutoVW.AUTOMATIC,
+    "learning_rate": loguniform(lower=2e-10, upper=1.0),
+}
+init_config_nilr = {"interactions": set(), "learning_rate": 0.5}
 # create an AutoVW instance
-autovw = AutoVW(max_live_model_num=5, search_space=search_space_nilr, init_config=init_config_nilr)
+autovw = AutoVW(
+    max_live_model_num=5, search_space=search_space_nilr, init_config=init_config_nilr
+)
 ```
 
 A user can use the resulting AutoVW instances `autovw` in a similar way to a vanilla Vowpal Wabbit instance, i.e., `pyvw.vw`, to perform online learning by iteratively calling its `predict(data_example)` and `learn(data_example)` functions at each data example.
