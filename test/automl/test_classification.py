@@ -416,6 +416,38 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
 
+    def test_retrain(self):
+        from flaml.automl.data import load_openml_dataset
+
+        X_train, X_test, y_train, y_test = load_openml_dataset(
+            dataset_id=187, data_dir="./"
+        )
+
+        automl_settings = {
+            "task": "classification",
+            "estimator_list": ["xgboost"],
+            # "max_iter": 1,
+        }
+
+        automl_settings["starting_points"] = {
+            "xgboost": {
+                "n_estimators": 4,
+                "max_leaves": 4,
+                "min_child_weight": 0.26208115308159446,
+                "learning_rate": 0.25912534572860507,
+                "subsample": 0.9266743941610592,
+                "colsample_bylevel": 1.0,
+                "colsample_bytree": 1.0,
+                "reg_alpha": 0.0013933617380144255,
+                "reg_lambda": 0.18096917948292954,
+                "FLAML_sample_size": 20000,
+            },
+        }
+
+        automl = AutoML()
+        automl2 = automl.retrain(X_train, y_train, automl_settings)
+        print(automl2.model.model)
+
 
 if __name__ == "__main__":
     test = TestClassification()
