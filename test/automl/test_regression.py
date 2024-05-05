@@ -230,5 +230,28 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
+def test_multioutput_train_size():
+    import numpy as np
+    from sklearn.datasets import make_regression
+    from sklearn.model_selection import train_test_split
+    from sklearn.multioutput import MultiOutputRegressor, RegressorChain
+
+    # create regression data
+    X, y = make_regression(n_targets=3)
+
+    # split into train and test data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
+
+    # train the model
+    model = MultiOutputRegressor(
+        AutoML(task="regression", time_budget=1, eval_method="holdout", multioutput_train_size=len(X_train))
+    )
+    model.fit(np.concatenate([X_train, X_val], axis=0), np.concatenate([y_train, y_val], axis=0))
+
+    # predict
+    print(model.predict(X_test))
+
+
 if __name__ == "__main__":
     unittest.main()
