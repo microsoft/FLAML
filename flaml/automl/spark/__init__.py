@@ -11,6 +11,9 @@ try:
     from pyspark.pandas import set_option
     from pyspark.sql import DataFrame as sparkDataFrame
     from pyspark.util import VersionUtils
+    import logging
+
+    logger = logging.getLogger(__name__)
 except ImportError:
 
     class psDataFrame:
@@ -31,4 +34,5 @@ try:
     import pandas as pd
     from pandas import DataFrame, Series
 except ImportError:
+    logger.warning("Pandas is not installed. Please install pandas to use DataFrame and Series functionalities.")
     DataFrame = Series = pd = None
