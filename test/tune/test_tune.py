@@ -1,5 +1,6 @@
 """Require: pip install flaml[test,ray]
 """
+
 import logging
 import math
 import os
@@ -9,6 +10,7 @@ import sklearn.datasets
 import sklearn.metrics
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
+from flaml.helper_functions import format_integers
 
 from flaml import CFO, BlendSearch
 
@@ -236,8 +238,8 @@ def _test_xgboost(method="BlendSearch"):
             logger.info(f"method={method}")
             logger.info(f"n_samples={num_samples*n_cpu}")
             logger.info(f"time={time.time()-start_time}")
-            logger.info(f"Best model eval loss: {logloss:.4f}")
-            logger.info(f"Best model total accuracy: {accuracy:.4f}")
+            logger.info(f"Best model eval loss: {format_integers(logloss)}")
+            logger.info(f"Best model total accuracy: {format_integers(accuracy)}")
             logger.info(f"Best model parameters: {best_trial.config}")
 
 

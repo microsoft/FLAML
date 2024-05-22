@@ -11,7 +11,7 @@ import sys
 import time
 from functools import partial
 from typing import Callable, List, Optional, Union
-
+from flaml.helper_functions import format_integers
 import numpy as np
 
 from flaml import tune
@@ -1879,9 +1879,9 @@ class AutoML(BaseEstimator):
                 this_estimator_kwargs.update(
                     self._state.fit_kwargs
                 )  # update the shallow copy of fit_kwargs to fit_kwargs_by_estimator
-                self._state.fit_kwargs_by_estimator[
-                    estimator_name
-                ] = this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
+                self._state.fit_kwargs_by_estimator[estimator_name] = (
+                    this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
+                )
             else:
                 self._state.fit_kwargs_by_estimator[estimator_name] = self._state.fit_kwargs
 
@@ -2164,11 +2164,15 @@ class AutoML(BaseEstimator):
                 mlflow.log_param("best_learner", self._best_estimator)
                 mlflow.log_metric(
                     self._state.metric if isinstance(self._state.metric, str) else self._state.error_metric,
-                    1 - search_state.val_loss
-                    if self._state.error_metric.startswith("1-")
-                    else -search_state.val_loss
-                    if self._state.error_metric.startswith("-")
-                    else search_state.val_loss,
+                    (
+                        1 - search_state.val_loss
+                        if self._state.error_metric.startswith("1-")
+                        else (
+                            -search_state.val_loss
+                            if self._state.error_metric.startswith("-")
+                            else search_state.val_loss
+                        )
+                    ),
                 )
 
     def _search_sequential(self):
@@ -2388,14 +2392,13 @@ class AutoML(BaseEstimator):
                     search_state.trained_estimator.cleanup()
                 if better or self._log_type == "all":
                     self._log_trial(search_state, estimator)
-
                 logger.info(
-                    " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(
+                    " at {:.1f}s,\testimator {}'s best error={},\tbest estimator {}'s best error={}".format(
                         self._state.time_from_start,
                         estimator,
-                        search_state.best_loss,
+                        format_integers(search_state.best_loss),
                         self._best_estimator,
-                        self._state.best_loss,
+                        format_integers(self._state.best_loss),
                     )
                 )
                 if (
