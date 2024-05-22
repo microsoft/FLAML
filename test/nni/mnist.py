@@ -11,6 +11,7 @@ https://github.com/pytorch/examples/blob/master/mnist/main.py
 import argparse
 import logging
 import os
+from flaml.helper_functions import format_integers
 
 import nni
 import torch
@@ -84,8 +85,8 @@ def test(args, model, device, test_loader):
     accuracy = 100.0 * correct / len(test_loader.dataset)
 
     logger.info(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-            test_loss, correct, len(test_loader.dataset), accuracy
+        "\nTest set: Average loss: {}, Accuracy: {}/{} ({:.0f}%)\n".format(
+            format_integers(test_loss), correct, len(test_loader.dataset), accuracy
         )
     )
 

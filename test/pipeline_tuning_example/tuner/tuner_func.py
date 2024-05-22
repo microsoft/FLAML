@@ -3,6 +3,7 @@ import time
 
 import submit_train_pipeline
 from ray import tune
+from flaml.helper_functions import format_integers
 
 import flaml
 
@@ -88,7 +89,7 @@ def tune_pipeline(concurrent_run=1):
     metric = best_trial.metric_analysis[hp_metric][mode]
     print(f"n_trials={len(analysis.trials)}")
     print(f"time={time.time()-start_time}")
-    print(f"Best {hp_metric}: {metric:.4f}")
+    print(f"Best {hp_metric}: {format_integers(metric)}")
     print(f"Best coonfiguration: {best_trial.config}")
 
 
