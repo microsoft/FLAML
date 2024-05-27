@@ -63,7 +63,7 @@ setuptools.setup(
             "torchvision",
             "catboost>=0.26,<1.2",
             "rgf-python",
-            "optuna==2.8.0",
+            "optuna==2.10.0",
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
@@ -91,7 +91,7 @@ setuptools.setup(
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": [
-            "optuna==2.8.0",
+            "optuna==2.10.0",
             "packaging",
         ],
         "ray": [
@@ -150,7 +150,7 @@ setuptools.setup(
         ],
         "synapse": [
             "joblibspark>=0.5.0",
-            "optuna==2.8.0",
+            "optuna==2.10.0",
             "pyspark>=3.2.0",
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
