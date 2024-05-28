@@ -249,9 +249,11 @@ class BaseEstimator:
             mem = psutil.virtual_memory() if psutil is not None else None
             try:
                 with limit_resource(
-                    mem.available * (1 - free_mem_ratio) + psutil.Process(os.getpid()).memory_info().rss
-                    if mem is not None
-                    else -1,
+                    (
+                        mem.available * (1 - free_mem_ratio) + psutil.Process(os.getpid()).memory_info().rss
+                        if mem is not None
+                        else -1
+                    ),
                     budget,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
@@ -1371,9 +1373,7 @@ class LGBMEstimator(BaseEstimator):
                 self._time_per_iter = (
                     (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
                     if self._t2 > self._t1
-                    else self._t1
-                    if self._t1
-                    else 0.001
+                    else self._t1 if self._t1 else 0.001
                 )
                 self._train_size = X_train.shape[0]
                 if budget is not None and self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
@@ -1385,12 +1385,16 @@ class LGBMEstimator(BaseEstimator):
             if n_iter > 1:
                 max_iter = min(
                     n_iter,
-                    int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
-                    if budget is not None
-                    else n_iter,
-                    int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
-                    if psutil is not None and self._mem_per_iter > 0
-                    else n_iter,
+                    (
+                        int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
+                        if budget is not None
+                        else n_iter
+                    ),
+                    (
+                        int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
+                        if psutil is not None and self._mem_per_iter > 0
+                        else n_iter
+                    ),
                 )
                 if trained and max_iter <= self.params[self.ITER_HP]:
                     return time.time() - start_time
@@ -1730,8 +1734,12 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
-        if "max_leaves" in params:
-            params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
+        if (
+            "max_leaves" in params or "max_leaf_nodes" in params
+        ):  # TODO: In future releases the `max_leaves` could be removed...
+            params["max_leaf_nodes"] = params.get(
+                "max_leaf_nodes", params.pop("max_leaves") if "max_leaves" in params else params.pop("max_leaf_nodes")
+            )
         if not self._task.is_classification() and "criterion" in config:
             params.pop("criterion")
         if "random_state" not in params:
