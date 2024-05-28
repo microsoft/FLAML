@@ -28,6 +28,8 @@ automl.fit(
 )
 ```
 
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
+
 #### Sample output
 
 ```

@@ -159,7 +159,25 @@ class BaseEstimator:
 
     @property
     def estimator(self):
-        """Trained model after fit() is called, or None before fit() is called."""
+        """
+        Get the best trained estimator model.
+
+        Returns:
+            object or None: The trained model obtained after calling the `fit()` method,
+            representing the best estimator found during the training process. If `fit()` has
+            not been called yet, it returns `None`.
+
+        Examples:
+            >>> from flaml import AutoML
+            >>> automl = AutoML()
+            >>> automl.fit(X_train, y_train)
+            >>> best_estimator = automl.model.estimator
+            >>> print(best_estimator)
+            RandomForestClassifier()
+
+            Note:
+            To access the best estimator, use `automl.model.estimator`.
+        """
         return self._model
 
     @property
@@ -249,9 +267,11 @@ class BaseEstimator:
             mem = psutil.virtual_memory() if psutil is not None else None
             try:
                 with limit_resource(
-                    mem.available * (1 - free_mem_ratio) + psutil.Process(os.getpid()).memory_info().rss
-                    if mem is not None
-                    else -1,
+                    (
+                        mem.available * (1 - free_mem_ratio) + psutil.Process(os.getpid()).memory_info().rss
+                        if mem is not None
+                        else -1
+                    ),
                     budget,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
@@ -1371,9 +1391,7 @@ class LGBMEstimator(BaseEstimator):
                 self._time_per_iter = (
                     (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
                     if self._t2 > self._t1
-                    else self._t1
-                    if self._t1
-                    else 0.001
+                    else self._t1 if self._t1 else 0.001
                 )
                 self._train_size = X_train.shape[0]
                 if budget is not None and self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
@@ -1385,12 +1403,16 @@ class LGBMEstimator(BaseEstimator):
             if n_iter > 1:
                 max_iter = min(
                     n_iter,
-                    int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
-                    if budget is not None
-                    else n_iter,
-                    int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
-                    if psutil is not None and self._mem_per_iter > 0
-                    else n_iter,
+                    (
+                        int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
+                        if budget is not None
+                        else n_iter
+                    ),
+                    (
+                        int((1 - free_mem_ratio) * mem0 / self._mem_per_iter)
+                        if psutil is not None and self._mem_per_iter > 0
+                        else n_iter
+                    ),
                 )
                 if trained and max_iter <= self.params[self.ITER_HP]:
                     return time.time() - start_time
