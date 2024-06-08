@@ -3,7 +3,7 @@ import time
 from typing import List, Optional
 
 import numpy as np
-
+from random import shuffle
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
 from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
 from flaml.automl.spark import pd, ps, psDataFrame, psSeries
@@ -414,9 +414,7 @@ class GenericTask(Task):
                     sample_weight_full,
                     random_state=RANDOM_SEED,
                 )
-                state.fit_kwargs[
-                    "sample_weight"
-                ] = (
+                state.fit_kwargs["sample_weight"] = (
                     state.sample_weight_all
                 )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                 if isinstance(state.sample_weight_all, pd.Series):
@@ -501,9 +499,7 @@ class GenericTask(Task):
                 y_rest = (
                     y_train_all[rest]
                     if isinstance(y_train_all, np.ndarray)
-                    else iloc_pandas_on_spark(y_train_all, rest)
-                    if is_spark_dataframe
-                    else y_train_all.iloc[rest]
+                    else iloc_pandas_on_spark(y_train_all, rest) if is_spark_dataframe else y_train_all.iloc[rest]
                 )
                 stratify = y_rest if split_type == "stratified" else None
                 X_train, X_val, y_train, y_val = self._train_test_split(
@@ -619,9 +615,11 @@ class GenericTask(Task):
                 X = pd.DataFrame(
                     dict(
                         [
-                            (transformer._str_columns[idx], X[idx])
-                            if isinstance(X[0], List)
-                            else (transformer._str_columns[idx], [X[idx]])
+                            (
+                                (transformer._str_columns[idx], X[idx])
+                                if isinstance(X[0], List)
+                                else (transformer._str_columns[idx], [X[idx]])
+                            )
                             for idx in range(len(X))
                         ]
                     )
