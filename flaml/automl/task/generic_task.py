@@ -3,7 +3,7 @@ import time
 from typing import List, Optional
 
 import numpy as np
-from random import shuffle
+from sklearn.utils import shuffle
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
 from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
 from flaml.automl.spark import pd, ps, psDataFrame, psSeries
