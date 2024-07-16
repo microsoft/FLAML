@@ -126,13 +126,13 @@ setuptools.setup(
         ],
         "ts_forecast": [
             "holidays<0.14",  # to prevent installation error for prophet
-            "prophet>=1.0.1",
+            "prophet>=1.5.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
         ],
         "forecast": [
             "holidays<0.14",  # to prevent installation error for prophet
-            "prophet>=1.0.1",
+            "prophet>=1.5.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
             "pytorch-forecasting>=0.9.0",
