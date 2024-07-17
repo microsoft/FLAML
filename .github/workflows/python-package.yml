@@ -37,19 +37,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # - name: On mac + python 3.10, install libomp to facilitate lgbm and xgboost install
-      #   if: matrix.os == 'macOS-latest' && matrix.python-version == '3.10'
-      #   run: |
-      #     # remove libomp version constraint after xgboost works with libomp>11.1.0 on python 3.10
-      #     wget https://raw.githubusercontent.com/Homebrew/homebrew-core/679923b4eb48a8dc7ecc1f05d06063cd79b3fc00/Formula/libomp.rb -O $(find $(brew --repository) -name libomp.rb)
-      #     brew unlink libomp
-      #     brew install libomp
-      #     export CC=/usr/bin/clang
-      #     export CXX=/usr/bin/clang++
-      #     export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-      #     export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-      #     export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-      #     export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
+      - name: On mac + python 3.10, install libomp to facilitate lgbm and xgboost install
+        if: matrix.os == 'macOS-latest' && matrix.python-version == '3.10'
+        run: |
+          # remove libomp version constraint after xgboost works with libomp>11.1.0 on python 3.10
+          # wget https://raw.githubusercontent.com/Homebrew/homebrew-core/679923b4eb48a8dc7ecc1f05d06063cd79b3fc00/Formula/libomp.rb -O $(find $(brew --repository) -name libomp.rb)
+          brew unlink libomp
+          brew install libomp
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+          export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+          export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+          export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
       - name: Install packages and dependencies
         run: |
           python -m pip install --upgrade pip wheel
@@ -71,8 +71,8 @@ jobs:
           pip install -e .[ray]
           # use macOS to test xgboost 1, but macOS also supports xgboost 2
           pip install "xgboost<2"
-      - name: If linux or mac, install prophet on python < 3.9
-        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9' && matrix.python-version != '3.10'
+      - name: If linux, install prophet on python < 3.9
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.9'
         run: |
           pip install -e .[forecast]
       - name: Install vw on python < 3.10
