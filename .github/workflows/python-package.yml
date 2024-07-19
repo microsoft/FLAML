@@ -86,14 +86,12 @@ jobs:
         if: matrix.python-version != '3.10'
         run: |
           pytest test
-        retry: 3
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
           pip install coverage
           coverage run -a -m pytest test
           coverage xml
-        retry: 3
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.10'
         uses: codecov/codecov-action@v3
