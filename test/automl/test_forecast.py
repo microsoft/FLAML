@@ -93,7 +93,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
         )
 
 
-def test_models(budget=3):
+def test_models(budget=5):
     n = 100
     X = pd.DataFrame(
         {
