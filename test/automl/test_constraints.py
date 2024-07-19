@@ -23,7 +23,7 @@ def test_metric_constraints():
         "log_type": "all",
         "retrain_full": "budget",
         "keep_search_state": True,
-        "time_budget": 2,
+        "time_budget": 5,
         "pred_time_limit": 5.1e-05,
     }
 

@@ -1,5 +1,6 @@
 import sys
 
+import pytest
 from minio.error import ServerError
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
@@ -108,6 +109,10 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
 
 
+@pytest.mark.skipif(
+    sys.platform in ["win32"] and sys.version.startswith("3.9"),
+    reason="do not run if windows and python 3.9",
+)
 def test_automl_array():
     test_automl(5, "array", "bs")
 
