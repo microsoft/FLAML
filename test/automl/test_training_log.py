@@ -98,6 +98,8 @@ class TestTrainingLog(unittest.TestCase):
             print("IsADirectoryError happens as expected in linux.")
         except PermissionError:
             print("PermissionError happens as expected in windows.")
+        except FileExistsError:
+            print("FileExistsError happens as expected in MacOS.")
 
     def test_each_estimator(self):
         try:
