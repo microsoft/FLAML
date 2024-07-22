@@ -1716,7 +1716,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "domain": tune.loguniform(lower=lower, upper=1.0),
                 "init_value": init,
             },
-            "max_leaves": {
+            "max_leaf_nodes": {
                 "domain": tune.lograndint(
                     lower=4,
                     upper=max(5, min(32768, RandomForestEstimator.nrows >> 1)),  #
@@ -1738,8 +1738,6 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
-        if "max_leaves" in params:
-            params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
         if not self._task.is_classification() and "criterion" in config:
             params.pop("criterion")
         if "random_state" not in params:
