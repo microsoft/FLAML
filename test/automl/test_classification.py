@@ -295,7 +295,10 @@ class TestClassification(unittest.TestCase):
         import sys
 
         current_xgboost_version = xgb.__version__
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "xgboost==1.3.3", "--user"])
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "xgboost==1.3.3", "--user"])
+        except subprocess.CalledProcessError:
+            return
         automl = AutoML()
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl.feature_names_in_)

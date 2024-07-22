@@ -73,6 +73,14 @@ try:
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
 
+xgb_callback = False
+try:
+    from xgboost.callback import TrainingCallback
+
+    xgb_callback = True
+except ImportError:  # for xgboost<1.3
+    TrainingCallback = object
+
 logger = logging.getLogger("flaml.automl")
 # FREE_MEM_RATIO = 0.2
 

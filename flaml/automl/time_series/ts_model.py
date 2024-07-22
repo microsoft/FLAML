@@ -611,15 +611,13 @@ class HoltWinters(StatsModelsEstimator):
         ):  # this would prevent heuristic initialization to work properly
             self.params["seasonal"] = None
         if (
-            self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0
+            self.params["seasonal"] == "mul" and (train_df[target_col] == 0).sum() > 0
         ):  # cannot have multiplicative seasonality in this case
             self.params["seasonal"] = "add"
-        if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
+        if self.params["trend"] == "mul" and (train_df[target_col] == 0).sum() > 0:
             self.params["trend"] = "add"
-
         if not self.params["seasonal"] or self.params["trend"] not in ["mul", "add"]:
             self.params["damped_trend"] = False
-
         model = HWExponentialSmoothing(
             train_df[[target_col]],
             damped_trend=self.params["damped_trend"],
