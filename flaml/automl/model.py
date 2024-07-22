@@ -1738,6 +1738,8 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
 
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
+        if "max_leaves" in params:
+            params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
         if not self._task.is_classification() and "criterion" in config:
             params.pop("criterion")
         if "random_state" not in params:
