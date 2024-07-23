@@ -427,15 +427,21 @@ class AutoML(BaseEstimator):
         """A dictionary of the best configuration."""
         state = self._search_states.get(self._best_estimator)
         config = state and getattr(state, "best_config", None)
-        return config and AutoMLState.sanitize(config, self._best_estimator)
+        config = config.copy() if config else None
+        if self._best_estimator == "rf":
+            config["max_leaf_nodes"] = config.pop("max_leaves", None)
+        return config and AutoMLState.sanitize(config)
 
     @property
     def best_config_per_estimator(self):
         """A dictionary of all estimators' best configuration."""
-        return {
-            e: e_search_state.best_config and AutoMLState.sanitize(e_search_state.best_config, e)
-            for e, e_search_state in self._search_states.items()
-        }
+        best_configs = {}
+        for e, e_search_state in self._search_states.items():
+            config = e_search_state.best_config.copy()
+            if e == "rf":
+                config["max_leaf_nodes"] = config.pop("max_leaves", None)
+            best_configs[e] = config
+        return best_configs
 
     @property
     def best_loss_per_estimator(self):

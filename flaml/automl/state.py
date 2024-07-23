@@ -340,14 +340,12 @@ class AutoMLState:
         return result
 
     @classmethod
-    def sanitize(cls, config: dict, estimator: str = "") -> dict:
+    def sanitize(cls, config: dict) -> dict:
         """Make a config ready for passing to estimator."""
         config = config.get("ml", config).copy()
         config.pop("FLAML_sample_size", None)
         config.pop("learner", None)
         config.pop("_choice_", None)
-        if estimator == "rf" and "max_leaves" in config:
-            config["max_leaf_nodes"] = config.pop("max_leaves", None)
         return config
 
     def _train_with_config(

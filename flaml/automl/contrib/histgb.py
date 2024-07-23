@@ -24,7 +24,7 @@ class HistGradientBoostingEstimator(SKLearnEstimator):
                 "init_value": 4,
                 "low_cost_init_value": 4,
             },
-            "max_leaf_nodes": {
+            "max_leaves": {
                 "domain": tune.lograndint(lower=4, upper=upper),
                 "init_value": 4,
                 "low_cost_init_value": 4,
