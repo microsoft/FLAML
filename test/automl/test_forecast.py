@@ -94,7 +94,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
 
 
 def test_models(budget=3):
-    n = 100
+    n = 200
     X = pd.DataFrame(
         {
             "A": pd.date_range(start="1900-01-01", periods=n, freq="D"),
@@ -109,14 +109,14 @@ def test_models(budget=3):
             continue  # TFT is covered by its own test
         automl = AutoML()
         automl.fit(
-            X_train=X[:72],  # a single column of timestamp
-            y_train=y[:72],  # value for each timestamp
+            X_train=X[:144],  # a single column of timestamp
+            y_train=y[:144],  # value for each timestamp
             estimator_list=[est],
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=budget,  # time budget in seconds
         )
-        automl.predict(X[72:])
+        automl.predict(X[144:])
 
 
 def test_numpy():
