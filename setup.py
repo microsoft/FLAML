@@ -65,7 +65,7 @@ setuptools.setup(
             "catboost>=0.26,<1.2; python_version<'3.11'",
             "catboost>=0.26; python_version>='3.11'",
             "rgf-python",
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
@@ -94,7 +94,7 @@ setuptools.setup(
         ],
         "catboost": ["catboost>=0.26"],
         "blendsearch": [
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "packaging",
         ],
         "ray": [
@@ -153,7 +153,7 @@ setuptools.setup(
         ],
         "synapse": [
             "joblibspark>=0.5.0",
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "pyspark>=3.2.0",
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
