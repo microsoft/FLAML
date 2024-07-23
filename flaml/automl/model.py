@@ -1418,12 +1418,10 @@ class LGBMEstimator(BaseEstimator):
                     # since xgboost>=1.6.0, callbacks can't be passed in fit()
                     self.params["callbacks"] = callbacks
                     callbacks = None
-            self._fit(
-                X_train,
-                y_train,
-                callbacks=callbacks,
-                **kwargs,
-            )
+            if callbacks is None:
+                self._fit(X_train, y_train, **kwargs)
+            else:
+                self._fit(X_train, y_train, callbacks=callbacks, **kwargs)
             if callbacks is None:
                 # for xgboost>=1.6.0, pop callbacks to enable pickle
                 callbacks = self.params.pop("callbacks")
