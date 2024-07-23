@@ -1716,7 +1716,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
                 "domain": tune.loguniform(lower=lower, upper=1.0),
                 "init_value": init,
             },
-            "max_leaf_nodes": {
+            "max_leaves": {
                 "domain": tune.lograndint(
                     lower=4,
                     upper=max(5, min(32768, RandomForestEstimator.nrows >> 1)),  #
