@@ -567,14 +567,18 @@ def _eval_estimator(
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
-        val_loss = metric_loss_score(
-            eval_metric,
-            y_processed_predict=val_pred_y,
-            y_processed_true=y_val,
-            labels=labels,
-            sample_weight=weight_val,
-            groups=groups_val,
-        )
+        try:
+            val_loss = metric_loss_score(
+                eval_metric,
+                y_processed_predict=val_pred_y,
+                y_processed_true=y_val,
+                labels=labels,
+                sample_weight=weight_val,
+                groups=groups_val,
+            )
+        except ValueError:
+            # `r2_score` and other metrics may raise a `ValueError` when a model returns `inf` or `nan` values. In this case, we set the val_loss to infinity.
+            val_loss = np.inf
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
             train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
