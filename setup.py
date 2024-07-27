@@ -37,7 +37,7 @@ setuptools.setup(
     extras_require={
         "automl": [
             "lightgbm>=2.3.1",
-            "xgboost>=0.90,<2.0.0",
+            "xgboost>=0.90,<3.0.0",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
             "scikit-learn>=0.24",
