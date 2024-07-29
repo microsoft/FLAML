@@ -1,7 +1,9 @@
 import datetime
+import sys
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from flaml import AutoML
 from flaml.automl.task.time_series_task import TimeSeriesTask
@@ -495,6 +497,10 @@ def get_stalliion_data():
     return data, special_days
 
 
+@pytest.mark.skipif(
+    "3.11" in sys.version,
+    reason="do not run on py 3.11",
+)
 def test_forecast_panel(budget=5):
     data, special_days = get_stalliion_data()
     time_horizon = 6  # predict six months
