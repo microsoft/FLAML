@@ -6,7 +6,11 @@ import thop
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
+
+try:
+    import torchvision
+except ImportError:
+    torchvision = None
 
 from flaml import tune
 
@@ -35,6 +39,9 @@ def _BraninCurrin(config):
 
 
 def test_lexiflow():
+    if torchvision is None:
+        return False
+
     train_dataset = torchvision.datasets.FashionMNIST(
         "test/data",
         train=True,

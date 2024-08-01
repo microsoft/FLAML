@@ -561,7 +561,15 @@ class OptunaSearch(Searcher):
         self._space = space
 
         self._points_to_evaluate = points_to_evaluate or []
-        self._evaluated_rewards = evaluated_rewards
+        # rewards should be a list of floats, not a dict
+        # After Optuna > 3.5.0, there is a check for NaN in the list "any(math.isnan(x) for x in self._values)"
+        # which will raise an error when encountering a dict
+        if evaluated_rewards is not None:
+            self._evaluated_rewards = [
+                list(item.values())[0] if isinstance(item, dict) else item for item in evaluated_rewards
+            ]
+        else:
+            self._evaluated_rewards = evaluated_rewards
 
         self._study_name = "optuna"  # Fixed study name for in-memory storage
 
@@ -873,9 +881,9 @@ class OptunaSearch(Searcher):
 
             elif isinstance(domain, Integer):
                 if isinstance(sampler, LogUniform):
-                    return ot.distributions.IntLogUniformDistribution(
-                        domain.lower, domain.upper - 1, step=quantize or 1
-                    )
+                    # ``step`` argument Deprecated in v2.0.0. ``step`` argument should be 1 in Log Distribution
+                    # The removal of this feature is currently scheduled for v4.0.0,
+                    return ot.distributions.IntLogUniformDistribution(domain.lower, domain.upper - 1, step=1)
                 elif isinstance(sampler, Uniform):
                     # Upper bound should be inclusive for quantization and
                     # exclusive otherwise
