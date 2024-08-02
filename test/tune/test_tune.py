@@ -496,4 +496,8 @@ def _test_xgboost_bohb():
 
 
 if __name__ == "__main__":
+    test_nested_run()
+    test_nested_space()
+    test_run_training_function_return_value()
+    test_passing_search_alg()
     test_xgboost_bs()
