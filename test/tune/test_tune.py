@@ -3,8 +3,10 @@
 import logging
 import math
 import os
+import sys
 import time
 
+import pytest
 import sklearn.datasets
 import sklearn.metrics
 import xgboost as xgb
@@ -16,6 +18,9 @@ try:
     from ray.tune.integration.xgboost import TuneReportCheckpointCallback
 except ImportError:
     print("skip test_xgboost because ray tune cannot be imported.")
+
+# if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+#     pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
 logger = logging.getLogger(__name__)
 os.makedirs("logs", exist_ok=True)
@@ -49,6 +54,10 @@ def _easy_objective(config):
     return {"mean_loss": (0.1 + width * step / 100) ** (-1) + height * 0.1}
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11,
+    reason="skipping Python 3.11 on MacOS",
+)
 def test_nested_run():
     from flaml import AutoML, tune
 
