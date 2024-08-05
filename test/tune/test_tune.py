@@ -250,6 +250,10 @@ def _test_xgboost(method="BlendSearch"):
             logger.info(f"Best model parameters: {best_trial.config}")
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11,
+    reason="skipping Python 3.11 on MacOS",
+)
 def test_nested_space():
     from flaml import CFO, tune
 
