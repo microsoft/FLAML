@@ -21,6 +21,9 @@ model_path_list = [
     "textattack/bert-base-uncased-MNLI",
 ]
 
+if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
+
 
 def test_switch_1_1():
     data_idx, model_path_idx = 0, 0
