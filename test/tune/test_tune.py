@@ -20,8 +20,8 @@ except ImportError:
     print("skip test_xgboost because ray tune cannot be imported.")
 
 # TODO: Skip Python 3.11 on MacOS due to pytest segfault in github actions
-if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
-    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
+# if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+#     pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
 logger = logging.getLogger(__name__)
 os.makedirs("logs", exist_ok=True)
