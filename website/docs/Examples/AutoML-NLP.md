@@ -47,6 +47,8 @@ if os.path.exists("data/output/"):
     shutil.rmtree("data/output/")
 ```
 
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
+
 #### Sample output
 
 ```
