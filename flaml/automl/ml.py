@@ -576,9 +576,10 @@ def _eval_estimator(
                 sample_weight=weight_val,
                 groups=groups_val,
             )
-        except ValueError:
+        except ValueError as e:
             # `r2_score` and other metrics may raise a `ValueError` when a model returns `inf` or `nan` values. In this case, we set the val_loss to infinity.
             val_loss = np.inf
+            logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
             train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
