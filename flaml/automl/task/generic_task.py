@@ -414,9 +414,7 @@ class GenericTask(Task):
                     sample_weight_full,
                     random_state=RANDOM_SEED,
                 )
-                state.fit_kwargs[
-                    "sample_weight"
-                ] = (
+                state.fit_kwargs["sample_weight"] = (
                     state.sample_weight_all
                 )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                 if isinstance(state.sample_weight_all, pd.Series):
@@ -501,9 +499,7 @@ class GenericTask(Task):
                 y_rest = (
                     y_train_all[rest]
                     if isinstance(y_train_all, np.ndarray)
-                    else iloc_pandas_on_spark(y_train_all, rest)
-                    if is_spark_dataframe
-                    else y_train_all.iloc[rest]
+                    else iloc_pandas_on_spark(y_train_all, rest) if is_spark_dataframe else y_train_all.iloc[rest]
                 )
                 stratify = y_rest if split_type == "stratified" else None
                 X_train, X_val, y_train, y_val = self._train_test_split(
@@ -619,9 +615,11 @@ class GenericTask(Task):
                 X = pd.DataFrame(
                     dict(
                         [
-                            (transformer._str_columns[idx], X[idx])
-                            if isinstance(X[0], List)
-                            else (transformer._str_columns[idx], [X[idx]])
+                            (
+                                (transformer._str_columns[idx], X[idx])
+                                if isinstance(X[0], List)
+                                else (transformer._str_columns[idx], [X[idx]])
+                            )
                             for idx in range(len(X))
                         ]
                     )
@@ -701,7 +699,7 @@ class GenericTask(Task):
             elif isinstance(kf, TimeSeriesSplit):
                 kf = kf.split(X_train_split, y_train_split)
             else:
-                kf = kf.split(X_train_split)
+                kf = kf.split(X_train_split, y_train_split)
 
         for train_index, val_index in kf:
             if shuffle:
