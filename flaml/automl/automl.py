@@ -650,9 +650,6 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
-            time_col = getattr(estimator, "time_col", None)
-            X = estimator.autofe.transform(X, time_col)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
@@ -2723,7 +2720,6 @@ class AutoML(BaseEstimator):
                     state.best_config_train_time = retrain_time
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
-                        logger.info(f"Auto Feature Engineering pipeline: {self._trained_estimator.autofe}")
                         if self.best_run_id is not None:
                             logger.info(f"Best MLflow run name: {self.best_run_name}")
                             logger.info(f"Best MLflow run id: {self.best_run_id}")
