@@ -5,11 +5,8 @@ import time
 import warnings
 
 import mlflow
-import pyspark
 import pytest
 from packaging.version import Version
-from pyspark.ml.evaluation import RegressionEvaluator
-from pyspark.ml.feature import VectorAssembler
 from sklearn.datasets import fetch_california_housing, load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
@@ -18,6 +15,12 @@ from sklearn.model_selection import train_test_split
 import flaml
 from flaml.automl.spark.utils import to_pandas_on_spark
 
+try:
+    import pyspark
+    from pyspark.ml.evaluation import RegressionEvaluator
+    from pyspark.ml.feature import VectorAssembler
+except ImportError:
+    pass
 warnings.filterwarnings("ignore")
 
 skip_spark = importlib.util.find_spec("pyspark") is None
