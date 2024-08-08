@@ -1,6 +1,9 @@
 import logging
 
-from flaml.automl import AutoML, logger_formatter
+try:
+    from flaml.automl import AutoML, logger_formatter
+except ImportError:
+    pass
 from flaml.onlineml.autovw import AutoVW
 from flaml.tune.searcher import CFO, FLOW2, BlendSearch, BlendSearchTuner, RandomSearch
 from flaml.version import __version__
