@@ -323,6 +323,25 @@ class AutoML(BaseEstimator):
             mlflow_logging: boolean, default=True | Whether to log the training results to mlflow.
                 This requires mlflow to be installed and to have an active mlflow run.
                 FLAML will create nested runs.
+            mutioutput_train_size: int, default=None | For multi-output tasks, when `eval_method` is set to
+                "holdout" and a validation set is manually specified, set this parameter to the length of
+                the training set. When calling the `fit` method, concatenate the training set and the validation set.
+                e.g.,
+
+        ```python
+        model = MultiOutputRegressor(
+            AutoML(
+                task="regression",
+                time_budget=1,
+                eval_method="holdout",
+                multioutput_train_size=len(X_train)
+            )
+        )
+        model.fit(
+            pd.concat([X_train, X_val]),
+            pd.concat([y_train, y_val])
+        )
+        ```
 
         """
         if ERROR:
@@ -375,6 +394,7 @@ class AutoML(BaseEstimator):
         settings["custom_hp"] = settings.get("custom_hp", {})
         settings["skip_transform"] = settings.get("skip_transform", False)
         settings["mlflow_logging"] = settings.get("mlflow_logging", True)
+        settings["multioutput_train_size"] = settings.get("multioutput_train_size", None)
 
         self._estimator_type = "classifier" if settings["task"] in CLASSIFICATION else "regressor"
 
@@ -1148,6 +1168,9 @@ class AutoML(BaseEstimator):
         )
         self.data_size_full = self._state.data_size_full
 
+    def _train_val_split(self, train_val_concat, multioutput_train_size):
+        return train_val_concat[:multioutput_train_size], train_val_concat[multioutput_train_size:]
+
     def fit(
         self,
         X_train=None,
@@ -1524,6 +1547,10 @@ class AutoML(BaseEstimator):
 
         self._state._start_time_flag = self._start_time_flag = time.time()
         task = task or self._settings.get("task")
+        multioutput_train_size = self._settings.get("multioutput_train_size")
+        if multioutput_train_size is not None:
+            X_train, X_val = self._train_val_split(X_train, multioutput_train_size)
+            y_train, y_val = self._train_val_split(y_train, multioutput_train_size)
         if isinstance(task, str):
             task = task_factory(task, X_train, y_train)
         self._state.task = task
