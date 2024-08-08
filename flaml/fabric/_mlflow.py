@@ -413,14 +413,10 @@ class MLflowIntegration:
             pipeline.stages.append(model)
         elif not estimator.endswith("_spark"):
             steps = [("feature_transformer", feature_transformer)]
-            if model.autofe is not None:
-                steps.append(("autofe", model.autofe))
             steps.append(("estimator", model))
             pipeline = Pipeline(steps)
         else:
             stages = [feature_transformer]
-            if model.autofe is not None:
-                stages.append(model.autofe)
             stages.append(model)
             pipeline = SparkPipeline(stages=stages)
         if isinstance(pipeline, SparkPipeline):
