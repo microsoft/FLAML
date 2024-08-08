@@ -277,11 +277,6 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            featurization: str or dict, default="auto" | Apply tunable feature engineering to the input data.
-                Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
-                Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
-                Set "off" to disable featurization.
-                Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -402,7 +397,6 @@ class AutoML(BaseEstimator):
         settings["early_stop"] = settings.get("early_stop", False)
         settings["force_cancel"] = settings.get("force_cancel", False)
         settings["mlflow_exp_name"] = settings.get("mlflow_exp_name", None)
-        settings["featurization"] = settings.get("featurization", os.environ.get("FLAML_FEATURIZATION", "off"))
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
@@ -535,11 +529,6 @@ class AutoML(BaseEstimator):
     def feature_transformer(self):
         """Returns AutoML Transformer"""
         data_precessor = getattr(self, "_transformer", None)
-        estimator = getattr(self, "_trained_estimator", None)
-        autofe = estimator and getattr(estimator, "autofe", None)
-        if autofe is not None:
-            pipeline = Pipeline([("precessor", data_precessor), ("autofe", autofe)])
-            return pipeline
         return data_precessor
 
     @property
@@ -592,9 +581,6 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
-            X = estimator.autofe.transform(X)
-
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -637,9 +623,6 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
-            time_col = getattr(estimator, "time_col", None)
-            X = estimator.autofe.transform(X, time_col)
         y_pred = estimator.predict(X, **pred_kwargs)
 
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
@@ -1275,7 +1258,6 @@ class AutoML(BaseEstimator):
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
-        featurization=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -1458,11 +1440,6 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            featurization: str or dict, default="auto" | Apply tunable feature engineering to the input data.
-                Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
-                Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
-                Set "off" to disable featurization.
-                Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -1650,15 +1627,6 @@ class AutoML(BaseEstimator):
         early_stop = self._settings.get("early_stop") if early_stop is None else early_stop
         force_cancel = self._settings.get("force_cancel") if force_cancel is None else force_cancel
         mlflow_exp_name = self._settings.get("mlflow_exp_name") if mlflow_exp_name is None else mlflow_exp_name
-        featurization = self._settings.get("featurization") if featurization is None else featurization
-        if not any([isinstance(featurization, dict), featurization in ["auto", "off", "force"]]):
-            raise ValueError(
-                f"Expect featurization to be one of 'auto', 'off', 'force', or a dict, got {featurization}"
-            )
-        if ensemble:
-            # TODO: Compatible with Ensemble Model
-            # Currently, multiple featurization will come along ensemble, since each individual estimator has their own featurization pipeline
-            featurization = "off"
         # no search budget is provided?
         no_budget = time_budget < 0 and max_iter is None and not early_stop
         append_log = self._settings.get("append_log") if append_log is None else append_log
@@ -1709,7 +1677,6 @@ class AutoML(BaseEstimator):
         self._use_spark = use_spark
         self._force_cancel = force_cancel
         self._use_ray = use_ray
-        self._featurization = featurization
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trial_time + average_trial_overhead) / (average_trial_time)
         if self._use_ray is not False:
@@ -2014,7 +1981,6 @@ class AutoML(BaseEstimator):
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
                 max_iter=max_iter / len(estimator_list) if self._learner_selector == "roundrobin" else max_iter,
                 budget=self._state.time_budget,
-                featurization=featurization,
             )
         logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
         self.estimator_list = estimator_list
@@ -2856,9 +2822,4 @@ class AutoML(BaseEstimator):
 
     @property
     def automl_pipeline(self):
-        if self._featurization == "off":
-            return None
-        feature_transformer = self.feature_transformer
-        estimator = self.model
-        pipeline = Pipeline(steps=[("feature_transformer", feature_transformer), ("estimator", estimator)])
-        return pipeline
+        return None

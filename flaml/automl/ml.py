@@ -31,11 +31,6 @@ try:
 except ImportError:
     pass
 
-try:
-    from flaml.fabric.autofe import Featurization
-except ImportError:
-    Featurization = None
-
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
 
@@ -352,50 +347,12 @@ def compute_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
-    autofe = None
-    if Featurization is not None and fe_params:
-        import pandas as pd
-
-        autofe = Featurization(params=fe_params, task=task)
-
-        if y_val is None:
-            all_y = y_train
-        elif isinstance(y_train, pd.Series):
-            all_y = pd.concat([y_train, y_val])
-        elif isinstance(y_train, np.ndarray):
-            all_y = np.concatenate([y_train, y_val])
-        else:
-            raise ValueError(
-                f"Not supported type for y_train: {type(y_train)}, Currently supported types are: pandas.Series, numpy.ndarray"
-            )
-
-        if X_val is None:
-            all_X = X_train
-        elif isinstance(X_train, pd.DataFrame):
-            dtypes = X_train.dtypes
-            all_X = pd.concat([X_train, X_val])
-            all_X = all_X.astype(dtypes)
-        elif isinstance(X_train, np.ndarray):
-            all_X = np.concatenate([X_train, X_val])
-        elif isinstance(X_train, TimeSeriesDataset):
-            all_X = X_val
-        else:
-            raise ValueError(
-                f"Not supported type for X_train: {type(X_train)}, Currently supported types are: pandas.DataFrame, numpy.ndarray"
-            )
-
-        autofe.fit(all_X, all_y)
-        X_train = autofe.transform(X_train)
-        X_val = autofe.transform(X_val)
-
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
-
-    estimator.autofe = autofe
 
     if isinstance(estimator, TransformersEstimator):
         # TODO: move the partial function to nlp
@@ -465,19 +422,12 @@ def train_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
-    autofe = None
-    if Featurization is not None and fe_params and X_train is not None:
-        autofe = Featurization(params=fe_params, task=task)
-        X_train = autofe.fit_transform(X_train, y_train)
-
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
-
-    estimator.autofe = autofe
 
     if fit_kwargs is None:
         fit_kwargs = {}
