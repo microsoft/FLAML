@@ -11,6 +11,11 @@ from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+try:
+    from flaml.fabric.autofe import parse_autofe_config
+except ImportError:
+    parse_autofe_config = None
+
 
 class SearchState:
     @property
@@ -65,6 +70,7 @@ class SearchState:
         custom_hp=None,
         max_iter=None,
         budget=None,
+        featurization="auto",
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -82,7 +88,11 @@ class SearchState:
         else:
             data_size = data.shape
             search_space = learner_class.search_space(data_size=data_size, task=task)
+
         self.data_size = data_size
+        if parse_autofe_config is not None:
+            result = parse_autofe_config(featurization, data, task, learner_class)
+            search_space.update(result)
 
         if custom_hp is not None:
             search_space.update(custom_hp)
@@ -290,9 +300,11 @@ class AutoMLState:
         budget = (
             None
             if state.time_budget < 0
-            else state.time_budget - state.time_from_start
-            if sample_size == state.data_size[0]
-            else (state.time_budget - state.time_from_start) / 2 * sample_size / state.data_size[0]
+            else (
+                state.time_budget - state.time_from_start
+                if sample_size == state.data_size[0]
+                else (state.time_budget - state.time_from_start) / 2 * sample_size / state.data_size[0]
+            )
         )
 
         (
@@ -353,6 +365,7 @@ class AutoMLState:
         estimator: str,
         config_w_resource: dict,
         sample_size: Optional[int] = None,
+        is_retrain: bool = False,
     ):
         if not sample_size:
             sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
@@ -378,9 +391,8 @@ class AutoMLState:
             this_estimator_kwargs[
                 "groups"
             ] = groups  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
-
+        this_estimator_kwargs.update({"is_retrain": is_retrain})
         budget = None if self.time_budget < 0 else self.time_budget - self.time_from_start
-
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
             y_train=sampled_y_train,

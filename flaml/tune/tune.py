@@ -29,6 +29,35 @@ from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 from .result import DEFAULT_METRIC
 from .trial import Trial
 
+try:
+    import mlflow
+except ImportError:
+    mlflow = None
+
+try:
+    from flaml.fabric._mlflow import MLflowIntegration
+    from flaml.fabric._telemetry import log_telemetry
+    from flaml.fabric.logger import init_kusto_logger
+
+    internal_mlflow = True
+    is_log_telemetry_tune = True
+    kusto_logger = init_kusto_logger("flaml.tune")
+except ImportError:
+    internal_mlflow = False
+    is_log_telemetry_tune = False
+
+    class KustoLogger:
+        def info(self, *args, **kwargs):
+            pass
+
+        def warning(self, *args, **kwargs):
+            pass
+
+        def error(self, *args, **kwargs):
+            pass
+
+    kusto_logger = KustoLogger()
+
 logger = logging.getLogger(__name__)
 logger.propagate = False
 _use_ray = True
@@ -44,6 +73,7 @@ class ExperimentAnalysis(EA):
     """Class for storing the experiment results."""
 
     def __init__(self, trials, metric, mode, lexico_objectives=None):
+        self.best_run_id = None
         try:
             super().__init__(self, None, trials, metric, mode)
             self.lexico_objectives = lexico_objectives
@@ -127,6 +157,16 @@ class ExperimentAnalysis(EA):
             return super().best_result
         else:
             return self.best_trial.last_result
+
+    @property
+    def best_iteration(self) -> List[str]:
+        """Help better navigate"""
+        best_trial = self.best_trial
+        best_trial_id = best_trial.trial_id
+        for i, trial in enumerate(self.trials):
+            if trial.trial_id == best_trial_id:
+                return i
+        return None
 
 
 def report(_metric=None, **kwargs):
@@ -234,6 +274,9 @@ def run(
     lexico_objectives: Optional[dict] = None,
     force_cancel: Optional[bool] = False,
     n_concurrent_trials: Optional[int] = 0,
+    mlflow_exp_name: Optional[str] = None,
+    automl_info: Optional[Tuple[float]] = None,
+    extra_tag: Optional[dict] = None,
     **ray_args,
 ):
     """The function-based way of performing HPO.
@@ -424,6 +467,10 @@ def run(
     }
     ```
         force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
+        mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
+            enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
+            same name as the basename of main entry file.
+        automl_info: tuple, default=None | The information of the automl run. It should be a tuple of (mlflow_log_latency,).
         n_concurrent_trials: int, default=0 | The number of concurrent trials when perform hyperparameter
             tuning with Spark. Only valid when use_spark=True and spark is required:
             `pip install flaml[spark]`. Please check
@@ -431,6 +478,7 @@ def run(
             for more details about installing Spark. When tune.run() is called from AutoML, it will be
             overwritten by the value of `n_concurrent_trials` in AutoML. When <= 0, the concurrent trials
             will be set to the number of executors.
+        extra_tag: dict, default=None | Extra tags to be added to the mlflow runs created by autologging.
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -438,10 +486,21 @@ def run(
     global _verbose
     global _running_trial
     global _training_iteration
+    global internal_mlflow
+    global is_log_telemetry_tune
     old_use_ray = _use_ray
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
+    kusto_logger.info(
+        f"tune.run: search_alg={search_alg}, metric={metric}, mode={mode}, time_budget_s={time_budget_s}, "
+        f"num_samples={num_samples}, automl_info={automl_info}, "
+        f"force_cancel={force_cancel}, mlflow_exp_name={mlflow_exp_name}, extra_tag={extra_tag}, "
+        f"use_spark={use_spark}, verbose={verbose}\nconfig={config}"
+    )
+    if is_log_telemetry_tune and internal_mlflow and not automl_info:
+        log_telemetry(activity_name="flaml-tune")
+        is_log_telemetry_tune = False
     if log_file_name:
         dir_name = os.path.dirname(log_file_name)
         if dir_name:
@@ -485,6 +544,13 @@ def run(
                 logger.setLevel(logging.DEBUG)
         else:
             logger.setLevel(logging.CRITICAL)
+
+    if internal_mlflow and not automl_info:
+        mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
+        evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
+        _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
+    else:
+        _internal_mlflow = False
 
     from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
@@ -699,6 +765,10 @@ def run(
             n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
             max_concurrent,
         )
+        kusto_logger.info(
+            f"Use {n_concurrent_trials} concurrent trials in spark. FLAML_MAX_CONCURRENT={FLAML_MAX_CONCURRENT}. "
+            f"num_executors={num_executors}. max_spark_parallelism={max_spark_parallelism}. max_concurrent={max_concurrent}."
+        )
         with parallel_backend("spark"):
             with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
                 try:
@@ -713,11 +783,15 @@ def run(
                         time_budget_s = np.inf
                     num_failures = 0
                     upperbound_num_failures = (len(evaluated_rewards) if evaluated_rewards else 0) + max_failure
+                    logger.debug(f"automl_info: {automl_info}")
                     while (
                         time.time() - time_start < time_budget_s
                         and (num_samples < 0 or num_trials < num_samples)
                         and num_failures < upperbound_num_failures
                     ):
+                        if automl_info and automl_info[0] > 0 and time_budget_s < np.inf:
+                            time_budget_s -= automl_info[0]
+                            logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
                         while len(_runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark
                             trial_next = _runner.step()
@@ -731,6 +805,7 @@ def run(
                         trials_to_run = _runner.running_trials
                         if not trials_to_run:
                             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
+                            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
                             break
                         logger.info(
                             f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
@@ -750,6 +825,9 @@ def run(
                             trial_to_run = trials_to_run[0]
                             _runner.running_trial = trial_to_run
                             if result is not None:
+                                if _internal_mlflow:
+                                    mlflow_integration.record_trial(result, trial_to_run, metric)
+
                                 if isinstance(result, dict):
                                     if result:
                                         logger.info(f"Brief result: {result}")
@@ -768,6 +846,20 @@ def run(
                         mode=mode,
                         lexico_objectives=lexico_objectives,
                     )
+                    analysis.search_space = config
+
+                    if _internal_mlflow:
+                        mlflow_integration.log_tune(analysis, metric)
+                        # try:
+                        #     _best_config = analysis.best_config
+                        # except Exception:
+                        #     _best_config = None
+                        # if _best_config:
+                        #     parallel(
+                        #         delayed(mlflow_integration.retrain)(evaluation_function, analysis.best_config)
+                        #         for dummy in [0]
+                        #     )
+
                     return analysis
                 finally:
                     # recover the global variables in case of nested run
@@ -779,6 +871,8 @@ def run(
                         _runner = old_runner
                         logger.handlers = old_handlers
                         logger.setLevel(old_level)
+                    if _internal_mlflow:
+                        mlflow_integration.adopt_children()
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -812,7 +906,11 @@ def run(
                 result = None
                 with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
                     result = evaluation_function(trial_to_run.config)
+                logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
+                    if _internal_mlflow:
+                        mlflow_integration.record_trial(result, trial_to_run, metric)
+
                     if isinstance(result, dict):
                         if result:
                             report(**result)
@@ -832,12 +930,26 @@ def run(
                 num_failures += 1
         if num_failures == upperbound_num_failures:
             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
+            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
         analysis = ExperimentAnalysis(
             _runner.get_trials(),
             metric=metric,
             mode=mode,
             lexico_objectives=lexico_objectives,
         )
+        analysis.search_space = config
+        if _internal_mlflow:
+            mlflow_integration.log_tune(analysis, metric)
+            if analysis.best_run_id is not None:
+                logger.info(f"Best MLflow run name: {analysis.best_run_name}")
+                logger.info(f"Best MLflow run id: {analysis.best_run_id}")
+            # try:
+            #     _best_config = analysis.best_config
+            # except Exception:
+            #     _best_config = None
+            # if _best_config:
+            #     mlflow_integration.retrain(evaluation_function, analysis.best_config)
+
         return analysis
     finally:
         # recover the global variables in case of nested run
@@ -849,6 +961,8 @@ def run(
             _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
+        if _internal_mlflow:
+            mlflow_integration.adopt_children()
 
 
 class Tuner:
