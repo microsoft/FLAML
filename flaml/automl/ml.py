@@ -13,6 +13,7 @@ from flaml.automl.model import BaseEstimator, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.task.task import Task
+from flaml.automl.time_series import TimeSeriesDataset
 
 try:
     from sklearn.metrics import (
@@ -30,10 +31,14 @@ try:
 except ImportError:
     pass
 
+try:
+    from flaml.fabric.autofe import Featurization
+except ImportError:
+    Featurization = None
+
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
 
-from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +94,11 @@ huggingface_metric_to_mode = {
     "wer": "min",
 }
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
+spark_metric_name_dict = {
+    "Regression": ["r2", "rmse", "mse", "mae", "var"],
+    "Binary Classification": ["pr_auc", "roc_auc"],
+    "Multi-class Classification": ["accuracy", "log_loss", "f1", "micro_f1", "macro_f1"],
+}
 
 
 def metric_loss_score(
@@ -122,7 +132,7 @@ def metric_loss_score(
             import datasets
 
             datasets_metric_name = huggingface_submetric_to_metric.get(metric_name, metric_name.split(":")[0])
-            metric = datasets.load_metric(datasets_metric_name)
+            metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
             metric_mode = huggingface_metric_to_mode[datasets_metric_name]
 
             if metric_name.startswith("seqeval"):
@@ -334,12 +344,58 @@ def compute_estimator(
     if fit_kwargs is None:
         fit_kwargs = {}
 
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
+
+    autofe = None
+    if Featurization is not None and fe_params:
+        import pandas as pd
+
+        autofe = Featurization(params=fe_params, task=task)
+
+        if y_val is None:
+            all_y = y_train
+        elif isinstance(y_train, pd.Series):
+            all_y = pd.concat([y_train, y_val])
+        elif isinstance(y_train, np.ndarray):
+            all_y = np.concatenate([y_train, y_val])
+        else:
+            raise ValueError(
+                f"Not supported type for y_train: {type(y_train)}, Currently supported types are: pandas.Series, numpy.ndarray"
+            )
+
+        if X_val is None:
+            all_X = X_train
+        elif isinstance(X_train, pd.DataFrame):
+            dtypes = X_train.dtypes
+            all_X = pd.concat([X_train, X_val])
+            all_X = all_X.astype(dtypes)
+        elif isinstance(X_train, np.ndarray):
+            all_X = np.concatenate([X_train, X_val])
+        elif isinstance(X_train, TimeSeriesDataset):
+            all_X = X_val
+        else:
+            raise ValueError(
+                f"Not supported type for X_train: {type(X_train)}, Currently supported types are: pandas.DataFrame, numpy.ndarray"
+            )
+
+        autofe.fit(all_X, all_y)
+        X_train = autofe.transform(X_train)
+        X_val = autofe.transform(X_val)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
 
     if isinstance(estimator, TransformersEstimator):
         # TODO: move the partial function to nlp
@@ -401,12 +457,28 @@ def train_estimator(
     free_mem_ratio=0,
 ) -> Tuple[EstimatorSubclass, float]:
     start_time = time.time()
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
+
+    autofe = None
+    if Featurization is not None and fe_params and X_train is not None:
+        autofe = Featurization(params=fe_params, task=task)
+        X_train = autofe.fit_transform(X_train, y_train)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
+
     if fit_kwargs is None:
         fit_kwargs = {}
 
