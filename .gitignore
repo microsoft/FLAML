@@ -182,3 +182,5 @@ patch.diff
 # Test things
 notebook/lightning_logs/
 lightning_logs/
+flaml/autogen/extensions/tmp/
+test/autogen/my_tmp/

@@ -5,7 +5,10 @@ import warnings
 from collections import defaultdict
 
 import mlflow
+import numpy as np
 import pandas as pd
+import scipy
+from packaging.version import Version
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
 from sklearn.model_selection import train_test_split
 
@@ -33,10 +36,12 @@ else:
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:0.10.2,"
+                    "com.microsoft.azure:synapseml_2.12:1.0.2,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
-                    f"org.mlflow:mlflow-spark:{mlflow.__version__}"
+                    f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
+                    if Version(mlflow.__version__) >= Version("2.9.0")
+                    else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
                 ),
             )
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
@@ -156,6 +161,23 @@ def _test_spark_models(estimator_list, task):
             leaderboard[task][estimator_name] = score
 
 
+def _test_sparse_matrix_classification(estimator):
+    automl_experiment = AutoML()
+    automl_settings = {
+        "estimator_list": [estimator],
+        "time_budget": 2,
+        "metric": "auto",
+        "task": "classification",
+        "log_file_name": "test/sparse_classification.log",
+        "split_type": "uniform",
+        "n_jobs": 1,
+        "model_history": True,
+    }
+    X_train = scipy.sparse.random(1554, 21, dtype=int)
+    y_train = np.random.randint(3, size=1554)
+    automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
+
+
 def load_multi_dataset():
     """multivariate time series forecasting dataset"""
     import pandas as pd
@@ -187,7 +209,7 @@ def _test_forecast(estimator_list, budget=10):
     train_df = df[:split_idx]
     test_df = df[split_idx:]
     # test dataframe must contain values for the regressors / multivariate variables
-    X_test = test_df[["timeStamp", "temp", "precip"]]
+    X_test = test_df[["timeStamp", "precip", "temp"]]
     y_test = test_df["demand"]
     # return
     automl = AutoML()
@@ -250,11 +272,13 @@ class TestExtraModel(unittest.TestCase):
 
     def test_svc(self):
         _test_regular_models("svc", "classification")
+        _test_sparse_matrix_classification("svc")
 
     def test_sgd(self):
         tasks = ["classification", "regression"]
         for task in tasks:
             _test_regular_models("sgd", task)
+        _test_sparse_matrix_classification("sgd")
 
     def test_enet(self):
         _test_regular_models("enet", "regression")
