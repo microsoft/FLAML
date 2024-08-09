@@ -37,6 +37,7 @@ from flaml.config import (
     SPLIT_RATIO,
 )
 from flaml.default import suggest_learner
+from flaml.fabric.mlflow import MLflowIntegration, get_mlflow_log_latency, infer_signature, is_autolog_enabled
 from flaml.tune.spark.utils import check_spark, get_broadcast_data
 from flaml.version import __version__ as flaml_version
 
@@ -56,29 +57,7 @@ try:
 except ImportError:
     mlflow = None
 
-try:
-    from flaml.fabric._mlflow import MLflowIntegration, get_mlflow_log_latency, infer_signature, is_autolog_enabled
-    from flaml.fabric._telemetry import log_telemetry
-    from flaml.fabric.logger import init_kusto_logger
-
-    internal_mlflow = True
-    is_log_telemetry = True
-    kusto_logger = init_kusto_logger("flaml.automl")
-except ImportError:
-    internal_mlflow = False
-    is_log_telemetry = False
-
-    class KustoLogger:
-        def info(self, *args, **kwargs):
-            pass
-
-        def warning(self, *args, **kwargs):
-            pass
-
-        def error(self, *args, **kwargs):
-            pass
-
-    kusto_logger = KustoLogger()
+internal_mlflow = True
 
 
 try:
@@ -353,10 +332,6 @@ class AutoML(BaseEstimator):
             mlflow_logging: boolean, default=True | Whether to log the training results to mlflow. Not valid if mlflow is not installed.
 
         """
-        global is_log_telemetry
-        if is_log_telemetry and internal_mlflow:
-            log_telemetry(activity_name="flaml-automl")
-            is_log_telemetry = False
         if ERROR:
             raise ERROR
         self._track_iter = 0
@@ -2008,16 +1983,9 @@ class AutoML(BaseEstimator):
         else:
             self._training_log = None
             self._search()
-        kusto_logger.info(
-            f"task: {task}, Data size: {self.data_size_full}, Spark dataframe: {is_spark_dataframe}, "
-            f"min_sample_size: {self._min_sample_size}, metric: {self._state.metric}, max_iter: {max_iter}, "
-            f"Data split method: {self._split_type}, Split ratio: {self.split_ratio}, Evaluation method: {eval_method}, "
-            f"List of ML learners in AutoML Run: {estimator_list}"
-        )
         if self._best_estimator:
             logger.info("fit succeeded")
             logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
-            kusto_logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
             if (
                 self._hpo_method in ("cfo", "bs")
                 and self._state.time_budget > 0

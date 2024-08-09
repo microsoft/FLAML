@@ -34,29 +34,10 @@ try:
 except ImportError:
     mlflow = None
 
-try:
-    from flaml.fabric._mlflow import MLflowIntegration
-    from flaml.fabric._telemetry import log_telemetry
-    from flaml.fabric.logger import init_kusto_logger
+from flaml.fabric.mlflow import MLflowIntegration
 
-    internal_mlflow = True
-    is_log_telemetry_tune = True
-    kusto_logger = init_kusto_logger("flaml.tune")
-except ImportError:
-    internal_mlflow = False
-    is_log_telemetry_tune = False
+internal_mlflow = True
 
-    class KustoLogger:
-        def info(self, *args, **kwargs):
-            pass
-
-        def warning(self, *args, **kwargs):
-            pass
-
-        def error(self, *args, **kwargs):
-            pass
-
-    kusto_logger = KustoLogger()
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -487,20 +468,11 @@ def run(
     global _running_trial
     global _training_iteration
     global internal_mlflow
-    global is_log_telemetry_tune
     old_use_ray = _use_ray
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
-    kusto_logger.info(
-        f"tune.run: search_alg={search_alg}, metric={metric}, mode={mode}, time_budget_s={time_budget_s}, "
-        f"num_samples={num_samples}, automl_info={automl_info}, "
-        f"force_cancel={force_cancel}, mlflow_exp_name={mlflow_exp_name}, extra_tag={extra_tag}, "
-        f"use_spark={use_spark}, verbose={verbose}\nconfig={config}"
-    )
-    if is_log_telemetry_tune and internal_mlflow and not automl_info:
-        log_telemetry(activity_name="flaml-tune")
-        is_log_telemetry_tune = False
+
     if log_file_name:
         dir_name = os.path.dirname(log_file_name)
         if dir_name:
@@ -765,10 +737,6 @@ def run(
             n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
             max_concurrent,
         )
-        kusto_logger.info(
-            f"Use {n_concurrent_trials} concurrent trials in spark. FLAML_MAX_CONCURRENT={FLAML_MAX_CONCURRENT}. "
-            f"num_executors={num_executors}. max_spark_parallelism={max_spark_parallelism}. max_concurrent={max_concurrent}."
-        )
         with parallel_backend("spark"):
             with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
                 try:
@@ -805,7 +773,6 @@ def run(
                         trials_to_run = _runner.running_trials
                         if not trials_to_run:
                             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
-                            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
                             break
                         logger.info(
                             f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
@@ -930,7 +897,6 @@ def run(
                 num_failures += 1
         if num_failures == upperbound_num_failures:
             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
-            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
         analysis = ExperimentAnalysis(
             _runner.get_trials(),
             metric=metric,

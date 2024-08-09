@@ -116,45 +116,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
 
 
 def _get_notebook_name():
-    try:
-        import re
-        from typing import List
-
-        import requests
-        from gson import unmarshal_from_str
-        from requests.structures import CaseInsensitiveDict
-        from synapse.ml.fabric.token_utils import TokenUtils
-        from synapse.ml.mlflow.model.shared_artifact import (
-            _ARTIFACT_TYPE_NOTEBOOK,
-            PBIArtifact,
-        )
-        from synapse.ml.mlflow.synapse_mlflow_utils import get_mlflow_env_config, record_all_public_functions
-
-        notebook_id = get_mlflow_env_config(False).artifact_id
-
-        url = get_mlflow_env_config(False).shared_endpoint
-        headers = CaseInsensitiveDict()
-        headers["Authorization"] = f"Bearer {TokenUtils().get_aad_token()}"
-
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 200:
-            raise Exception("Check shared-platform artifact metadata error")
-
-        artifacts, e = unmarshal_from_str(resp.content, List[PBIArtifact])
-        if e:
-            raise e
-
-        filtered_notebooks_by_id = [
-            x for x in artifacts if x.artifactType == _ARTIFACT_TYPE_NOTEBOOK and x.objectId == notebook_id
-        ]
-        if len(filtered_notebooks_by_id) == 0:
-            raise Exception("Notebook id not found")
-        current_notebook = filtered_notebooks_by_id[0]
-        notebook_name = re.sub("\\W+", "-", current_notebook.displayName).strip()
-        return notebook_name
-    except Exception as e:
-        logger.debug(f"Failed to get notebook name: {e}")
-        return None
+    return None
 
 
 class MLflowIntegration:

@@ -11,11 +11,6 @@ from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
-try:
-    from flaml.fabric.autofe import parse_autofe_config
-except ImportError:
-    parse_autofe_config = None
-
 
 class SearchState:
     @property
@@ -90,9 +85,6 @@ class SearchState:
             search_space = learner_class.search_space(data_size=data_size, task=task)
 
         self.data_size = data_size
-        if parse_autofe_config is not None:
-            result = parse_autofe_config(featurization, data, task, learner_class)
-            search_space.update(result)
 
         if custom_hp is not None:
             search_space.update(custom_hp)
