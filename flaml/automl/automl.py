@@ -37,7 +37,6 @@ from flaml.config import (
     SPLIT_RATIO,
 )
 from flaml.default import suggest_learner
-from flaml.fabric.mlflow import MLflowIntegration, get_mlflow_log_latency, infer_signature, is_autolog_enabled
 from flaml.tune.spark.utils import check_spark, get_broadcast_data
 from flaml.version import __version__ as flaml_version
 
@@ -57,7 +56,12 @@ try:
 except ImportError:
     mlflow = None
 
-internal_mlflow = True
+try:
+    from flaml.fabric.mlflow import MLflowIntegration, get_mlflow_log_latency, infer_signature, is_autolog_enabled
+
+    internal_mlflow = True
+except ImportError:
+    internal_mlflow = False
 
 
 try:

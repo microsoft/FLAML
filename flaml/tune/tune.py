@@ -33,10 +33,12 @@ try:
     import mlflow
 except ImportError:
     mlflow = None
+try:
+    from flaml.fabric.mlflow import MLflowIntegration
 
-from flaml.fabric.mlflow import MLflowIntegration
-
-internal_mlflow = True
+    internal_mlflow = True
+except ImportError:
+    internal_mlflow = False
 
 
 logger = logging.getLogger(__name__)
