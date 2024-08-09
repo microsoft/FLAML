@@ -299,6 +299,7 @@ class TestExtraModel(unittest.TestCase):
     def test_avg(self):
         _test_forecast("avg")
 
+    @unittest.skipIf(skip_spark, reason="Skip on Mac or Windows")
     def test_tcn(self):
         _test_forecast("tcn")
 
