@@ -7,6 +7,7 @@ from collections import defaultdict
 import mlflow
 import numpy as np
 import pandas as pd
+import pytest
 import scipy
 from packaging.version import Version
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
