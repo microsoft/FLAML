@@ -155,30 +155,27 @@ class MLflowIntegration:
             else {"extra_tag.sid": f"flaml_{__version__}_{int(time.time())}_{random.randint(1001, 9999)}"}
         )
         self.start_time = time.time()
-
         self.mlflow_client = mlflow.tracking.MlflowClient()
-        if mlflow_exp_name is None:
-            if mlflow.tracking.fluent._active_experiment_id is None:
-                mlflow_exp_name = self._notebook_name if self._notebook_name else "flaml_default_experiment"
-                mlflow.set_experiment(experiment_name=mlflow_exp_name)
-        else:
-            mlflow.set_experiment(experiment_name=mlflow_exp_name)
-
-        mlflow_exp_id = mlflow.tracking.fluent._active_experiment_id
-        mlflow_exp_name = self.mlflow_client.get_experiment(mlflow_exp_id).name
-
-        self.experiment_id = mlflow_exp_id
-        self.experiment_name = mlflow_exp_name
-        self.experiment_type = experiment_type
-
         parent_run_info = mlflow.active_run().info if mlflow.active_run() is not None else None
-        self.update_autolog_state()
         if parent_run_info:
+            self.experiment_id = parent_run_info.experiment_id
             self.parent_run_id = parent_run_info.run_id
             # attribute run_name is not available before mlflow 2.0.1
             self.parent_run_name = parent_run_info.run_name if hasattr(parent_run_info, "run_name") else "flaml_run"
             if self.parent_run_name == "":
                 self.parent_run_name = mlflow.active_run().data.tags["mlflow.runName"]
+        else:
+            if mlflow_exp_name is None:
+                if mlflow.tracking.fluent._active_experiment_id is None:
+                    mlflow_exp_name = self._notebook_name if self._notebook_name else "flaml_default_experiment"
+                    mlflow.set_experiment(experiment_name=mlflow_exp_name)
+            else:
+                mlflow.set_experiment(experiment_name=mlflow_exp_name)
+            self.experiment_id = mlflow.tracking.fluent._active_experiment_id
+        self.experiment_name = mlflow.get_experiment(self.experiment_id).name
+        self.experiment_type = experiment_type
+        self.update_autolog_state()
+
         if self.autolog:
             # only end user created parent run in autolog scenario
             mlflow.end_run()
