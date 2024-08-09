@@ -36,11 +36,17 @@ class TimeSeriesTask(Task):
                 LGBM_TS,
                 RF_TS,
                 SARIMAX,
+                Average,
                 CatBoost_TS,
                 ExtraTrees_TS,
                 HoltWinters,
+                LassoLars_TS,
+                Naive,
                 Orbit,
                 Prophet,
+                SeasonalAverage,
+                SeasonalNaive,
+                TCNEstimator,
                 TemporalFusionTransformerEstimator,
                 XGBoost_TS,
                 XGBoostLimitDepth_TS,
@@ -57,7 +63,18 @@ class TimeSeriesTask(Task):
                 "holt-winters": HoltWinters,
                 "catboost": CatBoost_TS,
                 "tft": TemporalFusionTransformerEstimator,
+                "lassolars": LassoLars_TS,
+                "tcn": TCNEstimator,
+                "snaive": SeasonalNaive,
+                "naive": Naive,
+                "savg": SeasonalAverage,
+                "avg": Average,
             }
+
+            if self._estimators["tcn"] is None:
+                # remove TCN if import failed
+                del self._estimators["tcn"]
+                logger.info("Couldn't import pytorch_lightning, skipping TCN estimator")
 
             try:
                 from prophet import Prophet as foo
@@ -71,7 +88,7 @@ class TimeSeriesTask(Task):
 
                 self._estimators["orbit"] = Orbit
             except ImportError:
-                logger.info("Couldn't import Prophet, skipping")
+                logger.info("Couldn't import orbit, skipping")
 
         return self._estimators
 

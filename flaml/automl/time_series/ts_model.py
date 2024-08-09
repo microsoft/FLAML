@@ -26,6 +26,7 @@ from flaml.automl.data import TS_TIMESTAMP_COL, TS_VALUE_COL
 from flaml.automl.model import (
     CatBoostEstimator,
     ExtraTreesEstimator,
+    LassoLarsEstimator,
     LGBMEstimator,
     RandomForestEstimator,
     SKLearnEstimator,
@@ -631,6 +632,125 @@ class HoltWinters(StatsModelsEstimator):
         return train_time
 
 
+class SimpleForecaster(StatsModelsEstimator):
+    """Base class for Naive Forecaster like Seasonal Naive, Naive, Seasonal Average, Average"""
+
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {
+            "season": {
+                "domain": tune.randint(1, pred_horizon),
+                "init_value": pred_horizon,
+            }
+        }
+
+    def joint_preprocess(self, X_train, y_train=None):
+        X_train = self.enrich(X_train)
+
+        self.regressors = []
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            # this class only supports univariate regression
+            train_df = data.train_data[self.regressors + [target_col]]
+            train_df.index = to_datetime(data.train_data[data.time_col])
+        else:
+            target_col = TS_VALUE_COL
+            train_df = self._join(X_train, y_train)
+
+        self.time_col = data.time_col
+        self.target_names = data.target_names
+
+        train_df = self._preprocess(train_df)
+        return train_df, target_col
+
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+        self.season = self.params.get("season", 1)
+        current_time = time.time()
+        super().fit(X_train, y_train, budget=budget, **kwargs)
+
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+
+        model = SimpleExpSmoothing(
+            train_df[[target_col]],
+        )
+        with suppress_stdout_stderr():
+            model = model.fit(smoothing_level=self.smoothing_level)
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+
+class SeasonalNaive(SimpleForecaster):
+    smoothing_level = 1.0
+
+    def predict(self, X, **kwargs):
+        if isinstance(X, int):
+            forecasts = []
+            for i in range(X):
+                forecast = self._model.forecast(steps=self.season)[0]
+                forecasts.append(forecast)
+            return pd.Series(forecasts)
+        else:
+            return super().predict(X, **kwargs)
+
+
+class Naive(SimpleForecaster):
+    smoothing_level = 0.0
+
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {}
+
+    def predict(self, X, **kwargs):
+        if isinstance(X, int):
+            last_observation = self._model.params["initial_level"]
+            return pd.Series([last_observation] * X)
+        else:
+            return super().predict(X, **kwargs)
+
+
+class SeasonalAverage(SimpleForecaster):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        from statsmodels.tsa.ar_model import AutoReg, ar_select_order
+
+        start_time = time.time()
+
+        self.season = kwargs.get("season", 1)  # seasonality period
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+        selection_res = ar_select_order(train_df[target_col], maxlag=self.season)
+
+        # Fit autoregressive model with optimal order
+        model = AutoReg(train_df[target_col], lags=selection_res.ar_lags)
+        self._model = model.fit()
+        end_time = time.time()
+
+        return end_time - start_time
+
+
+class Average(SimpleForecaster):
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {}
+
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        from statsmodels.tsa.ar_model import AutoReg
+
+        start_time = time.time()
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+        model = AutoReg(train_df[target_col], lags=0)
+        self._model = model.fit()
+        end_time = time.time()
+
+        return end_time - start_time
+
+
 class TS_SKLearn(TimeSeriesEstimator):
     """The class for tuning SKLearn Regressors for time-series forecasting"""
 
@@ -757,3 +877,7 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
 # catboost regressor is invalid because it has a `name` parameter, making it incompatible with hcrystalball
 class CatBoost_TS(TS_SKLearn):
     base_class = CatBoostEstimator
+
+
+class LassoLars_TS(TS_SKLearn):
+    base_class = LassoLarsEstimator

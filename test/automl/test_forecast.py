@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 
 import numpy as np
@@ -95,6 +96,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
         )
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_models(budget=3):
     n = 200
     X = pd.DataFrame(
