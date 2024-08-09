@@ -356,7 +356,7 @@ def test_math(num_samples=-1):
     ]
     print(
         "max tokens in tuning data's canonical solutions",
-        max([len(x["solution"].split()) for x in tune_data]),
+        max(len(x["solution"].split()) for x in tune_data),
     )
     print(len(tune_data), len(test_data))
     # prompt template

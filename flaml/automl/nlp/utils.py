@@ -32,7 +32,7 @@ def is_a_list_of_str(this_obj):
 
 def _clean_value(value: Any) -> str:
     if isinstance(value, float):
-        return "{:.5}".format(value)
+        return f"{value:.5}"
     else:
         return str(value).replace("/", "_")
 
@@ -86,7 +86,7 @@ class Counter:
     @staticmethod
     def get_trial_fold_name(local_dir, trial_config, trial_id):
         Counter.counter += 1
-        experiment_tag = "{0}_{1}".format(str(Counter.counter), format_vars(trial_config))
+        experiment_tag = f"{str(Counter.counter)}_{format_vars(trial_config)}"
         logdir = get_logdir_name(_generate_dirname(experiment_tag, trial_id=trial_id), local_dir)
         return logdir
 

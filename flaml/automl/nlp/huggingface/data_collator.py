@@ -32,7 +32,7 @@ class DataCollatorForMultipleChoiceClassification(DataCollatorWithPadding):
             [{k: v[i] for k, v in feature.items()} for i in range(num_choices)] for feature in features
         ]
         flattened_features = list(chain(*flattened_features))
-        batch = super(DataCollatorForMultipleChoiceClassification, self).__call__(flattened_features)
+        batch = super().__call__(flattened_features)
         # Un-flatten
         batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
         # Add back labels

@@ -130,7 +130,7 @@ def _fix_a_slash_b(string: str) -> str:
     try:
         a = int(a_str)
         b = int(b_str)
-        assert string == "{}/{}".format(a, b)
+        assert string == f"{a}/{b}"
         new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
         return new_string
     except Exception:

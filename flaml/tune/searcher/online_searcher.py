@@ -319,7 +319,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         candidate_configs = [set(seed_interactions) | set(item) for item in space]
         final_candidate_configs = []
         for c in candidate_configs:
-            new_c = set([e for e in c if len(e) > 1])
+            new_c = {e for e in c if len(e) > 1}
             final_candidate_configs.append(new_c)
         return final_candidate_configs
 

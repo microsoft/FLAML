@@ -252,7 +252,7 @@ def _try_resolve(v) -> Tuple[bool, Any]:
         # Grid search values
         grid_values = v["grid_search"]
         if not isinstance(grid_values, list):
-            raise TuneError("Grid search expected list of values, got: {}".format(grid_values))
+            raise TuneError(f"Grid search expected list of values, got: {grid_values}")
         return False, Categorical(grid_values).grid()
     return True, v
 
@@ -302,13 +302,13 @@ def has_unresolved_values(spec: Dict) -> bool:
 
 class _UnresolvedAccessGuard(dict):
     def __init__(self, *args, **kwds):
-        super(_UnresolvedAccessGuard, self).__init__(*args, **kwds)
+        super().__init__(*args, **kwds)
         self.__dict__ = self
 
     def __getattribute__(self, item):
         value = dict.__getattribute__(self, item)
         if not _is_resolved(value):
-            raise RecursiveDependencyError("`{}` recursively depends on {}".format(item, value))
+            raise RecursiveDependencyError(f"`{item}` recursively depends on {value}")
         elif isinstance(value, dict):
             return _UnresolvedAccessGuard(value)
         else:

@@ -55,7 +55,7 @@ def test_overtime():
     start_time = time.time()
     automl_experiment.fit(**automl_settings)
     elapsed_time = time.time() - start_time
-    print("time budget: {:.2f}s, actual elapsed time: {:.2f}s".format(time_budget, elapsed_time))
+    print(f"time budget: {time_budget:.2f}s, actual elapsed time: {elapsed_time:.2f}s")
     # assert abs(elapsed_time - time_budget) < 5  # cancel assertion because github VM sometimes is super slow, causing the test to fail
     print(automl_experiment.predict(df))
     print(automl_experiment.model)

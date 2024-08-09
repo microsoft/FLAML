@@ -126,7 +126,7 @@ def split_files_to_chunks(
     """Split a list of files into chunks of max_tokens."""
     chunks = []
     for file in files:
-        with open(file, "r") as f:
+        with open(file) as f:
             text = f.read()
         chunks += split_text_to_chunks(text, max_tokens, chunk_mode, must_break_at_empty_line)
     return chunks

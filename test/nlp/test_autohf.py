@@ -30,7 +30,7 @@ def test_hf_data():
 
     import json
 
-    with open("seqclass.log", "r") as fin:
+    with open("seqclass.log") as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:

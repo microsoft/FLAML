@@ -125,7 +125,7 @@ def improve_function(file_name, func_name, objective, **config):
     """(work in progress) Improve the function to achieve the objective."""
     params = {**_IMPROVE_FUNCTION_CONFIG, **config}
     # read the entire file into a str
-    with open(file_name, "r") as f:
+    with open(file_name) as f:
         file_string = f.read()
     response = oai.Completion.create(
         {"func_name": func_name, "objective": objective, "file_string": file_string}, **params
@@ -158,7 +158,7 @@ def improve_code(files, objective, suggest_only=True, **config):
     code = ""
     for file_name in files:
         # read the entire file into a string
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             file_string = f.read()
         code += f"""{file_name}:
 {file_string}

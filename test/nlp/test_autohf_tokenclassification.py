@@ -44,7 +44,7 @@ def test_tokenclassification_idlabel():
     # perf test
     import json
 
-    with open("seqclass.log", "r") as fin:
+    with open("seqclass.log") as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:
@@ -86,7 +86,7 @@ def test_tokenclassification_tokenlabel():
     # perf test
     import json
 
-    with open("seqclass.log", "r") as fin:
+    with open("seqclass.log") as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:

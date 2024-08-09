@@ -110,7 +110,7 @@ class Trial:
                     }
                     self.metric_n_steps[metric] = {}
                     for n in self.n_steps:
-                        key = "last-{:d}-avg".format(n)
+                        key = f"last-{n:d}-avg"
                         self.metric_analysis[metric][key] = value
                         # Store n as string for correct restore.
                         self.metric_n_steps[metric][str(n)] = deque([value], maxlen=n)
@@ -124,7 +124,7 @@ class Trial:
                     self.metric_analysis[metric]["last"] = value
 
                     for n in self.n_steps:
-                        key = "last-{:d}-avg".format(n)
+                        key = f"last-{n:d}-avg"
                         self.metric_n_steps[metric][str(n)].append(value)
                         self.metric_analysis[metric][key] = sum(self.metric_n_steps[metric][str(n)]) / len(
                             self.metric_n_steps[metric][str(n)]
