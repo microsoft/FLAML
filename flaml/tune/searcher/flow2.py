@@ -109,7 +109,7 @@ class FLOW2(Searcher):
         else:
             mode = "min"
 
-        super(FLOW2, self).__init__(metric=metric, mode=mode)
+        super().__init__(metric=metric, mode=mode)
         # internally minimizes, so "max" => -1
         if mode == "max":
             self.metric_op = -1.0
@@ -350,7 +350,7 @@ class FLOW2(Searcher):
             else:
                 assert (
                     self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                ), "String tolerance of {} should use %% as the suffix".format(k_metric)
+                ), f"String tolerance of {k_metric} should use %% as the suffix"
                 tolerance_bound = self._f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
@@ -385,7 +385,7 @@ class FLOW2(Searcher):
                 else:
                     assert (
                         self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                    ), "String tolerance of {} should use %% as the suffix".format(k_metric)
+                    ), f"String tolerance of {k_metric} should use %% as the suffix"
                     tolerance_bound = self._f_best[k_metric] * (
                         1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                     )

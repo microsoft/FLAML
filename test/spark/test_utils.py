@@ -167,7 +167,7 @@ def test_len_labels():
     assert len_labels(y1) == 4
     ll, la = len_labels(y2, return_labels=True)
     assert ll == 4
-    assert set(la.to_numpy()) == set([1, 2, 5, 4])
+    assert set(la.to_numpy()) == {1, 2, 5, 4}
 
 
 def test_unique_value_first_index():

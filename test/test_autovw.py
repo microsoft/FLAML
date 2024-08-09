@@ -50,11 +50,11 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num, grouping_m
                 for i in range(len(X)):
                     NS_content = []
                     for zz in range(len(group_indexes)):
-                        ns_features = " ".join("{}:{:.6f}".format(ind, X[i][ind]) for ind in group_indexes[zz])
+                        ns_features = " ".join(f"{ind}:{X[i][ind]:.6f}" for ind in group_indexes[zz])
                         NS_content.append(ns_features)
                     ns_line = "{} |{}".format(
                         str(y[i]),
-                        "|".join("{} {}".format(NS_LIST[j], NS_content[j]) for j in range(len(group_indexes))),
+                        "|".join(f"{NS_LIST[j]} {NS_content[j]}" for j in range(len(group_indexes))),
                     )
                     f.write(ns_line)
                     f.write("\n")
@@ -67,7 +67,7 @@ def save_vw_dataset_w_ns(X, y, did, ds_dir, max_ns_num, is_regression):
     """convert openml dataset to vw example and save to file"""
     print("is_regression", is_regression)
     if is_regression:
-        fname = "ds_{}_{}_{}.vw".format(did, max_ns_num, 0)
+        fname = f"ds_{did}_{max_ns_num}_{0}.vw"
         print("dataset size", X.shape[0], X.shape[1])
         print("saving data", did, ds_dir, fname)
         dim = X.shape[1]
@@ -131,7 +131,7 @@ def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
 
     if is_regression:
         # the second field specifies the largest number of namespaces using.
-        fname = "ds_{}_{}_{}.vw".format(did, max_ns_num, 0)
+        fname = f"ds_{did}_{max_ns_num}_{0}.vw"
         vw_dataset_file = os.path.join(ds_dir, fname)
         # if file does not exist, generate and save the datasets
         if not os.path.exists(vw_dataset_file) or os.stat(vw_dataset_file).st_size < 1000:
@@ -139,7 +139,7 @@ def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
         print(ds_dir, vw_dataset_file)
         if not os.path.exists(ds_dir):
             os.makedirs(ds_dir)
-        with open(os.path.join(ds_dir, fname), "r") as f:
+        with open(os.path.join(ds_dir, fname)) as f:
             vw_content = f.read().splitlines()
             print(type(vw_content), len(vw_content))
         return vw_content
