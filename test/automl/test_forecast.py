@@ -151,6 +151,10 @@ def test_numpy():
     print(automl.predict(12))
 
 
+@pytest.mark.skipif(
+    sys.platform in ["darwin"] and sys.version_info < (3, 9),
+    reason="do not run on mac os python 3.8 or lower",
+)
 def test_numpy_large():
     import numpy as np
     import pandas as pd
