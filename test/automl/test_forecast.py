@@ -152,8 +152,8 @@ def test_numpy():
 
 
 @pytest.mark.skipif(
-    sys.platform in ["darwin"] and sys.version_info < (3, 9),
-    reason="do not run on mac os python 3.8 or lower",
+    sys.platform in ["darwin"],
+    reason="do not run on mac os",
 )
 def test_numpy_large():
     import numpy as np
