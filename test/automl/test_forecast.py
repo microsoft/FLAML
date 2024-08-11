@@ -569,7 +569,7 @@ def test_forecast_panel(budget=5):
     print(f"Training duration of best run: {automl.best_config_train_time}s")
     print(automl.model.estimator)
     """ pickle and save the automl object """
-    import pickle
+    import dill as pickle
 
     with open("automl.pkl", "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)

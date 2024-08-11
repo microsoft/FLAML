@@ -94,6 +94,7 @@ setuptools.setup(
             "pydantic==1.10.9",
             "sympy",
             "wolframalpha",
+            "dill",  # a drop in replacement of pickle
         ],
         "catboost": [
             "catboost>=0.26,<1.2; python_version<'3.11'",
