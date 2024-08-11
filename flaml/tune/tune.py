@@ -519,7 +519,7 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if internal_mlflow and not automl_info:
+    if internal_mlflow and not automl_info and mlflow.active_run():
         mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
         evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
         _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
