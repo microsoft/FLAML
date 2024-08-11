@@ -81,7 +81,6 @@ setuptools.setup(
             "pytorch-forecasting>=0.9.0,<=0.10.1; python_version<'3.11'",
             # "pytorch-forecasting==0.10.1; python_version=='3.11'",
             "mlflow==2.15.1",
-            "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
             "nbconvert",
