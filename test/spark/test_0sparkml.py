@@ -36,12 +36,6 @@ else:
                 ),
             )
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-            .config(
-                "spark.jars.excludes",
-                "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-            )
-            .config("spark.yarn.user.classpath.first", "true")
-            .config("spark.sql.parquet.enableVectorizedReader", "false")
             .config("spark.sql.debug.maxToStringFields", "100")
             .config("spark.driver.extraJavaOptions", "-Xss1m")
             .config("spark.executor.extraJavaOptions", "-Xss1m")
