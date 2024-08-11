@@ -286,7 +286,7 @@ def _init_spark_for_main():
         .config(
             "spark.jars.packages",
             (
-                "com.microsoft.azure:synapseml_2.12:1.0.2,"
+                "com.microsoft.azure:synapseml_2.12:1.0.4,"
                 "org.apache.hadoop:hadoop-azure:3.3.5,"
                 "com.microsoft.azure:azure-storage:8.6.6,"
                 f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
@@ -295,9 +295,17 @@ def _init_spark_for_main():
             ),
         )
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .config(
+            "spark.jars.excludes",
+            "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+        )
+        .config("spark.yarn.user.classpath.first", "true")
+        .config("spark.sql.parquet.enableVectorizedReader", "false")
         .config("spark.sql.debug.maxToStringFields", "100")
         .config("spark.driver.extraJavaOptions", "-Xss1m")
         .config("spark.executor.extraJavaOptions", "-Xss1m")
+        # .config("spark.executor.memory", "48G")
+        # .config("spark.driver.memory", "48G")
         .getOrCreate()
     )
     spark.sparkContext._conf.set(
