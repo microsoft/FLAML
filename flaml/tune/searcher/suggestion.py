@@ -881,9 +881,9 @@ class OptunaSearch(Searcher):
 
             elif isinstance(domain, Integer):
                 if isinstance(sampler, LogUniform):
-                    return ot.distributions.IntLogUniformDistribution(
-                        domain.lower, domain.upper - 1, step=quantize or 1
-                    )
+                    # ``step`` argument Deprecated in v2.0.0. ``step`` argument should be 1 in Log Distribution
+                    # The removal of this feature is currently scheduled for v4.0.0,
+                    return ot.distributions.IntLogUniformDistribution(domain.lower, domain.upper - 1, step=1)
                 elif isinstance(sampler, Uniform):
                     # Upper bound should be inclusive for quantization and
                     # exclusive otherwise

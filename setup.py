@@ -37,10 +37,10 @@ setuptools.setup(
     extras_require={
         "automl": [
             "lightgbm>=2.3.1",
-            "xgboost>=0.90,<2.0.0",
+            "xgboost>=0.90,<3.0.0",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
-            "scikit-learn>=0.24",
+            "scikit-learn>=1.0.0",
         ],
         "notebook": [
             "jupyter",
@@ -51,11 +51,12 @@ setuptools.setup(
             "joblib<=1.3.2",
         ],
         "test": [
+            "jupyter",
             "lightgbm>=2.3.1",
             "xgboost>=0.90,<2.0.0",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
-            "scikit-learn>=0.24",
+            "scikit-learn>=1.0.0",
             "thop",
             "pytest>=6.1.1",
             "coverage>=5.3",
@@ -92,7 +93,10 @@ setuptools.setup(
             "sympy",
             "wolframalpha",
         ],
-        "catboost": ["catboost>=0.26"],
+        "catboost": [
+            "catboost>=0.26,<1.2; python_version<'3.11'",
+            "catboost>=0.26,<=1.2.5; python_version>='3.11'",
+        ],
         "blendsearch": [
             "optuna>=2.8.0,<=3.6.1",
             "packaging",
