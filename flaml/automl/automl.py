@@ -181,7 +181,7 @@ class AutoML(BaseEstimator):
                 'better' only logs configs with better loss than previos iters
                 'all' logs all the tried configs.
             model_history: A boolean of whether to keep the best
-                model per estimator. Make sure memory is large enough if setting to True. Default True.
+                model per estimator. Make sure memory is large enough if setting to True. Default False.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
@@ -359,7 +359,7 @@ class AutoML(BaseEstimator):
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["model_history"] = settings.get("model_history", True)
+        settings["model_history"] = settings.get("model_history", False)
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
@@ -1325,7 +1325,7 @@ class AutoML(BaseEstimator):
                 'all' logs all the tried configs.
             model_history: A boolean of whether to keep the trained best
                 model per estimator. Make sure memory is large enough if setting to True.
-                Default value is True. If False, best_model_for_estimator would return a
+                Default value is False. If False, best_model_for_estimator would return a
                 untrained model for non-best learner.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
