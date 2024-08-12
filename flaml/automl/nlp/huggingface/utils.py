@@ -245,7 +245,7 @@ def tokenize_row(
     return_column_name=False,
 ):
     if prefix:
-        this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
+        this_row = tuple("".join(x) for x in zip(prefix, this_row))
 
     # tokenizer.pad_token = tokenizer.eos_token
     tokenized_example = tokenizer(

@@ -24,7 +24,7 @@ try:
     # __net_begin__
     class Net(nn.Module):
         def __init__(self, l1=120, l2=84):
-            super(Net, self).__init__()
+            super().__init__()
             self.conv1 = nn.Conv2d(3, 6, 5)
             self.pool = nn.MaxPool2d(2, 2)
             self.conv2 = nn.Conv2d(6, 16, 5)
@@ -277,7 +277,7 @@ def cifar10_main(method="BlendSearch", num_samples=10, max_num_epochs=100, gpus_
     logger.info(f"#trials={len(result.trials)}")
     logger.info(f"time={time.time()-start_time}")
     best_trial = result.get_best_trial("loss", "min", "all")
-    logger.info("Best trial config: {}".format(best_trial.config))
+    logger.info(f"Best trial config: {best_trial.config}")
     logger.info("Best trial final validation loss: {}".format(best_trial.metric_analysis["loss"]["min"]))
     logger.info("Best trial final validation accuracy: {}".format(best_trial.metric_analysis["accuracy"]["max"]))
 
@@ -296,7 +296,7 @@ def cifar10_main(method="BlendSearch", num_samples=10, max_num_epochs=100, gpus_
     best_trained_model.load_state_dict(model_state)
 
     test_acc = _test_accuracy(best_trained_model, device)
-    logger.info("Best trial test set accuracy: {}".format(test_acc))
+    logger.info(f"Best trial test set accuracy: {test_acc}")
 
 
 # __main_end__
