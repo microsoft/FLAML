@@ -11,9 +11,16 @@ import pandas as pd
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_is_disabled
-from pyspark.ml import Pipeline as SparkPipeline
 from scipy.sparse import issparse
 from sklearn import tree
+
+try:
+    from pyspark.ml import Pipeline as SparkPipeline
+except ImportError:
+
+    class SparkPipeline:
+        pass
+
 
 # from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from sklearn.pipeline import Pipeline
