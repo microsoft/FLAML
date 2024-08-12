@@ -91,9 +91,7 @@ class SearchState:
             starting_point = AutoMLState.sanitize(starting_point)
             if max_iter > 1 and not self.valid_starting_point(starting_point, search_space):
                 # If the number of iterations is larger than 1, remove invalid point
-                logger.warning(
-                    "Starting point {} removed because it is outside of the search space".format(starting_point)
-                )
+                logger.warning(f"Starting point {starting_point} removed because it is outside of the search space")
                 starting_point = None
         elif isinstance(starting_point, list):
             starting_point = [AutoMLState.sanitize(x) for x in starting_point]
@@ -208,7 +206,7 @@ class SearchState:
         self.val_loss, self.config = obj, config
 
     def get_hist_config_sig(self, sample_size, config):
-        config_values = tuple([config[k] for k in self._hp_names if k in config])
+        config_values = tuple(config[k] for k in self._hp_names if k in config)
         config_sig = str(sample_size) + "_" + str(config_values)
         return config_sig
 
