@@ -73,7 +73,7 @@ setuptools.setup(
             "dataclasses",
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
@@ -117,14 +117,14 @@ setuptools.setup(
         "hf": [
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",
             "rouge_score",
             "seqeval",
         ],
         "nlp": [  # for backward compatibility; hf is the new option name
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",
             "rouge_score",
             "seqeval",
         ],
