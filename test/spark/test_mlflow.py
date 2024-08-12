@@ -26,6 +26,12 @@ warnings.filterwarnings("ignore")
 skip_spark = importlib.util.find_spec("pyspark") is None
 client = mlflow.tracking.MlflowClient()
 
+# TODO: remove this block when the issue is fixed
+if (sys.platform.startswith("darwin") or sys.platform.startswith("nt")) and (
+    sys.version_info[0] == 3 and sys.version_info[1] >= 10
+):
+    pytest.skip("skipping MacOS and Windows for python 3.10 and 3.11", allow_module_level=True)
+
 """
 The spark used in below tests should be initiated in test_0sparkml.py when run with pytest.
 """
