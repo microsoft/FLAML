@@ -26,10 +26,15 @@ warnings.filterwarnings("ignore")
 skip_spark = importlib.util.find_spec("pyspark") is None
 client = mlflow.tracking.MlflowClient()
 
-# TODO: remove this block when the issue is fixed
 if (sys.platform.startswith("darwin") or sys.platform.startswith("nt")) and (
     sys.version_info[0] == 3 and sys.version_info[1] >= 10
 ):
+    # TODO: remove this block when tests are stable
+    # Below tests will fail, but the functions run without error if run individually.
+    # test_tune_autolog_parentrun_nonparallel()
+    # test_tune_autolog_noparentrun_nonparallel()
+    # test_tune_noautolog_parentrun_nonparallel()
+    # test_tune_noautolog_noparentrun_nonparallel()
     pytest.skip("skipping MacOS and Windows for python 3.10 and 3.11", allow_module_level=True)
 
 """
