@@ -22,7 +22,7 @@ class TestMLFlowLoggingParam:
                 print("[WARNING]: No file found")
 
         children = self._get_child_runs(parent)
-        assert len(children) >= 1, "Expected at least 1 child run, got {}".format(len(children))
+        assert len(children) >= 1, f"Expected at least 1 child run, got {len(children)}"
 
     def test_should_not_start_new_run_when_mlflow_logging_set_to_false_in_init(self, automl_settings):
         with mlflow.start_run() as parent_run:
@@ -36,7 +36,7 @@ class TestMLFlowLoggingParam:
                 print("[WARNING]: No file found")
 
         children = self._get_child_runs(parent)
-        assert len(children) == 0, "Expected 0 child runs, got {}".format(len(children))
+        assert len(children) == 0, f"Expected 0 child runs, got {len(children)}"
 
     def test_should_not_start_new_run_when_mlflow_logging_set_to_false_in_fit(self, automl_settings):
         with mlflow.start_run() as parent_run:
@@ -50,7 +50,7 @@ class TestMLFlowLoggingParam:
                 print("[WARNING]: No file found")
 
         children = self._get_child_runs(parent)
-        assert len(children) == 0, "Expected 0 child runs, got {}".format(len(children))
+        assert len(children) == 0, f"Expected 0 child runs, got {len(children)}"
 
     def test_should_start_new_run_when_mlflow_logging_set_to_true_in_fit(self, automl_settings):
         with mlflow.start_run() as parent_run:
@@ -64,13 +64,13 @@ class TestMLFlowLoggingParam:
                 print("[WARNING]: No file found")
 
         children = self._get_child_runs(parent)
-        assert len(children) >= 1, "Expected at least 1 child run, got {}".format(len(children))
+        assert len(children) >= 1, f"Expected at least 1 child run, got {len(children)}"
 
     @staticmethod
     def _get_child_runs(parent_run: mlflow.entities.Run) -> DataFrame:
         experiment_id = parent_run.info.experiment_id
         return mlflow.search_runs(
-            [experiment_id], filter_string="tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
+            [experiment_id], filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         )
 
     @staticmethod

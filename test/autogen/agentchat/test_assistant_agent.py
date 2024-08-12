@@ -178,7 +178,7 @@ def test_tsp(human_input_mode="NEVER", max_consecutive_auto_reply=10):
     class TSPUserProxyAgent(UserProxyAgent):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            with open(f"{here}/tsp_prompt.txt", "r") as f:
+            with open(f"{here}/tsp_prompt.txt") as f:
                 self._prompt = f.read()
 
         def generate_init_message(self, question) -> str:

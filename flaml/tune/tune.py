@@ -571,7 +571,7 @@ def run(
                     import optuna as _
 
                     SearchAlgorithm = BlendSearch
-                    logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
                 except ImportError:
                     if search_alg == "BlendSearch":
                         raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
@@ -580,7 +580,7 @@ def run(
                         logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             else:
                 SearchAlgorithm = locals()[search_alg]
-                logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+                logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
             metric = metric or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
             metric=metric,
@@ -805,7 +805,7 @@ def run(
                                         # When the result returned is an empty dict, set the trial status to error
                                         trial_to_run.set_status(Trial.ERROR)
                                 else:
-                                    logger.info("Brief result: {}".format({metric: result}))
+                                    logger.info("Brief result: {metric: result}")
                                     report(_metric=result)
                             _runner.stop_trial(trial_to_run)
                         num_failures = 0
