@@ -92,7 +92,7 @@ class TestMLFlowLoggingParam:
     @pytest.fixture(scope="class")
     def automl_settings(self):
         return {
-            "time_budget": 5,  # in seconds
+            "time_budget": 15,  # in seconds
             "metric": "accuracy",
             "task": "classification",
             "log_file_name": "iris.log",
