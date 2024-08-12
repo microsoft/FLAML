@@ -70,3 +70,21 @@ Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoM
   - modify the [search space](Use-Cases/Task-Oriented-AutoML#a-shortcut-to-override-the-search-space) for the estimators causing this error.
   - or remove this estimator from the `estimator_list`.
 - If the OOM error happens when ensembling, consider disabling ensemble, or use a cheaper ensemble option. ([Example](Use-Cases/Task-Oriented-AutoML#ensemble)).
+
+### How to get the best config of an estimator and use it to train the original model outside FLAML?
+
+When you finished training an AutoML estimator, you may want to use it in other code w/o depending on FLAML. You can get the `automl.best_config` and convert it to the parameters of the original model with below code:
+
+```python
+from flaml import AutoML
+from sklearn.datasets import load_iris
+
+X, y = load_iris(return_X_y=True)
+
+automl = AutoML(settings={"time_budget": 3})
+automl.fit(X, y)
+
+print(f"{automl.best_estimator=}")
+print(f"{automl.best_config=}")
+print(f"params for best estimator: {automl.model.config2params(automl.best_config)}")
+```

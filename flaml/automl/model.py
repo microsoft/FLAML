@@ -73,6 +73,14 @@ try:
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
 
+xgb_callback = False
+try:
+    from xgboost.callback import TrainingCallback
+
+    xgb_callback = True
+except ImportError:  # for xgboost<1.3
+    TrainingCallback = object
+
 logger = logging.getLogger("flaml.automl")
 # FREE_MEM_RATIO = 0.2
 
@@ -791,7 +799,7 @@ class TransformersEstimator(BaseEstimator):
         """
             Update the attributes in TrainingArguments that depends on the values of self.params
         """
-        local_dir = os.path.join(self._training_args.output_dir, "train_{}".format(date_str()))
+        local_dir = os.path.join(self._training_args.output_dir, f"train_{date_str()}")
         if self._use_ray is True:
             import ray
 
@@ -1410,12 +1418,10 @@ class LGBMEstimator(BaseEstimator):
                     # since xgboost>=1.6.0, callbacks can't be passed in fit()
                     self.params["callbacks"] = callbacks
                     callbacks = None
-            self._fit(
-                X_train,
-                y_train,
-                callbacks=callbacks,
-                **kwargs,
-            )
+            if callbacks is None:
+                self._fit(X_train, y_train, **kwargs)
+            else:
+                self._fit(X_train, y_train, callbacks=callbacks, **kwargs)
             if callbacks is None:
                 # for xgboost>=1.6.0, pop callbacks to enable pickle
                 callbacks = self.params.pop("callbacks")
@@ -2024,7 +2030,7 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class suppress_stdout_stderr(object):
+class suppress_stdout_stderr:
     def __init__(self):
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]

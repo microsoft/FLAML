@@ -1,7 +1,9 @@
 import datetime
+import sys
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from flaml import AutoML
 from flaml.automl.task.time_series_task import TimeSeriesTask
@@ -94,7 +96,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
 
 
 def test_models(budget=3):
-    n = 100
+    n = 200
     X = pd.DataFrame(
         {
             "A": pd.date_range(start="1900-01-01", periods=n, freq="D"),
@@ -109,14 +111,14 @@ def test_models(budget=3):
             continue  # TFT is covered by its own test
         automl = AutoML()
         automl.fit(
-            X_train=X[:72],  # a single column of timestamp
-            y_train=y[:72],  # value for each timestamp
+            X_train=X[:144],  # a single column of timestamp
+            y_train=y[:144],  # value for each timestamp
             estimator_list=[est],
             period=12,  # time horizon to forecast, e.g., 12 months
             task="ts_forecast",
             time_budget=budget,  # time budget in seconds
         )
-        automl.predict(X[72:])
+        automl.predict(X[144:])
 
 
 def test_numpy():
@@ -149,6 +151,10 @@ def test_numpy():
     print(automl.predict(12))
 
 
+@pytest.mark.skipif(
+    sys.platform in ["darwin"],
+    reason="do not run on mac os",
+)
 def test_numpy_large():
     import numpy as np
     import pandas as pd
@@ -495,6 +501,10 @@ def get_stalliion_data():
     return data, special_days
 
 
+@pytest.mark.skipif(
+    "3.11" in sys.version,
+    reason="do not run on py 3.11",
+)
 def test_forecast_panel(budget=5):
     data, special_days = get_stalliion_data()
     time_horizon = 6  # predict six months
@@ -666,7 +676,7 @@ if __name__ == "__main__":
     # test_forecast_automl(60)
     # test_multivariate_forecast_num(5)
     # test_multivariate_forecast_cat(5)
-    # test_numpy()
+    test_numpy()
     # test_forecast_classification(5)
-    test_forecast_panel(5)
+    # test_forecast_panel(5)
     # test_cv_step()

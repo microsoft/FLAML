@@ -212,9 +212,9 @@ class AutoML(BaseEstimator):
                     - if "data:path" use data-dependent defaults which are stored at path;
                     - if "static", use data-independent defaults.
                 If dict, keys are the name of the estimators, and values are the starting
-                hyperparamter configurations for the corresponding estimators.
-                The value can be a single hyperparamter configuration dict or a list
-                of hyperparamter configuration dicts.
+                hyperparameter configurations for the corresponding estimators.
+                The value can be a single hyperparameter configuration dict or a list
+                of hyperparameter configuration dicts.
                 In the following code example, we get starting_points from the
                 `automl` object and use them in the `new_automl` object.
                 e.g.,
@@ -521,8 +521,8 @@ class AutoML(BaseEstimator):
 
     def score(
         self,
-        X: Union[DataFrame, psDataFrame],
-        y: Union[Series, psSeries],
+        X: DataFrame | psDataFrame,
+        y: Series | psSeries,
         **kwargs,
     ):
         estimator = getattr(self, "_trained_estimator", None)
@@ -536,7 +536,7 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: Union[np.array, DataFrame, List[str], List[List[str]], psDataFrame],
+        X: np.array | DataFrame | list[str] | list[list[str]] | psDataFrame,
         **pred_kwargs,
     ):
         """Predict label from features.
@@ -611,7 +611,7 @@ class AutoML(BaseEstimator):
         """
         self._state.learner_classes[learner_name] = learner_class
 
-    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: Union[str, Task]):
+    def get_estimator_from_log(self, log_file_name: str, record_id: int, task: str | Task):
         """Get the estimator from log file.
 
         Args:
@@ -653,7 +653,7 @@ class AutoML(BaseEstimator):
         dataframe=None,
         label=None,
         time_budget=np.inf,
-        task: Optional[Union[str, Task]] = None,
+        task: str | Task | None = None,
         eval_method=None,
         split_ratio=None,
         n_splits=None,
@@ -802,7 +802,7 @@ class AutoML(BaseEstimator):
         )
         task.validate_data(self, self._state, X_train, y_train, dataframe, label, groups=groups)
 
-        logger.info("log file name {}".format(log_file_name))
+        logger.info(f"log file name {log_file_name}")
 
         best_config = None
         best_val_loss = float("+inf")
@@ -855,9 +855,7 @@ class AutoML(BaseEstimator):
         else:
             self._state.fit_kwargs_by_estimator[best_estimator] = self._state.fit_kwargs
 
-        logger.info(
-            "estimator = {}, config = {}, #training instances = {}".format(best_estimator, best_config, sample_size)
-        )
+        logger.info(f"estimator = {best_estimator}, config = {best_config}, #training instances = {sample_size}")
         # Partially copied from fit() function
         # Initilize some attributes required for retrain_from_log
         self._split_type = task.decide_split_type(
@@ -1028,7 +1026,7 @@ class AutoML(BaseEstimator):
         return points
 
     @property
-    def resource_attr(self) -> Optional[str]:
+    def resource_attr(self) -> str | None:
         """Attribute of the resource dimension.
 
         Returns:
@@ -1038,7 +1036,7 @@ class AutoML(BaseEstimator):
         return "FLAML_sample_size" if self._sample else None
 
     @property
-    def min_resource(self) -> Optional[float]:
+    def min_resource(self) -> float | None:
         """Attribute for pruning.
 
         Returns:
@@ -1047,7 +1045,7 @@ class AutoML(BaseEstimator):
         return self._min_sample_size if self._sample else None
 
     @property
-    def max_resource(self) -> Optional[float]:
+    def max_resource(self) -> float | None:
         """Attribute for pruning.
 
         Returns:
@@ -1069,7 +1067,7 @@ class AutoML(BaseEstimator):
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     @property
-    def trainable(self) -> Callable[[dict], Optional[float]]:
+    def trainable(self) -> Callable[[dict], float | None]:
         """Training function.
         Returns:
             A function that evaluates each config and returns the loss.
@@ -1155,7 +1153,7 @@ class AutoML(BaseEstimator):
         dataframe=None,
         label=None,
         metric=None,
-        task: Optional[Union[str, Task]] = None,
+        task: str | Task | None = None,
         n_jobs=None,
         # gpu_per_trial=0,
         log_file_name=None,
@@ -1348,9 +1346,9 @@ class AutoML(BaseEstimator):
                     - if "data:path" use data-dependent defaults which are stored at path;
                     - if "static", use data-independent defaults.
                 If dict, keys are the name of the estimators, and values are the starting
-                hyperparamter configurations for the corresponding estimators.
-                The value can be a single hyperparamter configuration dict or a list
-                of hyperparamter configuration dicts.
+                hyperparameter configurations for the corresponding estimators.
+                The value can be a single hyperparameter configuration dict or a list
+                of hyperparameter configuration dicts.
                 In the following code example, we get starting_points from the
                 `automl` object and use them in the `new_automl` object.
                 e.g.,
@@ -1688,7 +1686,7 @@ class AutoML(BaseEstimator):
             logger.info(f"Data split method: {self._split_type}")
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self._state.eval_method = eval_method
-        logger.info("Evaluation method: {}".format(eval_method))
+        logger.info(f"Evaluation method: {eval_method}")
         self._state.cv_score_agg_func = cv_score_agg_func or self._settings.get("cv_score_agg_func")
 
         self._retrain_in_budget = retrain_full == "budget" and (eval_method == "holdout" and self._state.X_val is None)
@@ -1705,13 +1703,9 @@ class AutoML(BaseEstimator):
                 if sample_size:
                     _sample_size_from_starting_points[_estimator] = sample_size
                 elif _point_per_estimator and isinstance(_point_per_estimator, list):
-                    _sample_size_set = set(
-                        [
-                            config["FLAML_sample_size"]
-                            for config in _point_per_estimator
-                            if "FLAML_sample_size" in config
-                        ]
-                    )
+                    _sample_size_set = {
+                        config["FLAML_sample_size"] for config in _point_per_estimator if "FLAML_sample_size" in config
+                    }
                     if _sample_size_set:
                         _sample_size_from_starting_points[_estimator] = min(_sample_size_set)
                     if len(_sample_size_set) > 1:
@@ -1898,7 +1892,7 @@ class AutoML(BaseEstimator):
                 max_iter=max_iter / len(estimator_list) if self._learner_selector == "roundrobin" else max_iter,
                 budget=self._state.time_budget,
             )
-        logger.info("List of ML learners in AutoML Run: {}".format(estimator_list))
+        logger.info(f"List of ML learners in AutoML Run: {estimator_list}")
         self.estimator_list = estimator_list
         self._active_estimators = estimator_list.copy()
         self._ensemble = ensemble
@@ -1940,7 +1934,7 @@ class AutoML(BaseEstimator):
                 )
             ):
                 logger.warning(
-                    "Time taken to find the best model is {0:.0f}% of the "
+                    "Time taken to find the best model is {:.0f}% of the "
                     "provided time budget and not all estimators' hyperparameter "
                     "search converged. Consider increasing the time budget.".format(
                         self._time_taken_best_iter / self._state.time_budget * 100
@@ -2326,7 +2320,7 @@ class AutoML(BaseEstimator):
             )
             time_used = time.time() - start_run_time
             better = False
-            if analysis.trials:
+            if analysis.trials and analysis.trials[-1].last_result:
                 result = analysis.trials[-1].last_result
                 search_state.update(result, time_used=time_used)
                 if self._estimator_index is None:
@@ -2440,7 +2434,7 @@ class AutoML(BaseEstimator):
                     state.best_config,
                     self.data_size_full,
                 )
-                logger.info("retrain {} for {:.1f}s".format(self._best_estimator, retrain_time))
+                logger.info(f"retrain {self._best_estimator} for {retrain_time:.1f}s")
                 self._retrained_config[best_config_sig] = state.best_config_train_time = retrain_time
                 est_retrain_time = 0
             self._state.time_from_start = time.time() - self._start_time_flag
@@ -2462,8 +2456,8 @@ class AutoML(BaseEstimator):
         self._time_taken_best_iter = 0
         self._config_history = {}
         self._max_iter_per_learner = 10000
-        self._iter_per_learner = dict([(e, 0) for e in self.estimator_list])
-        self._iter_per_learner_fullsize = dict([(e, 0) for e in self.estimator_list])
+        self._iter_per_learner = {e: 0 for e in self.estimator_list}
+        self._iter_per_learner_fullsize = {e: 0 for e in self.estimator_list}
         self._fullsize_reached = False
         self._trained_estimator = None
         self._best_estimator = None
@@ -2625,7 +2619,7 @@ class AutoML(BaseEstimator):
                         state.best_config,
                         self.data_size_full,
                     )
-                    logger.info("retrain {} for {:.1f}s".format(self._best_estimator, retrain_time))
+                    logger.info(f"retrain {self._best_estimator} for {retrain_time:.1f}s")
                     state.best_config_train_time = retrain_time
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
