@@ -25,7 +25,7 @@ from flaml.automl.time_series.ts_model import TimeSeriesEstimator
 
 class Chomp1d(nn.Module):
     def __init__(self, chomp_size):
-        super(Chomp1d, self).__init__()
+        super().__init__()
         self.chomp_size = chomp_size
 
     def forward(self, x):
@@ -34,7 +34,7 @@ class Chomp1d(nn.Module):
 
 class TemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2):
-        super(TemporalBlock, self).__init__()
+        super().__init__()
         self.conv1 = weight_norm(
             nn.Conv1d(n_inputs, n_outputs, kernel_size, stride=stride, padding=padding, dilation=dilation)
         )
@@ -77,7 +77,7 @@ class TCNForecaster(nn.Module):
         kernel_size=2,
         dropout=0.2,
     ):
-        super(TCNForecaster, self).__init__()
+        super().__init__()
         layers = []
         num_levels = len(num_channels)
         for i in range(num_levels):

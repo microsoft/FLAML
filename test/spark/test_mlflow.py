@@ -85,7 +85,7 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
         parent_run = mlflow.last_active_run()
         child_runs = client.search_runs(
             experiment_ids=[experiment_id],
-            filter_string="tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id),
+            filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'",
         )
     else:
         child_runs = client.search_runs(experiment_ids=[experiment_id])
