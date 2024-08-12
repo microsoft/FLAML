@@ -91,7 +91,7 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
         child_runs = client.search_runs(experiment_ids=[experiment_id])
     experiment_name = client.get_experiment(experiment_id).name
     metrics = [metric in run.data.metrics for run in child_runs]
-    tags = ["synapseml.flaml.version" in run.data.tags for run in child_runs]
+    tags = ["flaml.version" in run.data.tags for run in child_runs]
     params = ["learner" in run.data.params for run in child_runs]
     assert (
         len(child_runs) in possible_num_runs
@@ -309,9 +309,9 @@ def _init_spark_for_main():
 if __name__ == "__main__":
     _init_spark_for_main()
 
-    test_tune_autolog_parentrun_parallel()
+    # test_tune_autolog_parentrun_parallel()
     # test_tune_autolog_parentrun_nonparallel()
-    # test_tune_autolog_noparentrun_parallel()  # TODO: runs not removed
+    test_tune_autolog_noparentrun_parallel()  # TODO: runs not removed
     # test_tune_noautolog_parentrun_parallel()
     # test_tune_autolog_noparentrun_nonparallel()
     # test_tune_noautolog_parentrun_nonparallel()

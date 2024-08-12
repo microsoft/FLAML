@@ -34,7 +34,7 @@ try:
 except ImportError:
     mlflow = None
 try:
-    from flaml.fabric.mlflow import MLflowIntegration
+    from flaml.fabric.mlflow import MLflowIntegration, is_autolog_enabled
 
     internal_mlflow = True
 except ImportError:
@@ -519,7 +519,7 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if internal_mlflow and not automl_info and mlflow.active_run():
+    if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
         mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
         evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
         _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
