@@ -25,7 +25,7 @@ logger = logging.getLogger("mnist_AutoML")
 
 class Net(nn.Module):
     def __init__(self, hidden_size):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(4 * 4 * 50, hidden_size)
