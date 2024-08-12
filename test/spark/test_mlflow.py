@@ -91,7 +91,7 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
         child_runs = client.search_runs(experiment_ids=[experiment_id])
     experiment_name = client.get_experiment(experiment_id).name
     metrics = [metric in run.data.metrics for run in child_runs]
-    tags = ["flaml.version" in run.data.tags for run in child_runs]
+    tags = ["synapseml.flaml.version" in run.data.tags for run in child_runs]
     params = ["learner" in run.data.params for run in child_runs]
     assert (
         len(child_runs) in possible_num_runs
@@ -121,7 +121,7 @@ def test_tune_autolog_parentrun_nonparallel():
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_tune_autolog_noparentrun_parallel():
     experiment_id = _test_tune(is_autolog=True, is_parent_run=False, is_parallel=True)
-    _check_mlflow_logging([0, 4, 3], "r2", False, experiment_id)
+    _check_mlflow_logging([4, 3], "r2", False, experiment_id)
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
@@ -132,7 +132,7 @@ def test_tune_noautolog_parentrun_parallel():
 
 def test_tune_autolog_noparentrun_nonparallel():
     experiment_id = _test_tune(is_autolog=True, is_parent_run=False, is_parallel=False)
-    _check_mlflow_logging([0, 3], "r2", False, experiment_id)
+    _check_mlflow_logging(3, "r2", False, experiment_id)
 
 
 def test_tune_noautolog_parentrun_nonparallel():
@@ -148,7 +148,7 @@ def test_tune_noautolog_noparentrun_parallel():
 
 def test_tune_noautolog_noparentrun_nonparallel():
     experiment_id = _test_tune(is_autolog=False, is_parent_run=False, is_parallel=False)
-    _check_mlflow_logging([0, 3], "r2", False, experiment_id, skip_tags=True)
+    _check_mlflow_logging(3, "r2", False, experiment_id, skip_tags=True)
 
 
 def _test_automl_sparkdata(is_autolog, is_parent_run):
@@ -229,7 +229,7 @@ def test_automl_sparkdata_autolog_parentrun():
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_sparkdata_autolog_noparentrun():
     experiment_id = _test_automl_sparkdata(is_autolog=True, is_parent_run=False)
-    _check_mlflow_logging([0, 3], "mse", False, experiment_id, is_automl=True)
+    _check_mlflow_logging(3, "mse", False, experiment_id, is_automl=True)
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
@@ -253,7 +253,7 @@ def test_automl_nonsparkdata_autolog_parentrun():
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_nonsparkdata_autolog_noparentrun():
     experiment_id = _test_automl_nonsparkdata(is_autolog=True, is_parent_run=False)
-    _check_mlflow_logging([0, 4, 3], "r2", False, experiment_id, is_automl=True)
+    _check_mlflow_logging([4, 3], "r2", False, experiment_id, is_automl=True)
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
@@ -298,8 +298,6 @@ def _init_spark_for_main():
         .config("spark.sql.debug.maxToStringFields", "100")
         .config("spark.driver.extraJavaOptions", "-Xss1m")
         .config("spark.executor.extraJavaOptions", "-Xss1m")
-        # .config("spark.executor.memory", "48G")
-        # .config("spark.driver.memory", "48G")
         .getOrCreate()
     )
     spark.sparkContext._conf.set(

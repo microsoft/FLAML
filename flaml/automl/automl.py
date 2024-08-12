@@ -1703,7 +1703,7 @@ class AutoML(BaseEstimator):
         self.autolog_extra_tag = {
             "extra_tag.sid": f"flaml_{flaml_version}_{int(time.time())}_{random.randint(1001, 9999)}"
         }
-        if internal_mlflow and self._mlflow_logging and mlflow.active_run():
+        if internal_mlflow and self._mlflow_logging and (mlflow.active_run() or is_autolog_enabled()):
             try:
                 self.mlflow_integration = MLflowIntegration("automl", mlflow_exp_name, extra_tag=self.autolog_extra_tag)
                 self._mlflow_exp_name = self.mlflow_integration.experiment_name
