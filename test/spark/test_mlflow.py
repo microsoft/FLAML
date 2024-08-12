@@ -48,6 +48,7 @@ def _sklearn_tune(config):
 
 
 def _test_tune(is_autolog, is_parent_run, is_parallel):
+    mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     params = {
@@ -152,6 +153,7 @@ def test_tune_noautolog_noparentrun_nonparallel():
 
 
 def _test_automl_sparkdata(is_autolog, is_parent_run):
+    mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     if is_autolog:
