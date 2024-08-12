@@ -799,7 +799,7 @@ class TransformersEstimator(BaseEstimator):
         """
             Update the attributes in TrainingArguments that depends on the values of self.params
         """
-        local_dir = os.path.join(self._training_args.output_dir, "train_{}".format(date_str()))
+        local_dir = os.path.join(self._training_args.output_dir, f"train_{date_str()}")
         if self._use_ray is True:
             import ray
 
@@ -2030,7 +2030,7 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class suppress_stdout_stderr(object):
+class suppress_stdout_stderr:
     def __init__(self):
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]

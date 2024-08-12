@@ -11,7 +11,7 @@ from typing import IO
 logger = logging.getLogger("flaml.automl")
 
 
-class TrainingLogRecord(object):
+class TrainingLogRecord:
     def __init__(
         self,
         record_id: int,
@@ -52,7 +52,7 @@ class TrainingLogCheckPoint(TrainingLogRecord):
         self.curr_best_record_id = curr_best_record_id
 
 
-class TrainingLogWriter(object):
+class TrainingLogWriter:
     def __init__(self, output_filename: str):
         self.output_filename = output_filename
         self.file = None
@@ -79,7 +79,7 @@ class TrainingLogWriter(object):
         sample_size,
     ):
         if self.file is None:
-            raise IOError("Call open() to open the output file first.")
+            raise OSError("Call open() to open the output file first.")
         if validation_loss is None:
             raise ValueError("TEST LOSS NONE ERROR!!!")
         record = TrainingLogRecord(
@@ -109,7 +109,7 @@ class TrainingLogWriter(object):
 
     def checkpoint(self):
         if self.file is None:
-            raise IOError("Call open() to open the output file first.")
+            raise OSError("Call open() to open the output file first.")
         if self.current_best_loss_record_id is None:
             logger.warning("flaml.training_log: checkpoint() called before any record is written, skipped.")
             return
@@ -124,7 +124,7 @@ class TrainingLogWriter(object):
         self.file = None  # for pickle
 
 
-class TrainingLogReader(object):
+class TrainingLogReader:
     def __init__(self, filename: str):
         self.filename = filename
         self.file = None
@@ -134,7 +134,7 @@ class TrainingLogReader(object):
 
     def records(self):
         if self.file is None:
-            raise IOError("Call open() before reading log file.")
+            raise OSError("Call open() before reading log file.")
         for line in self.file:
             data = json.loads(line)
             if len(data) == 1:
@@ -149,7 +149,7 @@ class TrainingLogReader(object):
 
     def get_record(self, record_id) -> TrainingLogRecord:
         if self.file is None:
-            raise IOError("Call open() before reading log file.")
+            raise OSError("Call open() before reading log file.")
         for rec in self.records():
             if rec.record_id == record_id:
                 return rec

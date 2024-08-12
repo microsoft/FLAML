@@ -69,7 +69,7 @@ def build_portfolio(meta_features, regret, strategy):
 
 def load_json(filename):
     """Returns the contents of json file filename."""
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return json.load(f)
 
 
