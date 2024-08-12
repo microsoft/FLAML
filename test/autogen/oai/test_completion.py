@@ -187,7 +187,7 @@ def test_humaneval(num_samples=1):
     )
 
     seed = 41
-    data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
+    data = datasets.load_dataset("openai_humaneval", trust_remote_code=True)["test"].shuffle(seed=seed)
     n_tune_data = 20
     tune_data = [
         {
@@ -334,7 +334,7 @@ def test_math(num_samples=-1):
         return
 
     seed = 41
-    data = datasets.load_dataset("competition_math")
+    data = datasets.load_dataset("competition_math", trust_remote_code=True)
     train_data = data["train"].shuffle(seed=seed)
     test_data = data["test"].shuffle(seed=seed)
     n_tune_data = 20
