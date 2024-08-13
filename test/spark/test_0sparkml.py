@@ -5,6 +5,7 @@ import warnings
 import mlflow
 import pytest
 import sklearn.datasets as skds
+from packaging.version import Version
 
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
@@ -20,23 +21,26 @@ else:
 
         from flaml.automl.spark.utils import to_pandas_on_spark
 
-        postfix_version = "-spark3.3," if pyspark.__version__ > "3.2" else ","
         spark = (
             pyspark.sql.SparkSession.builder.appName("MyApp")
             .master("local[2]")
             .config(
                 "spark.jars.packages",
                 (
-                    f"com.microsoft.azure:synapseml_2.12:0.11.3{postfix_version}"
+                    "com.microsoft.azure:synapseml_2.12:1.0.4,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
-                    f"org.mlflow:mlflow-spark:2.6.0"
+                    f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
+                    if Version(mlflow.__version__) >= Version("2.9.0")
+                    else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
                 ),
             )
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
             .config("spark.sql.debug.maxToStringFields", "100")
             .config("spark.driver.extraJavaOptions", "-Xss1m")
             .config("spark.executor.extraJavaOptions", "-Xss1m")
+            # .config("spark.executor.memory", "48G")
+            # .config("spark.driver.memory", "48G")
             .getOrCreate()
         )
         spark.sparkContext._conf.set(
@@ -49,6 +53,10 @@ else:
     except ImportError:
         skip_spark = True
 
+if sys.version_info >= (3, 11):
+    skip_py311 = True
+else:
+    skip_py311 = False
 
 pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 
@@ -159,10 +167,11 @@ def test_spark_input_df():
     settings = {
         "time_budget": 30,  # total running time in seconds
         "metric": "roc_auc",
-        "estimator_list": ["lgbm_spark"],  # list of ML learners; we tune lightgbm in this example
+        # "estimator_list": ["lgbm_spark"],  # list of ML learners; we tune lightgbm in this example
         "task": "classification",  # task type
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
+        "eval_method": "holdout",
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
 
@@ -176,17 +185,17 @@ def test_spark_input_df():
     try:
         model = automl.model.estimator
         predictions = model.transform(test_data)
-        predictions.show()
 
-        # from synapse.ml.train import ComputeModelStatistics
+        from synapse.ml.train import ComputeModelStatistics
 
-        # metrics = ComputeModelStatistics(
-        #     evaluationMetric="classification",
-        #     labelCol="Bankrupt?",
-        #     scoredLabelsCol="prediction",
-        # ).transform(predictions)
-        # metrics.show()
-
+        if not skip_py311:
+            # ComputeModelStatistics doesn't support python 3.11
+            metrics = ComputeModelStatistics(
+                evaluationMetric="classification",
+                labelCol="Bankrupt?",
+                scoredLabelsCol="prediction",
+            ).transform(predictions)
+            metrics.show()
     except AttributeError:
         print("No fitted model because of too short training time.")
 
@@ -207,6 +216,86 @@ def test_spark_input_df():
     assert "No estimator is left." in str(excinfo.value)
 
 
+def _test_spark_large_df():
+    """Test with large dataframe, should not run in pipeline."""
+    import os
+    import time
+
+    import pandas as pd
+    from pyspark.sql import functions as F
+
+    import flaml
+
+    os.environ["FLAML_MAX_CONCURRENT"] = "8"
+    start_time = time.time()
+
+    def load_higgs():
+        # 11M rows, 29 columns, 1.1GB
+        df = (
+            spark.read.format("csv")
+            .option("header", False)
+            .option("inferSchema", True)
+            .load("/datadrive/datasets/HIGGS.csv")
+            .withColumnRenamed("_c0", "target")
+            .withColumn("target", F.col("target").cast("integer"))
+            .limit(1000000)
+            .fillna(0)
+            .na.drop(how="any")
+            .repartition(64)
+            .cache()
+        )
+        print("Number of rows in data: ", df.count())
+        return df
+
+    def load_bosch():
+        # 1.184M rows, 969 cols, 1.5GB
+        df = (
+            spark.read.format("csv")
+            .option("header", True)
+            .option("inferSchema", True)
+            .load("/datadrive/datasets/train_numeric.csv")
+            .withColumnRenamed("Response", "target")
+            .withColumn("target", F.col("target").cast("integer"))
+            .limit(1000000)
+            .fillna(0)
+            .drop("Id")
+            .repartition(64)
+            .cache()
+        )
+        print("Number of rows in data: ", df.count())
+        return df
+
+    def prepare_data(dataset_name="higgs"):
+        df = load_higgs() if dataset_name == "higgs" else load_bosch()
+        train, test = df.randomSplit([0.75, 0.25], seed=7654321)
+        feature_cols = [col for col in df.columns if col not in ["target", "arrest"]]
+        final_cols = ["target", "features"]
+        featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
+        train_data = featurizer.transform(train)[final_cols]
+        test_data = featurizer.transform(test)[final_cols]
+        train_data = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
+        return train_data, test_data
+
+    train_data, test_data = prepare_data("higgs")
+    end_time = time.time()
+    print("time cost in minutes for prepare data: ", (end_time - start_time) / 60)
+    automl = flaml.AutoML()
+    automl_settings = {
+        "max_iter": 3,
+        "time_budget": 7200,
+        "metric": "accuracy",
+        "task": "classification",
+        "seed": 1234,
+        "eval_method": "holdout",
+    }
+    automl.fit(dataframe=train_data, label="target", ensemble=False, **automl_settings)
+    model = automl.model.estimator
+    predictions = model.transform(test_data)
+    predictions.show(5)
+    end_time = time.time()
+    print("time cost in minutes: ", (end_time - start_time) / 60)
+
+
 if __name__ == "__main__":
     test_spark_synapseml_classification()
     test_spark_synapseml_regression()
@@ -217,6 +306,6 @@ if __name__ == "__main__":
     # import pstats
     # from pstats import SortKey
 
-    # cProfile.run("test_spark_input_df()", "test_spark_input_df.profile")
-    # p = pstats.Stats("test_spark_input_df.profile")
-    # p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats("utils.py")
+    # cProfile.run("_test_spark_large_df()", "_test_spark_large_df.profile")
+    # p = pstats.Stats("_test_spark_large_df.profile")
+    # p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(50)

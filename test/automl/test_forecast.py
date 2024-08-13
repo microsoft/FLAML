@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 
 import numpy as np
@@ -95,6 +96,7 @@ def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarima
         )
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_models(budget=3):
     n = 200
     X = pd.DataFrame(
@@ -571,7 +573,7 @@ def test_forecast_panel(budget=5):
     print(f"Training duration of best run: {automl.best_config_train_time}s")
     print(automl.model.estimator)
     """ pickle and save the automl object """
-    import pickle
+    import dill as pickle
 
     with open("automl.pkl", "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)

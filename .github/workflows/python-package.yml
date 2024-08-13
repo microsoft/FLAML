@@ -54,10 +54,15 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
-      - name: On Ubuntu python 3.8, install pyspark 3.2.3
-        if: matrix.python-version == '3.8' && matrix.os == 'ubuntu-latest'
+      - name: On Ubuntu python 3.10, install pyspark 3.4.1
+        if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
         run: |
-          pip install pyspark==3.2.3
+          pip install pyspark==3.4.1
+          pip list | grep "pyspark"
+      - name: On Ubuntu python 3.11, install pyspark 3.5.1
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install pyspark==3.5.1
           pip list | grep "pyspark"
       - name: If linux and python<3.11, install ray 2
         if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.11'
@@ -77,11 +82,6 @@ jobs:
         if: matrix.python-version == '3.8' || matrix.python-version == '3.9'
         run: |
           pip install -e .[vw]
-      - name: Uninstall pyspark on (python 3.9) or windows
-        if: matrix.python-version == '3.9' || matrix.os == 'windows-2019'
-        run: |
-          # Uninstall pyspark to test env without pyspark
-          pip uninstall -y pyspark
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
