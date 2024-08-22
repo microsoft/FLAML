@@ -14,6 +14,8 @@
     <br>
 </p>
 
+:fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11 support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
+
 :fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we have also launched a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
 
 :fire: The automated multi-agent chat framework in [AutoGen](https://microsoft.github.io/autogen/) is in preview from v2.0.0.
@@ -21,8 +23,6 @@
 :fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
 
 :fire: [autogen](https://microsoft.github.io/autogen/) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
-
-:fire: FLAML supports Code-First AutoML & Tuning – Private Preview in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/).
 
 ## What is FLAML
 
