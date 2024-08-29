@@ -156,6 +156,7 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 ## Contributors Wall
+
 <a href="https://github.com/microsoft/flaml/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=microsoft/flaml&max=204" />
 </a>
