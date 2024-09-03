@@ -40,5 +40,5 @@ Part 3. New features on FLAML in Microsoft Fabric
 
 ## Notebooks
 
-- [AutoML with FLAML Library](https://github.com/microsoft/FLAML/blob/tutorial/notebook/Automl2024DemoAutoMLTask.ipynb)
-- [Use FLAML to Tune Large Language Models](https://github.com/microsoft/FLAML/blob/tutorial/notebook/Automl2024DemoTuneLLM.ipynb)
+- [AutoML with FLAML Library](https://github.com/microsoft/FLAML/blob/main/tutorials/Automl2024DemoAutoMLTask.ipynb)
+- [Use FLAML to Tune Large Language Models](https://github.com/microsoft/FLAML/blob/main/tutorials/Automl2024DemoTuneLLM.ipynb)
