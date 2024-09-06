@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkwebsite=self.webpackChunkwebsite||[]).push([[5040],{3902:s=>{s.exports=JSON.parse('{"allTagsPath":"/FLAML/blog/tags","slug":"/FLAML/blog/tags/gpt","name":"GPT","count":3,"permalink":"/FLAML/blog/tags/gpt"}')}}]);
