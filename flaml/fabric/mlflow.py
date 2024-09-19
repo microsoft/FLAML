@@ -354,6 +354,7 @@ class MLflowIntegration:
         with open(pickle_fpath, "wb") as f:
             pickle.dump(obj, f)
         mlflow.log_artifact(pickle_fpath, artifact_name)
+        os.remove(pickle_fpath)
 
     def pickle_and_log_automl_artifacts(self, automl, model, estimator, signature=None):
         """log automl artifacts to mlflow
