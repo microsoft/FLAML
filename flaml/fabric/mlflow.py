@@ -3,6 +3,7 @@ import os
 import pickle
 import random
 import sys
+import tempfile
 import time
 from typing import MutableMapping
 
@@ -55,12 +56,12 @@ def get_mlflow_log_latency(model_history=False):
             sk_model = tree.DecisionTreeClassifier()
             mlflow.sklearn.log_model(sk_model, "sk_models")
             mlflow.sklearn.log_model(Pipeline([("estimator", sk_model)]), "sk_pipeline")
-            pickle_fpath = f"tmp_{int(time.time()*1000)}"
-            with open(pickle_fpath, "wb") as f:
-                pickle.dump(sk_model, f)
-            mlflow.log_artifact(pickle_fpath, "sk_model1")
-            mlflow.log_artifact(pickle_fpath, "sk_model2")
-            os.remove(pickle_fpath)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                pickle_fpath = os.path.join(tmpdir, f"tmp_{int(time.time()*1000)}")
+                with open(pickle_fpath, "wb") as f:
+                    pickle.dump(sk_model, f)
+                mlflow.log_artifact(pickle_fpath, "sk_model1")
+                mlflow.log_artifact(pickle_fpath, "sk_model2")
         mlflow.set_tag("synapseml.ui.visible", "false")  # not shown inline in fabric
     mlflow.delete_run(run.info.run_id)
     et = time.time()
@@ -348,13 +349,17 @@ class MLflowIntegration:
         else:
             mlflow.sklearn.log_model(model, estimator, signature=signature)
 
-    def _pickle_and_log_artifact(self, obj, artifact_name, pickle_fpath="temp_.pkl"):
+    def _pickle_and_log_artifact(self, obj, artifact_name, pickle_fname="temp_.pkl"):
         if not self._do_log_model:
             return
-        with open(pickle_fpath, "wb") as f:
-            pickle.dump(obj, f)
-        mlflow.log_artifact(pickle_fpath, artifact_name)
-        os.remove(pickle_fpath)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pickle_fpath = os.path.join(tmpdir, pickle_fname)
+            try:
+                with open(pickle_fpath, "wb") as f:
+                    pickle.dump(obj, f)
+                mlflow.log_artifact(pickle_fpath, artifact_name)
+            except Exception as e:
+                logger.debug(f"Failed to pickle and log artifact {artifact_name}, error: {e}")
 
     def pickle_and_log_automl_artifacts(self, automl, model, estimator, signature=None):
         """log automl artifacts to mlflow
