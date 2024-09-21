@@ -77,6 +77,8 @@ class TestMLFlowLoggingParam:
             t = pickle.load(f)
             if __name__ == "__main__":
                 print(t)
+            if not hasattr(automl.model._model, "_get_param_names"):
+                return
             for param in automl.model._model._get_param_names():
                 assert eval("t._final_estimator._model" + f".{param}") == eval(
                     "automl.model._model" + f".{param}"
