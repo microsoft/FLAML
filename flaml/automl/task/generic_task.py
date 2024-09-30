@@ -813,8 +813,6 @@ class GenericTask(Task):
             if is_spark_dataframe:
                 X_train.spark.unpersist()  # uncache data to free memory
                 X_val.spark.unpersist()  # uncache data to free memory
-            if budget and time.time() - start_time >= budget:
-                break
         val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
         pred_time /= n
