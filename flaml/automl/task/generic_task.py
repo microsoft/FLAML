@@ -706,7 +706,6 @@ class GenericTask(Task):
             fit_kwargs = {}
         if cv_score_agg_func is None:
             cv_score_agg_func = default_cv_score_agg_func
-        start_time = time.time()
         val_loss_folds = []
         log_metric_folds = []
         metric = None
