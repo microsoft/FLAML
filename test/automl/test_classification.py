@@ -1,14 +1,28 @@
 import unittest
 from datetime import datetime
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
+import pytest
 import scipy.sparse
+from catboost import CatBoostClassifier, CatBoostRegressor, Pool
 from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score
+from sklearn.model_selection import (
+    GroupKFold,
+    RepeatedStratifiedKFold,
+    StratifiedGroupKFold,
+    TimeSeriesSplit,
+    train_test_split,
+)
 
 from flaml import AutoML, tune
+from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
 from flaml.automl.model import LGBMEstimator
+from flaml.automl.spark import psDataFrame
+from flaml.automl.spark.utils import len_labels
+from flaml.config import RANDOM_SEED
 
 
 class MyLargeLGBM(LGBMEstimator):
@@ -418,6 +432,66 @@ class TestClassification(unittest.TestCase):
         print(automl_experiment.best_model_for_estimator("lrl2"))
         print(automl_experiment.best_iteration)
         print(automl_experiment.best_estimator)
+
+
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        # "catboost",
+        "extra_tree",
+        "histgb",
+        "kneighbor",
+        "lgbm",
+        # "lrl1",
+        "lrl2",
+        "rf",
+        "xgboost",
+        "xgb_limitdepth",
+    ],
+)
+def test_reproducibility_of_classification_models(estimator: str):
+    """FLAML finds the best model for a given dataset, which it then provides to users.
+
+    However, there are reported issues where FLAML was providing an incorrect model - see here:
+    https://github.com/microsoft/FLAML/issues/1317
+    In this test we take the best model which FLAML provided us, and then retrain and test it on the
+    same folds, to verify that the result is reproducible.
+    """
+    automl = AutoML()
+    automl_settings = {
+        "max_iter": 2,
+        "time_budget": -1,
+        "task": "classification",
+        "n_jobs": 1,
+        "estimator_list": [estimator],
+        "eval_method": "cv",
+        "n_splits": 3,
+        "metric": "f1",
+        "keep_search_state": True,
+    }
+    X, y = load_breast_cancer(return_X_y=True, as_frame=True)
+    automl.fit(X_train=X, y_train=y, **automl_settings)
+    best_model = automl.model
+    assert best_model is not None
+    config = best_model.get_params()
+    val_loss_flaml = automl.best_result["val_loss"]
+
+    # Take the best model, and see if we can reproduce the best result
+    reproduced_val_loss, metric_for_logging, train_time, pred_time = automl._state.task.evaluate_model_CV(
+        config=config,
+        estimator=best_model,
+        X_train_all=automl._state.X_train_all,
+        y_train_all=automl._state.y_train_all,
+        budget=None,
+        kf=automl._state.kf,
+        eval_metric="f1",
+        best_val_loss=None,
+        cv_score_agg_func=None,
+        log_training_metric=False,
+        fit_kwargs=None,
+        free_mem_ratio=0,
+    )
+    assert pytest.approx(val_loss_flaml) == reproduced_val_loss
 
 
 if __name__ == "__main__":
