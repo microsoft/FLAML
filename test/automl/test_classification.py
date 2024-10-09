@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime
 from test.conftest import evaluate_cv_folds_with_underlying_model
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -457,7 +458,7 @@ def test_reproducibility_of_classification_models(estimator: str):
         "n_splits": 10,
         "metric": "f1",
         "keep_search_state": True,
-        "skip_transform":True
+        "skip_transform": True,
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -499,18 +500,16 @@ def test_reproducibility_of_classification_models(estimator: str):
         "xgb_limitdepth",
     ],
 )
-def test_reproducibility_of_underlying_classification_models(
-    estimator: str
-):
+def test_reproducibility_of_underlying_classification_models(estimator: str):
     """FLAML finds the best model for a given dataset, which it then provides to users.
 
     However, there are reported issues where FLAML was providing an incorrect model - see here:
     https://github.com/microsoft/FLAML/issues/1317
     FLAML defines FLAMLised models, which wrap around the underlying (SKLearn/XGBoost/CatBoost) model.
     Ideally, FLAMLised models should perform identically to the underlying model, when fitted
-    to the same data, with no budget. This verifies that this is the case for classification models. 
+    to the same data, with no budget. This verifies that this is the case for classification models.
     In this test we take the best model which FLAML provided us, extract the underlying model,
-     before retraining and testing it on the same folds - to verify that the result is reproducible. 
+     before retraining and testing it on the same folds - to verify that the result is reproducible.
     """
     automl = AutoML()
     automl_settings = {
@@ -522,19 +521,21 @@ def test_reproducibility_of_underlying_classification_models(
         "eval_method": "cv",
         "n_splits": 10,
         "metric": "f1",
-        "keep_search_state":True,
-        "skip_transform":True
+        "keep_search_state": True,
+        "skip_transform": True,
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
     val_loss_flaml = automl.best_result["val_loss"]
-    reproduced_val_loss_underlying_model = np.mean(evaluate_cv_folds_with_underlying_model(automl._state.X_train_all, 
-                                                        automl._state.y_train_all, automl._state.kf,
-                                                                                     best_model.model, 'classification'))
-    
-    assert pytest.approx(val_loss_flaml)  == reproduced_val_loss_underlying_model
+    reproduced_val_loss_underlying_model = np.mean(
+        evaluate_cv_folds_with_underlying_model(
+            automl._state.X_train_all, automl._state.y_train_all, automl._state.kf, best_model.model, "classification"
+        )
+    )
+
+    assert pytest.approx(val_loss_flaml) == reproduced_val_loss_underlying_model
 
 
 if __name__ == "__main__":

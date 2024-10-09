@@ -1,13 +1,12 @@
 from typing import Any, Dict, List, Union
-from catboost import CatBoostClassifier, CatBoostRegressor, Pool
-from sklearn.metrics import f1_score
-from sklearn.metrics import r2_score
+
 import numpy as np
 import pandas as pd
+from catboost import CatBoostClassifier, CatBoostRegressor, Pool
+from sklearn.metrics import f1_score, r2_score
 
-def evaluate_cv_folds_with_underlying_model(
-        X_train_all, y_train_all, kf,model: Any, task: str
-) -> pd.DataFrame:
+
+def evaluate_cv_folds_with_underlying_model(X_train_all, y_train_all, kf, model: Any, task: str) -> pd.DataFrame:
     """Mimic the FLAML CV process to calculate the metrics across each fold.
 
     :param X_train_all: X training data
@@ -32,12 +31,10 @@ def evaluate_cv_folds_with_underlying_model(
             use_best_model = True
             n = max(int(len(y_train) * 0.9), len(y_train) - 1000) if use_best_model else len(y_train)
             X_tr, y_tr = (X_train)[:n], y_train[:n]
-            eval_set = (
-                Pool(data=X_train[n:], label=y_train[n:], cat_features=[]) if use_best_model else None
-            )
+            eval_set = Pool(data=X_train[n:], label=y_train[n:], cat_features=[]) if use_best_model else None
             model.fit(X_tr, y_tr, eval_set=eval_set, use_best_model=True)
         y_pred_classes = model.predict(X_val)
-        if task == 'classification':
+        if task == "classification":
             reproduced_metric = 1 - f1_score(y_val, y_pred_classes)
         else:
             reproduced_metric = 1 - r2_score(y_val, y_pred_classes)
