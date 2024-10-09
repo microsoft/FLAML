@@ -11,6 +11,7 @@ from sklearn.datasets import (
 from flaml import AutoML
 from flaml.automl.data import get_output_from_log
 from flaml.automl.model import XGBoostEstimator
+from test.conftest import evaluate_cv_folds_with_underlying_model
 
 
 def logregobj(preds, dtrain):
@@ -263,8 +264,9 @@ def test_reproducibility_of_regression_models(estimator: str):
         "n_splits": 3,
         "metric": "r2",
         "keep_search_state": True,
+        "skip_transform":True
     }
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
@@ -287,6 +289,57 @@ def test_reproducibility_of_regression_models(estimator: str):
         free_mem_ratio=0,
     )
     assert pytest.approx(val_loss_flaml) == reproduced_val_loss
+
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        # "catboost",
+        "extra_tree",
+        "histgb",
+        "kneighbor",
+        # "lgbm",
+        "rf",
+        "xgboost",
+        "xgb_limitdepth",
+    ],
+)
+def test_reproducibility_of_underlying_regression_models(
+    estimator: str
+):
+    """FLAML finds the best model for a given dataset, which it then provides to users.
+
+    However, there are reported issues where FLAML was providing an incorrect model - see here:
+    https://github.com/microsoft/FLAML/issues/1317
+    FLAML defines FLAMLised models, which wrap around the underlying (SKLearn/XGBoost/CatBoost) model.
+    Ideally, FLAMLised models should perform identically to the underlying model, when fitted
+    to the same data, with no budget. This verifies that this is the case for regression models. 
+    In this test we take the best model which FLAML provided us, extract the underlying model,
+     before retraining and testing it on the same folds - to verify that the result is reproducible. 
+    """
+    automl = AutoML()
+    automl_settings = {
+        "max_iter": 5,
+        "time_budget": -1,
+        "task": "regression",
+        "n_jobs": 1,
+        "estimator_list": [estimator],
+        "eval_method": "cv",
+        "n_splits": 10,
+        "metric": "r2",
+        "keep_search_state":True,
+        "skip_transform":True
+    }
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+    automl.fit(X_train=X, y_train=y, **automl_settings)
+    best_model = automl.model
+    assert best_model is not None
+    val_loss_flaml = automl.best_result["val_loss"]
+    reproduced_val_loss_underlying_model = np.mean(evaluate_cv_folds_with_underlying_model(automl._state.X_train_all, 
+                                                        automl._state.y_train_all, automl._state.kf,
+                                                                                     best_model.model, 'regression'))
+    
+    assert pytest.approx(val_loss_flaml)  == reproduced_val_loss_underlying_model
+
 
 
 if __name__ == "__main__":
