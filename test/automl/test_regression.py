@@ -1,9 +1,11 @@
 import unittest
 
 import numpy as np
+import pytest
 import scipy.sparse
 from sklearn.datasets import (
     fetch_california_housing,
+    make_regression,
 )
 
 from flaml import AutoML
@@ -205,7 +207,6 @@ class TestRegression(unittest.TestCase):
 
 
 def test_multioutput():
-    from sklearn.datasets import make_regression
     from sklearn.model_selection import train_test_split
     from sklearn.multioutput import MultiOutputRegressor, RegressorChain
 
@@ -228,6 +229,64 @@ def test_multioutput():
 
     # predict
     print(model.predict(X_test))
+
+
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        # "catboost",
+        "extra_tree",
+        "histgb",
+        "kneighbor",
+        "lgbm",
+        "rf",
+        "xgboost",
+        "xgb_limitdepth",
+    ],
+)
+def test_reproducibility_of_regression_models(estimator: str):
+    """FLAML finds the best model for a given dataset, which it then provides to users.
+
+    However, there are reported issues where FLAML was providing an incorrect model - see here:
+    https://github.com/microsoft/FLAML/issues/1317
+    In this test we take the best regression model which FLAML provided us, and then retrain and test it on the
+    same folds, to verify that the result is reproducible.
+    """
+    automl = AutoML()
+    automl_settings = {
+        "max_iter": 2,
+        "time_budget": -1,
+        "task": "regression",
+        "n_jobs": 1,
+        "estimator_list": [estimator],
+        "eval_method": "cv",
+        "n_splits": 3,
+        "metric": "r2",
+        "keep_search_state": True,
+    }
+    X, y = fetch_california_housing(return_X_y=True)
+    automl.fit(X_train=X, y_train=y, **automl_settings)
+    best_model = automl.model
+    assert best_model is not None
+    config = best_model.get_params()
+    val_loss_flaml = automl.best_result["val_loss"]
+
+    # Take the best model, and see if we can reproduce the best result
+    reproduced_val_loss, metric_for_logging, train_time, pred_time = automl._state.task.evaluate_model_CV(
+        config=config,
+        estimator=best_model,
+        X_train_all=automl._state.X_train_all,
+        y_train_all=automl._state.y_train_all,
+        budget=None,
+        kf=automl._state.kf,
+        eval_metric="r2",
+        best_val_loss=None,
+        cv_score_agg_func=None,
+        log_training_metric=False,
+        fit_kwargs=None,
+        free_mem_ratio=0,
+    )
+    assert pytest.approx(val_loss_flaml) == reproduced_val_loss
 
 
 if __name__ == "__main__":
