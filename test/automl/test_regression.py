@@ -235,7 +235,7 @@ def test_multioutput():
 @pytest.mark.parametrize(
     "estimator",
     [
-        # "catboost",
+        "catboost",
         "extra_tree",
         "histgb",
         "kneighbor",
