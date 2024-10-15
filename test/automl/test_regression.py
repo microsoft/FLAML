@@ -294,7 +294,7 @@ def test_reproducibility_of_regression_models(estimator: str):
 @pytest.mark.parametrize(
     "estimator",
     [
-        # "catboost",
+        "catboost",
         "extra_tree",
         "histgb",
         "kneighbor",
