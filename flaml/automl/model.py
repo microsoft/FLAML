@@ -2090,6 +2090,8 @@ class CatBoostEstimator(BaseEstimator):
         if weight is not None:
             kwargs["sample_weight"] = weight
         self._model = model
+        # Commented-out line below incorrectly assigned n_estimators - see https://github.com/microsoft/FLAML/pull/1364
+        # self.params[self.ITER_HP] = self._model.tree_count_
         train_time = time.time() - start_time
         return train_time
 
