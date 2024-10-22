@@ -2753,7 +2753,7 @@ class BaseResourceLimit:
     def check_resource_limits(self, current_time, current_iteration, mllib):
         if (mllib == "xgb" and current_iteration == 0) or (mllib == "cat" and current_iteration == 1):
             self._time_per_iter = current_time - self.start_time
-        if current_time + self._time_per_iter > self.deadline:
+        if mllib != "cat" and current_time + self._time_per_iter > self.deadline:
             return False
         if psutil is not None and self.free_mem_ratio is not None:
             mem = psutil.virtual_memory()
