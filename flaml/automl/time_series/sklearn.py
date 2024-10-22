@@ -12,8 +12,8 @@ except ImportError:
     DataFrame = Series = None
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 
 def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):

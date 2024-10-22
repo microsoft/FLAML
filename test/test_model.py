@@ -1,17 +1,20 @@
-from sklearn.datasets import make_classification
+from datetime import datetime
+
 import numpy as np
 from pandas import DataFrame
-from datetime import datetime
+from sklearn.datasets import make_classification
+
+from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
 from flaml.automl.model import (
-    KNeighborsEstimator,
-    LRL2Classifier,
     BaseEstimator,
-    LGBMEstimator,
     CatBoostEstimator,
-    XGBoostEstimator,
+    KNeighborsEstimator,
+    LGBMEstimator,
+    LRL2Classifier,
     RandomForestEstimator,
+    XGBoostEstimator,
 )
-from flaml.automl.time_series import Prophet, ARIMA, LGBM_TS, TimeSeriesDataset
+from flaml.automl.time_series import ARIMA, LGBM_TS, Prophet, TimeSeriesDataset
 
 
 def test_lrl2():
@@ -90,6 +93,11 @@ def test_prep():
     rf.fit(X, y)
     print(rf.feature_names_in_)
     print(rf.feature_importances_)
+    hgb = HistGradientBoostingEstimator(task="regression", n_estimators=4, max_leaves=4)
+    hgb.fit(X, y)
+    hgb.predict(X)
+    print(hgb.feature_names_in_)
+    print(hgb.feature_importances_)
 
     prophet = Prophet()
     try:

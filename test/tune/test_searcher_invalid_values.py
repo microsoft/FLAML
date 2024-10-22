@@ -1,6 +1,6 @@
 import numpy as np
-from flaml import tune
-from flaml import BlendSearch, CFO
+
+from flaml import CFO, BlendSearch, tune
 
 
 def _invalid_objective(config):

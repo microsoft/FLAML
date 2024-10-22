@@ -1,14 +1,16 @@
-import sys
 import os
+import sys
+
 import pytest
+
 from flaml import autogen
 from flaml.autogen.code_utils import (
     UNKNOWN,
-    extract_code,
     execute_code,
-    infer_lang,
+    extract_code,
     improve_code,
     improve_function,
+    infer_lang,
 )
 
 KEY_LOC = "notebook"

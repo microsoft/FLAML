@@ -1,5 +1,5 @@
-from flaml.automl.model import LGBMEstimator
 from flaml import tune
+from flaml.automl.model import LGBMEstimator
 
 
 class MyLargeLGBM(LGBMEstimator):

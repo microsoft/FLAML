@@ -1,9 +1,10 @@
-import numpy as np
+import logging
 import math
+
+import numpy as np
+
 from flaml.tune import Trial
 from flaml.tune.scheduler import TrialScheduler
-
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
-from functools import partial
 import time
+from functools import partial
 
 
 def evaluation_fn(step, width, height):
@@ -26,6 +26,7 @@ def easy_objective(use_raytune, config):
 
 def test_tune_scheduler(smoke_test=True, use_ray=True, use_raytune=False):
     import numpy as np
+
     from flaml.tune.searcher.blendsearch import BlendSearch
 
     np.random.seed(100)

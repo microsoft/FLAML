@@ -1,11 +1,12 @@
 import unittest
+
 import numpy as np
 import scipy.sparse
 from sklearn.datasets import load_iris, load_wine
-from flaml import AutoML
+
+from flaml import AutoML, tune
 from flaml.automl.data import get_output_from_log
-from flaml.automl.model import LGBMEstimator, XGBoostSklearnEstimator, SKLearnEstimator
-from flaml import tune
+from flaml.automl.model import LGBMEstimator, SKLearnEstimator, XGBoostSklearnEstimator
 from flaml.automl.training_log import training_log_reader
 
 
@@ -112,8 +113,9 @@ def custom_metric(
     groups_val=None,
     groups_train=None,
 ):
-    from sklearn.metrics import log_loss
     import time
+
+    from sklearn.metrics import log_loss
 
     start = time.time()
     y_pred = estimator.predict_proba(X_val)
@@ -289,10 +291,10 @@ class TestMultiClass(unittest.TestCase):
         estimator = automl_experiment_macro.model
         y_pred = estimator.predict(X_train)
         y_pred_proba = estimator.predict_proba(X_train)
-        from flaml.automl.ml import norm_confusion_matrix, multi_class_curves
+        from flaml.automl.ml import multi_class_curves, norm_confusion_matrix
 
         print(norm_confusion_matrix(y_train, y_pred))
-        from sklearn.metrics import roc_curve, precision_recall_curve
+        from sklearn.metrics import precision_recall_curve, roc_curve
 
         print(multi_class_curves(y_train, y_pred_proba, roc_curve))
         print(multi_class_curves(y_train, y_pred_proba, precision_recall_curve))
@@ -436,8 +438,8 @@ class TestMultiClass(unittest.TestCase):
         automl_val_accuracy = 1.0 - automl.best_loss
         print("Best ML leaner:", automl.best_estimator)
         print("Best hyperparmeter config:", automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+        print(f"Best accuracy on validation data: {automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
 
         starting_points = automl.best_config_per_estimator
         print("starting_points", starting_points)
@@ -459,8 +461,8 @@ class TestMultiClass(unittest.TestCase):
         new_automl_val_accuracy = 1.0 - new_automl.best_loss
         print("Best ML leaner:", new_automl.best_estimator)
         print("Best hyperparmeter config:", new_automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(new_automl.best_config_train_time))
+        print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {new_automl.best_config_train_time:.4g} s")
 
     def test_fit_w_starting_point_2(self, as_frame=True):
         try:
@@ -491,8 +493,8 @@ class TestMultiClass(unittest.TestCase):
         automl_val_accuracy = 1.0 - automl.best_loss
         print("Best ML leaner:", automl.best_estimator)
         print("Best hyperparmeter config:", automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+        print(f"Best accuracy on validation data: {automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
 
         starting_points = {}
         log_file_name = settings["log_file_name"]
@@ -506,7 +508,7 @@ class TestMultiClass(unittest.TestCase):
                 if learner not in starting_points:
                     starting_points[learner] = []
                 starting_points[learner].append(config)
-        max_iter = sum([len(s) for k, s in starting_points.items()])
+        max_iter = sum(len(s) for k, s in starting_points.items())
         settings_resume = {
             "time_budget": 2,
             "metric": "accuracy",
@@ -526,7 +528,7 @@ class TestMultiClass(unittest.TestCase):
         new_automl_val_accuracy = 1.0 - new_automl.best_loss
         # print('Best ML leaner:', new_automl.best_estimator)
         # print('Best hyperparmeter config:', new_automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy))
+        print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
 
 

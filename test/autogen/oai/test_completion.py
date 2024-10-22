@@ -1,16 +1,18 @@
-import datasets
+import json
+import os
 import sys
+from functools import partial
+
+import datasets
 import numpy as np
 import pytest
-from functools import partial
-import os
-import json
+
 from flaml import autogen
 from flaml.autogen.code_utils import (
     eval_function_completions,
     generate_assertions,
-    implement,
     generate_code,
+    implement,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
 
@@ -117,8 +119,8 @@ def test_multi_model():
 
 def test_nocontext():
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return
@@ -185,7 +187,7 @@ def test_humaneval(num_samples=1):
     )
 
     seed = 41
-    data = datasets.load_dataset("openai_humaneval")["test"].shuffle(seed=seed)
+    data = datasets.load_dataset("openai_humaneval", trust_remote_code=True)["test"].shuffle(seed=seed)
     n_tune_data = 20
     tune_data = [
         {
@@ -206,8 +208,8 @@ def test_humaneval(num_samples=1):
     autogen.Completion.clear_cache(cache_path_root="{here}/cache")
     autogen.Completion.set_cache(seed)
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return
@@ -325,14 +327,14 @@ def test_humaneval(num_samples=1):
 
 def test_math(num_samples=-1):
     try:
-        import openai
         import diskcache
+        import openai
     except ImportError as exc:
         print(exc)
         return
 
     seed = 41
-    data = datasets.load_dataset("competition_math")
+    data = datasets.load_dataset("competition_math", trust_remote_code=True)
     train_data = data["train"].shuffle(seed=seed)
     test_data = data["test"].shuffle(seed=seed)
     n_tune_data = 20
@@ -354,7 +356,7 @@ def test_math(num_samples=-1):
     ]
     print(
         "max tokens in tuning data's canonical solutions",
-        max([len(x["solution"].split()) for x in tune_data]),
+        max(len(x["solution"].split()) for x in tune_data),
     )
     print(len(tune_data), len(test_data))
     # prompt template

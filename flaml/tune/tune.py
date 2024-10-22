@@ -2,13 +2,14 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-from typing import Optional, Union, List, Callable, Tuple, Dict
-import numpy as np
 import datetime
-import time
 import os
 import sys
+import time
 from collections import defaultdict
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 try:
     from ray import __version__ as ray_version
@@ -21,10 +22,24 @@ except (ImportError, AssertionError):
 else:
     ray_available = True
 
-from .trial import Trial
-from .result import DEFAULT_METRIC
 import logging
+
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
+
+from .result import DEFAULT_METRIC
+from .trial import Trial
+
+try:
+    import mlflow
+except ImportError:
+    mlflow = None
+try:
+    from flaml.fabric.mlflow import MLflowIntegration, is_autolog_enabled
+
+    internal_mlflow = True
+except ImportError:
+    internal_mlflow = False
+
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -41,6 +56,7 @@ class ExperimentAnalysis(EA):
     """Class for storing the experiment results."""
 
     def __init__(self, trials, metric, mode, lexico_objectives=None):
+        self.best_run_id = None
         try:
             super().__init__(self, None, trials, metric, mode)
             self.lexico_objectives = lexico_objectives
@@ -92,10 +108,12 @@ class ExperimentAnalysis(EA):
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
-                    f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                    if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
-                    else f_best[k_metric]
-                    * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))),
+                    (
+                        f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+                        if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
+                        else f_best[k_metric]
+                        * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", "")))
+                    ),
                     k_target,
                 )
             )[0]
@@ -122,6 +140,16 @@ class ExperimentAnalysis(EA):
             return super().best_result
         else:
             return self.best_trial.last_result
+
+    @property
+    def best_iteration(self) -> List[str]:
+        """Help better navigate"""
+        best_trial = self.best_trial
+        best_trial_id = best_trial.trial_id
+        for i, trial in enumerate(self.trials):
+            if trial.trial_id == best_trial_id:
+                return i
+        return None
 
 
 def report(_metric=None, **kwargs):
@@ -229,6 +257,9 @@ def run(
     lexico_objectives: Optional[dict] = None,
     force_cancel: Optional[bool] = False,
     n_concurrent_trials: Optional[int] = 0,
+    mlflow_exp_name: Optional[str] = None,
+    automl_info: Optional[Tuple[float]] = None,
+    extra_tag: Optional[dict] = None,
     **ray_args,
 ):
     """The function-based way of performing HPO.
@@ -419,6 +450,10 @@ def run(
     }
     ```
         force_cancel: boolean, default=False | Whether to forcely cancel the PySpark job if overtime.
+        mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
+            enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
+            same name as the basename of main entry file.
+        automl_info: tuple, default=None | The information of the automl run. It should be a tuple of (mlflow_log_latency,).
         n_concurrent_trials: int, default=0 | The number of concurrent trials when perform hyperparameter
             tuning with Spark. Only valid when use_spark=True and spark is required:
             `pip install flaml[spark]`. Please check
@@ -426,6 +461,7 @@ def run(
             for more details about installing Spark. When tune.run() is called from AutoML, it will be
             overwritten by the value of `n_concurrent_trials` in AutoML. When <= 0, the concurrent trials
             will be set to the number of executors.
+        extra_tag: dict, default=None | Extra tags to be added to the mlflow runs created by autologging.
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -433,10 +469,12 @@ def run(
     global _verbose
     global _running_trial
     global _training_iteration
+    global internal_mlflow
     old_use_ray = _use_ray
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
+
     if log_file_name:
         dir_name = os.path.dirname(log_file_name)
         if dir_name:
@@ -481,7 +519,14 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    from .searcher.blendsearch import BlendSearch, CFO, RandomSearch
+    if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
+        mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
+        evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
+        _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
+    else:
+        _internal_mlflow = False
+
+    from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
     if lexico_objectives is not None:
         if "modes" not in lexico_objectives.keys():
@@ -526,7 +571,7 @@ def run(
                     import optuna as _
 
                     SearchAlgorithm = BlendSearch
-                    logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
                 except ImportError:
                     if search_alg == "BlendSearch":
                         raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
@@ -535,7 +580,7 @@ def run(
                         logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
             else:
                 SearchAlgorithm = locals()[search_alg]
-                logger.info("Using search algorithm {}.".format(SearchAlgorithm.__name__))
+                logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
             metric = metric or DEFAULT_METRIC
         search_alg = SearchAlgorithm(
             metric=metric,
@@ -650,12 +695,13 @@ def run(
         if not spark_available:
             raise spark_error_msg
         try:
-            from pyspark.sql import SparkSession
             from joblib import Parallel, delayed, parallel_backend
             from joblibspark import register_spark
+            from pyspark.sql import SparkSession
         except ImportError as e:
             raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
         from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+
         from .trial_runner import SparkTrialRunner
 
         register_spark()
@@ -707,11 +753,15 @@ def run(
                         time_budget_s = np.inf
                     num_failures = 0
                     upperbound_num_failures = (len(evaluated_rewards) if evaluated_rewards else 0) + max_failure
+                    logger.debug(f"automl_info: {automl_info}")
                     while (
                         time.time() - time_start < time_budget_s
                         and (num_samples < 0 or num_trials < num_samples)
                         and num_failures < upperbound_num_failures
                     ):
+                        if automl_info and automl_info[0] > 0 and time_budget_s < np.inf:
+                            time_budget_s -= automl_info[0]
+                            logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
                         while len(_runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark
                             trial_next = _runner.step()
@@ -744,6 +794,9 @@ def run(
                             trial_to_run = trials_to_run[0]
                             _runner.running_trial = trial_to_run
                             if result is not None:
+                                if _internal_mlflow:
+                                    mlflow_integration.record_trial(result, trial_to_run, metric)
+
                                 if isinstance(result, dict):
                                     if result:
                                         logger.info(f"Brief result: {result}")
@@ -752,7 +805,7 @@ def run(
                                         # When the result returned is an empty dict, set the trial status to error
                                         trial_to_run.set_status(Trial.ERROR)
                                 else:
-                                    logger.info("Brief result: {}".format({metric: result}))
+                                    logger.info("Brief result: {metric: result}")
                                     report(_metric=result)
                             _runner.stop_trial(trial_to_run)
                         num_failures = 0
@@ -762,6 +815,20 @@ def run(
                         mode=mode,
                         lexico_objectives=lexico_objectives,
                     )
+                    analysis.search_space = config
+
+                    if _internal_mlflow:
+                        mlflow_integration.log_tune(analysis, metric)
+                        # try:
+                        #     _best_config = analysis.best_config
+                        # except Exception:
+                        #     _best_config = None
+                        # if _best_config:
+                        #     parallel(
+                        #         delayed(mlflow_integration.retrain)(evaluation_function, analysis.best_config)
+                        #         for dummy in [0]
+                        #     )
+
                     return analysis
                 finally:
                     # recover the global variables in case of nested run
@@ -773,6 +840,8 @@ def run(
                         _runner = old_runner
                         logger.handlers = old_handlers
                         logger.setLevel(old_level)
+                    if _internal_mlflow:
+                        mlflow_integration.adopt_children()
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -806,7 +875,11 @@ def run(
                 result = None
                 with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
                     result = evaluation_function(trial_to_run.config)
+                logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
+                    if _internal_mlflow:
+                        mlflow_integration.record_trial(result, trial_to_run, metric)
+
                     if isinstance(result, dict):
                         if result:
                             report(**result)
@@ -832,6 +905,19 @@ def run(
             mode=mode,
             lexico_objectives=lexico_objectives,
         )
+        analysis.search_space = config
+        if _internal_mlflow:
+            mlflow_integration.log_tune(analysis, metric)
+            if analysis.best_run_id is not None:
+                logger.info(f"Best MLflow run name: {analysis.best_run_name}")
+                logger.info(f"Best MLflow run id: {analysis.best_run_id}")
+            # try:
+            #     _best_config = analysis.best_config
+            # except Exception:
+            #     _best_config = None
+            # if _best_config:
+            #     mlflow_integration.retrain(evaluation_function, analysis.best_config)
+
         return analysis
     finally:
         # recover the global variables in case of nested run
@@ -843,6 +929,8 @@ def run(
             _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
+        if _internal_mlflow:
+            mlflow_integration.adopt_children()
 
 
 class Tuner:

@@ -1,13 +1,14 @@
+import logging
+import os
+import pathlib
+import re
 import signal
 import subprocess
 import sys
-import os
-import pathlib
-from typing import List, Dict, Tuple, Optional, Union, Callable
-import re
 import time
 from hashlib import md5
-import logging
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
 from flaml.autogen import oai
 
 try:
@@ -124,7 +125,7 @@ def improve_function(file_name, func_name, objective, **config):
     """(work in progress) Improve the function to achieve the objective."""
     params = {**_IMPROVE_FUNCTION_CONFIG, **config}
     # read the entire file into a str
-    with open(file_name, "r") as f:
+    with open(file_name) as f:
         file_string = f.read()
     response = oai.Completion.create(
         {"func_name": func_name, "objective": objective, "file_string": file_string}, **params
@@ -157,7 +158,7 @@ def improve_code(files, objective, suggest_only=True, **config):
     code = ""
     for file_name in files:
         # read the entire file into a string
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             file_string = f.read()
         code += f"""{file_name}:
 {file_string}

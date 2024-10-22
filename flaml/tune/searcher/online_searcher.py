@@ -1,9 +1,11 @@
-import numpy as np
-import logging
 import itertools
-from typing import Dict, Optional, List
-from flaml.tune import Categorical, Float, PolynomialExpansionSet, Trial
+import logging
+from typing import Dict, List, Optional
+
+import numpy as np
+
 from flaml.onlineml import VowpalWabbitTrial
+from flaml.tune import Categorical, Float, PolynomialExpansionSet, Trial
 from flaml.tune.searcher import CFO
 
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     POLY_EXPANSION_ADDITION_NUM = 1
     # the order of polynomial expansions to add based on the given seed interactions
     EXPANSION_ORDER = 2
-    # the number of new challengers with new numerical hyperparamter configs
+    # the number of new challengers with new numerical hyperparameter configs
     NUMERICAL_NUM = 2
 
     # In order to use CFO, a loss name and loss values of configs are need
@@ -78,7 +80,7 @@ class ChampionFrontierSearcher(BaseSearcher):
     CFO_SEARCHER_METRIC_NAME = "pseudo_loss"
     CFO_SEARCHER_LARGE_LOSS = 1e6
 
-    # the random seed used in generating numerical hyperparamter configs (when CFO is not used)
+    # the random seed used in generating numerical hyperparameter configs (when CFO is not used)
     NUM_RANDOM_SEED = 111
 
     CHAMPION_TRIAL_NAME = "champion_trial"
@@ -317,7 +319,7 @@ class ChampionFrontierSearcher(BaseSearcher):
         candidate_configs = [set(seed_interactions) | set(item) for item in space]
         final_candidate_configs = []
         for c in candidate_configs:
-            new_c = set([e for e in c if len(e) > 1])
+            new_c = {e for e in c if len(e) > 1}
             final_candidate_configs.append(new_c)
         return final_candidate_configs
 

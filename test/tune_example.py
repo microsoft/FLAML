@@ -1,9 +1,10 @@
-from flaml import tune
-from flaml.automl.model import LGBMEstimator
 import lightgbm
-from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+from flaml import tune
+from flaml.automl.model import LGBMEstimator
 
 data = fetch_california_housing(return_X_y=False, as_frame=True)
 df, X, y = data.frame, data.data, data.target

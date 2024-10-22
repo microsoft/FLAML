@@ -1,10 +1,12 @@
+import os
 import sys
+
+import pytest
+from minio.error import ServerError
 from openml.exceptions import OpenMLServerException
 from requests.exceptions import ChunkedEncodingError, SSLError
-from minio.error import ServerError
+
 from flaml.tune.spark.utils import check_spark
-import os
-import pytest
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
@@ -15,8 +17,9 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
 def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
-    from flaml.automl.data import load_openml_dataset
     import urllib3
+
+    from flaml.automl.data import load_openml_dataset
 
     performance_check_budget = 3600
     if sys.platform == "darwin" or "nt" in os.name or "3.10" not in sys.version:
@@ -72,8 +75,8 @@ def run_automl(budget=3, dataset_format="dataframe", hpo_method=None):
     """ retrieve best config and best learner """
     print("Best ML leaner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
-    print("Best accuracy on validation data: {0:.4g}".format(1 - automl.best_loss))
-    print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+    print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
+    print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
     print(automl.model.estimator)
     print(automl.best_config_per_estimator)
     print("time taken to find best model:", automl.time_to_find_best_model)

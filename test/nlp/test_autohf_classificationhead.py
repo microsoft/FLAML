@@ -1,13 +1,14 @@
-from utils import (
-    get_toy_data_regression,
-    get_toy_data_binclassification,
-    get_toy_data_multiclassclassification,
-    get_automl_settings,
-)
-import sys
-import pytest
 import os
 import shutil
+import sys
+
+import pytest
+from utils import (
+    get_automl_settings,
+    get_toy_data_binclassification,
+    get_toy_data_multiclassclassification,
+    get_toy_data_regression,
+)
 
 data_list = [
     "get_toy_data_regression",
@@ -19,6 +20,9 @@ model_path_list = [
     "textattack/bert-base-uncased-SST-2",
     "textattack/bert-base-uncased-MNLI",
 ]
+
+if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
 
 def test_switch_1_1():
@@ -67,8 +71,9 @@ def test_switch_3_3():
 
 
 def _test_switch_classificationhead(each_data, each_model_path):
-    from flaml import AutoML
     import requests
+
+    from flaml import AutoML
 
     automl = AutoML()
 

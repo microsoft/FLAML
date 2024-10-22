@@ -19,6 +19,7 @@ import logging
 from copy import copy
 from math import isclose
 from typing import Any, Dict, List, Optional, Sequence, Union
+
 import numpy as np
 
 # Backwards compatibility

@@ -15,15 +15,17 @@
 # This source file is adapted here because ray does not fully support Windows.
 
 # Copyright (c) Microsoft Corporation.
-import time
-import functools
-import warnings
 import copy
-import numpy as np
+import functools
 import logging
-from typing import Any, Dict, Optional, Union, List, Tuple, Callable
 import pickle
-from .variant_generator import parse_spec_vars
+import time
+import warnings
+from collections import defaultdict
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
 from ..sample import (
     Categorical,
     Domain,
@@ -34,7 +36,7 @@ from ..sample import (
     Uniform,
 )
 from ..trial import flatten_dict, unflatten_dict
-from collections import defaultdict
+from .variant_generator import parse_spec_vars
 
 logger = logging.getLogger(__name__)
 
@@ -183,13 +185,13 @@ class ConcurrencyLimiter(Searcher):
     """
 
     def __init__(self, searcher: Searcher, max_concurrent: int, batch: bool = False):
-        assert type(max_concurrent) is int and max_concurrent > 0
+        assert isinstance(max_concurrent, int) and max_concurrent > 0
         self.searcher = searcher
         self.max_concurrent = max_concurrent
         self.batch = batch
         self.live_trials = set()
         self.cached_results = {}
-        super(ConcurrencyLimiter, self).__init__(metric=self.searcher.metric, mode=self.searcher.mode)
+        super().__init__(metric=self.searcher.metric, mode=self.searcher.mode)
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         assert trial_id not in self.live_trials, f"Trial ID {trial_id} must be unique: already found in set."
@@ -252,8 +254,8 @@ try:
     import optuna as ot
     from optuna.distributions import BaseDistribution as OptunaDistribution
     from optuna.samplers import BaseSampler
-    from optuna.trial import TrialState as OptunaTrialState
     from optuna.trial import Trial as OptunaTrial
+    from optuna.trial import TrialState as OptunaTrialState
 except ImportError:
     ot = None
     OptunaDistribution = None
@@ -283,25 +285,21 @@ def validate_warmstart(
     """
     if points_to_evaluate:
         if not isinstance(points_to_evaluate, list):
-            raise TypeError("points_to_evaluate expected to be a list, got {}.".format(type(points_to_evaluate)))
+            raise TypeError(f"points_to_evaluate expected to be a list, got {type(points_to_evaluate)}.")
         for point in points_to_evaluate:
             if not isinstance(point, (dict, list)):
                 raise TypeError(f"points_to_evaluate expected to include list or dict, " f"got {point}.")
 
             if validate_point_name_lengths and (not len(point) == len(parameter_names)):
-                raise ValueError(
-                    "Dim of point {}".format(point)
-                    + " and parameter_names {}".format(parameter_names)
-                    + " do not match."
-                )
+                raise ValueError(f"Dim of point {point}" + f" and parameter_names {parameter_names}" + " do not match.")
 
     if points_to_evaluate and evaluated_rewards:
         if not isinstance(evaluated_rewards, list):
-            raise TypeError("evaluated_rewards expected to be a list, got {}.".format(type(evaluated_rewards)))
+            raise TypeError(f"evaluated_rewards expected to be a list, got {type(evaluated_rewards)}.")
         if not len(evaluated_rewards) == len(points_to_evaluate):
             raise ValueError(
-                "Dim of evaluated_rewards {}".format(evaluated_rewards)
-                + " and points_to_evaluate {}".format(points_to_evaluate)
+                f"Dim of evaluated_rewards {evaluated_rewards}"
+                + f" and points_to_evaluate {points_to_evaluate}"
                 + " do not match."
             )
 
@@ -545,7 +543,7 @@ class OptunaSearch(Searcher):
         evaluated_rewards: Optional[List] = None,
     ):
         assert ot is not None, "Optuna must be installed! Run `pip install optuna`."
-        super(OptunaSearch, self).__init__(metric=metric, mode=mode)
+        super().__init__(metric=metric, mode=mode)
 
         if isinstance(space, dict) and space:
             resolved_vars, domain_vars, grid_vars = parse_spec_vars(space)
@@ -559,7 +557,15 @@ class OptunaSearch(Searcher):
         self._space = space
 
         self._points_to_evaluate = points_to_evaluate or []
-        self._evaluated_rewards = evaluated_rewards
+        # rewards should be a list of floats, not a dict
+        # After Optuna > 3.5.0, there is a check for NaN in the list "any(math.isnan(x) for x in self._values)"
+        # which will raise an error when encountering a dict
+        if evaluated_rewards is not None:
+            self._evaluated_rewards = [
+                list(item.values())[0] if isinstance(item, dict) else item for item in evaluated_rewards
+            ]
+        else:
+            self._evaluated_rewards = evaluated_rewards
 
         self._study_name = "optuna"  # Fixed study name for in-memory storage
 
@@ -871,9 +877,9 @@ class OptunaSearch(Searcher):
 
             elif isinstance(domain, Integer):
                 if isinstance(sampler, LogUniform):
-                    return ot.distributions.IntLogUniformDistribution(
-                        domain.lower, domain.upper - 1, step=quantize or 1
-                    )
+                    # ``step`` argument Deprecated in v2.0.0. ``step`` argument should be 1 in Log Distribution
+                    # The removal of this feature is currently scheduled for v4.0.0,
+                    return ot.distributions.IntLogUniformDistribution(domain.lower, domain.upper - 1, step=1)
                 elif isinstance(sampler, Uniform):
                     # Upper bound should be inclusive for quantization and
                     # exclusive otherwise

@@ -5,7 +5,6 @@ import threading
 import time
 from functools import lru_cache, partial
 
-
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
@@ -13,10 +12,10 @@ logger_formatter = logging.Formatter(
 logger.propagate = False
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
+    import py4j
     import pyspark
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
-    import py4j
 except ImportError:
     _have_spark = False
     py4j = None
@@ -286,6 +285,7 @@ class PySparkOvertimeMonitor:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         """Exit the context manager.
         This will wait for the monitor thread to nicely exit."""
+        logger.debug(f"monitor exited: {exc_type}, {exc_value}, {exc_traceback}")
         if self._force_cancel and _have_spark:
             self._finished_flag = True
             self._monitor_daemon.join()
@@ -296,6 +296,11 @@ class PySparkOvertimeMonitor:
             if not exc_type:
                 return True
             elif exc_type == py4j.protocol.Py4JJavaError:
+                logger.debug("Py4JJavaError Exception: %s", exc_value)
+                return True
+            elif exc_type == TypeError:
+                # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
+                logger.debug("TypeError Exception: %s", exc_value)
                 return True
             else:
                 return False

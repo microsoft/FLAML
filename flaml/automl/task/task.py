@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+
 import numpy as np
+
 from flaml.automl.data import DataFrame, Series, psDataFrame, psSeries
 
 if TYPE_CHECKING:

@@ -1,9 +1,10 @@
 import unittest
+
 import numpy as np
 from sklearn.datasets import load_iris
-from flaml import AutoML
+
+from flaml import AutoML, tune
 from flaml.automl.model import LGBMEstimator
-from flaml import tune
 
 
 class TestWarmStart(unittest.TestCase):
@@ -28,8 +29,8 @@ class TestWarmStart(unittest.TestCase):
         automl_val_accuracy = 1.0 - automl.best_loss
         print("Best ML leaner:", automl.best_estimator)
         print("Best hyperparmeter config:", automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+        print(f"Best accuracy on validation data: {automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
         # 1. Get starting points from previous experiments.
         starting_points = automl.best_config_per_estimator
         print("starting_points", starting_points)
@@ -96,8 +97,8 @@ class TestWarmStart(unittest.TestCase):
         new_automl_val_accuracy = 1.0 - new_automl.best_loss
         print("Best ML leaner:", new_automl.best_estimator)
         print("Best hyperparmeter config:", new_automl.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(new_automl.best_config_train_time))
+        print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {new_automl.best_config_train_time:.4g} s")
 
     def test_nobudget(self):
         automl = AutoML()
@@ -106,11 +107,12 @@ class TestWarmStart(unittest.TestCase):
         print(automl.best_config_per_estimator)
 
     def test_FLAML_sample_size_in_starting_points(self):
+        from minio.error import ServerError
         from openml.exceptions import OpenMLServerException
         from requests.exceptions import ChunkedEncodingError, SSLError
-        from minio.error import ServerError
-        from flaml.automl.data import load_openml_dataset
+
         from flaml import AutoML
+        from flaml.automl.data import load_openml_dataset
 
         try:
             X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")

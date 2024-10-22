@@ -1,14 +1,16 @@
 from itertools import chain
+
 import numpy as np
-from flaml.automl.task.task import (
-    SUMMARIZATION,
-    SEQREGRESSION,
-    SEQCLASSIFICATION,
-    MULTICHOICECLASSIFICATION,
-    TOKENCLASSIFICATION,
-    NLG_TASKS,
-)
+
 from flaml.automl.data import pd
+from flaml.automl.task.task import (
+    MULTICHOICECLASSIFICATION,
+    NLG_TASKS,
+    SEQCLASSIFICATION,
+    SEQREGRESSION,
+    SUMMARIZATION,
+    TOKENCLASSIFICATION,
+)
 
 
 def todf(X, Y, column_name):
@@ -243,7 +245,7 @@ def tokenize_row(
     return_column_name=False,
 ):
     if prefix:
-        this_row = tuple(["".join(x) for x in zip(prefix, this_row)])
+        this_row = tuple("".join(x) for x in zip(prefix, this_row))
 
     # tokenizer.pad_token = tokenizer.eos_token
     tokenized_example = tokenizer(
@@ -377,6 +379,7 @@ def load_model(checkpoint_path, task, num_labels=None):
     transformers.logging.set_verbosity_error()
 
     from transformers import AutoConfig
+
     from flaml.automl.task.task import (
         SEQCLASSIFICATION,
         SEQREGRESSION,
@@ -384,10 +387,12 @@ def load_model(checkpoint_path, task, num_labels=None):
     )
 
     def get_this_model(checkpoint_path, task, model_config):
-        from transformers import AutoModelForSequenceClassification
-        from transformers import AutoModelForSeq2SeqLM
-        from transformers import AutoModelForMultipleChoice
-        from transformers import AutoModelForTokenClassification
+        from transformers import (
+            AutoModelForMultipleChoice,
+            AutoModelForSeq2SeqLM,
+            AutoModelForSequenceClassification,
+            AutoModelForTokenClassification,
+        )
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(

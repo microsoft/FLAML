@@ -1,7 +1,9 @@
 import json
 import os
-from flaml import autogen
+
 from test_completion import KEY_LOC, OAI_CONFIG_LIST
+
+from flaml import autogen
 
 
 def test_config_list_from_json():

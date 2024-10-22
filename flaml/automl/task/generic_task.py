@@ -1,43 +1,39 @@
 import logging
 import time
 from typing import List, Optional
-import numpy as np
-from flaml.automl.data import TS_TIMESTAMP_COL, concat
-from flaml.automl.ml import EstimatorSubclass, get_val_loss, default_cv_score_agg_func
 
-from flaml.automl.task.task import (
-    Task,
-    get_classification_objective,
-    TS_FORECAST,
-    TS_FORECASTPANEL,
-)
-from flaml.config import RANDOM_SEED
-from flaml.automl.spark import ps, psDataFrame, psSeries, pd
+import numpy as np
+
+from flaml.automl.data import TS_TIMESTAMP_COL, concat
+from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
+from flaml.automl.spark import pd, ps, psDataFrame, psSeries
 from flaml.automl.spark.utils import (
     iloc_pandas_on_spark,
+    len_labels,
+    set_option,
     spark_kFold,
     train_test_split_pyspark,
     unique_pandas_on_spark,
     unique_value_first_index,
-    len_labels,
-    set_option,
 )
+from flaml.automl.task.task import TS_FORECAST, TS_FORECASTPANEL, Task, get_classification_objective
+from flaml.config import RANDOM_SEED
 
 try:
     from scipy.sparse import issparse
 except ImportError:
     pass
 try:
-    from sklearn.utils import shuffle
     from sklearn.model_selection import (
-        train_test_split,
-        RepeatedStratifiedKFold,
-        RepeatedKFold,
         GroupKFold,
-        TimeSeriesSplit,
         GroupShuffleSplit,
+        RepeatedKFold,
+        RepeatedStratifiedKFold,
         StratifiedGroupKFold,
+        TimeSeriesSplit,
+        train_test_split,
     )
+    from sklearn.utils import shuffle
 except ImportError:
     pass
 
@@ -49,19 +45,31 @@ class GenericTask(Task):
     def estimators(self):
         if self._estimators is None:
             # put this into a function to avoid circular dependency
+            from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
             from flaml.automl.model import (
-                XGBoostSklearnEstimator,
-                XGBoostLimitDepthEstimator,
-                RandomForestEstimator,
+                CatBoostEstimator,
+                ElasticNetEstimator,
+                ExtraTreesEstimator,
+                KNeighborsEstimator,
+                LassoLarsEstimator,
                 LGBMEstimator,
                 LRL1Classifier,
                 LRL2Classifier,
-                CatBoostEstimator,
-                ExtraTreesEstimator,
-                KNeighborsEstimator,
+                RandomForestEstimator,
+                SGDEstimator,
+                SparkAFTSurvivalRegressionEstimator,
+                SparkGBTEstimator,
+                SparkGLREstimator,
+                SparkLGBMEstimator,
+                SparkLinearRegressionEstimator,
+                SparkLinearSVCEstimator,
+                SparkNaiveBayesEstimator,
+                SparkRandomForestEstimator,
+                SVCEstimator,
                 TransformersEstimator,
                 TransformersEstimatorModelSelection,
-                SparkLGBMEstimator,
+                XGBoostLimitDepthEstimator,
+                XGBoostSklearnEstimator,
             )
 
             self._estimators = {
@@ -70,6 +78,7 @@ class GenericTask(Task):
                 "rf": RandomForestEstimator,
                 "lgbm": LGBMEstimator,
                 "lgbm_spark": SparkLGBMEstimator,
+                "rf_spark": SparkRandomForestEstimator,
                 "lrl1": LRL1Classifier,
                 "lrl2": LRL2Classifier,
                 "catboost": CatBoostEstimator,
@@ -77,6 +86,18 @@ class GenericTask(Task):
                 "kneighbor": KNeighborsEstimator,
                 "transformer": TransformersEstimator,
                 "transformer_ms": TransformersEstimatorModelSelection,
+                "histgb": HistGradientBoostingEstimator,
+                # Above are open-source, below are internal
+                "svc": SVCEstimator,
+                "sgd": SGDEstimator,
+                "nb_spark": SparkNaiveBayesEstimator,
+                "enet": ElasticNetEstimator,
+                "lassolars": LassoLarsEstimator,
+                "glr_spark": SparkGLREstimator,
+                "lr_spark": SparkLinearRegressionEstimator,
+                "svc_spark": SparkLinearSVCEstimator,
+                "gbt_spark": SparkGBTEstimator,
+                "aft_spark": SparkAFTSurvivalRegressionEstimator,
             }
         return self._estimators
 
@@ -268,8 +289,8 @@ class GenericTask(Task):
             seed=RANDOM_SEED,
         )
         columns_to_drop = [c for c in df_all_train.columns if c in [stratify_column, "sample_weight"]]
-        X_train = df_all_train.drop(columns_to_drop)
-        X_val = df_all_val.drop(columns_to_drop)
+        X_train = df_all_train.drop(columns=columns_to_drop)
+        X_val = df_all_val.drop(columns=columns_to_drop)
         y_train = df_all_train[stratify_column]
         y_val = df_all_val[stratify_column]
 
@@ -494,14 +515,37 @@ class GenericTask(Task):
                     last = first[i] + 1
                 rest.extend(range(last, len(y_train_all)))
                 X_first = X_train_all.iloc[first] if data_is_df else X_train_all[first]
-                X_rest = X_train_all.iloc[rest] if data_is_df else X_train_all[rest]
-                y_rest = (
-                    y_train_all[rest]
-                    if isinstance(y_train_all, np.ndarray)
-                    else iloc_pandas_on_spark(y_train_all, rest)
-                    if is_spark_dataframe
-                    else y_train_all.iloc[rest]
-                )
+                if len(first) < len(y_train_all) / 2:
+                    # Get X_rest and y_rest with drop, sparse matrix can't apply np.delete
+                    X_rest = (
+                        np.delete(X_train_all, first, axis=0)
+                        if isinstance(X_train_all, np.ndarray)
+                        else X_train_all.drop(first.tolist())
+                        if data_is_df
+                        else X_train_all[rest]
+                    )
+                    y_rest = (
+                        np.delete(y_train_all, first, axis=0)
+                        if isinstance(y_train_all, np.ndarray)
+                        else y_train_all.drop(first.tolist())
+                        if data_is_df
+                        else y_train_all[rest]
+                    )
+                else:
+                    X_rest = (
+                        iloc_pandas_on_spark(X_train_all, rest)
+                        if is_spark_dataframe
+                        else X_train_all.iloc[rest]
+                        if data_is_df
+                        else X_train_all[rest]
+                    )
+                    y_rest = (
+                        iloc_pandas_on_spark(y_train_all, rest)
+                        if is_spark_dataframe
+                        else y_train_all.iloc[rest]
+                        if data_is_df
+                        else y_train_all[rest]
+                    )
                 stratify = y_rest if split_type == "stratified" else None
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_rest, y_rest, first, rest, split_ratio, stratify
@@ -510,6 +554,12 @@ class GenericTask(Task):
                 y_train = concat(label_set, y_train) if data_is_df else np.concatenate([label_set, y_train])
                 X_val = concat(X_first, X_val)
                 y_val = concat(label_set, y_val) if data_is_df else np.concatenate([label_set, y_val])
+
+                if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
+                    y_train = y_train[y_train.columns[0]]
+                    y_val = y_val[y_val.columns[0]]
+                    y_train.name = y_val.name = y_rest.name
+
             elif self.is_regression():
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
@@ -656,7 +706,6 @@ class GenericTask(Task):
             fit_kwargs = {}
         if cv_score_agg_func is None:
             cv_score_agg_func = default_cv_score_agg_func
-        start_time = time.time()
         val_loss_folds = []
         log_metric_folds = []
         metric = None
@@ -763,8 +812,6 @@ class GenericTask(Task):
             if is_spark_dataframe:
                 X_train.spark.unpersist()  # uncache data to free memory
                 X_val.spark.unpersist()  # uncache data to free memory
-            if budget and time.time() - start_time >= budget:
-                break
         val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
         pred_time /= n
@@ -807,27 +854,23 @@ class GenericTask(Task):
         elif self.is_ts_forecastpanel():
             estimator_list = ["tft"]
         else:
+            estimator_list = [
+                "lgbm",
+                "rf",
+                "xgboost",
+                "extra_tree",
+                "xgb_limitdepth",
+                "lgbm_spark",
+                "rf_spark",
+                "sgd",
+            ]
             try:
                 import catboost
 
-                estimator_list = [
-                    "lgbm",
-                    "rf",
-                    "catboost",
-                    "xgboost",
-                    "extra_tree",
-                    "xgb_limitdepth",
-                    "lgbm_spark",
-                ]
+                estimator_list += ["catboost"]
             except ImportError:
-                estimator_list = [
-                    "lgbm",
-                    "rf",
-                    "xgboost",
-                    "extra_tree",
-                    "xgb_limitdepth",
-                    "lgbm_spark",
-                ]
+                pass
+
             # if self.is_ts_forecast():
             #     # catboost is removed because it has a `name` parameter, making it incompatible with hcrystalball
             #     if "catboost" in estimator_list:
@@ -859,9 +902,7 @@ class GenericTask(Task):
             return metric
 
         if self.is_nlp():
-            from flaml.automl.nlp.utils import (
-                load_default_huggingface_metric_for_task,
-            )
+            from flaml.automl.nlp.utils import load_default_huggingface_metric_for_task
 
             return load_default_huggingface_metric_for_task(self.name)
         elif self.is_binary():

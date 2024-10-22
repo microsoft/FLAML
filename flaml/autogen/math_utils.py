@@ -1,5 +1,6 @@
 from typing import Optional
-from flaml.autogen import oai, DEFAULT_MODEL
+
+from flaml.autogen import DEFAULT_MODEL, oai
 
 _MATH_PROMPT = "{problem} Solve the problem carefully. Simplify your answer as much as possible. Put the final answer in \\boxed{{}}."
 _MATH_CONFIG = {
@@ -129,7 +130,7 @@ def _fix_a_slash_b(string: str) -> str:
     try:
         a = int(a_str)
         b = int(b_str)
-        assert string == "{}/{}".format(a, b)
+        assert string == f"{a}/{b}"
         new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
         return new_string
     except Exception:

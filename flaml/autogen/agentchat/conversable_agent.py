@@ -1,10 +1,10 @@
 import asyncio
-from collections import defaultdict
 import copy
 import json
+from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+
 from flaml.autogen import oai
-from .agent import Agent
 from flaml.autogen.code_utils import (
     DEFAULT_MODEL,
     UNKNOWN,
@@ -12,6 +12,8 @@ from flaml.autogen.code_utils import (
     extract_code,
     infer_lang,
 )
+
+from .agent import Agent
 
 try:
     from termcolor import colored

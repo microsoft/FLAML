@@ -1,13 +1,15 @@
-import inspect
 import copy
+import inspect
 import time
 from typing import Any, Optional
+
 import numpy as np
+
 from flaml import tune
 from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
-from flaml.automl.spark import psDataFrame, psSeries, DataFrame, Series
 
 
 class SearchState:
@@ -63,6 +65,7 @@ class SearchState:
         custom_hp=None,
         max_iter=None,
         budget=None,
+        featurization="auto",
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -80,6 +83,7 @@ class SearchState:
         else:
             data_size = data.shape
             search_space = learner_class.search_space(data_size=data_size, task=task)
+
         self.data_size = data_size
 
         if custom_hp is not None:
@@ -89,9 +93,7 @@ class SearchState:
             starting_point = AutoMLState.sanitize(starting_point)
             if max_iter > 1 and not self.valid_starting_point(starting_point, search_space):
                 # If the number of iterations is larger than 1, remove invalid point
-                logger.warning(
-                    "Starting point {} removed because it is outside of the search space".format(starting_point)
-                )
+                logger.warning(f"Starting point {starting_point} removed because it is outside of the search space")
                 starting_point = None
         elif isinstance(starting_point, list):
             starting_point = [AutoMLState.sanitize(x) for x in starting_point]
@@ -206,7 +208,7 @@ class SearchState:
         self.val_loss, self.config = obj, config
 
     def get_hist_config_sig(self, sample_size, config):
-        config_values = tuple([config[k] for k in self._hp_names if k in config])
+        config_values = tuple(config[k] for k in self._hp_names if k in config)
         config_sig = str(sample_size) + "_" + str(config_values)
         return config_sig
 
@@ -288,9 +290,11 @@ class AutoMLState:
         budget = (
             None
             if state.time_budget < 0
-            else state.time_budget - state.time_from_start
-            if sample_size == state.data_size[0]
-            else (state.time_budget - state.time_from_start) / 2 * sample_size / state.data_size[0]
+            else (
+                state.time_budget - state.time_from_start
+                if sample_size == state.data_size[0]
+                else (state.time_budget - state.time_from_start) / 2 * sample_size / state.data_size[0]
+            )
         )
 
         (
@@ -351,6 +355,7 @@ class AutoMLState:
         estimator: str,
         config_w_resource: dict,
         sample_size: Optional[int] = None,
+        is_retrain: bool = False,
     ):
         if not sample_size:
             sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
@@ -376,9 +381,8 @@ class AutoMLState:
             this_estimator_kwargs[
                 "groups"
             ] = groups  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
-
+        this_estimator_kwargs.update({"is_retrain": is_retrain})
         budget = None if self.time_budget < 0 else self.time_budget - self.time_from_start
-
         estimator, train_time = train_estimator(
             X_train=sampled_X_train,
             y_train=sampled_y_train,

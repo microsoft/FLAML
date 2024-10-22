@@ -1,9 +1,10 @@
-import setuptools
 import os
+
+import setuptools
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-with open("README.md", "r", encoding="UTF-8") as fh:
+with open("README.md", encoding="UTF-8") as fh:
     long_description = fh.read()
 
 
@@ -14,7 +15,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.17.0rc1",
+    "NumPy>=1.17",
 ]
 
 
@@ -36,10 +37,10 @@ setuptools.setup(
     extras_require={
         "automl": [
             "lightgbm>=2.3.1",
-            "xgboost>=0.90",
+            "xgboost>=0.90,<3.0.0",
             "scipy>=1.4.1",
             "pandas>=1.1.4",
-            "scikit-learn>=0.24",
+            "scikit-learn>=1.0.0",
         ],
         "notebook": [
             "jupyter",
@@ -47,37 +48,41 @@ setuptools.setup(
         "spark": [
             "pyspark>=3.2.0",
             "joblibspark>=0.5.0",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
+            "joblib<=1.3.2",
         ],
         "test": [
+            "jupyter",
             "lightgbm>=2.3.1",
-            "xgboost>=0.90",
+            "xgboost>=0.90,<2.0.0",
             "scipy>=1.4.1",
-            "pandas>=1.1.4",
-            "scikit-learn>=0.24",
+            "pandas>=1.1.4,<2.0.0; python_version<'3.10'",
+            "pandas>=1.1.4; python_version>='3.10'",
+            "scikit-learn>=1.0.0",
             "thop",
             "pytest>=6.1.1",
             "coverage>=5.3",
             "pre-commit",
             "torch",
             "torchvision",
-            "catboost>=0.26,<1.2",
+            "catboost>=0.26,<1.2; python_version<'3.11'",
+            "catboost>=0.26; python_version>='3.11'",
             "rgf-python",
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "openml",
             "statsmodels>=0.12.2",
             "psutil==5.8.0",
             "dataclasses",
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting>=0.9.0,<=0.10.1",
-            "mlflow",
-            "pyspark>=3.2.0",
+            "pytorch-forecasting>=0.9.0,<=0.10.1; python_version<'3.11'",
+            # "pytorch-forecasting==0.10.1; python_version=='3.11'",
+            "mlflow==2.15.1",
             "joblibspark>=0.5.0",
+            "joblib<=1.3.2",
             "nbconvert",
             "nbformat",
             "ipykernel",
@@ -88,11 +93,14 @@ setuptools.setup(
             "pydantic==1.10.9",
             "sympy",
             "wolframalpha",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
+            "dill",  # a drop in replacement of pickle
         ],
-        "catboost": ["catboost>=0.26"],
+        "catboost": [
+            "catboost>=0.26,<1.2; python_version<'3.11'",
+            "catboost>=0.26,<=1.2.5; python_version>='3.11'",
+        ],
         "blendsearch": [
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "packaging",
         ],
         "ray": [
@@ -111,14 +119,14 @@ setuptools.setup(
         "hf": [
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",
             "rouge_score",
             "seqeval",
         ],
         "nlp": [  # for backward compatibility; hf is the new option name
             "transformers[torch]==4.26",
             "datasets",
-            "nltk",
+            "nltk<=3.8.1",
             "rouge_score",
             "seqeval",
         ],
@@ -133,7 +141,8 @@ setuptools.setup(
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
-            "pytorch-forecasting>=0.9.0",
+            "pytorch-forecasting>=0.9.0; python_version<'3.11'",
+            # "pytorch-forecasting==0.10.1; python_version=='3.11'",
             "pytorch-lightning==1.9.0",
             "tensorboardX==2.6",
         ],
@@ -151,16 +160,20 @@ setuptools.setup(
         ],
         "synapse": [
             "joblibspark>=0.5.0",
-            "optuna==2.8.0",
+            "optuna>=2.8.0,<=3.6.1",
             "pyspark>=3.2.0",
-            "joblib<1.3.0",  # temp solution for joblib 1.3.0 issue, no need once https://github.com/joblib/joblib-spark/pull/48 is merged
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
     },
     classifiers=[
-        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        # Specify the Python versions you support here.
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.8",
 )

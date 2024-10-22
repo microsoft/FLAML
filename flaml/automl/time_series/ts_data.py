@@ -2,7 +2,7 @@ import copy
 import datetime
 import math
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable, Dict, Generator, Union
+from typing import Callable, Dict, Generator, List, Optional, Union
 
 import numpy as np
 
@@ -10,9 +10,9 @@ try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
     from scipy.sparse import issparse
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.impute import SimpleImputer
     from sklearn.compose import ColumnTransformer
+    from sklearn.impute import SimpleImputer
+    from sklearn.preprocessing import LabelEncoder
 
     from .feature import monthly_fourier_features
 except ImportError:
@@ -26,6 +26,8 @@ except ImportError:
     DataFrame = Series = None
 
 
+# dataclass will remove empty default value even with field(default_factory=lambda: [])
+# Change into default=None to place the attr
 @dataclass
 class TimeSeriesDataset:
     train_data: pd.DataFrame
@@ -34,10 +36,10 @@ class TimeSeriesDataset:
     target_names: List[str]
     frequency: str
     test_data: pd.DataFrame
-    time_varying_known_categoricals: List[str] = field(default_factory=lambda: [])
-    time_varying_known_reals: List[str] = field(default_factory=lambda: [])
-    time_varying_unknown_categoricals: List[str] = field(default_factory=lambda: [])
-    time_varying_unknown_reals: List[str] = field(default_factory=lambda: [])
+    time_varying_known_categoricals: List[str] = field(default=None)
+    time_varying_known_reals: List[str] = field(default=None)
+    time_varying_unknown_categoricals: List[str] = field(default=None)
+    time_varying_unknown_reals: List[str] = field(default=None)
 
     def __init__(
         self,
@@ -403,7 +405,7 @@ class DataTransformerTS:
                     self.cat_columns.append(column)
             elif X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
-            elif X[column].dtype.name == "datetime64[ns]":
+            elif X[column].dtype.name in ["datetime64[ns]", "datetime64[s]"]:
                 pass  # these will be processed at model level,
                 # so they can also be done in the predict method
             else:

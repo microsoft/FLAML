@@ -2,10 +2,10 @@ import unittest
 
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
+
+from flaml import tune
 from flaml.automl import AutoML
 from flaml.automl.model import XGBoostSklearnEstimator
-from flaml import tune
-
 
 dataset = "credit-g"
 
