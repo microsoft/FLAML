@@ -427,7 +427,7 @@ class TestClassification(unittest.TestCase):
 @pytest.mark.parametrize(
     "estimator",
     [
-        # "catboost",
+        "catboost",
         "extra_tree",
         "histgb",
         "kneighbor",
@@ -488,7 +488,7 @@ def test_reproducibility_of_classification_models(estimator: str):
 @pytest.mark.parametrize(
     "estimator",
     [
-        # "catboost",
+        "catboost",
         "extra_tree",
         "histgb",
         "kneighbor",
