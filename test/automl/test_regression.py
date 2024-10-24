@@ -345,7 +345,7 @@ def test_reproducibility_of_catboost_regression_model():
         "extra_tree",
         "histgb",
         "kneighbor",
-        # "lgbm",
+        "lgbm",
         "rf",
         "xgboost",
         "xgb_limitdepth",
@@ -374,12 +374,15 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
         "metric": "r2",
         "keep_search_state": True,
         "skip_transform": True,
+        "retrain_full": False,
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
     val_loss_flaml = automl.best_result["val_loss"]
+    print("best_model", best_model.get_params())
+    print("underlying model", best_model.model.get_params())
     reproduced_val_loss_underlying_model = np.mean(
         evaluate_cv_folds_with_underlying_model(
             automl._state.X_train_all, automl._state.y_train_all, automl._state.kf, best_model.model, "regression"

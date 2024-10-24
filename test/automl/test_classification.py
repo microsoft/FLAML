@@ -492,7 +492,7 @@ def test_reproducibility_of_classification_models(estimator: str):
         "extra_tree",
         "histgb",
         "kneighbor",
-        # "lgbm",
+        "lgbm",
         # "lrl1",
         "lrl2",
         "rf",
