@@ -87,7 +87,6 @@ class GenericTask(Task):
                 "transformer": TransformersEstimator,
                 "transformer_ms": TransformersEstimatorModelSelection,
                 "histgb": HistGradientBoostingEstimator,
-                # Above are open-source, below are internal
                 "svc": SVCEstimator,
                 "sgd": SGDEstimator,
                 "nb_spark": SparkNaiveBayesEstimator,
