@@ -338,6 +338,52 @@ def test_reproducibility_of_catboost_regression_model():
     assert pytest.approx(val_loss_flaml) == reproduced_val_loss
 
 
+def test_reproducibility_of_lgbm_regression_model():
+    """FLAML finds the best model for a given dataset, which it then provides to users.
+
+    However, there are reported issues around LGBMs - see here:
+    https://github.com/microsoft/FLAML/issues/1368
+    In this test we take the best LGB regression model which FLAML provided us, and then retrain and test it on the
+    same folds, to verify that the result is reproducible.
+    """
+    automl = AutoML()
+    automl_settings = {
+        "time_budget": 3,
+        "task": "regression",
+        "n_jobs": 1,
+        "estimator_list": ["lgbm"],
+        "eval_method": "cv",
+        "n_splits": 9,
+        "metric": "r2",
+        "keep_search_state": True,
+        "skip_transform": True,
+        "retrain_full": True,
+    }
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+    automl.fit(X_train=X, y_train=y, **automl_settings)
+    best_model = automl.model
+    assert best_model is not None
+    config = best_model.get_params()
+    val_loss_flaml = automl.best_result["val_loss"]
+
+    # Take the best model, and see if we can reproduce the best result
+    reproduced_val_loss, metric_for_logging, train_time, pred_time = automl._state.task.evaluate_model_CV(
+        config=config,
+        estimator=best_model,
+        X_train_all=automl._state.X_train_all,
+        y_train_all=automl._state.y_train_all,
+        budget=None,
+        kf=automl._state.kf,
+        eval_metric="r2",
+        best_val_loss=None,
+        cv_score_agg_func=None,
+        log_training_metric=False,
+        fit_kwargs=None,
+        free_mem_ratio=0,
+    )
+    assert pytest.approx(val_loss_flaml) == reproduced_val_loss
+
+
 @pytest.mark.parametrize(
     "estimator",
     [
@@ -381,8 +427,6 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
     best_model = automl.model
     assert best_model is not None
     val_loss_flaml = automl.best_result["val_loss"]
-    print("best_model", best_model.get_params())
-    print("underlying model", best_model.model.get_params())
     reproduced_val_loss_underlying_model = np.mean(
         evaluate_cv_folds_with_underlying_model(
             automl._state.X_train_all, automl._state.y_train_all, automl._state.kf, best_model.model, "regression"
