@@ -236,6 +236,7 @@ def test_multioutput():
     "estimator",
     [
         "catboost",
+        "enet",
         "extra_tree",
         "histgb",
         "kneighbor",
@@ -342,6 +343,7 @@ def test_reproducibility_of_catboost_regression_model():
     "estimator",
     [
         "catboost",
+        "enet",
         "extra_tree",
         "histgb",
         "kneighbor",
@@ -385,7 +387,6 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
             automl._state.X_train_all, automl._state.y_train_all, automl._state.kf, best_model.model, "regression"
         )
     )
-
     assert pytest.approx(val_loss_flaml) == reproduced_val_loss_underlying_model
 
 

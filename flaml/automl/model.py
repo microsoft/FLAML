@@ -2429,6 +2429,11 @@ class ElasticNetEstimator(SKLearnEstimator):
 
     def __init__(self, task="regression", **config):
         super().__init__(task, **config)
+        self.params.update(
+            {
+                "random_state": config.get("random_seed", 10242048),
+            }
+        )
         assert self._task.is_regression(), "ElasticNet for regression task only"
         self.estimator_class = ElasticNet
 
