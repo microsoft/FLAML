@@ -344,7 +344,7 @@ def test_reproducibility_of_lgbm_regression_model():
 
     However, there are reported issues around LGBMs - see here:
     https://github.com/microsoft/FLAML/issues/1368
-    In this test we take the best LGB regression model which FLAML provided us, and then retrain and test it on the
+    In this test we take the best LGBM regression model which FLAML provided us, and then retrain and test it on the
     same folds, to verify that the result is reproducible.
     """
     automl = AutoML()
