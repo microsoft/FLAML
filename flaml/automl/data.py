@@ -293,7 +293,7 @@ class DataTransformer:
                     y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
-                if X[column].dtype.name in ("object", "category"):
+                if X[column].dtype.name in ("object", "category", "string"):
                     if X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum():
                         X.drop(columns=column, inplace=True)
                         drop = True

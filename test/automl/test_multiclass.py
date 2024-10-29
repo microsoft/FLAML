@@ -187,7 +187,6 @@ class TestMultiClass(unittest.TestCase):
     def test_custom_metric(self):
         df, y = load_iris(return_X_y=True, as_frame=True)
         df["label"] = y
-        automl = AutoML()
         settings = {
             "dataframe": df,
             "label": "label",
@@ -204,7 +203,8 @@ class TestMultiClass(unittest.TestCase):
             "pred_time_limit": 1e-5,
             "ensemble": True,
         }
-        automl.fit(**settings)
+        automl = AutoML(**settings)  # test safe_json_dumps
+        automl.fit(dataframe=df, label="label")
         print(automl.classes_)
         print(automl.model)
         print(automl.config_history)

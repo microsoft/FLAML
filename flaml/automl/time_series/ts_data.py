@@ -393,7 +393,7 @@ class DataTransformerTS:
 
         for column in X.columns:
             # sklearn/utils/validation.py needs int/float values
-            if X[column].dtype.name in ("object", "category"):
+            if X[column].dtype.name in ("object", "category", "string"):
                 if (
                     # drop columns where all values are the same
                     X[column].nunique() == 1
