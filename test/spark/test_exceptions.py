@@ -41,8 +41,8 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
 
     print("Best ML leaner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
-    print("Best accuracy on validation data: {0:.4g}".format(1 - automl.best_loss))
-    print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+    print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
+    print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
 
 
 def test_both_ray_spark():

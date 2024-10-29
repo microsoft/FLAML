@@ -2,6 +2,7 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import inspect
 import logging
 import math
 import os
@@ -9,52 +10,41 @@ import shutil
 import signal
 import sys
 import time
+import warnings
 from contextlib import contextmanager
 from functools import partial
 from typing import Callable, List, Union
 
 import numpy as np
+import sklearn
+from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.linear_model import ElasticNet, LassoLars, LogisticRegression, SGDClassifier, SGDRegressor
+from sklearn.preprocessing import Normalizer
+from sklearn.svm import LinearSVC
+from xgboost import __version__ as xgboost_version
 
 from flaml import tune
-from flaml.automl.data import (
-    group_counts,
-)
+from flaml.automl.data import group_counts
+from flaml.automl.spark import ERROR as SPARK_ERROR
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
+from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
 from flaml.automl.task.factory import task_factory
-from flaml.automl.task.task import (
-    NLG_TASKS,
-    SEQCLASSIFICATION,
-    SEQREGRESSION,
-    SUMMARIZATION,
-    TOKENCLASSIFICATION,
-    Task,
-)
+from flaml.automl.task.task import NLG_TASKS, SEQCLASSIFICATION, SEQREGRESSION, SUMMARIZATION, TOKENCLASSIFICATION, Task
 
-try:
-    from sklearn.dummy import DummyClassifier, DummyRegressor
-    from sklearn.ensemble import (
-        ExtraTreesClassifier,
-        ExtraTreesRegressor,
-        RandomForestClassifier,
-        RandomForestRegressor,
-    )
-    from sklearn.linear_model import LogisticRegression
-    from xgboost import __version__ as xgboost_version
-except ImportError:
-    pass
+SKLEARN_VERSION = sklearn.__version__
+
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
 
 try:
     from scipy.sparse import issparse
 except ImportError:
-    pass
 
-from flaml.automl.spark import ERROR as SPARK_ERROR
-from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
-from flaml.automl.spark.configs import (
-    ParamList_LightGBM_Classifier,
-    ParamList_LightGBM_Ranker,
-    ParamList_LightGBM_Regressor,
-)
-from flaml.automl.spark.utils import len_labels, to_pandas_on_spark
+    def issparse(x):
+        return False
+
 
 if DataFrame is not None:
     from pandas import to_datetime
@@ -266,6 +256,8 @@ class BaseEstimator:
         Returns:
             train_time: A float of the training time in seconds.
         """
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         if (
             getattr(self, "limit_resource", None)
             and resource is not None
@@ -481,6 +473,8 @@ class SparkEstimator(BaseEstimator):
         Returns:
             train_time: A float of the training time in seconds.
         """
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         df_train, label_col = self._preprocess(X_train, y_train, index_col=index_col, return_label=True)
         kwargs["labelCol"] = label_col
         train_time = self._fit(df_train, **kwargs)
@@ -491,11 +485,10 @@ class SparkEstimator(BaseEstimator):
         pipeline_model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.automl.model - {pipeline_model} fit started with params {self.params}")
-        pipeline_model.fit(df_train)
+        self._model = pipeline_model.fit(df_train)
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.automl.model - {pipeline_model} fit finished")
         train_time = time.time() - current_time
-        self._model = pipeline_model
         return train_time
 
     def predict(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
@@ -546,6 +539,13 @@ class SparkEstimator(BaseEstimator):
         else:
             logger.warning("Estimator is not fit yet. Please run fit() before predict().")
             return np.ones(X.shape[0])
+
+    @property
+    def estimator_params(self):
+        if hasattr(self, "estimator_class") and self.estimator_class is not None:
+            return list(inspect.signature(self.estimator_class).parameters.keys())
+        else:
+            return []
 
 
 class SparkLGBMEstimator(SparkEstimator):
@@ -622,7 +622,6 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMRegressor
-            self.estimator_params = ParamList_LightGBM_Regressor
         elif "rank" == task:
             try:
                 from synapse.ml.lightgbm import LightGBMRanker
@@ -630,7 +629,6 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMRanker
-            self.estimator_params = ParamList_LightGBM_Ranker
         else:
             try:
                 from synapse.ml.lightgbm import LightGBMClassifier
@@ -638,7 +636,6 @@ class SparkLGBMEstimator(SparkEstimator):
                 raise ImportError(err_msg)
 
             self.estimator_class = LightGBMClassifier
-            self.estimator_params = ParamList_LightGBM_Classifier
         self._time_per_iter = None
         self._train_size = 0
         self._mem_per_iter = -1
@@ -654,6 +651,8 @@ class SparkLGBMEstimator(SparkEstimator):
         index_col="tmp_index_col",
         **kwargs,
     ):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         start_time = time.time()
         if self.model_n_classes_ is None and self._task not in ["regression", "rank"]:
             self.model_n_classes_, self.model_classes_ = len_labels(y_train, return_labels=True)
@@ -723,6 +722,8 @@ class SparkLGBMEstimator(SparkEstimator):
 
     def _fit(self, df_train: sparkDataFrame, **kwargs):
         current_time = time.time()
+        if "dataTransferMode" not in kwargs:
+            kwargs["dataTransferMode"] = "bulk"
         model = self.estimator_class(**self.params, **kwargs)
         if logger.level == logging.DEBUG:
             logger.debug(f"flaml.automl.model - {model} fit started with params {self.params}")
@@ -733,6 +734,138 @@ class SparkLGBMEstimator(SparkEstimator):
             logger.debug(f"flaml.automl.model - {model} fit finished")
         train_time = time.time() - current_time
         return train_time
+
+
+class SparkRandomForestEstimator(SparkEstimator):
+    """The SparkEstimator class for Random Forest."""
+
+    nrows = 101
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        SparkRandomForestEstimator.nrows = int(data_size[0])
+        upper = min(2048, SparkRandomForestEstimator.nrows)
+        init = 1 / np.sqrt(data_size[1]) if task.is_classification() else 1
+        lower = min(0.1, init)
+        # upper = max(5, min(32768, int(data_size[0])))  # upper must be larger than lower
+
+        space = {
+            "numTrees": {
+                "domain": tune.lograndint(lower=4, upper=max(5, upper)),
+                "init_value": 4,
+                "low_cost_init_value": 4,
+            },
+            "featureSubsetStrategy": {
+                "domain": tune.loguniform(lower=lower, upper=1.0),
+                "init_value": init,
+            },
+            "maxDepth": {
+                "domain": tune.lograndint(
+                    lower=4,
+                    upper=max(5, min(32768, SparkRandomForestEstimator.nrows >> 1)),  #
+                ),
+                "init_value": 4,
+                "low_cost_init_value": 4,
+            },
+        }
+
+        if task.is_classification():
+            space["impurity"] = {
+                "domain": tune.choice(["gini", "entropy"]),
+                # "init_value": "gini",
+            }
+
+        return space
+
+    def __init__(self, task="classification", **config):
+        super().__init__(task, **config)
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+        if self._task.is_classification():
+            from pyspark.ml.classification import RandomForestClassifier
+
+            self.estimator_class = RandomForestClassifier
+        else:
+            from pyspark.ml.regression import RandomForestRegressor
+
+            self.estimator_class = RandomForestRegressor
+
+        self._task = task
+        self._model = None
+        self._time_per_iter = None
+        self._train_size = 0
+        self._mem_per_iter = -1
+        self.model_classes_ = None
+        self.model_n_classes_ = None
+
+    def fit(
+        self,
+        X_train,
+        y_train=None,
+        budget=None,
+        free_mem_ratio=0,
+        index_col="tmp_index_col",
+        **kwargs,
+    ):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
+        start_time = time.time()
+        if self.model_n_classes_ is None and self._task not in ["regression", "rank"]:
+            self.model_n_classes_, self.model_classes_ = len_labels(y_train, return_labels=True)
+        df_train, label_col = self._preprocess(X_train, y_train, index_col=index_col, return_label=True)
+        _kwargs = kwargs.copy()
+        # TODO: update regression model and rank model, update ParamList_LightGBM_
+        if self._task not in ["regression", "rank"]:
+            if "objective" not in _kwargs:
+                _kwargs["objective"] = "binary" if self.model_n_classes_ == 2 else "multiclass"
+        for k in list(_kwargs.keys()):
+            if k not in self.estimator_params:
+                _kwargs.pop(k)
+        self.params["featureSubsetStrategy"] = str(self.params["featureSubsetStrategy"])
+        _kwargs["labelCol"] = label_col
+        self._fit(df_train, **_kwargs)
+        train_time = time.time() - start_time
+        return train_time
+
+    def _fit(self, df_train: sparkDataFrame, **kwargs):
+        current_time = time.time()
+        model = self.estimator_class(**self.params, **kwargs)
+        if logger.level == logging.DEBUG:
+            logger.debug(f"flaml.automl.model - {model} fit started with params {self.params}")
+        self._model = model.fit(df_train)
+        self._model.classes_ = self.model_classes_
+        self._model.n_classes_ = self.model_n_classes_
+        if logger.level == logging.DEBUG:
+            logger.debug(f"flaml.automl.model - {model} fit finished")
+        train_time = time.time() - current_time
+        return train_time
+
+    def predict(self, X, index_col="tmp_index_col", return_all=False, **kwargs):
+        """Predict label from features.
+        Args:
+            X: A pyspark or pyspark.pandas dataframe of featurized instances, shape n*m.
+            index_col: A str of the index column name. Default to "tmp_index_col".
+            return_all: A bool of whether to return all the prediction results. Default to False.
+
+        Returns:
+            A pyspark.pandas series of shape n*1 if return_all is False. Otherwise, a pyspark.pandas dataframe.
+        """
+        if self._model is not None:
+            X = self._preprocess(X, index_col=index_col)
+            pred = self._model.transform(X)
+            predictions = to_pandas_on_spark(pred, index_col=index_col)
+            predictions.index.name = None
+            pred_y = predictions["prediction"]
+            if return_all:
+                return predictions
+            else:
+                return pred_y
+        else:
+            logger.warning("Estimator is not fit yet. Please run fit() before predict().")
+            return np.ones(X.shape[0])
 
 
 class TransformersEstimator(BaseEstimator):
@@ -746,13 +879,9 @@ class TransformersEstimator(BaseEstimator):
 
         self.trial_id = str(uuid.uuid1().hex)[:8]
         if task not in NLG_TASKS:  # TODO: not in NLG_TASKS
-            from .nlp.huggingface.training_args import (
-                TrainingArgumentsForAuto as TrainingArguments,
-            )
+            from .nlp.huggingface.training_args import TrainingArgumentsForAuto as TrainingArguments
         else:
-            from .nlp.huggingface.training_args import (
-                Seq2SeqTrainingArgumentsForAuto as TrainingArguments,
-            )
+            from .nlp.huggingface.training_args import Seq2SeqTrainingArgumentsForAuto as TrainingArguments
         self._TrainingArguments = TrainingArguments
 
     @classmethod
@@ -819,7 +948,7 @@ class TransformersEstimator(BaseEstimator):
         """
             Update the attributes in TrainingArguments that depends on the values of self.params
         """
-        local_dir = os.path.join(self._training_args.output_dir, "train_{}".format(date_str()))
+        local_dir = os.path.join(self._training_args.output_dir, f"train_{date_str()}")
         if self._use_ray is True:
             import ray
 
@@ -907,9 +1036,7 @@ class TransformersEstimator(BaseEstimator):
 
     @property
     def data_collator(self):
-        from flaml.automl.nlp.huggingface.data_collator import (
-            task_to_datacollator_class,
-        )
+        from flaml.automl.nlp.huggingface.data_collator import task_to_datacollator_class
         from flaml.automl.task.task import Task
 
         data_collator_class = task_to_datacollator_class.get(
@@ -961,6 +1088,8 @@ class TransformersEstimator(BaseEstimator):
         except ImportError:
             self._use_ray = False
 
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         this_params = self.params
         self._kwargs = kwargs
 
@@ -1049,6 +1178,10 @@ class TransformersEstimator(BaseEstimator):
             self.intermediate_results = [
                 x[1] for x in sorted(self._trainer.intermediate_results.items(), key=lambda x: x[0])
             ]
+        self._model = {
+            "model": self._trainer.model,
+            "tokenizer": self.tokenizer,
+        }
         self._trainer = None
 
         return time.time() - start_time
@@ -1366,6 +1499,10 @@ class LGBMEstimator(BaseEstimator):
         return X
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        if "is_retrain" in kwargs:
+            is_retrain = kwargs.pop("is_retrain")
+        else:
+            is_retrain = False
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
         n_iter = self.params.get(self.ITER_HP, self.DEFAULT_ITER)
@@ -1373,11 +1510,15 @@ class LGBMEstimator(BaseEstimator):
         if not self.HAS_CALLBACK:
             mem0 = psutil.virtual_memory().available if psutil is not None else 1
             if (
-                (not self._time_per_iter or abs(self._train_size - X_train.shape[0]) > 4)
-                and budget is not None
-                or self._mem_per_iter < 0
-                and psutil is not None
-            ) and n_iter > 1:
+                (
+                    (not self._time_per_iter or abs(self._train_size - X_train.shape[0]) > 4)
+                    and budget is not None
+                    or self._mem_per_iter < 0
+                    and psutil is not None
+                )
+                and n_iter > 1
+                and not is_retrain
+            ):
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
                 if budget is not None and self._t1 >= budget or n_iter == 1:
@@ -1440,12 +1581,10 @@ class LGBMEstimator(BaseEstimator):
                     # since xgboost>=1.6.0, callbacks can't be passed in fit()
                     self.params["callbacks"] = callbacks
                     callbacks = None
-            self._fit(
-                X_train,
-                y_train,
-                callbacks=callbacks,
-                **kwargs,
-            )
+            if callbacks is None:
+                self._fit(X_train, y_train, **kwargs)
+            else:
+                self._fit(X_train, y_train, callbacks=callbacks, **kwargs)
             if callbacks is None:
                 # for xgboost>=1.6.0, pop callbacks to enable pickle
                 callbacks = self.params.pop("callbacks")
@@ -1566,6 +1705,8 @@ class XGBoostEstimator(SKLearnEstimator):
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         import xgboost as xgb
 
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
         if issparse(X_train):
@@ -1615,25 +1756,10 @@ class XGBoostEstimator(SKLearnEstimator):
 
     @classmethod
     def _callbacks(cls, start_time, deadline, free_mem_ratio):
-        try:
-            from xgboost.callback import TrainingCallback
-        except ImportError:  # for xgboost<1.3
+        if xgb_callback:
+            return [XGBoostResourceLimit(start_time, deadline, free_mem_ratio)]
+        else:
             return None
-
-        class ResourceLimit(TrainingCallback):
-            def after_iteration(self, model, epoch, evals_log) -> bool:
-                now = time.time()
-                if epoch == 0:
-                    self._time_per_iter = now - start_time
-                if now + self._time_per_iter > deadline:
-                    return True
-                if psutil is not None:
-                    mem = psutil.virtual_memory()
-                    if mem.available / mem.total < free_mem_ratio:
-                        return True
-                return False
-
-        return [ResourceLimit()]
 
 
 class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
@@ -1682,6 +1808,8 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         self._xgb_version = xgb.__version__
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         if issparse(X_train) and self._xgb_version < "1.6.0":
             # "auto" fails for sparse input since xgboost 1.6.0
             self.params["tree_method"] = "auto"
@@ -1937,6 +2065,8 @@ class CatBoostEstimator(BaseEstimator):
             self.estimator_class = CatBoostRegressor
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
         train_dir = f"catboost_{str(start_time)}"
@@ -1982,26 +2112,14 @@ class CatBoostEstimator(BaseEstimator):
         if weight is not None:
             kwargs["sample_weight"] = weight
         self._model = model
-        self.params[self.ITER_HP] = self._model.tree_count_
+        # Commented-out line below incorrectly assigned n_estimators - see https://github.com/microsoft/FLAML/pull/1364
+        # self.params[self.ITER_HP] = self._model.tree_count_
         train_time = time.time() - start_time
         return train_time
 
     @classmethod
     def _callbacks(cls, start_time, deadline, free_mem_ratio):
-        class ResourceLimit:
-            def after_iteration(self, info) -> bool:
-                now = time.time()
-                if info.iteration == 1:
-                    self._time_per_iter = now - start_time
-                if now + self._time_per_iter > deadline:
-                    return False
-                if psutil is not None and free_mem_ratio is not None:
-                    mem = psutil.virtual_memory()
-                    if mem.available / mem.total < free_mem_ratio:
-                        return False
-                return True  # can continue
-
-        return [ResourceLimit()]
+        return [CatBoostResourceLimit(start_time, deadline, free_mem_ratio)]
 
 
 class KNeighborsEstimator(BaseEstimator):
@@ -2054,7 +2172,634 @@ class KNeighborsEstimator(BaseEstimator):
         return X
 
 
-class suppress_stdout_stderr(object):
+class SVCEstimator(SKLearnEstimator):
+    """The class for tuning Linear Support Vector Machine Classifier."""
+
+    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html"""
+    ITER_HP = "max_iter"
+
+    @classmethod
+    def search_space(cls, **params):
+        return {
+            "C": {
+                "domain": tune.loguniform(lower=0.03125, upper=32768.0),
+                "init_value": 1.0,
+            },
+            "penalty": {
+                "domain": tune.choice(["l1", "l2"]),
+                "init_value": "l2",
+            },
+        }
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        params["tol"] = params.get("tol", 0.0001)
+        if params.get("penalty", "l2") == "l1":
+            params["dual"] = False
+            params["loss"] = "squared_hinge"
+        else:
+            params["dual"] = False
+            params["loss"] = params.get("loss", "squared_hinge")
+
+        if "n_jobs" in params:
+            params.pop("n_jobs")
+        return params
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_classification(), "LinearSVC for classification task only"
+        self.estimator_class = LinearSVC
+
+    def predict_proba(self, X, **kwargs):
+        """Predict the probability of each class from features.
+
+        Only works for classification problems
+
+        Args:
+            X: A numpy array of featurized instances, shape n*m.
+
+        Returns:
+            A numpy array of shape n*c. c is the # classes.
+            Each element at (i,j) is the probability for instance i to be in
+                class j.
+        """
+        assert self._task.is_classification(), "predict_proba() only for classification."
+
+        X = self._preprocess(X)
+        return self._model._predict_proba_lr(X, **kwargs)
+
+
+class SparkNaiveBayesEstimator(SparkEstimator):
+    """The class for tuning Naive Bayes Classifier."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.NaiveBayes.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        space = {
+            "smoothing": {
+                "domain": tune.loguniform(0.01, 2.0),
+                "init_value": 1.0,
+            },
+            "modelType": {
+                # Not using multinomial since it only support binary features
+                "domain": tune.choice(["multinomial", "gaussian"]),
+            },
+        }
+
+        return space
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_classification(), "Naive Bayes for classification task only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+
+        from pyspark.ml.classification import NaiveBayes
+
+        self.estimator_class = NaiveBayes
+
+        self._task = task
+        self._model = None
+        self._time_per_iter = None
+        self._train_size = 0
+        self._mem_per_iter = -1
+        self.model_classes_ = None
+        self.model_n_classes_ = None
+
+
+class SGDEstimator(SKLearnEstimator):
+    """The class for tuning Stoachastic Gradient Descent model."""
+
+    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html"""
+    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html"""
+
+    ITER_HP = "max_iter"
+
+    @classmethod
+    def search_space(cls, task, **params):
+        if task.is_classification():
+            loss_func_space = [
+                "log_loss" if SKLEARN_VERSION >= "1.1" else "log",
+                "modified_huber",
+            ]
+            eps_init = 0.1
+            power_t_init = 0.5
+        else:
+            loss_func_space = ["squared_error", "huber", "epsilon_insensitive", "squared_epsilon_insensitive"]
+            eps_init = 0.1
+            power_t_init = 0.25
+        space = {
+            "loss": {
+                "domain": tune.choice(loss_func_space),
+            },
+            "penalty": {
+                "domain": tune.choice(["l1", "l2", "elasticnet", "None"]),
+                "init_value": "l2",
+            },
+            "alpha": {
+                "domain": tune.loguniform(lower=1e-7, upper=1e-1),
+                "init_value": 0.0001,
+            },
+            "l1_ratio": {
+                "domain": tune.loguniform(lower=1e-9, upper=1),
+                "init_value": 0.15,
+            },
+            "epsilon": {
+                "domain": tune.loguniform(lower=1e-5, upper=1e-1),
+                "init_value": eps_init,
+            },
+            "learning_rate": {
+                "domain": tune.choice(["optimal", "invscaling", "constant"]),
+                "init_value": "invscaling",
+            },
+            "eta0": {
+                "domain": tune.loguniform(lower=1e-7, upper=1e-1),
+                "init_value": 0.01,
+            },
+            "power_t": {
+                "domain": tune.uniform(lower=1e-5, upper=1),
+                "init_value": power_t_init,
+            },
+            "average": {
+                "domain": tune.choice([False, True]),
+                "init_value": False,
+            },
+        }
+        return space
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        params["tol"] = params.get("tol", 0.0001)
+        params["loss"] = params.get("loss", None)
+        if params["loss"] is None and self._task.is_classification():
+            params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
+        if not self._task.is_classification():
+            params.pop("n_jobs")
+
+        if params.get("penalty") != "elasticnet":
+            if "l1_ratio" in params:
+                params.pop("l1_ratio")
+
+        # loss = "modified_huber" -> requires epsilon
+        if params.get("loss") != "modified_huber":
+            if "epsilon" in params:
+                params.pop("epsilon")
+
+        # learning_rate = "invscaling" -> requires power_t
+        if params.get("learning_rate") != "invscaling":
+            if "power_t" in params:
+                params.pop("power_t")
+
+        # learning_rate in ["invscaling", "constant"] -> requires eta0
+        if params.get("learning_rate") not in ["invscaling", "constant"]:
+            if "eta0" in params:
+                params.pop("eta0")
+
+        return params
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        if self._task.is_classification():
+            self.estimator_class = SGDClassifier
+        elif self._task.is_regression():
+            self.estimator_class = SGDRegressor
+        else:
+            raise ValueError("SGD only supports classification and regression tasks")
+        self.normalizer = Normalizer()
+
+    def _fit(self, X_train, y_train, **kwargs):
+        current_time = time.time()
+        if "groups" in kwargs:
+            kwargs = kwargs.copy()
+            groups = kwargs.pop("groups")
+            if self._task == "rank":
+                kwargs["group"] = group_counts(groups)
+        X_train = self._preprocess(X_train)
+        params = self.params.copy()
+        if params.get("penalty") == "None":
+            params["penalty"] = None
+        model = self.estimator_class(**params)
+        if logger.level == logging.DEBUG:
+            # xgboost 1.6 doesn't display all the params in the model str
+            logger.debug(f"flaml.automl.model - {model} fit started with params {self.params}")
+        model.fit(X_train, y_train, **kwargs)
+        if logger.level == logging.DEBUG:
+            logger.debug(f"flaml.automl.model - {model} fit finished")
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+    def predict_proba(self, X, **kwargs):
+        """Predict the probability of each class from features.
+
+        Only works for classification problems
+
+        Args:
+            X: A numpy array of featurized instances, shape n*m.
+
+        Returns:
+            A numpy array of shape n*c. c is the # classes.
+            Each element at (i,j) is the probability for instance i to be in
+                class j.
+        """
+        assert self._task.is_classification(), "predict_proba() only for classification."
+
+        X = self._preprocess(X)
+        return self._model.predict_proba(X)
+
+    def _preprocess(self, X):
+        X = super()._preprocess(X)
+        X = self.normalizer.fit_transform(X)
+        return X
+
+
+class ElasticNetEstimator(SKLearnEstimator):
+    """The class for tuning Elastic Net regression model."""
+
+    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html"""
+
+    ITER_HP = "max_iter"
+
+    @classmethod
+    def search_space(cls, **params):
+        return {
+            "alpha": {
+                "domain": tune.loguniform(lower=0.0001, upper=1.0),
+                "init_value": 0.1,
+            },
+            "l1_ratio": {
+                "domain": tune.uniform(lower=0.0, upper=1.0),
+                "init_value": 0.5,
+            },
+            "selection": {
+                "domain": tune.choice(["cyclic", "random"]),
+                "init_value": "cyclic",
+            },
+        }
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        params["tol"] = params.get("tol", 0.0001)
+        if "n_jobs" in params:
+            params.pop("n_jobs")
+        return params
+
+    def __init__(self, task="regression", **config):
+        super().__init__(task, **config)
+        assert self._task.is_regression(), "ElasticNet for regression task only"
+        self.estimator_class = ElasticNet
+
+
+class LassoLarsEstimator(SKLearnEstimator):
+    """The class for tuning Lasso model fit with Least Angle Regression a.k.a. Lars."""
+
+    """Reference: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LassoLars.html"""
+
+    ITER_HP = "max_iter"
+
+    @classmethod
+    def search_space(cls, task=None, **params):
+        return {
+            "alpha": {
+                "domain": tune.loguniform(lower=1e-4, upper=1.0),
+                "init_value": 0.1,
+            },
+            "fit_intercept": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "eps": {
+                "domain": tune.loguniform(lower=1e-16, upper=1e-4),
+                "init_value": 2.220446049250313e-16,
+            },
+        }
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        if "n_jobs" in params:
+            params.pop("n_jobs")
+        return params
+
+    def __init__(self, task="regression", **config):
+        super().__init__(task, **config)
+        assert self._task.is_regression(), "LassoLars for regression task only"
+        self.estimator_class = LassoLars
+
+    def predict(self, X, **kwargs):
+        X = self._preprocess(X)
+        return self._model.predict(X, **kwargs)
+
+
+class SparkGLREstimator(SparkEstimator):
+    """The class for tuning Generalized Linear Regression PySpark model."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.regression.GeneralizedLinearRegression.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        rules = {
+            "gaussian": ["identity", "log", "inverse"],
+            "binomial": ["logit", "probit", "cloglog"],
+            "poisson": ["log", "identity", "sqrt"],
+            "gamma": ["inverse", "identity", "log"],
+        }
+
+        space = {
+            "regParam": {
+                "domain": tune.loguniform(0.01, 1.0),
+                "init_value": 0.1,
+            },
+        }
+
+        familyLinks = []
+
+        for family, members in rules.items():
+            for member in members:
+                familyLinks.append({"family": family, "link": member})
+        familyLinks.append({"family": "tweedie", "link": None})
+        space["familyLinks"] = {"domain": tune.choice(familyLinks), "init_value": familyLinks[0]}
+        return space
+
+    def config2params(self, config):
+        config = super().config2params(config)
+        for k, v in config["familyLinks"].items():
+            config[k] = v
+        del config["familyLinks"]
+        return config
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_regression(), "Generalized Linear Regression for regression task only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+
+        from pyspark.ml.regression import GeneralizedLinearRegression
+
+        self.estimator_class = GeneralizedLinearRegression
+
+        self._task = task
+        self._model = None
+        self._time_per_iter = None
+        self._train_size = 0
+        self._mem_per_iter = -1
+        self.model_classes_ = None
+        self.model_n_classes_ = None
+
+
+class SparkLinearRegressionEstimator(SparkEstimator):
+    """The class for tuning Linear Regression PySpark model."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.regression.LinearRegression.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        space = {
+            "regParam": {
+                "domain": tune.loguniform(0.01, 1.0),
+                "init_value": 0.1,
+            },
+            "elasticNetParam": {
+                "domain": tune.uniform(0.0, 1.0),
+                "init_value": 0.0,
+            },
+            "fitIntercept": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "standardization": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "aggregationDepth": {
+                "domain": tune.randint(2, 10),
+                "init_value": 2,
+            },
+            "loss": {
+                "domain": tune.choice(["squaredError", "huber"]),
+                "init_value": "squaredError",
+            },
+            "epsilon": {
+                "domain": tune.uniform(1.0001, 2),
+                "init_value": 1.35,
+            },
+        }
+
+        return space
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_regression(), "Linear Regression for regression task only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+
+        from pyspark.ml.regression import LinearRegression
+
+        self.estimator_class = LinearRegression
+
+        self._task = task
+        self._model = None
+        self._time_per_iter = None
+        self._train_size = 0
+        self._mem_per_iter = -1
+        self.model_classes_ = None
+        self.model_n_classes_ = None
+
+    def config2params(self, config):
+        config = super().config2params(config)
+        if config["loss"] == "huber":
+            config.pop("elasticNetParam")
+        return config
+
+
+class SparkLinearSVCEstimator(SparkEstimator):
+    """The class for tuning Linear SVC PySpark model."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.LinearSVC.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        space = {
+            "aggregationDepth": {
+                "domain": tune.randint(2, 10),
+                "init_value": 2,
+            },
+            "regParam": {
+                "domain": tune.uniform(0, 1.0),
+                "init_value": 0,
+            },
+            "fitIntercept": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "standardization": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "threshold": {
+                "domain": tune.uniform(0, 1.0),
+                "init_value": 0,
+            },
+        }
+        return space
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_binary(), "Linear SVC for binary classification task only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+        from pyspark.ml.classification import LinearSVC
+
+        self.estimator_class = LinearSVC
+
+
+class SparkGBTEstimator(SparkEstimator):
+    """The class for tuning GBT PySpark model."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.GBTClassifier.html"""
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.regression.GBTRegressor.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        space = {
+            "maxDepth": {
+                "domain": tune.randint(3, 10),
+                "init_value": 5,
+            },
+            "maxBins": {
+                "domain": tune.randint(10, 100),
+                "init_value": 32,
+            },
+            "stepSize": {
+                "domain": tune.loguniform(0.01, 1.0),
+                "init_value": 0.1,
+            },
+            "subsamplingRate": {
+                "domain": tune.uniform(0.0001, 1.0),
+                "init_value": 1.0,
+            },
+            "minInstancesPerNode": {
+                "domain": tune.randint(1, 10),
+                "init_value": 1,
+            },
+            "minWeightFractionPerNode": {
+                "domain": tune.uniform(0.0, 0.4999),
+                "init_value": 0.0,
+            },
+            "minInfoGain": {
+                "domain": tune.uniform(0.0, 0.1),
+                "init_value": 0.0,
+            },
+        }
+        return space
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert (
+            self._task.is_binary() or self._task.is_regression()
+        ), "GBT for binary classification task or regression only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+        if self._task.is_binary():
+            from pyspark.ml.classification import GBTClassifier
+
+            self.estimator_class = GBTClassifier
+        else:
+            from pyspark.ml.regression import GBTRegressor
+
+            self.estimator_class = GBTRegressor
+
+
+class SparkAFTSurvivalRegressionEstimator(SparkEstimator):
+    """The class for tuning AFTSurvivalRegression PySpark model."""
+
+    """Reference: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.regression.AFTSurvivalRegression.html"""
+
+    ITER_HP = "maxIter"
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        space = {
+            "fitIntercept": {
+                "domain": tune.choice([True, False]),
+                "init_value": True,
+            },
+            "aggregationDepth": {
+                "domain": tune.randint(2, 10),
+                "init_value": 2,
+            },
+        }
+
+        return space
+
+    def __init__(self, task="binary", **config):
+        super().__init__(task, **config)
+        assert self._task.is_regression(), "AFTSurvivalRegression for regression task only"
+        if "verbose" in self.params:
+            self.params.pop("verbose")
+        if "n_jobs" in self.params:
+            self.params.pop("n_jobs")
+
+        from pyspark.ml.regression import AFTSurvivalRegression
+
+        self.estimator_class = AFTSurvivalRegression
+
+
+class BaseResourceLimit:
+    def __init__(self, start_time, deadline, free_mem_ratio):
+        self.start_time = start_time
+        self.deadline = deadline
+        self.free_mem_ratio = free_mem_ratio
+        self._time_per_iter = None
+
+    def check_resource_limits(self, current_time, current_iteration, mllib):
+        if (mllib == "xgb" and current_iteration == 0) or (mllib == "cat" and current_iteration == 1):
+            self._time_per_iter = current_time - self.start_time
+        if mllib != "cat" and current_time + self._time_per_iter > self.deadline:
+            return False
+        if psutil is not None and self.free_mem_ratio is not None:
+            mem = psutil.virtual_memory()
+            if mem.available / mem.total < self.free_mem_ratio:
+                return False
+        return True
+
+    def after_iteration(self, *args, **kwargs) -> bool:
+        raise NotImplementedError
+
+
+class XGBoostResourceLimit(BaseResourceLimit, TrainingCallback):
+    def after_iteration(self, model, epoch, evals_log) -> bool:
+        now = time.time()
+        return not self.check_resource_limits(now, epoch, "xgb")
+
+
+class CatBoostResourceLimit(BaseResourceLimit):
+    def after_iteration(self, info) -> bool:
+        now = time.time()
+        return self.check_resource_limits(now, info.iteration, "cat")
+
+
+class suppress_stdout_stderr:
     def __init__(self):
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]

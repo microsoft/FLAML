@@ -1,7 +1,7 @@
 [![PyPI version](https://badge.fury.io/py/FLAML.svg)](https://badge.fury.io/py/FLAML)
 ![Conda version](https://img.shields.io/conda/vn/conda-forge/flaml)
 [![Build](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml/badge.svg)](https://github.com/microsoft/FLAML/actions/workflows/python-package.yml)
-![Python Version](https://img.shields.io/badge/3.8%20%7C%203.9%20%7C%203.10-blue)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/FLAML)](https://pypi.org/project/FLAML/)
 [![Downloads](https://pepy.tech/badge/flaml)](https://pepy.tech/project/flaml)
 [![](https://img.shields.io/discord/1025786666260111483?logo=discord&style=flat)](https://discord.gg/Cppx2vSPVP)
 
@@ -14,6 +14,8 @@
     <br>
 </p>
 
+:fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11 support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
+
 :fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we have also launched a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
 
 :fire: The automated multi-agent chat framework in [AutoGen](https://microsoft.github.io/autogen/) is in preview from v2.0.0.
@@ -21,8 +23,6 @@
 :fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
 
 :fire: [autogen](https://microsoft.github.io/autogen/) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
-
-:fire: FLAML supports Code-First AutoML & Tuning – Private Preview in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/).
 
 ## What is FLAML
 
@@ -154,3 +154,9 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+## Contributors Wall
+
+<a href="https://github.com/microsoft/flaml/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=microsoft/flaml&max=204" />
+</a>

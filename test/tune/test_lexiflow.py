@@ -1,7 +1,9 @@
 import math
+import sys
 from collections import defaultdict
 
 import numpy as np
+import pytest
 import thop
 import torch
 import torch.nn as nn
@@ -18,6 +20,9 @@ DEVICE = torch.device("cpu")
 BATCHSIZE = 128
 N_TRAIN_EXAMPLES = BATCHSIZE * 30
 N_VALID_EXAMPLES = BATCHSIZE * 10
+
+if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
 
 def _BraninCurrin(config):
@@ -70,10 +75,10 @@ def test_lexiflow():
         layers = []
         in_features = 28 * 28
         for i in range(n_layers):
-            out_features = configuration["n_units_l{}".format(i)]
+            out_features = configuration[f"n_units_l{i}"]
             layers.append(nn.Linear(in_features, out_features))
             layers.append(nn.ReLU())
-            p = configuration["dropout_{}".format(i)]
+            p = configuration[f"dropout_{i}"]
             layers.append(nn.Dropout(p))
             in_features = out_features
         layers.append(nn.Linear(in_features, 10))

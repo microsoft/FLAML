@@ -13,6 +13,7 @@ from flaml.automl.model import BaseEstimator, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.task.task import Task
+from flaml.automl.time_series import TimeSeriesDataset
 
 try:
     from sklearn.metrics import (
@@ -33,7 +34,6 @@ except ImportError:
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
 
-from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,11 @@ huggingface_metric_to_mode = {
     "wer": "min",
 }
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
+spark_metric_name_dict = {
+    "Regression": ["r2", "rmse", "mse", "mae", "var"],
+    "Binary Classification": ["pr_auc", "roc_auc"],
+    "Multi-class Classification": ["accuracy", "log_loss", "f1", "micro_f1", "macro_f1"],
+}
 
 
 def metric_loss_score(
@@ -122,7 +127,7 @@ def metric_loss_score(
             import datasets
 
             datasets_metric_name = huggingface_submetric_to_metric.get(metric_name, metric_name.split(":")[0])
-            metric = datasets.load_metric(datasets_metric_name)
+            metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
             metric_mode = huggingface_metric_to_mode[datasets_metric_name]
 
             if metric_name.startswith("seqeval"):
@@ -334,6 +339,14 @@ def compute_estimator(
     if fit_kwargs is None:
         fit_kwargs = {}
 
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
@@ -401,12 +414,21 @@ def train_estimator(
     free_mem_ratio=0,
 ) -> Tuple[EstimatorSubclass, float]:
     start_time = time.time()
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
     if fit_kwargs is None:
         fit_kwargs = {}
 
@@ -567,14 +589,19 @@ def _eval_estimator(
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
-        val_loss = metric_loss_score(
-            eval_metric,
-            y_processed_predict=val_pred_y,
-            y_processed_true=y_val,
-            labels=labels,
-            sample_weight=weight_val,
-            groups=groups_val,
-        )
+        try:
+            val_loss = metric_loss_score(
+                eval_metric,
+                y_processed_predict=val_pred_y,
+                y_processed_true=y_val,
+                labels=labels,
+                sample_weight=weight_val,
+                groups=groups_val,
+            )
+        except ValueError as e:
+            # `r2_score` and other metrics may raise a `ValueError` when a model returns `inf` or `nan` values. In this case, we set the val_loss to infinity.
+            val_loss = np.inf
+            logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
             train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
