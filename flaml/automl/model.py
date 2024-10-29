@@ -1581,6 +1581,8 @@ class LGBMEstimator(BaseEstimator):
         now = time.time()
         if env.iteration == 0:
             self._time_per_iter = now - start_time
+        if now + self._time_per_iter > deadline:
+            raise EarlyStopException(env.iteration, env.evaluation_result_list)
         if psutil is not None:
             mem = psutil.virtual_memory()
             if mem.available / mem.total < free_mem_ratio:
