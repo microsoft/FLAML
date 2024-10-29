@@ -1,3 +1,4 @@
+import json
 from typing import Union
 
 import numpy as np
@@ -9,7 +10,7 @@ from pyspark.ml.evaluation import (
     RegressionEvaluator,
 )
 
-from flaml.automl.spark import F, psSeries
+from flaml.automl.spark import F, T, psDataFrame, psSeries, sparkDataFrame
 
 
 def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:
@@ -34,6 +35,16 @@ def _compute_label_from_probability(df, probability_col, prediction_col):
     # Create a new column 'prediction' based on the maximum probability value
     df = df.withColumn(prediction_col, max_index_expr.cast("double"))
     return df
+
+
+def string_to_array(s):
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        return []
+
+
+string_to_array_udf = F.udf(string_to_array, T.ArrayType(T.DoubleType()))
 
 
 def spark_metric_loss_score(
@@ -135,6 +146,11 @@ def spark_metric_loss_score(
         )
     elif metric_name == "log_loss":
         # For log_loss, prediction_col should be probability, and we need to convert it to label
+        # handle data like "{'type': '1', 'values': '[1, 2, 3]'}"
+        # Fix cannot resolve "array_max(prediction)" due to data type mismatch: Parameter 1 requires the "ARRAY" type,
+        # however "prediction" has the type "STRUCT<type: TINYINT, size: INT, indices: ARRAY<INT>, values: ARRAY<DOUBLE>>"
+        df = df.withColumn(prediction_col, df[prediction_col].cast(T.StringType()))
+        df = df.withColumn(prediction_col, string_to_array_udf(df[prediction_col]))
         df = _compute_label_from_probability(df, prediction_col, prediction_col + "_label")
         evaluator = MulticlassClassificationEvaluator(
             metricName="logLoss",
