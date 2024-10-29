@@ -127,6 +127,13 @@ def _get_notebook_name():
     return None
 
 
+def safe_json_dumps(obj):
+    def default(o):
+        return str(o)
+
+    return json.dumps(obj, default=default)
+
+
 class MLflowIntegration:
     def __init__(self, experiment_type="automl", mlflow_exp_name=None, extra_tag=None):
         try:
@@ -438,7 +445,7 @@ class MLflowIntegration:
                 "flaml.meric": automl_metric_name,
                 "flaml.run_source": "flaml-automl",
                 "flaml.log_type": self.log_type,
-                "flaml.automl_user_configurations": json.dumps(automl._automl_user_configurations),
+                "flaml.automl_user_configurations": safe_json_dumps(automl._automl_user_configurations),
             },
             "params": {
                 "sample_size": search_state.sample_size,
