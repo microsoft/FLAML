@@ -32,6 +32,8 @@ print(automl.predict_proba(X_train))
 print(automl.model.estimator)
 ```
 
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
+
 #### Sample of output
 
 ```
