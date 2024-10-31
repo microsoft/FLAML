@@ -1561,12 +1561,18 @@ class LGBMEstimator(BaseEstimator):
                     callbacks = None
             if callbacks is None:
                 self._fit(X_train, y_train, **kwargs)
-            else:
-                self._fit(X_train, y_train, callbacks=callbacks, **kwargs)
-            if callbacks is None:
                 # for xgboost>=1.6.0, pop callbacks to enable pickle
                 callbacks = self.params.pop("callbacks")
                 self._model.set_params(callbacks=callbacks[:-1])
+            else:
+                self._fit(X_train, y_train, callbacks=callbacks, **kwargs)
+            best_iteration = (
+                getattr(self._model.get_booster(), "best_iteration", None)
+                if isinstance(self, XGBoostSklearnEstimator)
+                else self._model.best_iteration_
+            )
+            if best_iteration is not None and best_iteration > 0:
+                self._model.set_params(n_estimators=best_iteration + 1)
         else:
             self._fit(X_train, y_train, **kwargs)
         train_time = time.time() - start_time
