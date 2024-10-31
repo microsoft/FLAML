@@ -2185,6 +2185,11 @@ class SVCEstimator(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        self.params.update(
+            {
+                "random_state": config.get("random_seed", 10242048),
+            }
+        )
         assert self._task.is_classification(), "LinearSVC for classification task only"
         self.estimator_class = LinearSVC
 
