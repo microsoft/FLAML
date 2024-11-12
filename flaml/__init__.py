@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 try:
     from flaml.automl import AutoML, logger_formatter
@@ -12,7 +13,8 @@ from flaml.version import __version__
 
 # Set the root logger.
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
 
 if not has_automl:
-    logger.warning("flaml.automl is not available. Please install flaml[automl] to enable AutoML functionalities.")
+    warnings.warn("flaml.automl is not available. Please install flaml[automl] to enable AutoML functionalities.")
