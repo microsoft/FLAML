@@ -260,6 +260,8 @@ def run(
     mlflow_exp_name: Optional[str] = None,
     automl_info: Optional[Tuple[float]] = None,
     extra_tag: Optional[dict] = None,
+    cost_attr: Optional[str] = "auto",
+    cost_budget: Optional[float] = None,
     **ray_args,
 ):
     """The function-based way of performing HPO.
@@ -462,6 +464,8 @@ def run(
             overwritten by the value of `n_concurrent_trials` in AutoML. When <= 0, the concurrent trials
             will be set to the number of executors.
         extra_tag: dict, default=None | Extra tags to be added to the mlflow runs created by autologging.
+        cost_attr: str, default="auto" | name of an alternative cost metric, passed through to the search algorithm
+        cost_budget: Optional[float], default=None | The budget for the cost metric, passed through to the search algorithm
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -600,6 +604,8 @@ def run(
             metric_constraints=metric_constraints,
             use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
             lexico_objectives=lexico_objectives,
+            cost_attr=cost_attr,
+            cost_budget=cost_budget,
         )
     else:
         if metric is None or mode is None:
