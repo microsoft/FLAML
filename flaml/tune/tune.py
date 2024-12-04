@@ -464,8 +464,12 @@ def run(
             overwritten by the value of `n_concurrent_trials` in AutoML. When <= 0, the concurrent trials
             will be set to the number of executors.
         extra_tag: dict, default=None | Extra tags to be added to the mlflow runs created by autologging.
-        cost_attr: str, default="auto" | name of an alternative cost metric, passed through to the search algorithm
-        cost_budget: Optional[float], default=None | The budget for the cost metric, passed through to the search algorithm
+        cost_attr: None or str to specify the attribute to evaluate the cost of different trials.
+            Default is "auto", which means that we will automatically choose the cost attribute to use (depending
+            on the nature of the resource budget). When cost_attr is set to None, cost differences between different trials will be omitted
+            in our search algorithm. When cost_attr is set to a str different from "auto" and "time_total_s",
+            this cost_attr must be available in the result dict of the trial.
+        cost_budget: A float of the cost budget. Only valid when cost_attr is a str different from "auto" and "time_total_s".
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
