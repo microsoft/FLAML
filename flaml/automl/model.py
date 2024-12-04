@@ -2066,8 +2066,8 @@ class CatBoostEstimator(BaseEstimator):
             self.estimator_class = CatBoostRegressor
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
-        if "is_retrain" in kwargs:
-            kwargs.pop("is_retrain")
+        kwargs.pop("is_retrain", None)
+        kwargs.pop("groups", None)
         start_time = time.time()
         deadline = start_time + budget if budget else np.inf
         train_dir = f"catboost_{str(start_time)}"
