@@ -68,7 +68,7 @@ def test_groups():
         "model_history": True,
         "eval_method": "cv",
         "groups": np.random.randint(low=0, high=10, size=len(y)),
-        "estimator_list": ["lgbm", "rf", "xgboost", "kneighbor"],
+        "estimator_list": ["catboost", "lgbm", "rf", "xgboost", "kneighbor"],
         "learner_selector": "roundrobin",
     }
     automl.fit(X, y, **automl_settings)
@@ -108,6 +108,7 @@ def test_stratified_groupkfold():
         "split_type": splitter,
         "groups": X_train["Airline"],
         "estimator_list": [
+            "catboost",
             "lgbm",
             "rf",
             "xgboost",
