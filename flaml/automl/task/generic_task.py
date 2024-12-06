@@ -442,7 +442,7 @@ class GenericTask(Task):
                 X_train_all, y_train_all = shuffle(X_train_all, y_train_all, random_state=RANDOM_SEED)
             if data_is_df:
                 X_train_all.reset_index(drop=True, inplace=True)
-        if split_type in ["group", "uniform", "stratified"] and isinstance(y_train_all, pd.Series):
+        if isinstance(y_train_all, pd.Series):
             y_train_all.reset_index(drop=True, inplace=True)
 
         X_train, y_train = X_train_all, y_train_all
