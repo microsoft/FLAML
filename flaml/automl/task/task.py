@@ -192,7 +192,7 @@ class Task(ABC):
                 * Valid str options depend on different tasks.
                 For classification tasks, valid choices are
                     ["auto", 'stratified', 'uniform', 'time', 'group']. "auto" -> stratified.
-                For regression tasks, valid choices are ["auto", 'uniform', 'time'].
+                For regression tasks, valid choices are ["auto", 'uniform', 'time', 'group'].
                     "auto" -> uniform.
                 For time series forecast tasks, must be "auto" or 'time'.
                 For ranking task, must be "auto" or 'group'.
