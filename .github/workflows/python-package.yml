@@ -68,6 +68,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.11'
         run: |
           pip install "ray[tune]<2.5.0"
+          pip install --upgrade "pydantic>=2.0"
       - name: If mac and python 3.10, install ray and xgboost 1
         if: matrix.os == 'macOS-latest' && matrix.python-version == '3.10'
         run: |
