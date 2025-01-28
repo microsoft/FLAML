@@ -59,6 +59,15 @@ def _test_hf_data():
     except requests.exceptions.ConnectionError:
         return
 
+    ## Tests will only run if there is a GPU available
+    try:
+        from torch.cuda import is_available
+
+        if not is_available():
+            return
+    except ImportError:
+        return
+
     custom_sent_keys = ["sentence1", "sentence2"]
     label_key = "label"
 
@@ -73,7 +82,7 @@ def _test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        "gpu_per_trial": 1,
+        # "gpu_per_trial": 1,
         "max_iter": 2,
         "time_budget": 5000,
         "task": "seq-classification",
