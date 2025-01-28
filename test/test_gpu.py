@@ -82,7 +82,7 @@ def _test_hf_data():
     automl = AutoML()
 
     automl_settings = {
-        # "gpu_per_trial": 1,
+        "gpu_per_trial": 1,
         "max_iter": 2,
         "time_budget": 5000,
         "task": "seq-classification",
