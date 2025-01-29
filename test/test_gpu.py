@@ -59,13 +59,15 @@ def _test_hf_data():
     except requests.exceptions.ConnectionError:
         return
 
-    ## Tests will only run if there is a GPU available
+    # Tests will only run if there is a GPU available
     try:
-        from torch.cuda import is_available
+        import ray
 
-        if not is_available():
-            return
-    except ImportError:
+        pg = ray.util.placement_group([{"CPU": 1, "GPU": 1}])
+
+        if not pg.wait(timeout_seconds=10):  # Wait 10 seconds for resources
+            raise RuntimeError("No available node types can fulfill resource request!")
+    except RuntimeError:
         return
 
     custom_sent_keys = ["sentence1", "sentence2"]
