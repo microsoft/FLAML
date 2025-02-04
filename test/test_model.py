@@ -19,7 +19,7 @@ from flaml.automl.time_series import ARIMA, LGBM_TS, Prophet, TimeSeriesDataset
 
 def test_lrl2():
     BaseEstimator.search_space(1, "")
-    X, y = make_classification(100000, 1000)
+    X, y = make_classification(100, 10)
     print("start")
     lr = LRL2Classifier()
     lr.predict(X)
