@@ -45,6 +45,34 @@ def test_xgboost():
         return
 
 
+def _load_dataset_with_timeout(name, subset, split, timeout=600):
+    """Attempts to load a dataset with a timeout and handles connection issues."""
+    import threading
+
+    import requests
+    from datasets import load_dataset
+
+    result = {}
+
+    def target():
+        """Thread target function to load dataset."""
+        try:
+            result["data"] = load_dataset(name, subset, split=split)
+        except requests.exceptions.ConnectionError:
+            result["error"] = "Connection error"
+        except Exception as e:
+            result["error"] = str(e)
+
+    thread = threading.Thread(target=target)
+    thread.start()
+    thread.join(timeout)  # Wait for the thread to complete within `timeout` seconds
+
+    if thread.is_alive():
+        print(f"Timeout: Loading {name}/{subset}/{split} took longer than {timeout} seconds.")
+        return None  # Timeout occurred
+    return result.get("data")
+
+
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def _test_hf_data():
     import requests
@@ -53,9 +81,9 @@ def _test_hf_data():
     from flaml import AutoML
 
     try:
-        train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
-        dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
-        test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
+        train_dataset = _load_dataset_with_timeout("glue", "mrpc", split="train[:1%]").to_pandas()
+        dev_dataset = _load_dataset_with_timeout("glue", "mrpc", split="validation[:1%]").to_pandas()
+        test_dataset = _load_dataset_with_timeout("glue", "mrpc", split="test[:1%]").to_pandas()
     except requests.exceptions.ConnectionError:
         return
 
