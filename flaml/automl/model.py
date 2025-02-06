@@ -93,7 +93,7 @@ def limit_resource(memory_limit, time_limit):
     if time_limit is not None:
         try:
             signal.signal(signal.SIGALRM, TimeoutHandler)
-            signal.alarm(int(time_limit) or 1)
+            signal.alarm(int(time_limit) + 1 or 1)
             main_thread = True
         except ValueError:
             pass
