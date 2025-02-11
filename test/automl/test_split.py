@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from sklearn.datasets import fetch_openml, load_iris
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GroupKFold, KFold, train_test_split
@@ -59,8 +60,6 @@ def test_groups_for_classification_task():
 
         X, y = load_wine(return_X_y=True)
 
-    import numpy as np
-
     automl = AutoML()
     automl_settings = {
         "time_budget": 2,
@@ -116,6 +115,43 @@ def test_groups_for_regression_task():
         "groups": groups_train,
     }
     automl.fit(X_train, y_train, **automl_settings)
+
+
+def test_groups_with_sample_weights():
+    """Verifies that sample weights can be used with group splits i.e. that https://github.com/microsoft/FLAML/issues/1396 remains fixed"""
+    iris_dict_data = load_iris(as_frame=True)  # numpy arrays
+    iris_data = iris_dict_data["frame"]  # pandas dataframe data + target
+    iris_data["cluster"] = np.random.randint(0, 5, iris_data.shape[0])
+    automl = AutoML()
+
+    X = iris_data[["sepal length (cm)", "sepal width (cm)", "petal length (cm)"]].to_numpy()
+    y = iris_data["petal width (cm)"]
+    sample_weight = pd.Series(np.random.rand(X.shape[0]))
+    (
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        groups_train,
+        groups_test,
+        sample_weight_train,
+        sample_weight_test,
+    ) = train_test_split(X, y, iris_data["cluster"], sample_weight, random_state=42)
+    automl_settings = {
+        "max_iter": 5,
+        "time_budget": -1,
+        "metric": "r2",
+        "task": "regression",
+        "log_file_name": "error.log",
+        "log_type": "all",
+        "estimator_list": ["lgbm"],
+        "eval_method": "cv",
+        "split_type": "group",
+        "groups": groups_train,
+        "sample_weight": sample_weight_train,
+    }
+    automl.fit(X_train, y_train, **automl_settings)
+    assert automl.model is not None
 
 
 def test_stratified_groupkfold():
