@@ -103,7 +103,10 @@ def limit_resource(memory_limit, time_limit):
         if main_thread:
             signal.alarm(0)
         if memory_limit > 0:
-            resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+            except ValueError:
+                pass
 
 
 class BaseEstimator:
