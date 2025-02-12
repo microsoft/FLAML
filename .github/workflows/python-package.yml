@@ -85,8 +85,8 @@ jobs:
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
-          python -c 'import resource; print(resource.getrlimit(resource.RLIMIT_AS))'
-          python -m pytest -s -v test/test_model.py
+          pytest test/ --ignore=test/test_model.py
+          pytest test/test_model.py
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
