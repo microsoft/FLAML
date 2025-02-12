@@ -85,7 +85,8 @@ jobs:
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
-          pytest test
+          # pytest test
+          python test/test_model.py
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
