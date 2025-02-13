@@ -9,7 +9,6 @@ import os
 import shutil
 import signal
 import sys
-import threading
 import time
 import warnings
 from contextlib import contextmanager
@@ -77,7 +76,7 @@ logger = logging.getLogger("flaml.automl")
 
 
 def TimeoutHandler(sig, frame):
-    raise TimeoutError("Process exceeded time limit.")
+    raise TimeoutError(sig, frame)
 
 
 @contextmanager
@@ -91,7 +90,7 @@ def limit_resource(memory_limit, time_limit):
                 # According to https://bugs.python.org/issue40518, it's a mac-specific error.
                 pass
     main_thread = False
-    if time_limit is not None and threading.current_thread() is threading.main_thread():
+    if time_limit is not None:
         try:
             signal.signal(signal.SIGALRM, TimeoutHandler)
             signal.alarm(int(time_limit) or 1)

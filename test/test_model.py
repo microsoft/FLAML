@@ -143,5 +143,4 @@ def test_prep():
 
 
 if __name__ == "__main__":
-    test_lrl2()
-    # test_prep()
+    test_prep()
