@@ -9,6 +9,7 @@ import os
 import shutil
 import signal
 import sys
+import threading
 import time
 import warnings
 from contextlib import contextmanager
@@ -89,21 +90,25 @@ def limit_resource(memory_limit, time_limit):
             except ValueError:
                 # According to https://bugs.python.org/issue40518, it's a mac-specific error.
                 pass
-    main_thread = False
-    if time_limit is not None:
+    alarm_set = False
+    if time_limit is not None and threading.current_thread() is threading.main_thread():
         try:
             signal.signal(signal.SIGALRM, TimeoutHandler)
             signal.alarm(int(time_limit) or 1)
-            main_thread = True
+            alarm_set = True
         except ValueError:
             pass
+
     try:
         yield
     finally:
-        if main_thread:
+        if alarm_set:
             signal.alarm(0)
         if memory_limit > 0:
-            resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+            except ValueError:
+                pass
 
 
 class BaseEstimator:
