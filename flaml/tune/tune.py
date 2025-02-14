@@ -197,9 +197,16 @@ def report(_metric=None, **kwargs):
     global _training_iteration
     if _use_ray:
         try:
-            from ray import tune
+            from ray import __version__ as ray_version
 
-            return tune.report(_metric, **kwargs)
+            if ray_version.startswith("1."):
+                from ray import tune
+
+                return tune.report(_metric, **kwargs)
+            else:  # ray>=2
+                from ray.air import session
+
+                return session.report(metrics={"metric": _metric, **kwargs})
         except ImportError:
             # calling tune.report() outside tune.run()
             return
