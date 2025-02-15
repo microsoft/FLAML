@@ -769,10 +769,10 @@ class GenericTask(Task):
             if not is_spark_dataframe:
                 y_train, y_val = y_train_split[train_index], y_train_split[val_index]
                 if weight is not None:
-                    fit_kwargs["sample_weight"], weight_val = (
-                        weight[train_index],
-                        weight[val_index],
+                    fit_kwargs["sample_weight"] = (
+                        weight[train_index] if isinstance(weight, np.ndarray) else weight.iloc[train_index]
                     )
+                    weight_val = weight[val_index] if isinstance(weight, np.ndarray) else weight.iloc[val_index]
                 if groups is not None:
                     fit_kwargs["groups"] = (
                         groups[train_index] if isinstance(groups, np.ndarray) else groups.iloc[train_index]
