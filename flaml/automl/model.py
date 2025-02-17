@@ -135,7 +135,7 @@ class BaseEstimator:
         self._task = task if isinstance(task, Task) else task_factory(task, None, None)
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
-        if "_estimator_type" in config:
+        if "_estimator_type" in self.params:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
             self._estimator_type = "classifier" if self._task.is_classification() else "regressor"
@@ -1696,7 +1696,7 @@ class XGBoostEstimator(SKLearnEstimator):
         # use_label_encoder is deprecated in 1.7.
         if xgboost_version < "1.7.0":
             params["use_label_encoder"] = params.get("use_label_encoder", False)
-        if "n_jobs" in config:
+        if "n_jobs" in params:
             params["nthread"] = params.pop("n_jobs")
         return params
 
@@ -1896,7 +1896,7 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
         params = super().config2params(config)
         if "max_leaves" in params:
             params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
-        if not self._task.is_classification() and "criterion" in config:
+        if not self._task.is_classification() and "criterion" in params:
             params.pop("criterion")
         if "random_state" not in params:
             params["random_state"] = 12032022
@@ -2349,7 +2349,7 @@ class SGDEstimator(SKLearnEstimator):
         params["loss"] = params.get("loss", None)
         if params["loss"] is None and self._task.is_classification():
             params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
-        if not self._task.is_classification():
+        if not self._task.is_classification() and "n_jobs" in params:
             params.pop("n_jobs")
 
         if params.get("penalty") != "elasticnet":
