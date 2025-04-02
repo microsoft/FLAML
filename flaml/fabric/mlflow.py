@@ -504,13 +504,16 @@ class MLflowIntegration:
             self.adopt_children(automl)
 
         if self.manual_log:
-            best_mlflow_run_id = self.manual_run_ids[automl._best_iteration]
+            if len(self.manual_run_ids) == 0:
+                best_mlflow_run_id = self.parent_run_id or mlflow.active_run().info.run_id
+            else:
+                best_mlflow_run_id = self.manual_run_ids[automl._best_iteration]
             best_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             automl.best_run_id = best_mlflow_run_id
             automl.best_run_name = best_run_name
             self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
-            if self.parent_run_id is not None:
+            if self.parent_run_id is not None or (automl._config_history and automl._best_iteration in automl._config_history):
                 conf = automl._config_history[automl._best_iteration][1].copy()
                 if "ml" in conf.keys():
                     conf = conf["ml"]
