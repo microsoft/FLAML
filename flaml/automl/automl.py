@@ -2521,8 +2521,8 @@ class AutoML(BaseEstimator):
         self._warn_threshold = 10
         self._selected = None
         self.modelcount = 0
-        if self._max_iter < 2 and self.estimator_list and self._state.retrain_final:
-            # when max_iter is 1, no need to search
+        if self._max_iter < 1 and self.estimator_list and self._state.retrain_final:
+            # when max_iter is 1, search is also necessary for test. Besides, it won't take a lot of time.
             self.modelcount = self._max_iter
             self._max_iter = 0
             self._best_estimator = estimator = self.estimator_list[0]
