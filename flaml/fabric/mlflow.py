@@ -513,10 +513,13 @@ class MLflowIntegration:
             automl.best_run_name = best_run_name
             self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
-            if self.parent_run_id is not None or (automl._config_history and automl._best_iteration in automl._config_history):
-                conf = automl._config_history[automl._best_iteration][1].copy()
-                if "ml" in conf.keys():
-                    conf = conf["ml"]
+            if self.parent_run_id is not None:
+                conf = {}
+                if automl._best_iteration in automl._config_history:###
+                    conf = automl._config_history[automl._best_iteration][1].copy()
+                    if "ml" in conf.keys():
+                        conf = conf["ml"]
+
 
                 mlflow.log_params(conf)
                 mlflow.log_param("best_learner", automl._best_estimator)
