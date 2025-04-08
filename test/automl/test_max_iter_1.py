@@ -1,18 +1,20 @@
-import pandas as pd
-import numpy as np
-from flaml import AutoML
 import mlflow
+import numpy as np
+import pandas as pd
+
+from flaml import AutoML
+
 
 def test_max_iter_1():
-    date_rng = pd.date_range(start='2024-01-01', periods=100, freq='H')
-    X = pd.DataFrame({'ds': date_rng})
+    date_rng = pd.date_range(start="2024-01-01", periods=100, freq="H")
+    X = pd.DataFrame({"ds": date_rng})
     y_train_24h = np.random.rand(len(X)) * 100
 
     # AutoML
     settings = {
         "max_iter": 1,
-        "estimator_list": ['xgboost', 'lgbm'],
-        "starting_points": {'xgboost': {}, 'lgbm': {}},
+        "estimator_list": ["xgboost", "lgbm"],
+        "starting_points": {"xgboost": {}, "lgbm": {}},
         "task": "ts_forecast",
         "log_file_name": "test_max_iter_1.log",
         "seed": 41,
@@ -27,7 +29,7 @@ def test_max_iter_1():
 
     automl = AutoML(**settings)
 
-    with mlflow.start_run(run_name="AutoMLModel-XGBoost-and-LGBM-max_iter_1") as run:
+    with mlflow.start_run(run_name="AutoMLModel-XGBoost-and-LGBM-max_iter_1"):
         automl.fit(
             X_train=X,
             y_train=y_train_24h,
@@ -43,6 +45,7 @@ def test_max_iter_1():
 
     print("Best model:", automl.model)
     print("Best run ID:", automl.best_run_id)
+
 
 if __name__ == "__main__":
     test_max_iter_1()
