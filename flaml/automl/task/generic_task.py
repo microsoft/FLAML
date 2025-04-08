@@ -514,45 +514,40 @@ class GenericTask(Task):
                     last = first[i] + 1
                 rest.extend(range(last, len(y_train_all)))
                 X_first = X_train_all.iloc[first] if data_is_df else X_train_all[first]
-                if len(first) < len(y_train_all) / 2:
-                    # Get X_rest and y_rest with drop, sparse matrix can't apply np.delete
-                    X_rest = (
-                        np.delete(X_train_all, first, axis=0)
-                        if isinstance(X_train_all, np.ndarray)
-                        else X_train_all.drop(first.tolist())
-                        if data_is_df
-                        else X_train_all[rest]
-                    )
-                    y_rest = (
-                        np.delete(y_train_all, first, axis=0)
-                        if isinstance(y_train_all, np.ndarray)
-                        else y_train_all.drop(first.tolist())
-                        if data_is_df
-                        else y_train_all[rest]
-                    )
-                else:
-                    X_rest = (
-                        iloc_pandas_on_spark(X_train_all, rest)
-                        if is_spark_dataframe
-                        else X_train_all.iloc[rest]
-                        if data_is_df
-                        else X_train_all[rest]
-                    )
-                    y_rest = (
-                        iloc_pandas_on_spark(y_train_all, rest)
-                        if is_spark_dataframe
-                        else y_train_all.iloc[rest]
-                        if data_is_df
-                        else y_train_all[rest]
-                    )
+                X_rest = (
+                    np.delete(X_train_all, first, axis=0)
+                    if isinstance(X_train_all, np.ndarray)
+                    else X_train_all.drop(first.tolist())
+                    if data_is_df
+                    else X_train_all[rest]
+                )
+                y_rest = (
+                    np.delete(y_train_all, first, axis=0)
+                    if isinstance(y_train_all, np.ndarray)
+                    else y_train_all.drop(first.tolist())
+                    if data_is_df
+                    else y_train_all[rest]
+                )
                 stratify = y_rest if split_type == "stratified" else None
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_rest, y_rest, first, rest, split_ratio, stratify
                 )
-                X_train = concat(X_first, X_train)
-                y_train = concat(label_set, y_train) if data_is_df else np.concatenate([label_set, y_train])
-                X_val = concat(X_first, X_val)
-                y_val = concat(label_set, y_val) if data_is_df else np.concatenate([label_set, y_val])
+                #Check whether the training set and validation set cover all categories.
+                train_labels = np.unique(y_train)
+                val_labels = np.unique(y_val)
+                missing_in_train = set(label_set) - set(train_labels)
+                missing_in_val = set(label_set) - set(val_labels)
+
+                #Add X_first only to the validation set (remove the merge of the training set).
+                if missing_in_val:
+                    X_val = concat(X_first, X_val)
+                    y_val = concat(label_set, y_val) if data_is_df else np.concatenate([label_set, y_val])
+                #The training set supplements the missing categories with the remaining data.
+                if missing_in_train:
+                    for label in missing_in_train:
+                        mask = (y_rest == label)
+                        X_train = concat(X_rest[mask], X_train)
+                        y_train = concat(y_rest[mask], y_train)
 
                 if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
                     y_train = y_train[y_train.columns[0]]
