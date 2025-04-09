@@ -1162,24 +1162,32 @@ class AutoML(BaseEstimator):
         return self._metric_constraints
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
-        self._state.task.prepare_data(
-            self._state,
-            self._X_train_all,
-            self._y_train_all,
-            self._auto_augment,
-            eval_method,
-            self._split_type,
-            split_ratio,
-            n_splits,
-            self._df,
-            self._sample_weight_full,
-        )
+        if split_ratio == 0:
+            # 全部数据用于训练
+            self._state.X_train = self._X_train_all
+            self._state.y_train = self._y_train_all
+            self._state.X_val = None
+            self._state.y_val = None
+        else:
+            self._state.task.prepare_data(
+                self._state,
+                self._X_train_all,
+                self._y_train_all,
+                self._auto_augment,
+                eval_method,
+                self._split_type,
+                split_ratio,
+                n_splits,
+                self._df,
+                self._sample_weight_full,
+            )
         self.data_size_full = self._state.data_size_full
 
     def fit(
         self,
         X_train=None,
         y_train=None,
+	    fit_full_data=False,  #新增参数
         dataframe=None,
         label=None,
         metric=None,
@@ -1237,6 +1245,10 @@ class AutoML(BaseEstimator):
         """Find a model for a given task.
 
         Args:
+            fit_full_data: bool, default=False
+                If True, use all data for training (no validation split).
+                Useful for time series forecasting with Prophet to train on full data.
+
             X_train: A numpy array or a pandas dataframe of training data in
                 shape (n, m). For time series forecsat tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other columns in
@@ -1551,6 +1563,14 @@ class AutoML(BaseEstimator):
                     batch_size: int, default = 64 | Batch size for training model, only
                         used by TemporalFusionTransformerEstimator and TCNEstimator.
         """
+
+        if fit_full_data:
+            eval_method = "holdout"
+            split_ratio = 0
+            logger.info("fit_full_data=True: using all data for training (no validation split)")
+
+        eval_method = eval_method or self._settings.get("eval_method")
+        split_ratio = split_ratio or self._settings.get("split_ratio")
 
         self._state._start_time_flag = self._start_time_flag = time.time()
         task = task or self._settings.get("task")
