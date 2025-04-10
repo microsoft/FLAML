@@ -1187,7 +1187,7 @@ class AutoML(BaseEstimator):
         self,
         X_train=None,
         y_train=None,
-	    fit_full_data=False,  #新增参数
+        fit_full_data=False,
         dataframe=None,
         label=None,
         metric=None,
