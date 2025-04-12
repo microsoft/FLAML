@@ -1163,7 +1163,6 @@ class AutoML(BaseEstimator):
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
         if split_ratio == 0:
-            # 全部数据用于训练
             self._state.X_train = self._X_train_all
             self._state.y_train = self._y_train_all
             self._state.X_val = None
@@ -1187,7 +1186,7 @@ class AutoML(BaseEstimator):
         self,
         X_train=None,
         y_train=None,
-        fit_full_data=False,
+        fit_full_data=True,
         dataframe=None,
         label=None,
         metric=None,
@@ -1215,7 +1214,7 @@ class AutoML(BaseEstimator):
         groups_val=None,
         groups=None,
         verbose=None,
-        retrain_full=None,
+        retrain_full=True,
         split_type=None,
         learner_selector=None,
         hpo_method=None,
@@ -1245,10 +1244,6 @@ class AutoML(BaseEstimator):
         """Find a model for a given task.
 
         Args:
-            fit_full_data: bool, default=False
-                If True, use all data for training (no validation split).
-                Useful for time series forecasting with Prophet to train on full data.
-
             X_train: A numpy array or a pandas dataframe of training data in
                 shape (n, m). For time series forecsat tasks, the first column of X_train
                 must be the timestamp column (datetime type). Other columns in
@@ -1568,7 +1563,6 @@ class AutoML(BaseEstimator):
             eval_method = "holdout"
             split_ratio = 0
             logger.info("fit_full_data=True: using all data for training (no validation split)")
-
         eval_method = eval_method or self._settings.get("eval_method")
         split_ratio = split_ratio or self._settings.get("split_ratio")
 
