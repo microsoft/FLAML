@@ -15,7 +15,7 @@ with open(os.path.join(here, "flaml/version.py")) as fp:
 __version__ = version["__version__"]
 
 install_requires = [
-    "NumPy>=1.17,<2",
+    "NumPy>=1.17",
 ]
 
 
