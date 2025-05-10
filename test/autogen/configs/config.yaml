@@ -1,0 +1,14 @@
+hydra:
+  job:
+    chdir: false
+
+openai:
+  key_path: <key-path>
+  adv:
+    model: <adversarial-gen-model>
+    # api_base:
+    # Other override arguments for adv
+  eval:
+    model: 'text-davinci-003'
+    # api_base: 
+    # other override args
