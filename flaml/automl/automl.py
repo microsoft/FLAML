@@ -424,6 +424,8 @@ class AutoML(BaseEstimator):
             If `model_history` was set to True, then the returned model is trained.
         """
         state = self._search_states.get(estimator_name)
+        if state and estimator_name == self._best_estimator:
+            return self.model
         return state and getattr(state, "trained_estimator", None)
 
     @property
