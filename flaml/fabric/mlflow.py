@@ -492,7 +492,11 @@ class MLflowIntegration:
                 mlflow.log_metric("best_validation_loss", automl._state.best_loss)
                 mlflow.log_metric("best_iteration", automl._best_iteration)
                 mlflow.log_metric("num_child_runs", len(self.infos))
-                if automl._trained_estimator is not None and not self.has_model:
+                if (
+                    automl._trained_estimator is not None
+                    and not self.has_model
+                    and automl._trained_estimator._model is not None
+                ):
                     self.log_model(
                         automl._trained_estimator._model, automl.best_estimator, signature=automl.estimator_signature
                     )
@@ -521,7 +525,11 @@ class MLflowIntegration:
                     logger.info(f"logging best model {automl.best_estimator}")
                     self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id)
                     self.has_summary = True
-                    if automl._trained_estimator is not None and not self.has_model:
+                    if (
+                        automl._trained_estimator is not None
+                        and not self.has_model
+                        and automl._trained_estimator._model is not None
+                    ):
                         self.log_model(
                             automl._trained_estimator._model,
                             automl.best_estimator,
