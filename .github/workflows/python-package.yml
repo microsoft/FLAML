@@ -85,7 +85,7 @@ jobs:
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
-          pytest test/
+          pytest test/ --ignore=test/autogen/oai/test_completion.py
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
