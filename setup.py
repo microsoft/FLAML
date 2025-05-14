@@ -73,7 +73,7 @@ setuptools.setup(
             "psutil==5.8.0",
             "dataclasses",
             "transformers[torch]==4.26",
-            "datasets",
+            "datasets<=3.5.0",
             "nltk<=3.8.1",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
             "hcrystalball==0.1.10",
