@@ -495,7 +495,7 @@ class MLflowIntegration:
                 if (
                     automl._trained_estimator is not None
                     and not self.has_model
-                    and self._trained_estimator._model is not None
+                    and automl._trained_estimator._model is not None
                 ):
                     self.log_model(
                         automl._trained_estimator._model, automl.best_estimator, signature=automl.estimator_signature
@@ -528,7 +528,7 @@ class MLflowIntegration:
                     if (
                         automl._trained_estimator is not None
                         and not self.has_model
-                        and self._trained_estimator._model is not None
+                        and automl._trained_estimator._model is not None
                     ):
                         self.log_model(
                             automl._trained_estimator._model,
