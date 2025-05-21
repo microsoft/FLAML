@@ -1,5 +1,7 @@
 [run]
 branch = True
 source = flaml
+concurrency = multiprocessing
+parallel = true
 omit =
   *test*
