@@ -452,7 +452,7 @@ def group_counts(groups):
     return c[np.argsort(i)]
 
 
-def get_random_dataframe(n_rows: int = 200, ratio_none: float = 0.1, seed: int = 42) -> pd.DataFrame:
+def get_random_dataframe(n_rows: int = 200, ratio_none: float = 0.1, seed: int = 42) -> DataFrame:
     """Generate a random pandas DataFrame with various data types for testing.
     This function creates a DataFrame with multiple column types including:
     - Timestamps
