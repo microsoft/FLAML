@@ -459,12 +459,12 @@ class MLflowIntegration:
             "metrics": metrics,
             "params": params,
             "tags": {
-                "synapseml.flaml.best_run": False,
-                "synapseml.flaml.iteration_number": self.child_counter,
-                "synapseml.flaml.version": __version__,
-                "synapseml.flaml.meric": metric_name,
-                "synapseml.flaml.run_source": "flaml-tune",
-                "synapseml.flaml.log_type": self.log_type,
+                "flaml.best_run": False,
+                "flaml.iteration_number": self.child_counter,
+                "flaml.version": __version__,
+                "flaml.meric": metric_name,
+                "flaml.run_source": "flaml-tune",
+                "flaml.log_type": self.log_type,
             },
             "submetrics": {
                 "values": [],
@@ -502,7 +502,7 @@ class MLflowIntegration:
             best_mlflow_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             analysis.best_run_id = best_mlflow_run_id
             analysis.best_run_name = best_mlflow_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
             if not self.has_summary:
                 self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id)
@@ -679,18 +679,18 @@ class MLflowIntegration:
                 automl_metric_name: automl_metric_value,
             },
             "tags": {
-                "synapseml.flaml.best_run": False,
-                "synapseml.flaml.estimator_name": estimator,
-                "synapseml.flaml.estimator_class": search_state.learner_class.__name__,
-                "synapseml.flaml.iteration_number": automl._track_iter,
-                "synapseml.flaml.version": __version__,
-                "synapseml.flaml.learner": estimator,
-                "synapseml.flaml.sample_size": search_state.sample_size,
-                "synapseml.flaml.meric": automl_metric_name,
-                "synapseml.flaml.run_source": "flaml-automl",
-                "synapseml.flaml.log_type": self.log_type,
-                "synapseml.flaml.automl_user_configurations": self.automl_user_configurations,
-                "synapseml.flaml.automl_display_configurations": self.automl_display_configurations,
+                "flaml.best_run": False,
+                "flaml.estimator_name": estimator,
+                "flaml.estimator_class": search_state.learner_class.__name__,
+                "flaml.iteration_number": automl._track_iter,
+                "flaml.version": __version__,
+                "flaml.learner": estimator,
+                "flaml.sample_size": search_state.sample_size,
+                "flaml.meric": automl_metric_name,
+                "flaml.run_source": "flaml-automl",
+                "flaml.log_type": self.log_type,
+                "flaml.automl_user_configurations": self.automl_user_configurations,
+                "flaml.automl_display_configurations": self.automl_display_configurations,
             },
             "params": {
                 "sample_size": search_state.sample_size,
@@ -790,7 +790,7 @@ class MLflowIntegration:
             best_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             automl.best_run_id = best_mlflow_run_id
             automl.best_run_name = best_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
             if self.parent_run_id is not None:
                 conf = automl._config_history[automl._best_iteration][1].copy()
@@ -960,7 +960,7 @@ class MLflowIntegration:
                                 "mlflow.runName",
                                 f"{self.parent_run_name}_child_{self.child_counter}",
                             )
-                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.child_counter", self.child_counter)
+                        self.mlflow_client.set_tag(child_run_id, "flaml.child_counter", self.child_counter)
 
                     # merge autolog child run and corresponding manual run
                     flaml_info = self.infos[self.child_counter]
@@ -976,7 +976,7 @@ class MLflowIntegration:
                             )
 
                     if self.child_counter == best_iteration:
-                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.best_run", True)
+                        self.mlflow_client.set_tag(child_run_id, "flaml.best_run", True)
                         if result is not None:
                             result.best_run_id = child_run_id
                             result.best_run_name = child_run.info.run_name
