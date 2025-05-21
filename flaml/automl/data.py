@@ -676,12 +676,12 @@ def auto_convert_dtypes_spark(
 
 
 def auto_convert_dtypes_pandas(
-    df: pd.DataFrame,
+    df: DataFrame,
     na_values: list = None,
     category_threshold: float = 0.3,
     convert_threshold: float = 0.6,
     sample_ratio: float = 1.0,
-) -> tuple[pd.DataFrame, dict]:
+) -> tuple[DataFrame, dict]:
     """Automatically convert data types in a pandas DataFrame using heuristics.
 
     This function analyzes the DataFrame to infer appropriate data types
