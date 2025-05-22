@@ -190,6 +190,9 @@ class AutoML(BaseEstimator):
             train_time_limit: A float of the training time constraint in seconds.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=1: logger level = ERROR, CRITICAL + ERROR log messages will be shown.
+                verbose=2: logger level = WARNING, there will be CRITICAL + ERROR + WARNING log messages.
+                verbose=3: logger level = INFO, add INFO messages to the above.
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
@@ -1347,6 +1350,9 @@ class AutoML(BaseEstimator):
                 for training data.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=1: logger level = ERROR, CRITICAL + ERROR log messages will be shown.
+                verbose=2: logger level = WARNING, there will be CRITICAL + ERROR + WARNING log messages.
+                verbose=3: logger level = INFO, add INFO messages to the above.
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
