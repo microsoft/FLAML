@@ -35,8 +35,6 @@ from flaml.automl.logger import logger
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.version import __version__
 
-from .lowcode import AUTOML_DISPLAY_CONFIGURATIONS
-
 SEARCH_MAX_RESULTS = 5000  # Each train should not have more than 5000 trials
 IS_RENAME_CHILD_RUN = os.environ.get("FLAML_IS_RENAME_CHILD_RUN", "false").lower() == "true"
 REMOVE_REQUIREMENT_LIST = [
@@ -622,16 +620,12 @@ class MLflowIntegration:
             pipeline.stages.append(model)
         elif not estimator.endswith("_spark"):
             steps = [("feature_transformer", feature_transformer)]
-            if model.autofe is not None:
-                steps.append(("autofe", model.autofe))
             steps.append(("estimator", model))
             pipeline = Pipeline(steps)
         else:
             stages = []
             if feature_transformer is not None:
                 stages.append(feature_transformer)
-            if model.autofe is not None:
-                stages.append(model.autofe)
             stages.append(model)
             pipeline = SparkPipelineModel(stages=stages)
         if isinstance(pipeline, SparkPipelineModel):
@@ -662,12 +656,6 @@ class MLflowIntegration:
             config = search_state.config
 
         self.automl_user_configurations = safe_json_dumps(automl._automl_user_configurations)
-        self.automl_display_configurations = safe_json_dumps(
-            {
-                k: automl._automl_user_configurations[k] if k in automl._automl_user_configurations else None
-                for k in AUTOML_DISPLAY_CONFIGURATIONS
-            }
-        )
 
         info = {
             "metrics": {
@@ -690,7 +678,6 @@ class MLflowIntegration:
                 "flaml.run_source": "flaml-automl",
                 "flaml.log_type": self.log_type,
                 "flaml.automl_user_configurations": self.automl_user_configurations,
-                "flaml.automl_display_configurations": self.automl_display_configurations,
             },
             "params": {
                 "sample_size": search_state.sample_size,
@@ -848,11 +835,6 @@ class MLflowIntegration:
             run_id=run_id,
             text=self.automl_user_configurations,
             artifact_file="automl_configurations/automl_user_configurations.json",
-        )
-        self.mlflow_client.log_text(
-            run_id=run_id,
-            text=self.automl_display_configurations,
-            artifact_file="automl_configurations/automl_display_configurations.json",
         )
         return f"Successfully _log_automl_configurations to run_id {run_id}"
 
