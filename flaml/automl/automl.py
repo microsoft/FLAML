@@ -192,6 +192,12 @@ class AutoML(BaseEstimator):
                 Only valid for sequential search.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=0: logger level = CRITICAL
+                verbose=1: logger level = ERROR
+                verbose=2: logger level = WARNING
+                verbose=3: logger level = INFO
+                verbose=4: logger level = DEBUG
+                verbose>5: logger level = NOTSET
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
@@ -1350,6 +1356,12 @@ class AutoML(BaseEstimator):
                 for training data.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=0: logger level = CRITICAL
+                verbose=1: logger level = ERROR
+                verbose=2: logger level = WARNING
+                verbose=3: logger level = INFO
+                verbose=4: logger level = DEBUG
+                verbose>5: logger level = NOTSET
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
