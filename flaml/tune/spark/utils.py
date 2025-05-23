@@ -162,12 +162,34 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
+    # Check if Spark is available
+    spark_available, _ = check_spark()
+
+    # Write to local driver file system
     flaml_path = os.path.dirname(os.path.abspath(__file__))
     custom_code = textwrap.dedent(custom_code)
     custom_path = os.path.join(flaml_path, file_name + ".py")
 
     with open(custom_path, "w") as f:
         f.write(custom_code)
+
+    # If using Spark, broadcast the code content to executors
+    if spark_available:
+        spark = SparkSession.builder.getOrCreate()
+        bc_code = spark.sparkContext.broadcast(custom_code)
+
+        # Execute a job to ensure the code is distributed to all executors
+        def _write_code(bc):
+            code = bc.value
+            import os
+
+            module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name + ".py")
+            os.makedirs(os.path.dirname(module_path), exist_ok=True)
+            with open(module_path, "w") as f:
+                f.write(code)
+            return True
+
+        spark.sparkContext.parallelize(range(1)).map(lambda _: _write_code(bc_code)).collect()
 
     return custom_path
 

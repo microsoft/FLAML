@@ -10,6 +10,18 @@ from flaml import AutoML
 
 
 class TestMLFlowLoggingParam:
+    def test_update_and_install_requirements(self):
+        import mlflow
+        from sklearn import tree
+
+        from flaml.fabric.mlflow import update_and_install_requirements
+
+        with mlflow.start_run(run_name="test") as run:
+            sk_model = tree.DecisionTreeClassifier()
+            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="test")
+
+        update_and_install_requirements(run_id=run.info.run_id)
+
     def test_should_start_new_run_by_default(self, automl_settings):
         with mlflow.start_run() as parent_run:
             automl = AutoML()
