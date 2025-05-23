@@ -25,7 +25,7 @@ try:
 except ImportError:
     skip_spark = True
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
 def test_overtime():

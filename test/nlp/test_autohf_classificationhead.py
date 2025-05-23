@@ -24,6 +24,8 @@ model_path_list = [
 if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
     pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
+pytestmark = pytest.mark.spark  # set to spark as parallel testing raised RuntimeError
+
 
 def test_switch_1_1():
     data_idx, model_path_idx = 0, 0

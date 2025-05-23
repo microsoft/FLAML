@@ -17,6 +17,8 @@ from flaml import AutoML
 from flaml.automl.ml import sklearn_metric_loss_score
 from flaml.tune.spark.utils import check_spark
 
+pytestmark = pytest.mark.spark
+
 leaderboard = defaultdict(dict)
 
 warnings.simplefilter(action="ignore")

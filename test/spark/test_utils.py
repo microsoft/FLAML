@@ -36,7 +36,7 @@ except ImportError:
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
 def test_with_parameters_spark():
