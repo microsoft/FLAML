@@ -10,6 +10,10 @@ from flaml.default import portfolio
 if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
     pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
+pytestmark = (
+    pytest.mark.spark
+)  # set to spark as parallel testing raised ValueError: Feature NonExisting not implemented.
+
 
 def pop_args(fit_kwargs):
     fit_kwargs.pop("max_iter", None)

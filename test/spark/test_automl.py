@@ -25,7 +25,7 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 spark_available, _ = check_spark()
 skip_spark = not spark_available
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
 def test_parallel_xgboost(hpo_method=None, data_size=1000):

@@ -2,6 +2,7 @@ import os
 import unittest
 
 import numpy as np
+import pytest
 import scipy.sparse
 from sklearn.datasets import load_iris, load_wine
 
@@ -12,6 +13,7 @@ from flaml.tune.spark.utils import check_spark
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
+pytestmark = pytest.mark.spark
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 

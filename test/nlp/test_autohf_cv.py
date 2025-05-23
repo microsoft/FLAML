@@ -5,6 +5,8 @@ import sys
 import pytest
 from utils import get_automl_settings, get_toy_data_seqclassification
 
+pytestmark = pytest.mark.spark  # set to spark as parallel testing raised MlflowException of changing parameter
+
 
 @pytest.mark.skipif(sys.platform in ["darwin", "win32"], reason="do not run on mac os or windows")
 def test_cv():

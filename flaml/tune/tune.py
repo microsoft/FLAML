@@ -21,11 +21,11 @@ except (ImportError, AssertionError):
     from .analysis import ExperimentAnalysis as EA
 else:
     ray_available = True
-
 import logging
 
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
+from .logger import logger, logger_formatter
 from .result import DEFAULT_METRIC
 from .trial import Trial
 
@@ -41,8 +41,6 @@ except ImportError:
     internal_mlflow = False
 
 
-logger = logging.getLogger(__name__)
-logger.propagate = False
 _use_ray = True
 _runner = None
 _verbose = 0
@@ -521,10 +519,6 @@ def run(
             elif not logger.hasHandlers():
                 # Add the console handler.
                 _ch = logging.StreamHandler(stream=sys.stdout)
-                logger_formatter = logging.Formatter(
-                    "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s",
-                    "%m-%d %H:%M:%S",
-                )
                 _ch.setFormatter(logger_formatter)
                 logger.addHandler(_ch)
             if verbose <= 2:
@@ -752,10 +746,16 @@ def run(
             max_concurrent = max(1, search_alg.max_concurrent)
         else:
             max_concurrent = max(1, max_spark_parallelism)
+        passed_in_n_concurrent_trials = max(n_concurrent_trials, max_concurrent)
         n_concurrent_trials = min(
             n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
             max_concurrent,
         )
+        if n_concurrent_trials < passed_in_n_concurrent_trials:
+            logger.warning(
+                f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
+                f"variable `FLAML_MAX_CONCURRENT` to '{passed_in_n_concurrent_trials}' to override the detected num of executors."
+            )
         with parallel_backend("spark"):
             with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
                 try:
@@ -777,7 +777,7 @@ def run(
                         and num_failures < upperbound_num_failures
                     ):
                         if automl_info and automl_info[0] > 0 and time_budget_s < np.inf:
-                            time_budget_s -= automl_info[0]
+                            time_budget_s -= automl_info[0] * n_concurrent_trials
                             logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
                         while len(_runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark

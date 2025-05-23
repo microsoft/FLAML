@@ -3,11 +3,13 @@ import sys
 import warnings
 
 import mlflow
+import numpy as np
 import pytest
 import sklearn.datasets as skds
 from packaging.version import Version
 
 from flaml import AutoML
+from flaml.automl.data import auto_convert_dtypes_pandas, auto_convert_dtypes_spark, get_random_dataframe
 from flaml.tune.spark.utils import check_spark
 
 warnings.simplefilter(action="ignore")
@@ -58,7 +60,7 @@ if sys.version_info >= (3, 11):
 else:
     skip_py311 = False
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
 def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
@@ -296,11 +298,88 @@ def _test_spark_large_df():
     print("time cost in minutes: ", (end_time - start_time) / 60)
 
 
+def test_get_random_dataframe():
+    # Test with default parameters
+    df = get_random_dataframe(n_rows=50, ratio_none=0.2, seed=123)
+    assert df.shape == (50, 14)  # Default is 200 rows and 14 columns
+
+    # Test column types
+    assert "timestamp" in df.columns and np.issubdtype(df["timestamp"].dtype, np.datetime64)
+    assert "id" in df.columns and np.issubdtype(df["id"].dtype, np.integer)
+    assert "score" in df.columns and np.issubdtype(df["score"].dtype, np.floating)
+    assert "category" in df.columns and df["category"].dtype.name == "category"
+
+
+def test_auto_convert_dtypes_pandas():
+    # Create a test DataFrame with various types
+    import pandas as pd
+
+    test_df = pd.DataFrame(
+        {
+            "int_col": ["1", "2", "3", "4", "5", "6", "6"],
+            "float_col": ["1.1", "2.2", "3.3", "NULL", "5.5", "6.6", "6.6"],
+            "date_col": ["2021-01-01", "2021-02-01", "NA", "2021-04-01", "2021-05-01", "2021-06-01", "2021-06-01"],
+            "cat_col": ["A", "B", "A", "A", "B", "A", "B"],
+            "string_col": ["text1", "text2", "text3", "text4", "text5", "text6", "text7"],
+        }
+    )
+
+    # Convert dtypes
+    converted_df, schema = auto_convert_dtypes_pandas(test_df)
+
+    # Check conversions
+    assert schema["int_col"] == "int"
+    assert schema["float_col"] == "double"
+    assert schema["date_col"] == "timestamp"
+    assert schema["cat_col"] == "category"
+    assert schema["string_col"] == "string"
+
+
+def test_auto_convert_dtypes_spark():
+    """Test auto_convert_dtypes_spark function with various data types."""
+    import pandas as pd
+
+    # Create a test DataFrame with various types
+    test_pdf = pd.DataFrame(
+        {
+            "int_col": ["1", "2", "3", "4", "NA"],
+            "float_col": ["1.1", "2.2", "3.3", "NULL", "5.5"],
+            "date_col": ["2021-01-01", "2021-02-01", "NA", "2021-04-01", "2021-05-01"],
+            "cat_col": ["A", "B", "A", "C", "B"],
+            "string_col": ["text1", "text2", "text3", "text4", "text5"],
+        }
+    )
+
+    # Convert pandas DataFrame to Spark DataFrame
+    test_df = spark.createDataFrame(test_pdf)
+
+    # Convert dtypes
+    converted_df, schema = auto_convert_dtypes_spark(test_df)
+
+    # Check conversions
+    assert schema["int_col"] == "int"
+    assert schema["float_col"] == "double"
+    assert schema["date_col"] == "timestamp"
+    assert schema["cat_col"] == "string"  # Conceptual category in schema
+    assert schema["string_col"] == "string"
+
+    # Verify the actual data types from the Spark DataFrame
+    spark_dtypes = dict(converted_df.dtypes)
+    assert spark_dtypes["int_col"] == "int"
+    assert spark_dtypes["float_col"] == "double"
+    assert spark_dtypes["date_col"] == "timestamp"
+    assert spark_dtypes["cat_col"] == "string"  # In Spark, categories are still strings
+    assert spark_dtypes["string_col"] == "string"
+
+
 if __name__ == "__main__":
     test_spark_synapseml_classification()
     test_spark_synapseml_regression()
     test_spark_synapseml_rank()
     test_spark_input_df()
+    test_get_random_dataframe()
+    test_auto_convert_dtypes_pandas()
+    test_auto_convert_dtypes_spark()
 
     # import cProfile
     # import pstats

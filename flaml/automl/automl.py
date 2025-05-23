@@ -10,6 +10,7 @@ import os
 import random
 import sys
 import time
+from concurrent.futures import as_completed
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -187,7 +188,8 @@ class AutoML(BaseEstimator):
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
                 It refers to the average prediction time per row in validation data.
-            train_time_limit: A float of the training time constraint in seconds.
+            train_time_limit: None or a float of the training time constraint in seconds for each trial.
+                Only valid for sequential search.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
                 verbose=1: logger level = ERROR, CRITICAL + ERROR log messages will be shown.
@@ -1337,7 +1339,8 @@ class AutoML(BaseEstimator):
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
                 It refers to the average prediction time per row in validation data.
-            train_time_limit: None or a float of the training time constraint in seconds.
+            train_time_limit: None or a float of the training time constraint in seconds for each trial.
+                Only valid for sequential search.
             X_val: None or a numpy array or a pandas dataframe of validation data.
             y_val: None or a numpy array or a pandas series of validation labels.
             sample_weight_val: None or a numpy array of the sample weight of
@@ -1630,6 +1633,13 @@ class AutoML(BaseEstimator):
             _ch = logging.StreamHandler(stream=sys.stdout)
             _ch.setFormatter(logger_formatter)
             logger.addHandler(_ch)
+
+        if model_history:
+            logger.warning(
+                "With `model_history` set to `True` by default, all intermediate models are retained in memory, "
+                "which may significantly increase memory usage and slow down training. "
+                "Consider setting `model_history=False` to optimize memory and accelerate the training process."
+            )
 
         if not use_ray and not use_spark and n_concurrent_trials > 1:
             if ray_available:
@@ -2723,16 +2733,42 @@ class AutoML(BaseEstimator):
                             ):
                                 if mlflow.active_run() is None:
                                     mlflow.start_run(run_id=self.mlflow_integration.parent_run_id)
-                                self.mlflow_integration.log_model(
-                                    self._trained_estimator.model,
-                                    self.best_estimator,
-                                    signature=self.estimator_signature,
-                                )
-                                self.mlflow_integration.pickle_and_log_automl_artifacts(
-                                    self, self.model, self.best_estimator, signature=self.pipeline_signature
-                                )
+                                if self.best_estimator.endswith("_spark"):
+                                    self.mlflow_integration.log_model(
+                                        self._trained_estimator.model,
+                                        self.best_estimator,
+                                        signature=self.estimator_signature,
+                                        run_id=self.mlflow_integration.parent_run_id,
+                                    )
+                                else:
+                                    self.mlflow_integration.pickle_and_log_automl_artifacts(
+                                        self,
+                                        self.model,
+                                        self.best_estimator,
+                                        signature=self.pipeline_signature,
+                                        run_id=self.mlflow_integration.parent_run_id,
+                                    )
                 else:
-                    logger.info("not retraining because the time budget is too small.")
+                    logger.warning("not retraining because the time budget is too small.")
+        if self.mlflow_integration is not None:
+            logger.debug("Collecting results from submitted record_state tasks")
+            t1 = time.perf_counter()
+            for future in as_completed(self.mlflow_integration.futures):
+                _task = self.mlflow_integration.futures[future]
+                try:
+                    result = future.result()
+                    logger.debug(f"Result for record_state task {_task}: {result}")
+                except Exception as e:
+                    logger.warning(f"Exception for record_state task {_task}: {e}")
+            for future in as_completed(self.mlflow_integration.futures_log_model):
+                _task = self.mlflow_integration.futures_log_model[future]
+                try:
+                    result = future.result()
+                    logger.debug(f"Result for log_model task {_task}: {result}")
+                except Exception as e:
+                    logger.warning(f"Exception for log_model task {_task}: {e}")
+            t2 = time.perf_counter()
+            logger.debug(f"Collecting results from tasks submitted to executors costs {t2-t1} seconds.")
 
     def __del__(self):
         if (

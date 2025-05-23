@@ -40,7 +40,7 @@ FLAML has a .NET implementation in [ML.NET](http://dot.net/ml), an open-source, 
 
 ## Installation
 
-FLAML requires **Python version >= 3.8**. It can be installed from pip:
+FLAML requires **Python version >= 3.9**. It can be installed from pip:
 
 ```bash
 pip install flaml
