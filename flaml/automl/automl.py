@@ -1732,7 +1732,7 @@ class AutoML(BaseEstimator):
                 if not (mlflow.active_run() is not None or is_autolog_enabled()):
                     self.mlflow_integration.only_history = True
             except KeyError:
-                print("Not in Fabric, Skipped")
+                logger.info("Not in Fabric, Skipped")
         task.validate_data(
             self,
             self._state,
@@ -2756,6 +2756,9 @@ class AutoML(BaseEstimator):
                                     )
                 else:
                     logger.warning("not retraining because the time budget is too small.")
+        self.wait_futures()
+
+    def wait_futures(self):
         if self.mlflow_integration is not None:
             logger.debug("Collecting results from submitted record_state tasks")
             t1 = time.perf_counter()
@@ -2775,6 +2778,8 @@ class AutoML(BaseEstimator):
                     logger.warning(f"Exception for log_model task {_task}: {e}")
             t2 = time.perf_counter()
             logger.debug(f"Collecting results from tasks submitted to executors costs {t2-t1} seconds.")
+        else:
+            logger.debug("No futures to wait for.")
 
     def __del__(self):
         if (
