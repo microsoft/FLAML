@@ -73,7 +73,7 @@ setuptools.setup(
             "psutil==5.8.0",
             "dataclasses",
             "transformers[torch]==4.26",
-            "datasets",
+            "datasets<=3.5.0",
             "nltk<=3.8.1",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
             "hcrystalball==0.1.10",
@@ -170,10 +170,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
         # Specify the Python versions you support here.
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

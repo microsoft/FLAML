@@ -1,5 +1,5 @@
 # basic setup
-FROM mcr.microsoft.com/devcontainers/python:3.8
+FROM mcr.microsoft.com/devcontainers/python:3.10
 RUN apt-get update && apt-get -y update
 RUN apt-get install -y sudo git npm
 

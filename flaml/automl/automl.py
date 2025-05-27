@@ -10,6 +10,7 @@ import os
 import random
 import sys
 import time
+from concurrent.futures import as_completed
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -187,9 +188,16 @@ class AutoML(BaseEstimator):
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
                 It refers to the average prediction time per row in validation data.
-            train_time_limit: A float of the training time constraint in seconds.
+            train_time_limit: None or a float of the training time constraint in seconds for each trial.
+                Only valid for sequential search.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=0: logger level = CRITICAL
+                verbose=1: logger level = ERROR
+                verbose=2: logger level = WARNING
+                verbose=3: logger level = INFO
+                verbose=4: logger level = DEBUG
+                verbose>5: logger level = NOTSET
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
@@ -424,6 +432,8 @@ class AutoML(BaseEstimator):
             If `model_history` was set to True, then the returned model is trained.
         """
         state = self._search_states.get(estimator_name)
+        if state and estimator_name == self._best_estimator:
+            return self.model
         return state and getattr(state, "trained_estimator", None)
 
     @property
@@ -1332,7 +1342,8 @@ class AutoML(BaseEstimator):
             mem_thres: A float of the memory size constraint in bytes.
             pred_time_limit: A float of the prediction latency constraint in seconds.
                 It refers to the average prediction time per row in validation data.
-            train_time_limit: None or a float of the training time constraint in seconds.
+            train_time_limit: None or a float of the training time constraint in seconds for each trial.
+                Only valid for sequential search.
             X_val: None or a numpy array or a pandas dataframe of validation data.
             y_val: None or a numpy array or a pandas series of validation labels.
             sample_weight_val: None or a numpy array of the sample weight of
@@ -1345,6 +1356,12 @@ class AutoML(BaseEstimator):
                 for training data.
             verbose: int, default=3 | Controls the verbosity, higher means more
                 messages.
+                verbose=0: logger level = CRITICAL
+                verbose=1: logger level = ERROR
+                verbose=2: logger level = WARNING
+                verbose=3: logger level = INFO
+                verbose=4: logger level = DEBUG
+                verbose>5: logger level = NOTSET
             retrain_full: bool or str, default=True | whether to retrain the
                 selected model on the full training data when using holdout.
                 True - retrain only after search finishes; False - no retraining;
@@ -1623,6 +1640,13 @@ class AutoML(BaseEstimator):
             _ch.setFormatter(logger_formatter)
             logger.addHandler(_ch)
 
+        if model_history:
+            logger.warning(
+                "With `model_history` set to `True` by default, all intermediate models are retained in memory, "
+                "which may significantly increase memory usage and slow down training. "
+                "Consider setting `model_history=False` to optimize memory and accelerate the training process."
+            )
+
         if not use_ray and not use_spark and n_concurrent_trials > 1:
             if ray_available:
                 logger.warning(
@@ -1708,7 +1732,7 @@ class AutoML(BaseEstimator):
                 if not (mlflow.active_run() is not None or is_autolog_enabled()):
                     self.mlflow_integration.only_history = True
             except KeyError:
-                print("Not in Fabric, Skipped")
+                logger.info("Not in Fabric, Skipped")
         task.validate_data(
             self,
             self._state,
@@ -2728,16 +2752,47 @@ class AutoML(BaseEstimator):
                             ):
                                 if mlflow.active_run() is None:
                                     mlflow.start_run(run_id=self.mlflow_integration.parent_run_id)
-                                self.mlflow_integration.log_model(
-                                    self._trained_estimator.model,
-                                    self.best_estimator,
-                                    signature=self.estimator_signature,
-                                )
-                                self.mlflow_integration.pickle_and_log_automl_artifacts(
-                                    self, self.model, self.best_estimator, signature=self.pipeline_signature
-                                )
+                                if self.best_estimator.endswith("_spark"):
+                                    self.mlflow_integration.log_model(
+                                        self._trained_estimator.model,
+                                        self.best_estimator,
+                                        signature=self.estimator_signature,
+                                        run_id=self.mlflow_integration.parent_run_id,
+                                    )
+                                else:
+                                    self.mlflow_integration.pickle_and_log_automl_artifacts(
+                                        self,
+                                        self.model,
+                                        self.best_estimator,
+                                        signature=self.pipeline_signature,
+                                        run_id=self.mlflow_integration.parent_run_id,
+                                    )
                 else:
-                    logger.info("not retraining because the time budget is too small.")
+                    logger.warning("not retraining because the time budget is too small.")
+        self.wait_futures()
+
+    def wait_futures(self):
+        if self.mlflow_integration is not None:
+            logger.debug("Collecting results from submitted record_state tasks")
+            t1 = time.perf_counter()
+            for future in as_completed(self.mlflow_integration.futures):
+                _task = self.mlflow_integration.futures[future]
+                try:
+                    result = future.result()
+                    logger.debug(f"Result for record_state task {_task}: {result}")
+                except Exception as e:
+                    logger.warning(f"Exception for record_state task {_task}: {e}")
+            for future in as_completed(self.mlflow_integration.futures_log_model):
+                _task = self.mlflow_integration.futures_log_model[future]
+                try:
+                    result = future.result()
+                    logger.debug(f"Result for log_model task {_task}: {result}")
+                except Exception as e:
+                    logger.warning(f"Exception for log_model task {_task}: {e}")
+            t2 = time.perf_counter()
+            logger.debug(f"Collecting results from tasks submitted to executors costs {t2-t1} seconds.")
+        else:
+            logger.debug("No futures to wait for.")
 
     def __del__(self):
         if (

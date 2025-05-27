@@ -2,13 +2,17 @@
 #  * Copyright (c) Microsoft Corporation. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import json
 import os
-from datetime import datetime
+import random
+import uuid
+from datetime import datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
-from flaml.automl.spark import DataFrame, Series, pd, ps, psDataFrame, psSeries
+from flaml.automl.spark import DataFrame, F, Series, T, pd, ps, psDataFrame, psSeries
 from flaml.automl.training_log import training_log_reader
 
 try:
@@ -18,6 +22,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from flaml.automl.task import Task
+
 
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
@@ -445,3 +450,331 @@ class DataTransformer:
 def group_counts(groups):
     _, i, c = np.unique(groups, return_counts=True, return_index=True)
     return c[np.argsort(i)]
+
+
+def get_random_dataframe(n_rows: int = 200, ratio_none: float = 0.1, seed: int = 42) -> DataFrame:
+    """Generate a random pandas DataFrame with various data types for testing.
+    This function creates a DataFrame with multiple column types including:
+    - Timestamps
+    - Integers
+    - Floats
+    - Categorical values
+    - Booleans
+    - Lists (tags)
+    - Decimal strings
+    - UUIDs
+    - Binary data (as hex strings)
+    - JSON blobs
+    - Nullable text fields
+    Parameters
+    ----------
+    n_rows : int, default=200
+        Number of rows in the generated DataFrame
+    ratio_none : float, default=0.1
+        Probability of generating None values in applicable columns
+    seed : int, default=42
+        Random seed for reproducibility
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with 14 columns of various data types
+    Examples
+    --------
+    >>> df = get_random_dataframe(100, 0.05, 123)
+    >>> df.shape
+    (100, 14)
+    >>> df.dtypes
+    timestamp       datetime64[ns]
+    id                       int64
+    score                  float64
+    status                  object
+    flag                    object
+    count                   object
+    value                   object
+    tags                    object
+    rating                  object
+    uuid                    object
+    binary                  object
+    json_blob               object
+    category              category
+    nullable_text           object
+    dtype: object
+    """
+
+    np.random.seed(seed)
+    random.seed(seed)
+
+    def random_tags():
+        tags = ["AI", "ML", "data", "robotics", "vision"]
+        return random.sample(tags, k=random.randint(1, 3)) if random.random() > ratio_none else None
+
+    def random_decimal():
+        return (
+            str(Decimal(random.uniform(1, 5)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            if random.random() > ratio_none
+            else None
+        )
+
+    def random_json_blob():
+        blob = {"a": random.randint(1, 10), "b": random.random()}
+        return json.dumps(blob) if random.random() > ratio_none else None
+
+    def random_binary():
+        return bytes(random.randint(0, 255) for _ in range(4)).hex() if random.random() > ratio_none else None
+
+    data = {
+        "timestamp": [
+            datetime(2020, 1, 1) + timedelta(days=np.random.randint(0, 1000)) if np.random.rand() > ratio_none else None
+            for _ in range(n_rows)
+        ],
+        "id": range(1, n_rows + 1),
+        "score": np.random.uniform(0, 100, n_rows),
+        "status": np.random.choice(
+            ["active", "inactive", "pending", None],
+            size=n_rows,
+            p=[(1 - ratio_none) / 3, (1 - ratio_none) / 3, (1 - ratio_none) / 3, ratio_none],
+        ),
+        "flag": np.random.choice(
+            [True, False, None], size=n_rows, p=[(1 - ratio_none) / 2, (1 - ratio_none) / 2, ratio_none]
+        ),
+        "count": [np.random.randint(0, 100) if np.random.rand() > ratio_none else None for _ in range(n_rows)],
+        "value": [round(np.random.normal(50, 15), 2) if np.random.rand() > ratio_none else None for _ in range(n_rows)],
+        "tags": [random_tags() for _ in range(n_rows)],
+        "rating": [random_decimal() for _ in range(n_rows)],
+        "uuid": [str(uuid.uuid4()) if np.random.rand() > ratio_none else None for _ in range(n_rows)],
+        "binary": [random_binary() for _ in range(n_rows)],
+        "json_blob": [random_json_blob() for _ in range(n_rows)],
+        "category": pd.Categorical(
+            np.random.choice(
+                ["A", "B", "C", None],
+                size=n_rows,
+                p=[(1 - ratio_none) / 3, (1 - ratio_none) / 3, (1 - ratio_none) / 3, ratio_none],
+            )
+        ),
+        "nullable_text": [random.choice(["Good", "Bad", "Average", None]) for _ in range(n_rows)],
+    }
+
+    return pd.DataFrame(data)
+
+
+def auto_convert_dtypes_spark(
+    df: psDataFrame,
+    na_values: list = None,
+    category_threshold: float = 0.3,
+    convert_threshold: float = 0.6,
+    sample_ratio: float = 0.1,
+) -> tuple[psDataFrame, dict]:
+    """Automatically convert data types in a PySpark DataFrame using heuristics.
+
+    This function analyzes a sample of the DataFrame to infer appropriate data types
+    and applies the conversions. It handles timestamps, numeric values, booleans,
+    and categorical fields.
+
+    Args:
+        df: A PySpark DataFrame to convert.
+        na_values: List of strings to be considered as NA/NaN. Defaults to
+            ['NA', 'na', 'NULL', 'null', ''].
+        category_threshold: Maximum ratio of unique values to total values
+            to consider a column categorical. Defaults to 0.3.
+        convert_threshold: Minimum ratio of successfully converted values required
+            to apply a type conversion. Defaults to 0.6.
+        sample_ratio: Fraction of data to sample for type inference. Defaults to 0.1.
+
+    Returns:
+        tuple: (The DataFrame with converted types, A dictionary mapping column names to
+                their inferred types as strings)
+
+    Note:
+        - 'category' in the schema dict is conceptual as PySpark doesn't have a true
+            category type like pandas
+        - The function uses sampling for efficiency with large datasets
+    """
+    n_rows = df.count()
+    if na_values is None:
+        na_values = ["NA", "na", "NULL", "null", ""]
+
+    # Normalize NA-like values
+    for colname, coltype in df.dtypes:
+        if coltype == "string":
+            df = df.withColumn(
+                colname,
+                F.when(F.trim(F.lower(F.col(colname))).isin([v.lower() for v in na_values]), None).otherwise(
+                    F.col(colname)
+                ),
+            )
+
+    schema = {}
+    for colname in df.columns:
+        # Sample once at an appropriate ratio
+        sample_ratio_to_use = min(1.0, sample_ratio if n_rows * sample_ratio > 100 else 100 / n_rows)
+        col_sample = df.select(colname).sample(withReplacement=False, fraction=sample_ratio_to_use).dropna()
+        sample_count = col_sample.count()
+
+        inferred_type = "string"  # Default
+
+        if col_sample.dtypes[0][1] != "string":
+            schema[colname] = col_sample.dtypes[0][1]
+            continue
+
+        if sample_count == 0:
+            schema[colname] = "string"
+            continue
+
+        # Check if timestamp
+        ts_col = col_sample.withColumn("parsed", F.to_timestamp(F.col(colname)))
+
+        # Check numeric
+        if (
+            col_sample.withColumn("n", F.col(colname).cast("double")).filter("n is not null").count()
+            >= sample_count * convert_threshold
+        ):
+            # All whole numbers?
+            all_whole = (
+                col_sample.withColumn("n", F.col(colname).cast("double"))
+                .filter("n is not null")
+                .withColumn("frac", F.abs(F.col("n") % 1))
+                .filter("frac > 0.000001")
+                .count()
+                == 0
+            )
+            inferred_type = "int" if all_whole else "double"
+
+        # Check low-cardinality (category-like)
+        elif (
+            sample_count > 0
+            and col_sample.select(F.countDistinct(F.col(colname))).collect()[0][0] / sample_count <= category_threshold
+        ):
+            inferred_type = "category"  # Will just be string, but marked as such
+
+        # Check if timestamp
+        elif ts_col.filter(F.col("parsed").isNotNull()).count() >= sample_count * convert_threshold:
+            inferred_type = "timestamp"
+
+        schema[colname] = inferred_type
+
+    # Apply inferred schema
+    for colname, inferred_type in schema.items():
+        if inferred_type == "int":
+            df = df.withColumn(colname, F.col(colname).cast(T.IntegerType()))
+        elif inferred_type == "double":
+            df = df.withColumn(colname, F.col(colname).cast(T.DoubleType()))
+        elif inferred_type == "boolean":
+            df = df.withColumn(
+                colname,
+                F.when(F.lower(F.col(colname)).isin("true", "yes", "1"), True)
+                .when(F.lower(F.col(colname)).isin("false", "no", "0"), False)
+                .otherwise(None),
+            )
+        elif inferred_type == "timestamp":
+            df = df.withColumn(colname, F.to_timestamp(F.col(colname)))
+        elif inferred_type == "category":
+            df = df.withColumn(colname, F.col(colname).cast(T.StringType()))  # Marked conceptually
+
+        # otherwise keep as string (or original type)
+
+    return df, schema
+
+
+def auto_convert_dtypes_pandas(
+    df: DataFrame,
+    na_values: list = None,
+    category_threshold: float = 0.3,
+    convert_threshold: float = 0.6,
+    sample_ratio: float = 1.0,
+) -> tuple[DataFrame, dict]:
+    """Automatically convert data types in a pandas DataFrame using heuristics.
+
+    This function analyzes the DataFrame to infer appropriate data types
+    and applies the conversions. It handles timestamps, timedeltas, numeric values,
+    and categorical fields.
+
+    Args:
+        df: A pandas DataFrame to convert.
+        na_values: List of strings to be considered as NA/NaN. Defaults to
+            ['NA', 'na', 'NULL', 'null', ''].
+        category_threshold: Maximum ratio of unique values to total values
+            to consider a column categorical. Defaults to 0.3.
+        convert_threshold: Minimum ratio of successfully converted values required
+            to apply a type conversion. Defaults to 0.6.
+        sample_ratio: Fraction of data to sample for type inference. Not used in pandas version
+            but included for API compatibility. Defaults to 1.0.
+
+    Returns:
+        tuple: (The DataFrame with converted types, A dictionary mapping column names to
+                their inferred types as strings)
+    """
+    if na_values is None:
+        na_values = {"NA", "na", "NULL", "null", ""}
+
+    df_converted = df.convert_dtypes()
+    schema = {}
+
+    # Sample if needed (for API compatibility)
+    if sample_ratio < 1.0:
+        df = df.sample(frac=sample_ratio)
+
+    n_rows = len(df)
+
+    for col in df.columns:
+        series = df[col]
+        # Replace NA-like values if string
+        series_cleaned = series.map(lambda x: np.nan if isinstance(x, str) and x.strip() in na_values else x)
+
+        # Skip conversion if already non-object data type, except bool which can potentially be categorical
+        if (
+            not isinstance(series_cleaned.dtype, pd.BooleanDtype)
+            and not isinstance(series_cleaned.dtype, pd.StringDtype)
+            and series_cleaned.dtype != "object"
+        ):
+            # Keep the original data type for non-object dtypes
+            df_converted[col] = series
+            schema[col] = str(series_cleaned.dtype)
+            continue
+
+        # print(f"type: {series_cleaned.dtype}, column: {series_cleaned.name}")
+
+        if not isinstance(series_cleaned.dtype, pd.BooleanDtype):
+            # Try numeric (int or float)
+            numeric = pd.to_numeric(series_cleaned, errors="coerce")
+            if numeric.notna().sum() >= n_rows * convert_threshold:
+                if (numeric.dropna() % 1 == 0).all():
+                    try:
+                        df_converted[col] = numeric.astype("int")  # Nullable integer
+                        schema[col] = "int"
+                        continue
+                    except Exception:
+                        pass
+                df_converted[col] = numeric.astype("double")
+                schema[col] = "double"
+                continue
+
+            # Try datetime
+            datetime_converted = pd.to_datetime(series_cleaned, errors="coerce")
+            if datetime_converted.notna().sum() >= n_rows * convert_threshold:
+                df_converted[col] = datetime_converted
+                schema[col] = "timestamp"
+                continue
+
+            # Try timedelta
+            try:
+                timedelta_converted = pd.to_timedelta(series_cleaned, errors="coerce")
+                if timedelta_converted.notna().sum() >= n_rows * convert_threshold:
+                    df_converted[col] = timedelta_converted
+                    schema[col] = "timedelta"
+                    continue
+            except TypeError:
+                pass
+
+        # Try category
+        try:
+            unique_ratio = series_cleaned.nunique(dropna=True) / n_rows if n_rows > 0 else 1.0
+            if unique_ratio <= category_threshold:
+                df_converted[col] = series_cleaned.astype("category")
+                schema[col] = "category"
+                continue
+        except Exception:
+            pass
+        df_converted[col] = series_cleaned.astype("string")
+        schema[col] = "string"
+
+    return df_converted, schema

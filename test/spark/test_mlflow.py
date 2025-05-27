@@ -21,6 +21,7 @@ try:
     from pyspark.ml.feature import VectorAssembler
 except ImportError:
     pass
+pytestmark = pytest.mark.spark
 warnings.filterwarnings("ignore")
 
 skip_spark = importlib.util.find_spec("pyspark") is None

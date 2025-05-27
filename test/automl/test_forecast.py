@@ -477,7 +477,10 @@ def test_forecast_classification(budget=5):
 def get_stalliion_data():
     from pytorch_forecasting.data.examples import get_stallion_data
 
-    data = get_stallion_data()
+    # data = get_stallion_data()
+    data = pd.read_parquet(
+        "https://raw.githubusercontent.com/sktime/pytorch-forecasting/refs/heads/main/examples/data/stallion.parquet"
+    )
     # add time index - For datasets with no missing values, FLAML will automate this process
     data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
     data["time_idx"] -= data["time_idx"].min()

@@ -1,6 +1,7 @@
 import os
 import unittest
 
+import pytest
 from sklearn.datasets import load_wine
 
 from flaml import AutoML
@@ -23,6 +24,8 @@ if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.p
         skip_my_learner = True
 else:
     skip_my_learner = True
+
+pytestmark = pytest.mark.spark
 
 
 class TestEnsemble(unittest.TestCase):
