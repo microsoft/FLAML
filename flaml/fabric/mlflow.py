@@ -516,6 +516,9 @@ class MLflowIntegration:
         )
         run = mlflow.active_run()
         if run and run.info.run_id == self.parent_run_id:
+            logger.debug(
+                f"Current active run_id {run.info.run_id} == parent_run_id {self.parent_run_id}, Starting run_id {run_id}"
+            )
             mlflow.start_run(run_id=run_id, nested=True)
         elif run and run.info.run_id != run_id:
             ret_message = (
@@ -523,7 +526,9 @@ class MLflowIntegration:
             )
             logger.error(ret_message)
         else:
+            logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
+        logger.debug(f"logged model {estimator} to run_id {mlflow.active_run().info.run_id}")
         if estimator.endswith("_spark"):
             # mlflow.spark.log_model(model, estimator, signature=signature)
             mlflow.spark.log_model(model, "model", signature=signature)
@@ -550,6 +555,7 @@ class MLflowIntegration:
         )
         self.futures[future] = f"run_{run_id}_requirements_updated"
         if not run or run.info.run_id == self.parent_run_id:
+            logger.debug(f"Ending current run_id {mlflow.active_run().info.run_id}")
             mlflow.end_run()
         return ret_message
 
@@ -575,12 +581,19 @@ class MLflowIntegration:
         )
         run = mlflow.active_run()
         if run and run.info.run_id == self.parent_run_id:
+            logger.debug(
+                f"Current active run_id {run.info.run_id} == parent_run_id {self.parent_run_id}, Starting run_id {run_id}"
+            )
             mlflow.start_run(run_id=run_id, nested=True)
         elif run and run.info.run_id != run_id:
             ret_message = f"Error: Should _log_pipeline {flavor_name}:{pipeline_name}:{estimator} model to run_id {run_id}, but logged to run_id {run.info.run_id}"
             logger.error(ret_message)
         else:
+            logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
+        logger.debug(
+            f"logging pipeline {flavor_name}:{pipeline_name}:{estimator} to run_id {mlflow.active_run().info.run_id}"
+        )
         if flavor_name == "sklearn":
             mlflow.sklearn.log_model(pipeline, pipeline_name, signature=signature)
         elif flavor_name == "spark":
@@ -596,6 +609,7 @@ class MLflowIntegration:
         )
         self.futures[future] = f"run_{run_id}_requirements_updated"
         if not run or run.info.run_id == self.parent_run_id:
+            logger.debug(f"Ending current run_id {mlflow.active_run().info.run_id}")
             mlflow.end_run()
         return ret_message
 
