@@ -12,8 +12,8 @@ jobs:
   deploy:
     strategy:
       matrix:
-        os: ['ubuntu-latest']
-        python-version: [3.10]
+        os: ["ubuntu-latest"]
+        python-version: ["3.10"]
     runs-on: ${{ matrix.os }}
     environment: package
     steps:
