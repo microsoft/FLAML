@@ -1,6 +1,6 @@
 [metadata]
-license_file = "LICENSE"
-description-file = "README.md"
+license = { text = "MIT" }
+readme = "README.md"
 
 
 [tool.pytest.ini_options]

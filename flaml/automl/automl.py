@@ -4,6 +4,7 @@
 #  * project root for license information.
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -177,10 +178,11 @@ class AutoML(BaseEstimator):
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
             n_splits: An integer of the number of folds for cross - validation.
-            log_type: A string of the log type, one of
-                ['better', 'all'].
-                'better' only logs configs with better loss than previos iters
-                'all' logs all the tried configs.
+            log_type: Specifies which logs to save. One of ['better', 'all']. Default is 'better'.
+                - 'better': Logs configs and models (if `model_history` is True) only when the loss improves,
+                  to `log_file_name` and MLflow, respectively.
+                - 'all': Logs all configs and models (if `model_history` is True), regardless of performance.
+                Note: Configs are always logged to MLflow if MLflow logging is enabled.
             model_history: A boolean of whether to keep the best
                 model per estimator. Make sure memory is large enough if setting to True. Default False.
             log_training_metric: A boolean of whether to log the training
@@ -2237,7 +2239,9 @@ class AutoML(BaseEstimator):
                 if better or self._log_type == "all":
                     self._log_trial(search_state, estimator)
                 if self.mlflow_integration:
-                    self.mlflow_integration.record_state(self, search_state, estimator)
+                    self.mlflow_integration.record_state(
+                        self, search_state, estimator, better or self._log_type == "all"
+                    )
 
     def _log_trial(self, search_state, estimator):
         if self._training_log:
@@ -2479,7 +2483,9 @@ class AutoML(BaseEstimator):
                 if better or self._log_type == "all":
                     self._log_trial(search_state, estimator)
                 if self.mlflow_integration:
-                    self.mlflow_integration.record_state(self, search_state, estimator)
+                    self.mlflow_integration.record_state(
+                        self, search_state, estimator, better or self._log_type == "all"
+                    )
 
                 logger.info(
                     " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(

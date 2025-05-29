@@ -652,7 +652,7 @@ class MLflowIntegration:
         return f"Successfully pickle_and_log_automl_artifacts {estimator} to run_id {run_id}"
 
     @time_it
-    def record_state(self, automl, search_state, estimator):
+    def record_state(self, automl, search_state, estimator, is_log_model=True):
         _st = time.time()
         automl_metric_name = (
             automl._state.metric if isinstance(automl._state.metric, str) else automl._state.error_metric
@@ -727,7 +727,7 @@ class MLflowIntegration:
                 self.futures[future] = f"iter_{automl._track_iter}_log_info_to_run"
                 future = executor.submit(lambda: self._log_automl_configurations(child_run.info.run_id))
                 self.futures[future] = f"iter_{automl._track_iter}_log_automl_configurations"
-                if automl._state.model_history:
+                if automl._state.model_history and is_log_model:
                     if estimator.endswith("_spark"):
                         future = executor.submit(
                             lambda: self.log_model(
@@ -997,7 +997,7 @@ class MLflowIntegration:
         self.resume_mlflow()
 
 
-def register_automl_pipeline(automl, model_name=None, signature=None):
+def register_automl_pipeline(automl, model_name=None, signature=None, artifact_path="model"):
     pipeline = automl.automl_pipeline
     if pipeline is None:
         logger.warning("pipeline not found, cannot register it")
@@ -1007,7 +1007,7 @@ def register_automl_pipeline(automl, model_name=None, signature=None):
     if automl.best_run_id is None:
         mlflow.sklearn.log_model(
             pipeline,
-            "automl_pipeline",
+            artifact_path,
             registered_model_name=model_name,
             signature=automl.pipeline_signature if signature is None else signature,
         )
@@ -1017,5 +1017,5 @@ def register_automl_pipeline(automl, model_name=None, signature=None):
         return mvs[0]
     else:
         best_run = mlflow.get_run(automl.best_run_id)
-        model_uri = f"runs:/{best_run.info.run_id}/automl_pipeline"
+        model_uri = f"runs:/{best_run.info.run_id}/{artifact_path}"
         return mlflow.register_model(model_uri, model_name)
