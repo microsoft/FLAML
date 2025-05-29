@@ -802,9 +802,17 @@ def run(
                         )
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            results = parallel(
-                                delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
-                            )
+                            try:
+                                results = parallel(
+                                    delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
+                                )
+                            except RuntimeError as e:
+                                logger.warning(f"RuntimeError: {e}")
+                                results = None
+                                logger.info(
+                                    "Encountered RuntimeError. Waiting 10 seconds for Spark cluster to recover before retrying."
+                                )
+                                time.sleep(10)
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
