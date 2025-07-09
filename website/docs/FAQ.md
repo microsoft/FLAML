@@ -80,8 +80,8 @@ from flaml import AutoML
 from sklearn.datasets import load_iris
 
 X, y = load_iris(return_X_y=True)
-
-automl = AutoML(settings={"time_budget": 3})
+settings={"time_budget": 3}
+automl = AutoML(**settings)
 automl.fit(X, y)
 
 print(f"{automl.best_estimator=}")
