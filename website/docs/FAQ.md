@@ -80,11 +80,38 @@ from flaml import AutoML
 from sklearn.datasets import load_iris
 
 X, y = load_iris(return_X_y=True)
-
-automl = AutoML(settings={"time_budget": 3})
+settings = {"time_budget": 3}
+automl = AutoML(**settings)
 automl.fit(X, y)
 
 print(f"{automl.best_estimator=}")
 print(f"{automl.best_config=}")
 print(f"params for best estimator: {automl.model.config2params(automl.best_config)}")
+```
+
+If the automl instance is not accessible and you've the `best_config`. You can also convert it with below code:
+
+```python
+from flaml.automl.task.factory import task_factory
+
+task = "classification"
+best_estimator = "rf"
+best_config = {
+    "n_estimators": 15,
+    "max_features": 0.35807183923834934,
+    "max_leaves": 12,
+    "criterion": "gini",
+}
+
+model_class = task_factory(task).estimator_class_from_str(best_estimator)(task=task)
+best_params = model_class.config2params(best_config)
+```
+
+Then you can use it to train the sklearn estimators directly:
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+
+model = RandomForestClassifier(**best_params)
+model.fit(X, y)
 ```
