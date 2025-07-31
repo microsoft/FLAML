@@ -3,7 +3,13 @@ import re
 from time import sleep
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Extra, root_validator
+import pydantic
+from packaging import version
+
+if version(pydantic.__version__) < version.parse("2.0.0"):
+    from pydantic import BaseModel, Extra, root_validator
+else:
+    from pydantic.v1 import BaseModel, Extra, root_validator
 
 from flaml.autogen.agentchat import Agent, UserProxyAgent
 from flaml.autogen.code_utils import UNKNOWN, execute_code, extract_code, infer_lang
