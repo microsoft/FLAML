@@ -746,7 +746,10 @@ class GenericTask(Task):
             elif isinstance(kf, TimeSeriesSplit):
                 kf = kf.split(X_train_split, y_train_split)
             else:
-                kf = kf.split(X_train_split, y_train_split)
+                try:
+                    kf = kf.split(X_train_split)
+                except TypeError:
+                    kf = kf.split(X_train_split, y_train_split)
 
         for train_index, val_index in kf:
             if shuffle:
