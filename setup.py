@@ -104,7 +104,7 @@ setuptools.setup(
             "packaging",
         ],
         "ray": [
-            "ray[tune]~=1.13",
+            "ray[tune]>=2.9",
         ],
         "azureml": [
             "azureml-mlflow",
