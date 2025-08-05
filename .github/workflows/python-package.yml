@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-2019]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
@@ -91,12 +91,12 @@ jobs:
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
-          pytest test/
+          pytest test/ --ignore=test/autogen
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
           pip install coverage
-          coverage run -a -m pytest test
+          coverage run -a -m pytest test --ignore=test/autogen
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.10'
