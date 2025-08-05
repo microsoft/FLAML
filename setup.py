@@ -90,7 +90,7 @@ setuptools.setup(
             "tensorboardX==2.6",  # test_forecast_panel
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
             "packaging",
-            "pydantic==1.10.9",
+            "pydantic>=1.10.9",
             "sympy",
             "wolframalpha",
             "dill",  # a drop in replacement of pickle
