@@ -2832,5 +2832,6 @@ class suppress_stdout_stderr:
         os.dup2(self.save_fds[0], 1)
         os.dup2(self.save_fds[1], 2)
         # Close the null files
-        os.close(self.null_fds[0])
-        os.close(self.null_fds[1])
+        for fd in self.null_fds + self.save_fds:
+            os.close(fd)
+
