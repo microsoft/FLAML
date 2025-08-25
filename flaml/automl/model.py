@@ -2820,7 +2820,7 @@ class suppress_stdout_stderr:
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
         # Save the actual stdout (1) and stderr (2) file descriptors.
-        self.save_fds = (os.dup(1), os.dup(2))
+        self.save_fds = [os.dup(1), os.dup(2)]
 
     def __enter__(self):
         # Assign the null pointers to stdout and stderr.
@@ -2834,4 +2834,3 @@ class suppress_stdout_stderr:
         # Close the null files
         for fd in self.null_fds + self.save_fds:
             os.close(fd)
-
