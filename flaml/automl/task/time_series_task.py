@@ -529,7 +529,7 @@ def remove_ts_duplicates(
     duplicates = X.duplicated()
 
     if any(duplicates):
-        logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, X][time_col]}")
+        logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, time_col]}")
         X = X.drop_duplicates()
         logger.warning("Removed duplicate rows based on all columns")
         assert (
