@@ -111,6 +111,7 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 
 ```python
 from flaml import tune
+
 tune.run(evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
 ```
 
