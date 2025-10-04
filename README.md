@@ -112,7 +112,9 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 ```python
 from flaml import tune
 
-tune.run(evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600)
+tune.run(
+    evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600
+)
 ```
 
 - [Zero-shot AutoML](https://microsoft.github.io/FLAML/docs/Use-Cases/Zero-Shot-AutoML) allows using the existing training API from lightgbm, xgboost etc. while getting the benefit of AutoML in choosing high-performance hyperparameter configurations per task.
