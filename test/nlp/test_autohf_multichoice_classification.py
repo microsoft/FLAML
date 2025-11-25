@@ -5,8 +5,18 @@ import sys
 import pytest
 from utils import get_automl_settings, get_toy_data_multiplechoiceclassification
 
+try:
+    import transformers
 
-@pytest.mark.skipif(sys.platform in ["darwin", "win32"], reason="do not run on mac os or windows")
+    _transformers_installed = True
+except ImportError:
+    _transformers_installed = False
+
+
+@pytest.mark.skipif(
+    sys.platform in ["darwin", "win32"] or not _transformers_installed,
+    reason="do not run on mac os or windows or transformers not installed",
+)
 def test_mcc():
     import requests
 

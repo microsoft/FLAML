@@ -2347,8 +2347,11 @@ class SGDEstimator(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["loss"] = params.get("loss", None)
-        if params["loss"] is None and self._task.is_classification():
-            params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
+        if params["loss"] is None:
+            if self._task.is_classification():
+                params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
+            else:
+                params["loss"] = "squared_error"
         if not self._task.is_classification() and "n_jobs" in params:
             params.pop("n_jobs")
 

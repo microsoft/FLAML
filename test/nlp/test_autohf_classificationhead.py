@@ -3,6 +3,12 @@ import shutil
 import sys
 
 import pytest
+
+try:
+    import transformers
+except ImportError:
+    pytest.skip("transformers not installed", allow_module_level=True)
+
 from utils import (
     get_automl_settings,
     get_toy_data_binclassification,

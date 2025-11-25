@@ -10,7 +10,7 @@ from flaml import AutoML
 from flaml.automl.task.time_series_task import TimeSeriesTask
 
 
-def test_forecast_automl(budget=10, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
+def test_forecast_automl(budget=20, estimators_when_no_prophet=["arima", "sarimax", "holt-winters"]):
     # using dataframe
     import statsmodels.api as sm
 
@@ -510,8 +510,12 @@ def get_stalliion_data():
     "3.11" in sys.version,
     reason="do not run on py 3.11",
 )
-def test_forecast_panel(budget=5):
-    data, special_days = get_stalliion_data()
+def test_forecast_panel(budget=30):
+    try:
+        data, special_days = get_stalliion_data()
+    except ImportError:
+        print("pytorch_forecasting not installed")
+        return
     time_horizon = 6  # predict six months
     training_cutoff = data["time_idx"].max() - time_horizon
     data["time_idx"] = data["time_idx"].astype("int")

@@ -1,3 +1,4 @@
+import atexit
 import os
 import sys
 import warnings
@@ -10,6 +11,7 @@ from packaging.version import Version
 
 from flaml import AutoML
 from flaml.automl.data import auto_convert_dtypes_pandas, auto_convert_dtypes_spark, get_random_dataframe
+from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
 from flaml.tune.spark.utils import check_spark
 
 warnings.simplefilter(action="ignore")
@@ -29,7 +31,7 @@ else:
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:1.0.4,"
+                    "com.microsoft.azure:synapseml_2.12:1.1.0,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
                     f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
@@ -55,6 +57,9 @@ else:
     except ImportError:
         skip_spark = True
 
+spark, ansi_conf, adjusted = disable_spark_ansi_mode()
+atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
+
 if sys.version_info >= (3, 11):
     skip_py311 = True
 else:
@@ -64,6 +69,9 @@ pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Ski
 
 
 def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
+    # TODO: remove the estimator assignment once SynapseML supports spark 4+.
+    from flaml.automl.spark.utils import _spark_major_minor_version
+
     if task == "classification":
         metric = "accuracy"
         X_train, y_train = skds.load_iris(return_X_y=True, as_frame=True)
@@ -154,26 +162,31 @@ def test_spark_synapseml_rank():
 
 
 def test_spark_input_df():
-    df = (
-        spark.read.format("csv")
-        .option("header", True)
-        .option("inferSchema", True)
-        .load("wasbs://publicwasb@mmlspark.blob.core.windows.net/company_bankruptcy_prediction_data.csv")
-    )
+    import pandas as pd
+
+    file_url = "https://mmlspark.blob.core.windows.net/publicwasb/company_bankruptcy_prediction_data.csv"
+    df = pd.read_csv(file_url)
+    df = spark.createDataFrame(df)
     train, test = df.randomSplit([0.8, 0.2], seed=1)
     feature_cols = df.columns[1:]
     featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
     train_data = featurizer.transform(train)["Bankrupt?", "features"]
     test_data = featurizer.transform(test)["Bankrupt?", "features"]
     automl = AutoML()
+
+    # TODO: remove the estimator assignment once SynapseML supports spark 4+.
+    from flaml.automl.spark.utils import _spark_major_minor_version
+
+    estimator_list = None
+
     settings = {
         "time_budget": 30,  # total running time in seconds
         "metric": "roc_auc",
-        # "estimator_list": ["lgbm_spark"],  # list of ML learners; we tune lightgbm in this example
         "task": "classification",  # task type
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
         "eval_method": "holdout",
+        "estimator_list": estimator_list,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
 
@@ -183,6 +196,9 @@ def test_spark_input_df():
         isUnbalance=True,
         **settings,
     )
+
+    if estimator_list == ["rf_spark"]:
+        return
 
     try:
         model = automl.model.estimator

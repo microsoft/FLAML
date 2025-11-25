@@ -32,6 +32,7 @@ def construct_portfolio(regret_matrix, meta_features, regret_bound):
     if meta_features is not None:
         scaler = RobustScaler()
         meta_features = meta_features.loc[tasks]
+        meta_features = meta_features.astype(float)
         meta_features.loc[:, :] = scaler.fit_transform(meta_features)
         nearest_task = {}
         for t in tasks:
