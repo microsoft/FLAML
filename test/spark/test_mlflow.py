@@ -1,3 +1,4 @@
+import atexit
 import importlib
 import os
 import sys
@@ -13,6 +14,7 @@ from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 
 import flaml
+from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
 from flaml.automl.spark.utils import to_pandas_on_spark
 
 try:
@@ -121,6 +123,29 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+def test_automl_nonsparkdata_noautolog_noparentrun():
+    experiment_id = _test_automl_nonsparkdata(is_autolog=False, is_parent_run=False)
+    _check_mlflow_logging(0, "r2", False, experiment_id, is_automl=True)  # no logging
+
+
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+def test_automl_sparkdata_noautolog_noparentrun():
+    experiment_id = _test_automl_sparkdata(is_autolog=False, is_parent_run=False)
+    _check_mlflow_logging(0, "mse", False, experiment_id, is_automl=True)  # no logging
+
+
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+def test_tune_noautolog_noparentrun_parallel():
+    experiment_id = _test_tune(is_autolog=False, is_parent_run=False, is_parallel=True)
+    _check_mlflow_logging(0, "r2", False, experiment_id)
+
+
+def test_tune_noautolog_noparentrun_nonparallel():
+    experiment_id = _test_tune(is_autolog=False, is_parent_run=False, is_parallel=False)
+    _check_mlflow_logging(3, "r2", False, experiment_id, skip_tags=True)
+
+
+@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_tune_autolog_parentrun_parallel():
     experiment_id = _test_tune(is_autolog=True, is_parent_run=True, is_parallel=True)
     _check_mlflow_logging([4, 3], "r2", True, experiment_id)
@@ -128,6 +153,16 @@ def test_tune_autolog_parentrun_parallel():
 
 def test_tune_autolog_parentrun_nonparallel():
     experiment_id = _test_tune(is_autolog=True, is_parent_run=True, is_parallel=False)
+    _check_mlflow_logging(3, "r2", True, experiment_id)
+
+
+def test_tune_autolog_noparentrun_nonparallel():
+    experiment_id = _test_tune(is_autolog=True, is_parent_run=False, is_parallel=False)
+    _check_mlflow_logging(3, "r2", False, experiment_id)
+
+
+def test_tune_noautolog_parentrun_nonparallel():
+    experiment_id = _test_tune(is_autolog=False, is_parent_run=True, is_parallel=False)
     _check_mlflow_logging(3, "r2", True, experiment_id)
 
 
@@ -143,27 +178,6 @@ def test_tune_noautolog_parentrun_parallel():
     _check_mlflow_logging([4, 3], "r2", True, experiment_id)
 
 
-def test_tune_autolog_noparentrun_nonparallel():
-    experiment_id = _test_tune(is_autolog=True, is_parent_run=False, is_parallel=False)
-    _check_mlflow_logging(3, "r2", False, experiment_id)
-
-
-def test_tune_noautolog_parentrun_nonparallel():
-    experiment_id = _test_tune(is_autolog=False, is_parent_run=True, is_parallel=False)
-    _check_mlflow_logging(3, "r2", True, experiment_id)
-
-
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
-def test_tune_noautolog_noparentrun_parallel():
-    experiment_id = _test_tune(is_autolog=False, is_parent_run=False, is_parallel=True)
-    _check_mlflow_logging(0, "r2", False, experiment_id)
-
-
-def test_tune_noautolog_noparentrun_nonparallel():
-    experiment_id = _test_tune(is_autolog=False, is_parent_run=False, is_parallel=False)
-    _check_mlflow_logging(3, "r2", False, experiment_id, skip_tags=True)
-
-
 def _test_automl_sparkdata(is_autolog, is_parent_run):
     mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
@@ -175,6 +189,9 @@ def _test_automl_sparkdata(is_autolog, is_parent_run):
     if is_parent_run:
         mlflow.start_run(run_name=f"automl_sparkdata_autolog_{is_autolog}")
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
+    spark, ansi_conf, adjusted = disable_spark_ansi_mode()
+    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
+
     pd_df = load_diabetes(as_frame=True).frame
     df = spark.createDataFrame(pd_df)
     df = df.repartition(4).cache()
@@ -193,6 +210,7 @@ def _test_automl_sparkdata(is_autolog, is_parent_run):
         "log_type": "all",
         "n_splits": 2,
         "model_history": True,
+        "estimator_list": None,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
     automl.fit(
@@ -253,12 +271,6 @@ def test_automl_sparkdata_noautolog_parentrun():
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
-def test_automl_sparkdata_noautolog_noparentrun():
-    experiment_id = _test_automl_sparkdata(is_autolog=False, is_parent_run=False)
-    _check_mlflow_logging(0, "mse", False, experiment_id, is_automl=True)  # no logging
-
-
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
 def test_automl_nonsparkdata_autolog_parentrun():
     experiment_id = _test_automl_nonsparkdata(is_autolog=True, is_parent_run=True)
     _check_mlflow_logging([4, 3], "r2", True, experiment_id, is_automl=True)
@@ -274,12 +286,6 @@ def test_automl_nonsparkdata_autolog_noparentrun():
 def test_automl_nonsparkdata_noautolog_parentrun():
     experiment_id = _test_automl_nonsparkdata(is_autolog=False, is_parent_run=True)
     _check_mlflow_logging([4, 3], "r2", True, experiment_id, is_automl=True)
-
-
-@pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
-def test_automl_nonsparkdata_noautolog_noparentrun():
-    experiment_id = _test_automl_nonsparkdata(is_autolog=False, is_parent_run=False)
-    _check_mlflow_logging(0, "r2", False, experiment_id, is_automl=True)  # no logging
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
@@ -318,6 +324,9 @@ def _init_spark_for_main():
         "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
         "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
     )
+
+    spark, ansi_conf, adjusted = disable_spark_ansi_mode()
+    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
 
 
 if __name__ == "__main__":
