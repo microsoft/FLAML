@@ -2176,7 +2176,7 @@ class AutoML(BaseEstimator):
                 use_spark=True,
                 force_cancel=self._force_cancel,
                 mlflow_exp_name=self._mlflow_exp_name,
-                automl_info=(mlflow_log_latency,),  # pass automl info to tune.run
+                automl_info=(mlflow_log_latency, self._log_type),  # pass automl info to tune.run
                 extra_tag=self.autolog_extra_tag,
                 # raise_on_failed_trial=False,
                 # keep_checkpoints_num=1,
