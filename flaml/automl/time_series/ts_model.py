@@ -194,7 +194,11 @@ class Orbit(TimeSeriesEstimator):
 
         elif isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[[self.time_col] + X.regressors]
+            # Use train_data if test_data is empty (e.g., when computing training metrics)
+            if len(data.test_data) == 0:
+                X = data.train_data[[self.time_col] + X.regressors]
+            else:
+                X = data.test_data[[self.time_col] + X.regressors]
 
         if self._model is not None:
             forecast = self._model.predict(X, **kwargs)
@@ -301,7 +305,11 @@ class Prophet(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # Use train_data if test_data is empty (e.g., when computing training metrics)
+            if len(data.test_data) == 0:
+                X = data.train_data[data.regressors + [data.time_col]]
+            else:
+                X = data.test_data[data.regressors + [data.time_col]]
 
         X = X.rename(columns={self.time_col: "ds"})
         if self._model is not None:
@@ -327,7 +335,11 @@ class StatsModelsEstimator(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # Use train_data if test_data is empty (e.g., when computing training metrics)
+            if len(data.test_data) == 0:
+                X = data.train_data[data.regressors + [data.time_col]]
+            else:
+                X = data.test_data[data.regressors + [data.time_col]]
         else:
             X = X[self.regressors + [self.time_col]]
 
