@@ -14,15 +14,9 @@
     <br>
 </p>
 
-:fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11 support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
+:fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11 and 3.12 support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
 
-:fire: Heads-up: We have migrated [AutoGen](https://microsoft.github.io/autogen/) into a dedicated [github repository](https://github.com/microsoft/autogen). Alongside this move, we have also launched a dedicated [Discord](https://discord.gg/pAbnFJrkgZ) server and a [website](https://microsoft.github.io/autogen/) for comprehensive documentation.
-
-:fire: The automated multi-agent chat framework in [AutoGen](https://microsoft.github.io/autogen/) is in preview from v2.0.0.
-
-:fire: FLAML is highlighted in OpenAI's [cookbook](https://github.com/openai/openai-cookbook#related-resources-from-around-the-web).
-
-:fire: [autogen](https://microsoft.github.io/autogen/) is released with support for ChatGPT and GPT-4, based on [Cost-Effective Hyperparameter Optimization for Large Language Model Generation Inference](https://arxiv.org/abs/2303.04673).
+:fire: Heads-up: [AutoGen](https://microsoft.github.io/autogen/) has moved to a dedicated [GitHub repository](https://github.com/microsoft/autogen). FLAML no longer includes the `autogen` module—please use AutoGen directly.
 
 ## What is FLAML
 
@@ -30,7 +24,7 @@ FLAML is a lightweight Python library for efficient automation of machine
 learning and AI operations. It automates workflow based on large language models, machine learning models, etc.
 and optimizes their performance.
 
-- FLAML enables building next-gen GPT-X applications based on multi-agent conversations with minimal effort. It simplifies the orchestration, automation and optimization of a complex GPT-X workflow. It maximizes the performance of GPT-X models and augments their weakness.
+- FLAML enables economical automation and tuning for ML/AI workflows, including model selection and hyperparameter optimization under resource constraints.
 - For common machine learning tasks like classification and regression, it quickly finds quality models for user-provided data with low computational resources. It is easy to customize or extend. Users can find their desired customizability from a smooth range.
 - It supports fast and economical automatic tuning (e.g., inference hyperparameters for foundation models, configurations in MLOps/LMOps workflows, pipelines, mathematical/statistical models, algorithms, computing experiments, software configurations), capable of handling large search space with heterogeneous evaluation cost and complex constraints/guidance/early stopping.
 
@@ -46,49 +40,16 @@ FLAML requires **Python version >= 3.9**. It can be installed from pip:
 pip install flaml
 ```
 
-Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`autogen`](https://microsoft.github.io/autogen/) package.
+Minimal dependencies are installed without extra options. You can install extra options based on the feature you need. For example, use the following to install the dependencies needed by the [`automl`](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML) module.
 
 ```bash
-pip install "flaml[autogen]"
+pip install "flaml[automl]"
 ```
 
 Find more options in [Installation](https://microsoft.github.io/FLAML/docs/Installation).
 Each of the [`notebook examples`](https://github.com/microsoft/FLAML/tree/main/notebook) may require a specific option to be installed.
 
 ## Quickstart
-
-- (New) The [autogen](https://microsoft.github.io/autogen/) package enables the next-gen GPT-X applications with a generic multi-agent conversation framework.
-  It offers customizable and conversable agents which integrate LLMs, tools and human.
-  By automating chat among multiple capable agents, one can easily make them collectively perform tasks autonomously or with human feedback, including tasks that require using tools via code. For example,
-
-```python
-from flaml import autogen
-
-assistant = autogen.AssistantAgent("assistant")
-user_proxy = autogen.UserProxyAgent("user_proxy")
-user_proxy.initiate_chat(
-    assistant,
-    message="Show me the YTD gain of 10 largest technology companies as of today.",
-)
-# This initiates an automated chat between the two agents to solve the task
-```
-
-Autogen also helps maximize the utility out of the expensive LLMs such as ChatGPT and GPT-4. It offers a drop-in replacement of `openai.Completion` or `openai.ChatCompletion` with powerful functionalites like tuning, caching, templating, filtering. For example, you can optimize generations by LLM with your own tuning data, success metrics and budgets.
-
-```python
-# perform tuning
-config, analysis = autogen.Completion.tune(
-    data=tune_data,
-    metric="success",
-    mode="max",
-    eval_func=eval_func,
-    inference_budget=0.05,
-    optimization_budget=3,
-    num_samples=-1,
-)
-# perform inference for a test instance
-response = autogen.Completion.create(context=test_instance, **config)
-```
 
 - With three lines of code, you can start using this economical and fast
   AutoML engine as a [scikit-learn style estimator](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML).
