@@ -172,7 +172,7 @@ test/default
 test/housing.json
 test/nlp/default/transformer_ms/seq-classification.json
 
-flaml/fabric/fanova/_fanova.c
+flaml/fabric/fanova/*fanova.c
 # local config files
 *.config.local
 
@@ -184,3 +184,6 @@ notebook/lightning_logs/
 lightning_logs/
 flaml/autogen/extensions/tmp/
 test/autogen/my_tmp/
+
+# Internal configs
+.pypirc
