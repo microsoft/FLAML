@@ -1,5 +1,8 @@
 """Test log_training_metric with time series forecasting models."""
 
+import os
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -19,6 +22,7 @@ def prepare_airline_data():
     })
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_log_training_metric_with_arima():
     """Test that ARIMA works with log_training_metric=True."""
     from flaml import AutoML
@@ -42,6 +46,7 @@ def test_log_training_metric_with_arima():
     assert automl.best_estimator == "arima"
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_log_training_metric_with_sarimax():
     """Test that SARIMAX works with log_training_metric=True."""
     from flaml import AutoML
@@ -65,6 +70,7 @@ def test_log_training_metric_with_sarimax():
     assert automl.best_estimator == "sarimax"
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_log_training_metric_with_holt_winters():
     """Test that Holt-Winters works with log_training_metric=True."""
     from flaml import AutoML
@@ -88,6 +94,7 @@ def test_log_training_metric_with_holt_winters():
     assert automl.best_estimator == "holt-winters"
 
 
+@pytest.mark.skipif(sys.platform == "darwin" or "nt" in os.name, reason="skip on mac or windows")
 def test_log_training_metric_with_all_ts_estimators():
     """Test that all TS estimators work with log_training_metric=True."""
     from flaml import AutoML
