@@ -8,6 +8,8 @@ import pytest
 def prepare_airline_data():
     """Prepare a simple time series dataset."""
     # Create simple time series data similar to airline data
+    # Use fixed seed for reproducible tests
+    np.random.seed(42)
     dates = pd.date_range(start="1949-01-01", periods=50, freq="MS")
     values = np.arange(50, dtype=np.float64) + np.random.randn(50) * 5
     
