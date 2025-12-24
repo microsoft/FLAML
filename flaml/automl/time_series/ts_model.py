@@ -840,7 +840,11 @@ class TS_SKLearn(TimeSeriesEstimator):
         X = self.enrich(X)
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data
+            # Use train_data if test_data is empty (e.g., when computing training metrics)
+            if len(data.test_data) == 0:
+                X = data.train_data
+            else:
+                X = data.test_data
 
         if self._model is not None:
             X = X[self.regressors]
