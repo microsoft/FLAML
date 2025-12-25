@@ -62,7 +62,7 @@ setuptools.setup(
             "pytest>=6.1.1",
             "coverage>=5.3",
             "pre-commit",
-            "torch",
+            "torch==2.2.2",
             "torchvision",
             "catboost>=0.26,<1.2; python_version<'3.11'",
             "catboost>=0.26; python_version>='3.11'",
@@ -86,7 +86,7 @@ setuptools.setup(
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning<1.9.1",  # test_forecast_panel
+            "pytorch-lightning==2.2.2",  # test_forecast_panel
             "tensorboardX==2.6",  # test_forecast_panel
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
             "packaging",
