@@ -1,5 +1,6 @@
 import pickle
 import sys
+import time
 import urllib.error
 
 import pandas as pd
@@ -15,6 +16,32 @@ from flaml.default import (
     suggest_hyperparams,
     suggest_learner,
 )
+
+
+def fetch_california_housing_with_retry(max_retries=3, retry_delay=2, **kwargs):
+    """Fetch California Housing dataset with retry logic for HTTP errors.
+    
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delay: Initial delay between retries in seconds (default: 2)
+        **kwargs: Arguments to pass to fetch_california_housing
+        
+    Returns:
+        Dataset from fetch_california_housing
+        
+    Raises:
+        Exception: If all retry attempts fail
+    """
+    for attempt in range(max_retries):
+        try:
+            return fetch_california_housing(**kwargs)
+        except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, skip the test
+                pytest.skip(f"Failed to fetch California Housing dataset after {max_retries} attempts: {e}")
+            # Exponential backoff
+            wait_time = retry_delay * (2 ** attempt)
+            time.sleep(wait_time)
 
 
 def test_greedy_feedback(path="test/default", strategy="greedy-feedback"):
@@ -52,11 +79,7 @@ def test_iris(as_frame=True):
 
 
 def test_housing(as_frame=True):
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_housing due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=as_frame)
     
     automl = AutoML()
     automl_settings = {
@@ -122,11 +145,7 @@ def test_suggest_classification():
 
 def test_suggest_regression():
     location = "test/default"
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_suggest_regression due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=True)
     
     suggested = suggest_hyperparams("regression", X_train, y_train, "lgbm", location=location)
     print(suggested)
@@ -149,11 +168,7 @@ def test_rf():
     print(rf)
 
     location = "test/default"
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_rf regression part due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=True)
     
     rf = RandomForestRegressor(default_location=location)
     rf.fit(X_train[:100], y_train[:100])
@@ -172,11 +187,7 @@ def test_extratrees():
     print(classifier)
 
     location = "test/default"
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_extratrees regression part due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=True)
     
     regressor = ExtraTreesRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
@@ -197,11 +208,7 @@ def test_lgbm():
     print(classifier.classes_)
 
     location = "test/default"
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_lgbm regression part due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=True)
     
     regressor = LGBMRegressor(default_location=location)
     regressor.fit(X_train, y_train)
@@ -221,11 +228,7 @@ def test_xgboost():
     print(classifier.classes_)
 
     location = "test/default"
-    try:
-        X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
-    except (urllib.error.HTTPError, Exception) as e:
-        pytest.skip(f"Skipping test_xgboost regression part due to data fetch error: {e}")
-        return
+    X_train, y_train = fetch_california_housing_with_retry(return_X_y=True, as_frame=True)
     
     regressor = XGBRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
