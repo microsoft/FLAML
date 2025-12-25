@@ -46,9 +46,10 @@ setuptools.setup(
             "jupyter",
         ],
         "spark": [
-            "pyspark>=3.2.0",
+            "pyspark>=3.2.0,<3.5.0; python_version<'3.11'",
+            "pyspark>=3.5.0; python_version>='3.11'",
             "joblibspark>=0.5.0",
-            "joblib<=1.3.2",
+            "joblib>=1.2.0,<=1.4.2",
         ],
         "test": [
             "jupyter",
@@ -82,7 +83,7 @@ setuptools.setup(
             # "pytorch-forecasting==0.10.1; python_version=='3.11'",
             "mlflow==2.15.1",
             "joblibspark>=0.5.0",
-            "joblib<=1.3.2",
+            "joblib>=1.2.0,<=1.4.2",
             "nbconvert",
             "nbformat",
             "ipykernel",
@@ -161,7 +162,8 @@ setuptools.setup(
         "synapse": [
             "joblibspark>=0.5.0",
             "optuna>=2.8.0,<=3.6.1",
-            "pyspark>=3.2.0",
+            "pyspark>=3.2.0,<3.5.0; python_version<'3.11'",
+            "pyspark>=3.5.0; python_version>='3.11'",
         ],
         "autozero": ["scikit-learn", "pandas", "packaging"],
     },
