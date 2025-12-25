@@ -94,6 +94,7 @@ setuptools.setup(
             "sympy",
             "wolframalpha",
             "dill",  # a drop in replacement of pickle
+            "lightning<=2.5.6",
         ],
         "catboost": [
             "catboost>=0.26,<1.2; python_version<'3.11'",
