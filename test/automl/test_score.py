@@ -142,7 +142,7 @@ class TestScore:
     def test_regression(self):
         automl_experiment = AutoML()
 
-        X_train, y_train = fetch_california_housing(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=False, data_home="test")
         n = int(len(y_train) * 9 // 10)
 
         for each_estimator in [
