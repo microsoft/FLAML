@@ -47,7 +47,7 @@ class TestRegression(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True,
         }
-        X_train, y_train = fetch_california_housing(return_X_y=False, data_home="test")
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
         n = int(len(y_train) * 9 // 10)
         automl.fit(X_train=X_train[:n], y_train=y_train[:n], X_val=X_train[n:], y_val=y_train[n:], **automl_settings)
         assert automl._state.eval_method == "holdout"
@@ -141,7 +141,7 @@ class TestRegression(unittest.TestCase):
             "n_concurrent_trials": 10,
             "hpo_method": hpo_method,
         }
-        X_train, y_train = fetch_california_housing(return_X_y=False, data_home="test")
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
         try:
             automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
             print(automl_experiment.predict(X_train))

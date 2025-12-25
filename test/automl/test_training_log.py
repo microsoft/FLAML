@@ -30,7 +30,7 @@ class TestTrainingLog(unittest.TestCase):
                 "keep_search_state": True,
                 "estimator_list": estimator_list,
             }
-            X_train, y_train = fetch_california_housing(return_X_y=False, data_home="test")
+            X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
             # Check if the training log file is populated.
             self.assertTrue(os.path.exists(filename))
