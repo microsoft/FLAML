@@ -111,7 +111,7 @@ def limit_resource(memory_limit, time_limit):
                 pass
 
 
-class BaseEstimator:
+class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
     """The abstract class for all learners.
 
     Typical examples:
