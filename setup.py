@@ -58,7 +58,7 @@ setuptools.setup(
             "scipy>=1.4.1",
             "pandas>=1.1.4,<2.0.0; python_version<'3.10'",
             "pandas>=1.1.4; python_version>='3.10'",
-            "scikit-learn>=1.0.0",
+            "scikit-learn>=1.2.0",
             "thop",
             "pytest>=6.1.1",
             "coverage>=5.3",
