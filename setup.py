@@ -51,6 +51,7 @@ setuptools.setup(
             "joblib<=1.3.2",
         ],
         "test": [
+            "numpy<2.0.0",
             "jupyter",
             "lightgbm>=2.3.1",
             "xgboost>=0.90,<2.0.0",
