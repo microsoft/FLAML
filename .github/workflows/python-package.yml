@@ -59,7 +59,7 @@ jobs:
           export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
       - name: Install packages and dependencies
         run: |
-          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install --upgrade "pip<24.1" wheel setuptools
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
