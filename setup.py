@@ -78,18 +78,18 @@ setuptools.setup(
             "rouge_score",
             "hcrystalball==0.1.10",
             "seqeval",
-            "pytorch-forecasting",
+            "pytorch-forecasting==0.10.2",
             "mlflow==2.15.1",
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
             "nbconvert",
             "nbformat",
             "ipykernel",
-            "pytorch-lightning<1.9.1",  # test_forecast_panel
+            "pytorch-lightning",  # test_forecast_panel
             "tensorboardX==2.6",  # test_forecast_panel
             "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
             "packaging",
-            "pydantic==1.10.9",
+            # "pydantic==1.10.9",
             "sympy",
             "wolframalpha",
             "dill",  # a drop in replacement of pickle
