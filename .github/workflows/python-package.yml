@@ -22,6 +22,9 @@ on:
       - 'setup.py'
   merge_group:
     types: [checks_requested]
+  schedule:
+    # Every other day at 02:00 UTC
+    - cron: '0 2 */2 * *'
 
 permissions: {}
 concurrency:
