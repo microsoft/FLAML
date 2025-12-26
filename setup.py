@@ -80,7 +80,7 @@ setuptools.setup(
             "hcrystalball==0.1.10",
             "seqeval",
             "pytorch-forecasting<1.0.0; python_version>='3.11'",
-            "pytorch-forecasting>=0.9.0; python_version<'3.11'",
+            # "pytorch-forecasting>=0.9.0; python_version<'3.11'",
             "mlflow==2.15.1",
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
