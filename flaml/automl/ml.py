@@ -135,8 +135,6 @@ def metric_loss_score(
 
                 metric = evaluate.load(datasets_metric_name, trust_remote_code=True)
             except Exception:
-                import datasets
-
                 if hasattr(datasets, "load_metric"):
                     metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
                 else:
