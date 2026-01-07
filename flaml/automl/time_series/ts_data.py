@@ -391,7 +391,7 @@ class DataTransformerTS:
         n = X.shape[0]
 
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
-        
+
         for column in X.columns:
             # Never treat the time column as a feature for sklearn preprocessing
             if column == self.time_col:

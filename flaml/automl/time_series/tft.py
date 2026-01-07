@@ -1,5 +1,5 @@
-import time
 import inspect
+import time
 
 try:
     import pandas as pd

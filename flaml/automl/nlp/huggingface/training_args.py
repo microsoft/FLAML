@@ -82,9 +82,7 @@ class TrainingArgumentsForAuto(TrainingArguments):
     # while defaulting to None for non-generation tasks.
     generation_config: Optional[object] = field(
         default=None,
-        metadata={
-            "help": "Optional generation config (or path) used by generation-aware trainers."
-        },
+        metadata={"help": "Optional generation config (or path) used by generation-aware trainers."},
     )
 
     @staticmethod
