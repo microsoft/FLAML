@@ -63,7 +63,7 @@ setuptools.setup(
             "pytest>=6.1.1",
             "coverage>=5.3",
             "pre-commit",
-            "torch==2.2.2",
+            "torch",
             "torchvision",
             "catboost>=0.26,<1.2; python_version<'3.11'",
             "catboost>=0.26; python_version>='3.11'",
@@ -71,31 +71,28 @@ setuptools.setup(
             "optuna>=2.8.0,<=3.6.1",
             "openml",
             "statsmodels>=0.12.2",
-            "psutil==5.8.0",
+            "psutil",
             "dataclasses",
-            "transformers[torch]==4.26",
-            "datasets<=3.5.0",
-            "nltk<=3.8.1",  # 3.8.2 doesn't work with mlflow
+            "transformers[torch]",
+            "datasets",
+            "evaluate",
+            "nltk",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
-            "hcrystalball==0.1.10",
+            "hcrystalball",
             "seqeval",
-            "pytorch-forecasting<1.0.0; python_version>='3.11'",
+            "pytorch-forecasting",
             # "pytorch-forecasting>=0.9.0; python_version<'3.11'",
-            "mlflow==2.15.1",
+            "mlflow<3.0.0",
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
             "nbconvert",
             "nbformat",
             "ipykernel",
             "pytorch-lightning",  # test_forecast_panel
-            "tensorboardX==2.6",  # test_forecast_panel
-            "requests<2.29.0",  # https://github.com/docker/docker-py/issues/3113
+            "tensorboardX",  # test_forecast_panel
+            "requests",  # https://github.com/docker/docker-py/issues/3113
             "packaging",
-            # "pydantic==1.10.9",
-            "sympy",
-            "wolframalpha",
             "dill",  # a drop in replacement of pickle
-            "lightning<=2.5.6",
         ],
         "catboost": [
             "catboost>=0.26,<1.2; python_version<'3.11'",

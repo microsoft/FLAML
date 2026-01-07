@@ -127,8 +127,22 @@ def metric_loss_score(
             import datasets
 
             datasets_metric_name = huggingface_submetric_to_metric.get(metric_name, metric_name.split(":")[0])
-            metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
             metric_mode = huggingface_metric_to_mode[datasets_metric_name]
+
+            # datasets>=3 removed load_metric; prefer evaluate if available
+            try:
+                import evaluate
+
+                metric = evaluate.load(datasets_metric_name, trust_remote_code=True)
+            except Exception:
+                import datasets
+
+                if hasattr(datasets, "load_metric"):
+                    metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
+                else:
+                    from datasets import load_metric as _load_metric  # older datasets
+
+                    metric = _load_metric(datasets_metric_name, trust_remote_code=True)
 
             if metric_name.startswith("seqeval"):
                 y_processed_true = [[labels[tr] for tr in each_list] for each_list in y_processed_true]

@@ -77,6 +77,16 @@ class TrainingArgumentsForAuto(TrainingArguments):
 
     logging_steps: int = field(default=500, metadata={"help": "Log every X updates steps."})
 
+    # Newer versions of HuggingFace Transformers may access `TrainingArguments.generation_config`
+    # (e.g., in generation-aware trainers/callbacks). Keep this attribute to remain compatible
+    # while defaulting to None for non-generation tasks.
+    generation_config: Optional[object] = field(
+        default=None,
+        metadata={
+            "help": "Optional generation config (or path) used by generation-aware trainers."
+        },
+    )
+
     @staticmethod
     def load_args_from_console():
         from dataclasses import fields

@@ -9,6 +9,7 @@ import numpy as np
 try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
+    from pandas.api.types import is_datetime64_any_dtype
     from scipy.sparse import issparse
     from sklearn.compose import ColumnTransformer
     from sklearn.impute import SimpleImputer
@@ -390,8 +391,17 @@ class DataTransformerTS:
         n = X.shape[0]
 
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
-
+        
         for column in X.columns:
+            # Never treat the time column as a feature for sklearn preprocessing
+            if column == self.time_col:
+                continue
+
+            # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
+            if is_datetime64_any_dtype(X[column]):
+                self.datetime_columns.append(column)
+                continue
+
             # sklearn/utils/validation.py needs int/float values
             if X[column].dtype.name in ("object", "category", "string"):
                 if (
