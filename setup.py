@@ -65,8 +65,7 @@ setuptools.setup(
             "pre-commit",
             "torch",
             "torchvision",
-            "catboost>=0.26,<1.2; python_version<'3.11'",
-            "catboost>=0.26; python_version>='3.11' and python_version<'3.14'",
+            "catboost>=0.26",
             "rgf-python",
             "optuna>=2.8.0,<=3.6.1",
             "openml; python_version<'3.14'",
@@ -97,8 +96,7 @@ setuptools.setup(
             "dill",  # a drop in replacement of pickle
         ],
         "catboost": [
-            "catboost>=0.26,<1.2; python_version<'3.11'",
-            "catboost>=0.26,<=1.2.5; python_version>='3.11'",
+            "catboost>=0.26",
         ],
         "blendsearch": [
             "optuna>=2.8.0,<=3.6.1",
