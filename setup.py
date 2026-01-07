@@ -66,7 +66,6 @@ setuptools.setup(
             "torch",
             "torchvision",
             "catboost>=0.26,<1.2; python_version<'3.11'",
-            "catboost>=0.26; python_version>='3.11'",
             "catboost>=0.26; python_version>='3.11' and python_version<'3.14'",
             "rgf-python",
             "optuna>=2.8.0,<=3.6.1",
@@ -77,7 +76,7 @@ setuptools.setup(
             "transformers[torch]",
             "datasets",
             "evaluate",
-            "nltk",  # 3.8.2 doesn't work with mlflow
+            "nltk!=3.8.2",  # 3.8.2 doesn't work with mlflow
             "rouge_score",
             "hcrystalball",
             "seqeval",
@@ -106,7 +105,7 @@ setuptools.setup(
             "packaging",
         ],
         "ray": [
-            "ray[tune]~=1.13",
+            "ray[tune]>=1.13,<2.5.0",
         ],
         "azureml": [
             "azureml-mlflow",
@@ -143,23 +142,11 @@ setuptools.setup(
             "prophet>=1.0.1",
             "statsmodels>=0.12.2",
             "hcrystalball==0.1.10",
-            "pytorch-forecasting>=0.9.0; python_version<'3.11'",
-            # "pytorch-forecasting==0.10.1; python_version=='3.11'",
+            "pytorch-forecasting; python_version<'3.14'",
             "pytorch-lightning==1.9.0",
             "tensorboardX==2.6",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
-        "openai": ["openai==0.27.8", "diskcache"],
-        "autogen": ["openai==0.27.8", "diskcache", "termcolor"],
-        "mathchat": ["openai==0.27.8", "diskcache", "termcolor", "sympy", "pydantic==1.10.9", "wolframalpha"],
-        "retrievechat": [
-            "openai==0.27.8",
-            "diskcache",
-            "termcolor",
-            "chromadb",
-            "tiktoken",
-            "sentence_transformers",
-        ],
         "synapse": [
             "joblibspark>=0.5.0",
             "optuna>=2.8.0,<=3.6.1",
@@ -172,9 +159,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
         # Specify the Python versions you support here.
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
 )
