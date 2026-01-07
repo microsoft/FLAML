@@ -91,6 +91,14 @@ jobs:
         if: matrix.python-version == '3.8' || matrix.python-version == '3.9'
         run: |
           pip install -e .[vw]
+      - name: Clean up cache to free space
+        run: |
+          echo "Run `sudo rm -rf /home/runner/actions-runner/cached/*` to clear GitHub Actions cache"
+          sudo rm -rf /home/runner/actions-runner/cached/*
+      - name: Clear pip cache
+        run: |
+          echo "Run `pip cache purge` to clear pip cache"
+          pip cache purge
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
