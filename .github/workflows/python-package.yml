@@ -131,7 +131,7 @@ jobs:
           git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} || git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           git add installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
-          git add ./coverage.xml
+          git add ./coverage.xml || true
           git commit -m "Update installed first tier dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}"
           git push origin installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           # checkout back to the current branch
