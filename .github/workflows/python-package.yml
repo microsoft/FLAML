@@ -88,16 +88,15 @@ jobs:
         run: |
           # use macos to test xgboost 1, but macos also supports xgboost 2
           pip install "xgboost<2"
-      # TODO: support prophet for python 3.11+
       - name: Install prophet when on linux
         if: matrix.os == 'ubuntu-latest'
         run: |
           pip install -e .[forecast]
       # TODO: support vw for python 3.10+
-      # - name:  If linux, install vw
-      #   if: matrix.os == 'ubuntu-latest'
-      #   run: |
-      #     pip install -e .[vw]
+      - name:  If linux and python<3.10, install vw
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.10'
+        run: |
+          pip install -e .[vw]
       - name: Clear pip cache
         run: |
           pip cache purge
