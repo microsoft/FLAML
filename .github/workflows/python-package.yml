@@ -39,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -116,28 +116,3 @@ jobs:
         with:
           file: ./coverage.xml
           flags: unittests
-
-  # docs:
-
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.8'
-  #     - name: Compile documentation
-  #       run: |
-  #           pip install -e .
-  #           python -m pip install sphinx sphinx_rtd_theme
-  #           cd docs
-  #           make html
-  #     - name: Deploy to GitHub pages
-  #       if: ${{ github.ref == 'refs/heads/main' }}
-  #       uses: JamesIves/github-pages-deploy-action@3.6.2
-  #       with:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         BRANCH: gh-pages
-  #         FOLDER: docs/_build/html
-  #         CLEAN: true
