@@ -100,8 +100,12 @@ jobs:
           pip install -e .[vw]
       - name: Pip freeze
         run: |
-          pip freeze
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          cat installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+      - name: Check dependencies
+        run: |
+          python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          cat installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
       - name: Clear pip cache
         run: |
           pip cache purge
@@ -121,11 +125,8 @@ jobs:
         with:
           file: ./coverage.xml
           flags: unittests
-      - name: Check dependencies
+      - name: Save dependencies
         run: |
-          python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
-          cat installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
-          # commit the generated file to a repository branch for later inspection
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git config advice.addIgnoredFile false
