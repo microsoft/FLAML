@@ -81,9 +81,7 @@ setuptools.setup(
             "hcrystalball",
             "seqeval",
             "pytorch-forecasting; python_version<'3.13'",
-            "mlflow<=2.12.2; python_version<'3.12'",
-            "mlflow<=2.18.0; python_version>='3.12' and python_version<'3.13'",
-            "mlflow<=2.22.1; python_version>='3.13'",
+            "mlflow<=2.22.1",  # Refer to https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
             "nbconvert",
