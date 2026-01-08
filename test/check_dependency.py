@@ -25,6 +25,7 @@ first_tier_dependencies = [
     "psutil",
     "dataclasses",
     "transformers[torch]",
+    "transformers",
     "datasets",
     "evaluate",
     "nltk",
