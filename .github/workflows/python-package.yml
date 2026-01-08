@@ -100,6 +100,7 @@ jobs:
       - name: Pip freeze
         run: |
           pip freeze
+          pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
       - name: Clear pip cache
         run: |
           pip cache purge
@@ -119,3 +120,19 @@ jobs:
         with:
           file: ./coverage.xml
           flags: unittests
+      - name: Check dependencies
+        run: |
+          python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          cat installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          # commit the generated file to a repository branch for later inspection
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin
+          git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} || git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          git add installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          git add installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          git add ./coverage.xml
+          git commit -m "Update installed first tier dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+          git push origin installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          # checkout back to the current branch
+          git checkout ${{ github.ref_name }}
