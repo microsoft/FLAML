@@ -132,12 +132,14 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git config advice.addIgnoredFile false
           git fetch origin
+          git stash push -u
           if (git show-ref --verify --quiet refs/remotes/origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}); then
             git checkout -B installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} \
               origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           else
             git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           fi
+          git stash pop || true
           git add installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add ./coverage.xml || true
