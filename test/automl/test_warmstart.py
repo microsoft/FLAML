@@ -108,7 +108,14 @@ class TestWarmStart(unittest.TestCase):
 
     def test_FLAML_sample_size_in_starting_points(self):
         from minio.error import ServerError
-        from openml.exceptions import OpenMLServerException
+
+        try:
+            from openml.exceptions import OpenMLServerException
+        except ImportError:
+
+            class OpenMLServerException(Exception):
+                pass
+
         from requests.exceptions import ChunkedEncodingError, SSLError
 
         from flaml import AutoML

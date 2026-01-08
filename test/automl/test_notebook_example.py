@@ -1,8 +1,23 @@
 import sys
 
 import pytest
-from minio.error import ServerError
-from openml.exceptions import OpenMLServerException
+
+try:
+    from minio.error import ServerError
+except ImportError:
+
+    class ServerError(Exception):
+        pass
+
+
+try:
+    from openml.exceptions import OpenMLServerException
+except ImportError:
+
+    class OpenMLServerException(Exception):
+        pass
+
+
 from requests.exceptions import ChunkedEncodingError, SSLError
 
 

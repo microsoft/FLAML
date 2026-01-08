@@ -5,11 +5,23 @@ import sys
 import unittest
 
 import numpy as np
-import openml
+
+try:
+    import openml
+except ImportError:
+    openml = None
 import pandas as pd
 import pytest
 import scipy.sparse
-from minio.error import ServerError
+
+try:
+    from minio.error import ServerError
+except ImportError:
+
+    class ServerError(Exception):
+        pass
+
+
 from requests.exceptions import SSLError
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -22,6 +34,8 @@ except ImportError:
     skip_vw_test = True
 else:
     skip_vw_test = False
+
+pytest.skip("skipping if no openml", allow_module_level=True) if openml is None else None
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)
