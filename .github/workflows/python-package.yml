@@ -131,7 +131,7 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git config advice.addIgnoredFile false
           git fetch origin
-          if git show-ref --verify --quiet refs/remotes/origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}; then
+          if (git show-ref --verify --quiet refs/remotes/origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}); then
             git checkout -B installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} \
               origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           else
