@@ -26,7 +26,8 @@ on:
     # Every other day at 02:00 UTC
     - cron: '0 2 */2 * *'
 
-permissions: {}
+permissions:
+  contents: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -127,12 +128,16 @@ jobs:
           # commit the generated file to a repository branch for later inspection
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config advice.addIgnoredFile false
           git fetch origin
-          git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} || git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          if git show-ref --verify --quiet refs/remotes/origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}; then
+            git checkout -B installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }} \
+              origin/installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          else
+            git checkout -b installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          fi
           git add installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add ./coverage.xml || true
           git commit -m "Update installed first tier dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}"
           git push origin installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
-          # checkout back to the current branch
-          git checkout ${{ github.ref_name }}
