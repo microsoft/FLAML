@@ -129,19 +129,19 @@ setuptools.setup(
             "seqeval",
         ],
         "ts_forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
-            "prophet>=1.0.1",
+            "holidays",
+            "prophet>=1.1.5",
             "statsmodels>=0.12.2",
-            "hcrystalball==0.1.10",
+            "hcrystalball>=0.1.10",
         ],
         "forecast": [
-            "holidays<0.14",  # to prevent installation error for prophet
-            "prophet>=1.0.1",
+            "holidays",
+            "prophet>=1.1.5",
             "statsmodels>=0.12.2",
-            "hcrystalball==0.1.10",
-            "pytorch-forecasting; python_version<'3.14'",
-            "pytorch-lightning==1.9.0",
-            "tensorboardX==2.6",
+            "hcrystalball>=0.1.10",
+            "pytorch-forecasting>=0.10.4; python_version<'3.14'",
+            "pytorch-lightning>=1.9.0",
+            "tensorboardX>=2.6",
         ],
         "benchmark": ["catboost>=0.26", "psutil==5.8.0", "xgboost==1.3.3", "pandas==1.1.4"],
         "synapse": [
