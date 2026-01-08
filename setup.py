@@ -62,6 +62,7 @@ setuptools.setup(
             "scikit-learn>=1.2.0",
             "thop",
             "pytest>=6.1.1",
+            "pytest-rerunfailures>=13.0",
             "coverage>=5.3",
             "pre-commit",
             "torch",
@@ -81,7 +82,7 @@ setuptools.setup(
             "hcrystalball",
             "seqeval",
             "pytorch-forecasting; python_version<'3.13'",
-            "mlflow<=2.22.1",  # Refer to https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
+            "mlflow-skinny<=2.22.1",  # Refer to https://mvnrepository.com/artifact/org.mlflow/mlflow-spark
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
             "nbconvert",

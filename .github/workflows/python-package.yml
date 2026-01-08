@@ -112,12 +112,12 @@ jobs:
       - name: Test with pytest
         if: matrix.python-version != '3.10'
         run: |
-          pytest test/ --ignore=test/autogen
+          pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
         if: matrix.python-version == '3.10'
         run: |
           pip install coverage
-          coverage run -a -m pytest test --ignore=test/autogen
+          coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.10'

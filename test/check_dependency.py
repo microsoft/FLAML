@@ -13,6 +13,7 @@ first_tier_dependencies = [
     "scikit-learn",
     "thop",
     "pytest",
+    "pytest-rerunfailures",
     "coverage",
     "pre-commit",
     "torch",
