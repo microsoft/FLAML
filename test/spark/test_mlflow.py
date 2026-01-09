@@ -179,6 +179,11 @@ def test_tune_noautolog_parentrun_parallel():
 
 
 def _test_automl_sparkdata(is_autolog, is_parent_run):
+    # TODO: remove the estimator assignment once SynapseML supports spark 4+.
+    from flaml.automl.spark.utils import _spark_major_minor_version
+
+    estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
+
     mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
@@ -210,7 +215,7 @@ def _test_automl_sparkdata(is_autolog, is_parent_run):
         "log_type": "all",
         "n_splits": 2,
         "model_history": True,
-        "estimator_list": None,
+        "estimator_list": estimator_list,
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
     automl.fit(

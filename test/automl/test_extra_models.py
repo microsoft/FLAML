@@ -283,7 +283,11 @@ class TestExtraModel(unittest.TestCase):
 
     @unittest.skipIf(skip_spark, reason="Spark is not installed. Skip all spark tests.")
     def test_default_spark(self):
-        _test_spark_models(None, "classification")
+        # TODO: remove the estimator assignment once SynapseML supports spark 4+.
+        from flaml.automl.spark.utils import _spark_major_minor_version
+
+        estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
+        _test_spark_models(estimator_list, "classification")
 
     def test_svc(self):
         _test_regular_models("svc", "classification")

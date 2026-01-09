@@ -72,6 +72,10 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
     # TODO: remove the estimator assignment once SynapseML supports spark 4+.
     from flaml.automl.spark.utils import _spark_major_minor_version
 
+    if _spark_major_minor_version[0] >= 4:
+        # skip synapseml lightgbm test for spark 4+
+        return
+
     if task == "classification":
         metric = "accuracy"
         X_train, y_train = skds.load_iris(return_X_y=True, as_frame=True)
@@ -177,7 +181,7 @@ def test_spark_input_df():
     # TODO: remove the estimator assignment once SynapseML supports spark 4+.
     from flaml.automl.spark.utils import _spark_major_minor_version
 
-    estimator_list = None
+    estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
 
     settings = {
         "time_budget": 30,  # total running time in seconds
@@ -186,7 +190,7 @@ def test_spark_input_df():
         "log_file_name": "flaml_experiment.log",  # flaml log file
         "seed": 7654321,  # random seed
         "eval_method": "holdout",
-        "estimator_list": estimator_list,
+        "estimator_list": estimator_list,  # TODO: remove once SynapseML supports spark 4+
     }
     df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
 
