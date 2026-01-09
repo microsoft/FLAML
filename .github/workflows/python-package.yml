@@ -79,16 +79,11 @@ jobs:
         run: |
           pip install pyspark==4.0.1
           pip list | grep "pyspark"
-      #TODO: support ray for python 3.11+
-      - name: If linux and python<3.11, install ray 2
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.11'
-        run: |
-          pip install "ray[tune]<2.5.0"
-      - name: If mac and python 3.10, install xgboost 1
-        if: matrix.os == 'macos-latest' && matrix.python-version == '3.10'
-        run: |
-          # use macos to test xgboost 1, but macos also supports xgboost 2
-          pip install "xgboost<2"
+      # # TODO: support ray
+      # - name: If linux and python<3.11, install ray 2
+      #   if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.11'
+      #   run: |
+      #     pip install "ray[tune]<2.5.0"
       - name: Install prophet when on linux
         if: matrix.os == 'ubuntu-latest'
         run: |
