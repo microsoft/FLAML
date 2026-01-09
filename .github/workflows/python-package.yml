@@ -130,10 +130,7 @@ jobs:
 
           BRANCH=unit-tests-installed-dependencies
           git fetch origin
-          git checkout -B "$BRANCH"
-          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-            git rebase "origin/$BRANCH"
-          fi
+          git checkout -B "$BRANCH" "origin/$BRANCH"
 
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
@@ -141,4 +138,4 @@ jobs:
           mv coverage.xml ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
-          git push origin "$BRANCH"
+          git push origin "$BRANCH" --force
