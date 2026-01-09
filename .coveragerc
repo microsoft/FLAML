@@ -1,6 +1,8 @@
 [run]
 branch = True
-source = flaml
+source =
+  flaml
+  !flaml/autogen
 omit =
-  *test*
-  *flaml/autogen/*
+  */test/*
+  */flaml/autogen/*
