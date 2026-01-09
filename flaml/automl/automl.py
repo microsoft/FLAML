@@ -401,6 +401,24 @@ class AutoML(BaseEstimator):
         self._estimator_type = "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         self.best_run_id = None
 
+    def __getstate__(self):
+        """Customize pickling to avoid serializing runtime-only objects.
+
+        MLflow's sklearn flavor serializes estimators via (cloud)pickle. During
+        AutoML fitting we may attach an internal mlflow integration instance
+        which holds `concurrent.futures.Future` objects and executors containing
+        thread locks, which are not picklable.
+        """
+
+        state = self.__dict__.copy()
+        state.pop("mlflow_integration", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Ensure attribute exists post-unpickle.
+        self.mlflow_integration = None
+
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
 
