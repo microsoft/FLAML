@@ -99,6 +99,12 @@ module.exports = {
             'https://github.com/microsoft/FLAML/edit/main/website/',
           remarkPlugins: [math],
           rehypePlugins: [katex],
+          // Allow __init__.md and other underscore-prefixed markdown docs
+          exclude: [
+            '**/_*.{js,jsx,ts,tsx}',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+          ],
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
