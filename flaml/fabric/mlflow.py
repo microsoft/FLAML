@@ -567,7 +567,7 @@ class MLflowIntegration:
             try:
                 with open(pickle_fpath, "wb") as f:
                     pickle.dump(obj, f)
-                mlflow.log_artifact(pickle_fpath, artifact_name, run_id)
+                self.mlflow_client.log_artifact(run_id, pickle_fpath, artifact_name)
                 return True
             except Exception as e:
                 logger.debug(f"Failed to pickle and log {artifact_name}, error: {e}")
@@ -797,8 +797,10 @@ class MLflowIntegration:
                 conf = automl._config_history[automl._best_iteration][1].copy()
                 if "ml" in conf.keys():
                     conf = conf["ml"]
-
-                mlflow.log_params({**conf, "best_learner": automl._best_estimator}, run_id=self.parent_run_id)
+                params_arr = [
+                    Param(key, str(value)) for key, value in {**conf, "best_learner": automl._best_estimator}.items()
+                ]
+                self.mlflow_client.log_batch(run_id=self.parent_run_id, metrics=[], params=params_arr, tags=[])
                 if not self.has_summary:
                     logger.info(f"logging best model {automl.best_estimator}")
                     future = executor.submit(lambda: self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id))
