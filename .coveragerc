@@ -2,7 +2,6 @@
 branch = True
 source =
   flaml
-  !flaml/autogen
 omit =
   */test/*
   */flaml/autogen/*
