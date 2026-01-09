@@ -127,11 +127,17 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git config advice.addIgnoredFile false
+
+          BRANCH=installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
           git fetch origin
-          git checkout -B installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          git checkout -B "$BRANCH"
+          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+            git rebase "origin/$BRANCH"
+          fi
+
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_*dependencies*.txt
           git add -f ./coverage.xml || true
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
-          git push origin installed-dependencies-${{ matrix.python-version }}-${{ matrix.os }}
+          git push origin "$BRANCH"
