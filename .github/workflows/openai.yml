@@ -4,12 +4,7 @@
 name: OpenAI
 
 on:
-  push:
-    branches-ignore: ['*']
-  pull_request:
-    branches-ignore: ['*']
-
-# on:
+  workflow_dispatch:
 #   pull_request:
 #     branches: ['main']
 #     paths:
