@@ -244,13 +244,32 @@ class BlendSearch(Searcher):
                     evaluated_rewards=evaluated_rewards,
                 )
             except (AssertionError, ValueError):
-                self._gs = GlobalSearch(
-                    space=gs_space,
-                    metric=metric,
-                    mode=mode,
-                    seed=gs_seed,
-                    sampler=sampler,
-                )
+                try:
+                    self._gs = GlobalSearch(
+                        space=gs_space,
+                        metric=metric,
+                        mode=mode,
+                        seed=gs_seed,
+                        sampler=sampler,
+                    )
+                except ValueError:
+                    # Ray Tune's OptunaSearch converts Tune domains into Optuna
+                    # distributions. Optuna disallows integer log distributions
+                    # with step != 1 (e.g., qlograndint with q>1), which can
+                    # raise here. Fall back to FLAML's OptunaSearch wrapper,
+                    # which handles these spaces more permissively.
+                    if getattr(GlobalSearch, "__module__", "").startswith("ray.tune"):
+                        from .suggestion import OptunaSearch as _FallbackOptunaSearch
+
+                        self._gs = _FallbackOptunaSearch(
+                            space=gs_space,
+                            metric=metric,
+                            mode=mode,
+                            seed=gs_seed,
+                            sampler=sampler,
+                        )
+                    else:
+                        raise
             self._gs.space = space
         else:
             self._gs = None

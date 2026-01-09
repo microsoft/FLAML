@@ -22,7 +22,7 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
     except (ServerError, Exception):
         from sklearn.datasets import fetch_california_housing
 
-        X_train, y_train = fetch_california_housing(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
     automl = AutoML()
     settings = {
         "time_budget": 3,  # total running time in seconds

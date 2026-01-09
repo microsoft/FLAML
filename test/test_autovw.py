@@ -5,16 +5,37 @@ import sys
 import unittest
 
 import numpy as np
-import openml
+
+try:
+    import openml
+except ImportError:
+    openml = None
 import pandas as pd
 import pytest
 import scipy.sparse
-from minio.error import ServerError
+
+try:
+    from minio.error import ServerError
+except ImportError:
+
+    class ServerError(Exception):
+        pass
+
+
 from requests.exceptions import SSLError
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from flaml import AutoVW
 from flaml.tune import loguniform, polynomial_expansion_set
+
+try:
+    from vowpalwabbit import pyvw
+except ImportError:
+    skip_vw_test = True
+else:
+    skip_vw_test = False
+
+pytest.skip("skipping if no openml", allow_module_level=True) if openml is None else None
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)
@@ -351,14 +372,9 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
     return vw_oml_problem_args, vw_online_aml_problem
 
 
-@pytest.mark.skipif(
-    "3.10" in sys.version or "3.11" in sys.version,
-    reason="do not run on py >= 3.10",
-)
+@pytest.mark.skipif(skip_vw_test, reason="vowpalwabbit not installed")
 class TestAutoVW(unittest.TestCase):
     def test_vw_oml_problem_and_vanilla_vw(self):
-        from vowpalwabbit import pyvw
-
         try:
             vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem()
         except (SSLError, ServerError, Exception) as e:
