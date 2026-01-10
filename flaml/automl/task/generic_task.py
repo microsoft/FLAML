@@ -788,7 +788,10 @@ class GenericTask(Task):
             else:
                 X_train, X_val = X_train_split[train_index], X_train_split[val_index]
             if not is_spark_dataframe:
-                y_train, y_val = y_train_split[train_index], y_train_split[val_index]
+                if isinstance(y_train_split, (pd.DataFrame, pd.Series)):
+                    y_train, y_val = y_train_split.iloc[train_index], y_train_split.iloc[val_index]
+                else:
+                    y_train, y_val = y_train_split[train_index], y_train_split[val_index]
                 if weight is not None:
                     fit_kwargs["sample_weight"] = (
                         weight[train_index] if isinstance(weight, np.ndarray) else weight.iloc[train_index]
