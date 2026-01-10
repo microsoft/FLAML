@@ -8,7 +8,7 @@
 
 ### About `low_cost_partial_config` in `tune`.
 
-- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model).  The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and  `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215).  Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.
+- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model). The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215). Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.
   In AutoML, the `low_cost_init_value` in `search_space()` function for each estimator serves the same role.
 
 - Usage in practice: It is recommended to configure it if there are cost-related hyperparameters in your tuning task and you happen to know the low-cost values for them, but it is not required (It is fine to leave it the default value, i.e., `None`).
@@ -51,7 +51,12 @@ automl_settings = {
     "time_budget": 60,
     "metric": "accuracy",
     "task": "classification",
-    "estimator_list": ["lgbm", "xgboost", "catboost", "histgb"],  # Only estimators that handle NaN
+    "estimator_list": [
+        "lgbm",
+        "xgboost",
+        "catboost",
+        "histgb",
+    ],  # Only estimators that handle NaN
 }
 automl.fit(X_train, y_train, **automl_settings)
 ```
@@ -69,7 +74,7 @@ from sklearn.impute import SimpleImputer
 import numpy as np
 
 # Preprocess data to handle missing values
-imputer = SimpleImputer(strategy='mean')  # for continuous features
+imputer = SimpleImputer(strategy="mean")  # for continuous features
 X_train_imputed = imputer.fit_transform(X_train)
 X_test_imputed = imputer.transform(X_test)
 
@@ -86,10 +91,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 
 # Create a pipeline with imputation
-pipeline = Pipeline([
-    ('imputer', SimpleImputer(strategy='median')),
-    ('automl', AutoML())
-])
+pipeline = Pipeline(
+    [("imputer", SimpleImputer(strategy="median")), ("automl", AutoML())]
+)
 
 # The pipeline will automatically impute missing values before AutoML
 pipeline.fit(X_train, y_train)
