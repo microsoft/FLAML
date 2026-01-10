@@ -896,6 +896,7 @@ class MLflowIntegration:
                 ),
             )
             self.child_counter = 0
+            num_infos = len(self.infos)
 
             # From latest to earliest, remove duplicate cross-validation runs
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
@@ -960,22 +961,37 @@ class MLflowIntegration:
                             )
                         self.mlflow_client.set_tag(child_run_id, "flaml.child_counter", self.child_counter)
 
-                    # merge autolog child run and corresponding manual run
-                    flaml_info = self.infos[self.child_counter]
-                    child_run = self.mlflow_client.get_run(child_run_id)
-                    self._log_info_to_run(flaml_info, child_run_id, log_params=False)
+                    # Merge autolog child run and corresponding FLAML trial info (if available).
+                    # In nested scenarios (e.g., Tune -> AutoML -> MLflow autolog), MLflow can create
+                    # more child runs than the number of FLAML trials recorded in self.infos.
+                    # TODO: need more tests in nested scenarios.
+                    flaml_info = None
+                    child_run = None
+                    if self.child_counter < num_infos:
+                        flaml_info = self.infos[self.child_counter]
+                        child_run = self.mlflow_client.get_run(child_run_id)
+                        self._log_info_to_run(flaml_info, child_run_id, log_params=False)
 
-                    if self.experiment_type == "automl":
-                        if "learner" not in child_run.data.params:
-                            self.mlflow_client.log_param(child_run_id, "learner", flaml_info["params"]["learner"])
-                        if "sample_size" not in child_run.data.params:
-                            self.mlflow_client.log_param(
-                                child_run_id, "sample_size", flaml_info["params"]["sample_size"]
-                            )
+                        if self.experiment_type == "automl":
+                            if "learner" not in child_run.data.params:
+                                self.mlflow_client.log_param(child_run_id, "learner", flaml_info["params"]["learner"])
+                            if "sample_size" not in child_run.data.params:
+                                self.mlflow_client.log_param(
+                                    child_run_id, "sample_size", flaml_info["params"]["sample_size"]
+                                )
+                    else:
+                        logger.debug(
+                            "No corresponding FLAML info for MLflow child run %s (child_counter=%s, infos=%s); skipping merge.",
+                            child_run_id,
+                            self.child_counter,
+                            num_infos,
+                        )
 
-                    if self.child_counter == best_iteration:
+                    if flaml_info is not None and self.child_counter == best_iteration:
                         self.mlflow_client.set_tag(child_run_id, "flaml.best_run", True)
                         if result is not None:
+                            if child_run is None:
+                                child_run = self.mlflow_client.get_run(child_run_id)
                             result.best_run_id = child_run_id
                             result.best_run_name = child_run.info.run_name
                             self.best_run_id = child_run_id
