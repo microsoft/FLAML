@@ -634,8 +634,11 @@ class AutoML(BaseEstimator):
         X = self._state.task.preprocess(X, self._transformer)
         y_pred = estimator.predict(X, **pred_kwargs)
 
-        if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
-            y_pred = y_pred.flatten()
+        # Only flatten if not multi-target regression
+        if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1:
+            is_multi_target = getattr(self._state, 'is_multi_target', False)
+            if not is_multi_target:
+                y_pred = y_pred.flatten()
         if self._label_transformer:
             return self._label_transformer.inverse_transform(Series(y_pred.astype(int)))
         else:
@@ -1272,7 +1275,9 @@ class AutoML(BaseEstimator):
                 must be the timestamp column (datetime type). Other columns in
                 the dataframe are assumed to be exogenous variables (categorical or numeric).
                 When using ray, X_train can be a ray.ObjectRef.
-            y_train: A numpy array or a pandas series of labels in shape (n, ).
+            y_train: A numpy array, pandas series, or pandas dataframe of labels in shape (n, )
+                for single-target tasks or (n, k) for multi-target regression tasks.
+                For multi-target regression, only XGBoost and CatBoost estimators are supported.
             dataframe: A dataframe of training data including label column.
                 For time series forecast tasks, dataframe must be specified and must have
                 at least two columns, timestamp and label, where the first
@@ -1883,7 +1888,8 @@ class AutoML(BaseEstimator):
         self._state.error_metric = error_metric
 
         is_spark_dataframe = isinstance(X_train, psDataFrame) or isinstance(dataframe, psDataFrame)
-        estimator_list = task.default_estimator_list(estimator_list, is_spark_dataframe)
+        is_multi_target = getattr(self._state, 'is_multi_target', False)
+        estimator_list = task.default_estimator_list(estimator_list, is_spark_dataframe, is_multi_target)
 
         if is_spark_dataframe and self._use_spark:
             # For spark dataframe, use_spark must be False because spark models are trained in parallel themselves

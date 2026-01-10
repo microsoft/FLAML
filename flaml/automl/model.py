@@ -2081,6 +2081,18 @@ class CatBoostEstimator(BaseEstimator):
             cat_features = list(X_train.select_dtypes(include="category").columns)
         else:
             cat_features = []
+        
+        # Detect multi-target regression and set appropriate loss function
+        is_multi_target = False
+        if self._task.is_regression():
+            if isinstance(y_train, np.ndarray) and y_train.ndim == 2 and y_train.shape[1] > 1:
+                is_multi_target = True
+            elif isinstance(y_train, DataFrame) and y_train.shape[1] > 1:
+                is_multi_target = True
+        
+        if is_multi_target and "loss_function" not in self.params:
+            self.params["loss_function"] = "MultiRMSE"
+        
         use_best_model = kwargs.get("use_best_model", True)
         n = max(int(len(y_train) * 0.9), len(y_train) - 1000) if use_best_model else len(y_train)
         X_tr, y_tr = X_train[:n], y_train[:n]
