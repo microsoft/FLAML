@@ -7,8 +7,20 @@ from utils import get_automl_settings, get_toy_data_seqclassification
 
 from flaml.default import portfolio
 
-if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
-    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
+try:
+    import transformers
+
+    _transformers_installed = True
+except ImportError:
+    _transformers_installed = False
+
+if (
+    sys.platform.startswith("darwin")
+    and sys.version_info >= (3, 11)
+    or not _transformers_installed
+    or sys.platform == "win32"
+):
+    pytest.skip("skipping Python 3.11 on MacOS or without transformers or on Windows", allow_module_level=True)
 
 pytestmark = (
     pytest.mark.spark
@@ -28,7 +40,6 @@ def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
     portfolio.main()
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_starting_point_not_in_search_space():
     """Regression test for invalid starting points and custom_hp.
 
@@ -126,7 +137,6 @@ def test_starting_point_not_in_search_space():
             print("PermissionError when deleting test/data/output/")
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_points_to_evaluate():
     from flaml import AutoML
 
@@ -155,7 +165,6 @@ def test_points_to_evaluate():
 
 
 # TODO: implement _test_zero_shot_model
-@pytest.mark.skipif(sys.platform == "win32", reason="do not run on windows")
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 

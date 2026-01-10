@@ -1,3 +1,4 @@
+import atexit
 import os
 import sys
 import unittest
@@ -15,7 +16,15 @@ from sklearn.model_selection import train_test_split
 
 from flaml import AutoML
 from flaml.automl.ml import sklearn_metric_loss_score
+from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
 from flaml.tune.spark.utils import check_spark
+
+try:
+    import pytorch_lightning
+
+    _pl_installed = True
+except ImportError:
+    _pl_installed = False
 
 pytestmark = pytest.mark.spark
 
@@ -39,7 +48,7 @@ else:
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:1.0.2,"
+                    "com.microsoft.azure:synapseml_2.12:1.1.0,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
                     f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
@@ -62,6 +71,9 @@ else:
         skip_spark = not spark_available
     except ImportError:
         skip_spark = True
+
+spark, ansi_conf, adjusted = disable_spark_ansi_mode()
+atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
 
 
 def _test_regular_models(estimator_list, task):
@@ -271,7 +283,11 @@ class TestExtraModel(unittest.TestCase):
 
     @unittest.skipIf(skip_spark, reason="Spark is not installed. Skip all spark tests.")
     def test_default_spark(self):
-        _test_spark_models(None, "classification")
+        # TODO: remove the estimator assignment once SynapseML supports spark 4+.
+        from flaml.automl.spark.utils import _spark_major_minor_version
+
+        estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
+        _test_spark_models(estimator_list, "classification")
 
     def test_svc(self):
         _test_regular_models("svc", "classification")
@@ -302,7 +318,7 @@ class TestExtraModel(unittest.TestCase):
     def test_avg(self):
         _test_forecast("avg")
 
-    @unittest.skipIf(skip_spark, reason="Skip on Mac or Windows")
+    @unittest.skipIf(skip_spark or not _pl_installed, reason="Skip on Mac or Windows or no pytorch_lightning.")
     def test_tcn(self):
         _test_forecast("tcn")
 

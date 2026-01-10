@@ -567,7 +567,7 @@ class MLflowIntegration:
             try:
                 with open(pickle_fpath, "wb") as f:
                     pickle.dump(obj, f)
-                mlflow.log_artifact(pickle_fpath, artifact_name, run_id)
+                self.mlflow_client.log_artifact(run_id, pickle_fpath, artifact_name)
                 return True
             except Exception as e:
                 logger.debug(f"Failed to pickle and log {artifact_name}, error: {e}")
@@ -652,7 +652,7 @@ class MLflowIntegration:
         return f"Successfully pickle_and_log_automl_artifacts {estimator} to run_id {run_id}"
 
     @time_it
-    def record_state(self, automl, search_state, estimator):
+    def record_state(self, automl, search_state, estimator, is_log_model=True):
         _st = time.time()
         automl_metric_name = (
             automl._state.metric if isinstance(automl._state.metric, str) else automl._state.error_metric
@@ -727,7 +727,7 @@ class MLflowIntegration:
                 self.futures[future] = f"iter_{automl._track_iter}_log_info_to_run"
                 future = executor.submit(lambda: self._log_automl_configurations(child_run.info.run_id))
                 self.futures[future] = f"iter_{automl._track_iter}_log_automl_configurations"
-                if automl._state.model_history:
+                if automl._state.model_history and is_log_model:
                     if estimator.endswith("_spark"):
                         future = executor.submit(
                             lambda: self.log_model(
@@ -797,8 +797,10 @@ class MLflowIntegration:
                 conf = automl._config_history[automl._best_iteration][1].copy()
                 if "ml" in conf.keys():
                     conf = conf["ml"]
-
-                mlflow.log_params({**conf, "best_learner": automl._best_estimator}, run_id=self.parent_run_id)
+                params_arr = [
+                    Param(key, str(value)) for key, value in {**conf, "best_learner": automl._best_estimator}.items()
+                ]
+                self.mlflow_client.log_batch(run_id=self.parent_run_id, metrics=[], params=params_arr, tags=[])
                 if not self.has_summary:
                     logger.info(f"logging best model {automl.best_estimator}")
                     future = executor.submit(lambda: self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id))
@@ -894,6 +896,7 @@ class MLflowIntegration:
                 ),
             )
             self.child_counter = 0
+            num_infos = len(self.infos)
 
             # From latest to earliest, remove duplicate cross-validation runs
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
@@ -958,22 +961,37 @@ class MLflowIntegration:
                             )
                         self.mlflow_client.set_tag(child_run_id, "flaml.child_counter", self.child_counter)
 
-                    # merge autolog child run and corresponding manual run
-                    flaml_info = self.infos[self.child_counter]
-                    child_run = self.mlflow_client.get_run(child_run_id)
-                    self._log_info_to_run(flaml_info, child_run_id, log_params=False)
+                    # Merge autolog child run and corresponding FLAML trial info (if available).
+                    # In nested scenarios (e.g., Tune -> AutoML -> MLflow autolog), MLflow can create
+                    # more child runs than the number of FLAML trials recorded in self.infos.
+                    # TODO: need more tests in nested scenarios.
+                    flaml_info = None
+                    child_run = None
+                    if self.child_counter < num_infos:
+                        flaml_info = self.infos[self.child_counter]
+                        child_run = self.mlflow_client.get_run(child_run_id)
+                        self._log_info_to_run(flaml_info, child_run_id, log_params=False)
 
-                    if self.experiment_type == "automl":
-                        if "learner" not in child_run.data.params:
-                            self.mlflow_client.log_param(child_run_id, "learner", flaml_info["params"]["learner"])
-                        if "sample_size" not in child_run.data.params:
-                            self.mlflow_client.log_param(
-                                child_run_id, "sample_size", flaml_info["params"]["sample_size"]
-                            )
+                        if self.experiment_type == "automl":
+                            if "learner" not in child_run.data.params:
+                                self.mlflow_client.log_param(child_run_id, "learner", flaml_info["params"]["learner"])
+                            if "sample_size" not in child_run.data.params:
+                                self.mlflow_client.log_param(
+                                    child_run_id, "sample_size", flaml_info["params"]["sample_size"]
+                                )
+                    else:
+                        logger.debug(
+                            "No corresponding FLAML info for MLflow child run %s (child_counter=%s, infos=%s); skipping merge.",
+                            child_run_id,
+                            self.child_counter,
+                            num_infos,
+                        )
 
-                    if self.child_counter == best_iteration:
+                    if flaml_info is not None and self.child_counter == best_iteration:
                         self.mlflow_client.set_tag(child_run_id, "flaml.best_run", True)
                         if result is not None:
+                            if child_run is None:
+                                child_run = self.mlflow_client.get_run(child_run_id)
                             result.best_run_id = child_run_id
                             result.best_run_name = child_run.info.run_name
                             self.best_run_id = child_run_id
@@ -997,7 +1015,7 @@ class MLflowIntegration:
         self.resume_mlflow()
 
 
-def register_automl_pipeline(automl, model_name=None, signature=None):
+def register_automl_pipeline(automl, model_name=None, signature=None, artifact_path="model"):
     pipeline = automl.automl_pipeline
     if pipeline is None:
         logger.warning("pipeline not found, cannot register it")
@@ -1007,7 +1025,7 @@ def register_automl_pipeline(automl, model_name=None, signature=None):
     if automl.best_run_id is None:
         mlflow.sklearn.log_model(
             pipeline,
-            "automl_pipeline",
+            artifact_path,
             registered_model_name=model_name,
             signature=automl.pipeline_signature if signature is None else signature,
         )
@@ -1017,5 +1035,5 @@ def register_automl_pipeline(automl, model_name=None, signature=None):
         return mvs[0]
     else:
         best_run = mlflow.get_run(automl.best_run_id)
-        model_uri = f"runs:/{best_run.info.run_id}/automl_pipeline"
+        model_uri = f"runs:/{best_run.info.run_id}/{artifact_path}"
         return mlflow.register_model(model_uri, model_name)

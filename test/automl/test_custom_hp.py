@@ -4,8 +4,17 @@ import pytest
 
 from flaml import AutoML, tune
 
+try:
+    import transformers
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+    _transformers_installed = True
+except ImportError:
+    _transformers_installed = False
+
+
+@pytest.mark.skipif(
+    sys.platform == "darwin" or not _transformers_installed, reason="do not run on mac os or transformers not installed"
+)
 def test_custom_hp_nlp():
     from test.nlp.utils import get_automl_settings, get_toy_data_seqclassification
 

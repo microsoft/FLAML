@@ -2,7 +2,6 @@
 license_file = "LICENSE"
 description-file = "README.md"
 
-
 [tool.pytest.ini_options]
 addopts = '-m "not conda"'
 markers = [

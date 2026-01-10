@@ -4,10 +4,17 @@ from collections import defaultdict
 
 import numpy as np
 import pytest
-import thop
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
+try:
+    import thop
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+except ImportError:
+    thop = None
+    torch = None
+    nn = None
+    F = None
 
 try:
     import torchvision
@@ -15,6 +22,11 @@ except ImportError:
     torchvision = None
 
 from flaml import tune
+
+if thop is None or torch is None or nn is None or F is None or torchvision is None:
+    pytest.skip(
+        "skipping test_lexiflow.py because torch, torchvision or thop is not installed.", allow_module_level=True
+    )
 
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128

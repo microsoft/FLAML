@@ -40,10 +40,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
         exclude:
           - os: macos-latest
-            python-version: "3.10"
+            python-version: "3.10"  # macOS runners will hang on python 3.10 for unknown reasons
+          - os: macos-latest
+            python-version: "3.12"  # macOS runners will hang on python 3.12 for unknown reasons
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -67,11 +69,6 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
-      - name: On Ubuntu python 3.10, install pyspark 3.4.1
-        if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
-        run: |
-          pip install pyspark==3.4.1
-          pip list | grep "pyspark"
       - name: On Ubuntu python 3.11, install pyspark 3.5.1
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         run: |
@@ -106,17 +103,17 @@ jobs:
         run: |
           pip cache purge
       - name: Test with pytest
-        if: matrix.python-version != '3.10'
+        if: matrix.python-version != '3.11'
         run: |
           pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
-        if: matrix.python-version == '3.10'
+        if: matrix.python-version == '3.11'
         run: |
           pip install coverage
           coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.10'
+        if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
@@ -130,10 +127,7 @@ jobs:
 
           BRANCH=unit-tests-installed-dependencies
           git fetch origin
-          git checkout -B "$BRANCH"
-          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-            git rebase "origin/$BRANCH"
-          fi
+          git checkout -B "$BRANCH" "origin/$BRANCH"
 
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
@@ -141,4 +135,4 @@ jobs:
           mv coverage.xml ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
-          git push origin "$BRANCH"
+          git push origin "$BRANCH" --force
