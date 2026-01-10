@@ -98,7 +98,7 @@ jobs:
         run: |
           pip cache purge
       - name: Test with pytest
-        if: matrix.python-version != '3.11'
+        if: ${{ !(matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest') }}
         run: |
           pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
