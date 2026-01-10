@@ -314,6 +314,28 @@ def test_searchers():
     searcher = BlendSearch(space=config, cost_attr="cost", cost_budget=10, metric="m", mode="min")
     analysis = tune.run(lambda x: {"cost": 2, "m": x["b"]}, search_alg=searcher, num_samples=10)
     assert len(analysis.trials) == 5
+    
+    # Test that BlendSearch with Ray Tune domains doesn't produce warning
+    # about unresolved search space definitions (regression test for UDF mode issue)
+    if use_ray:
+        import io
+        import sys
+        from contextlib import redirect_stderr
+        
+        ray_config = {
+            'lr': sample.uniform(0.001, 0.1),
+            'max_depth': sample.randint(1, 10)
+        }
+        
+        stderr_capture = io.StringIO()
+        with redirect_stderr(stderr_capture):
+            searcher = BlendSearch(metric='m', mode='min', space=ray_config)
+            # Suggest a trial to ensure GlobalSearch is actually used
+            searcher.suggest('test_trial')
+        
+        stderr_output = stderr_capture.getvalue()
+        assert "unresolved search space" not in stderr_output, \
+            "BlendSearch should not produce warning about unresolved search space"
 
 
 def test_no_optuna():
