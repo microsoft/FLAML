@@ -118,6 +118,8 @@ class AutoML(BaseEstimator):
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'roc_auc_weighted',
                 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted', 'f1', 'micro_f1', 'macro_f1',
                 'log_loss', 'mae', 'mse', 'r2', 'mape'. Default is 'auto'.
+                For a full list of supported built-in metrics, please refer to
+                https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric
                 If passing a customized metric function, the function needs to
                 have the following input arguments:
 
@@ -1287,6 +1289,8 @@ class AutoML(BaseEstimator):
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'roc_auc_weighted',
                 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted', 'f1', 'micro_f1', 'macro_f1',
                 'log_loss', 'mae', 'mse', 'r2', 'mape'. Default is 'auto'.
+                For a full list of supported built-in metrics, please refer to
+                https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric
                 If passing a customized metric function, the function needs to
                 have the following input arguments:
 
