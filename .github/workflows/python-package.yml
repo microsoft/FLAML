@@ -102,14 +102,13 @@ jobs:
         run: |
           pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
-        # macOS will hang when running coverage
-        if: matrix.python-version == '3.11' and matrix.os != 'macos-latest'
+        if: matrix.python-version == '3.11' and matrix.os == 'ubuntu-latest'
         run: |
           pip install coverage
           coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.11' and matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
