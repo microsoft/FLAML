@@ -264,7 +264,8 @@ class TCNEstimator(TimeSeriesEstimator):
     def predict(self, X):
         X = self.enrich(X)
         if isinstance(X, TimeSeriesDataset):
-            df = X.X_val
+            # Use X_train if X_val is empty (e.g., when computing training metrics)
+            df = X.X_val if len(X.test_data) > 0 else X.X_train
         else:
             df = X
         dataset = DataframeDataset(

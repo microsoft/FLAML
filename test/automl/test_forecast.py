@@ -681,11 +681,55 @@ def test_cv_step():
     print("yahoo!")
 
 
+def test_log_training_metric_ts_models():
+    """Test that log_training_metric=True works with time series models (arima, sarimax, holt-winters)."""
+    import statsmodels.api as sm
+
+    from flaml.automl.task.time_series_task import TimeSeriesTask
+
+    estimators_all = TimeSeriesTask("forecast").estimators.keys()
+    estimators_to_test = ["xgboost", "arima", "lassolars", "tcn", "snaive", "prophet", "orbit"]
+    estimators = [
+        est for est in estimators_to_test if est in estimators_all
+    ]  # not all estimators available in current python env
+    print(f"Testing estimators: {estimators}")
+
+    # Prepare data
+    data = sm.datasets.co2.load_pandas().data["co2"]
+    data = data.resample("MS").mean()
+    data = data.bfill().ffill()
+    data = data.to_frame().reset_index()
+    data = data.rename(columns={"index": "ds", "co2": "y"})
+    num_samples = data.shape[0]
+    time_horizon = 12
+    split_idx = num_samples - time_horizon
+    df = data[:split_idx]
+
+    # Test each time series model with log_training_metric=True
+    for estimator in estimators:
+        print(f"\nTesting {estimator} with log_training_metric=True")
+        automl = AutoML()
+        settings = {
+            "time_budget": 3,
+            "metric": "mape",
+            "task": "forecast",
+            "eval_method": "holdout",
+            "label": "y",
+            "log_training_metric": True,  # This should not cause errors
+            "estimator_list": [estimator],
+        }
+        automl.fit(dataframe=df, **settings, period=time_horizon, force_cancel=True)
+        print(f"  ✅ {estimator} SUCCESS with log_training_metric=True")
+        if automl.best_estimator:
+            assert automl.best_estimator == estimator
+
+
 if __name__ == "__main__":
     # test_forecast_automl(60)
     # test_multivariate_forecast_num(5)
     # test_multivariate_forecast_cat(5)
-    test_numpy()
+    # test_numpy()
     # test_forecast_classification(5)
     # test_forecast_panel(5)
     # test_cv_step()
+    test_log_training_metric_ts_models()
