@@ -616,15 +616,21 @@ def _eval_estimator(
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
-            metric_for_logging["train_loss"] = metric_loss_score(
-                eval_metric,
-                train_pred_y,
-                y_train,
-                labels,
-                fit_kwargs.get("sample_weight"),
-                fit_kwargs.get("groups"),
-            )
+            # Skip training metric computation for statistical time series models
+            # that don't support in-sample predictions (ARIMA, SARIMAX, Holt-Winters)
+            estimator_class_name = estimator.__class__.__name__
+            skip_training_metric = estimator_class_name in ["ARIMA", "SARIMAX", "HoltWinters"]
+            
+            if not skip_training_metric:
+                train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
+                metric_for_logging["train_loss"] = metric_loss_score(
+                    eval_metric,
+                    train_pred_y,
+                    y_train,
+                    labels,
+                    fit_kwargs.get("sample_weight"),
+                    fit_kwargs.get("groups"),
+                )
     else:  # customized metric function
         val_loss, metric_for_logging = eval_metric(
             X_val,
