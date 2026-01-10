@@ -3,7 +3,7 @@ accelerate==1.12.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
-alembic==1.17.2
+alembic==1.18.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -47,8 +47,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
-filelock==3.20.2
--e git+https://github.com/microsoft/FLAML@a9bcf465d22bfe49ef0e84c6f0622f6018edd00f#egg=FLAML
+filelock==3.20.3
+-e git+https://github.com/microsoft/FLAML@3f560e15211e3bf690aba7fa2187dfa67800f587#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -162,7 +162,7 @@ prometheus_client==0.23.1
 prompt_toolkit==3.0.52
 propcache==0.4.1
 prophet==1.2.1
-protobuf==6.33.2
+protobuf==6.33.3
 psutil==7.2.1
 ptyprocess==0.7.0
 pure_eval==0.2.3
@@ -237,14 +237,14 @@ tzdata==2025.3
 uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.40.0
-virtualenv==20.36.0
+virtualenv==20.36.1
 wcwidth==0.2.14
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
 widgetsnbextension==4.0.15
 workalendar==17.0.0
-xgboost==3.1.2
+xgboost==3.1.3
 xmltodict==1.0.2
 xxhash==3.6.0
 yarl==1.22.0
