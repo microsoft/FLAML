@@ -477,10 +477,17 @@ class AutoML(BaseEstimator):
     @property
     def best_config_per_estimator(self):
         """A dictionary of all estimators' best configuration."""
-        return {
-            e: e_search_state.best_config and AutoMLState.sanitize(e_search_state.best_config)
-            for e, e_search_state in self._search_states.items()
-        }
+        result = {}
+        for e, e_search_state in self._search_states.items():
+            if e_search_state.best_config:
+                config = e_search_state.best_config.get("ml", e_search_state.best_config).copy()
+                # Remove internal keys that are not needed for starting_points, but keep FLAML_sample_size
+                config.pop("learner", None)
+                config.pop("_choice_", None)
+                result[e] = config
+            else:
+                result[e] = None
+        return result
 
     @property
     def best_loss_per_estimator(self):
