@@ -16,7 +16,7 @@ nbformat==5.10.4
 nltk==3.9.2
 numpy==1.26.4
 openml==0.15.1
-optuna==2.8.0
+optuna==3.6.1
 packaging==24.2
 pandas==2.3.3
 psutil==7.2.1
@@ -37,5 +37,4 @@ torch==2.9.1
 torchvision==0.24.1
 transformers==4.57.3
 xgboost==3.1.3
-xgboost==3.1.3
-Current commit hash: 2580d7d6620098dd3f5a529d0531454cf25d58d1
+Current commit hash: 58fe07625623f140f89ad71e1b08c310cf8f3a2c
