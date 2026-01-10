@@ -197,7 +197,11 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         last_data_cols = self.group_ids.copy()
         last_data_cols.append(self.target_names[0])
         last_data = self.data[lambda x: x.time_idx == x.time_idx.max()][last_data_cols]
-        decoder_data = X.X_val if isinstance(X, TimeSeriesDataset) else X
+        # Use X_train if test_data is empty (e.g., when computing training metrics)
+        if isinstance(X, TimeSeriesDataset):
+            decoder_data = X.X_val if len(X.test_data) > 0 else X.X_train
+        else:
+            decoder_data = X
         if "time_idx" not in decoder_data:
             decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
