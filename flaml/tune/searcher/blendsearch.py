@@ -217,7 +217,9 @@ class BlendSearch(Searcher):
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, "__name__", None) != "CFO":
-            if space and self._ls.hierarchical:
+            # Use define-by-run function for Ray's OptunaSearch to avoid
+            # "unresolved search space" warning when passing Ray Tune domains
+            if space:
                 from functools import partial
 
                 gs_space = partial(define_by_run_func, space=space)
