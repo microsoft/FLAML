@@ -15,6 +15,88 @@
 
 - How does it work: `low_cost_partial_config` if configured, will be used as an initial point of the search. It also affects the search trajectory. For more details about how does it play a role in the search algorithms, please refer to the papers about the search algorithms used: Section 2 of [Frugal Optimization for Cost-related Hyperparameters (CFO)](https://arxiv.org/pdf/2005.01571.pdf) and Section 3 of [Economical Hyperparameter Optimization with Blended Search Strategy (BlendSearch)](https://openreview.net/pdf?id=VbLH04pRA3).
 
+### How does FLAML handle missing values?
+
+FLAML does not perform any preprocessing to handle missing values (NaN, null, etc.) in the input data. Instead, it delegates the handling of missing values to the underlying estimators. This means that the behavior depends on which estimator is being used:
+
+**Estimators that handle missing values natively:**
+
+These estimators can work with missing values without any preprocessing:
+
+- **`lgbm`** (LightGBM): Handles missing values natively by assigning them to the side that reduces the loss the most in each split. Works for both categorical and continuous features.
+- **`xgboost`** (XGBoost): Handles missing values natively by learning the best direction to handle missing values during training. Works for both categorical and continuous features.
+- **`xgb_limitdepth`** (XGBoost with depth limit): Same as `xgboost`, handles missing values natively.
+- **`catboost`** (CatBoost): Handles missing values natively with multiple strategies for both categorical and continuous features. See [CatBoost documentation](https://catboost.ai/en/docs/concepts/algorithm-missing-values-processing) for details.
+- **`histgb`** (HistGradientBoosting): sklearn's HistGradientBoosting handles missing values natively by learning the best direction during training.
+
+**Estimators that require preprocessing for missing values:**
+
+These estimators will raise an error if they encounter missing values in the data:
+
+- **`rf`** (RandomForest): sklearn's RandomForest does not accept missing values.
+- **`extra_tree`** (ExtraTrees): sklearn's ExtraTrees does not accept missing values.
+- **`lrl1`**, **`lrl2`** (LogisticRegression): sklearn's LogisticRegression does not accept missing values.
+- **`kneighbor`** (KNeighbors): sklearn's KNeighbors does not accept missing values.
+- **`sgd`** (SGDClassifier/Regressor): sklearn's SGD estimators do not accept missing values.
+
+**Recommendations for handling missing values:**
+
+1. **Use estimators that handle missing values natively**: If your data contains missing values, consider restricting the estimator list to those that can handle them:
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+automl_settings = {
+    "time_budget": 60,
+    "metric": "accuracy",
+    "task": "classification",
+    "estimator_list": ["lgbm", "xgboost", "catboost", "histgb"],  # Only estimators that handle NaN
+}
+automl.fit(X_train, y_train, **automl_settings)
+```
+
+2. **Preprocess the data before passing to FLAML**: If you want to use estimators that don't handle missing values, preprocess your data using techniques such as:
+   - Imputation (e.g., using `sklearn.impute.SimpleImputer` or `sklearn.impute.KNNImputer`)
+   - Dropping samples or features with missing values
+   - Using a scikit-learn `Pipeline` with an imputer (see [integration with scikit-learn Pipeline](Examples/Integrate%20-%20Scikit-learn%20Pipeline))
+
+Example with imputation:
+
+```python
+from flaml import AutoML
+from sklearn.impute import SimpleImputer
+import numpy as np
+
+# Preprocess data to handle missing values
+imputer = SimpleImputer(strategy='mean')  # for continuous features
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
+
+# Now you can use any estimator
+automl = AutoML()
+automl.fit(X_train_imputed, y_train, task="classification", time_budget=60)
+```
+
+3. **Use sklearn Pipeline for integrated preprocessing**: You can integrate FLAML with sklearn's Pipeline to automatically handle missing values:
+
+```python
+from flaml import AutoML
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+# Create a pipeline with imputation
+pipeline = Pipeline([
+    ('imputer', SimpleImputer(strategy='median')),
+    ('automl', AutoML())
+])
+
+# The pipeline will automatically impute missing values before AutoML
+pipeline.fit(X_train, y_train)
+```
+
+**Note on time series forecasting**: For time series tasks (`ts_forecast`, `ts_forecast_panel`), missing values handling may differ depending on the specific forecasting model used. Refer to the documentation of the specific time series model for details.
+
 ### How does FLAML handle imbalanced data (unequal distribution of target classes in classification task)?
 
 Currently FLAML does several things for imbalanced data.
