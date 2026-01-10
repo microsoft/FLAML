@@ -98,10 +98,12 @@ jobs:
         run: |
           pip cache purge
       - name: Test with pytest
+        timeout-minutes: 90
         if: matrix.python-version != '3.11'
         run: |
           pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
+        timeout-minutes: 90
         if: matrix.python-version == '3.11'
         run: |
           pip install coverage
