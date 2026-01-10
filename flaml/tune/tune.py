@@ -776,7 +776,7 @@ def run(
                         and (num_samples < 0 or num_trials < num_samples)
                         and num_failures < upperbound_num_failures
                     ):
-                        if automl_info and automl_info[0] > 0 and time_budget_s < np.inf:
+                        if automl_info and automl_info[1] == "all" and automl_info[0] > 0 and time_budget_s < np.inf:
                             time_budget_s -= automl_info[0] * n_concurrent_trials
                             logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
                         while len(_runner.running_trials) < n_concurrent_trials:
@@ -802,9 +802,17 @@ def run(
                         )
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            results = parallel(
-                                delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
-                            )
+                            try:
+                                results = parallel(
+                                    delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
+                                )
+                            except RuntimeError as e:
+                                logger.warning(f"RuntimeError: {e}")
+                                results = None
+                                logger.info(
+                                    "Encountered RuntimeError. Waiting 10 seconds for Spark cluster to recover before retrying."
+                                )
+                                time.sleep(10)
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)

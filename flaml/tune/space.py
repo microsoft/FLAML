@@ -261,7 +261,7 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                         low_cost[i] = point
                 if len(low_cost) > len(domain.categories):
                     if domain.ordered:
-                        low_cost[-1] = int(np.where(ind == low_cost[-1])[0])
+                        low_cost[-1] = int(np.where(ind == low_cost[-1])[0].item())
                     domain.low_cost_point = low_cost[-1]
                 return
         if low_cost:

@@ -79,6 +79,9 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     automl.fit(X_train=X_train, y_train=y_train, **settings)
     """ retrieve best config and best learner """
     print("Best ML leaner:", automl.best_estimator)
+    if not automl.best_estimator:
+        print("Training budget is not sufficient")
+        return
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
     print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")

@@ -53,6 +53,11 @@ def _easy_objective(config):
 
 
 def test_nested_run():
+    """
+    nested tuning example: Tune -> AutoML -> MLflow autolog
+    mlflow logging is complicated in nested tuning. It's better to turn off mlflow autologging to avoid
+    potential issues in FLAML's mlflow_integration.adopt_children() function.
+    """
     from flaml import AutoML, tune
 
     data, labels = sklearn.datasets.load_breast_cancer(return_X_y=True)

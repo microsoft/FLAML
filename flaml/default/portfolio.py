@@ -26,6 +26,7 @@ def config_predictor_tuple(tasks, configs, meta_features, regret_matrix):
     # pre-processing
     scaler = RobustScaler()
     meta_features_norm = meta_features.loc[tasks]  # this makes a copy
+    meta_features_norm = meta_features_norm.astype(float)
     meta_features_norm.loc[:, :] = scaler.fit_transform(meta_features_norm)
 
     proc = {
