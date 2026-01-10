@@ -39,13 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12"]
-        exclude:
-          - os: macos-latest
-            python-version: "3.10"  # macOS runners will hang on python 3.10 for unknown reasons
-          - os: macos-latest
-            python-version: "3.12"  # macOS runners will hang on python 3.12 for unknown reasons
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -103,17 +98,17 @@ jobs:
         run: |
           pip cache purge
       - name: Test with pytest
-        if: ${{ !(matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest') }}
+        if: matrix.python-version != '3.11'
         run: |
           pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
-        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.11'
         run: |
           pip install coverage
           coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
