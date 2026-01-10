@@ -35,5 +35,5 @@ thop==0.1.1-2209072238
 torch==2.9.1
 torchvision==0.24.1
 transformers==4.57.3
-xgboost==3.1.2
-Current commit hash: e7277d80929d7c7e202af49fc8dc0cd4fae4c3ed
+xgboost==3.1.3
+Current commit hash: 0eecc190180572de7ba6eda05fc6ea4075310be6
