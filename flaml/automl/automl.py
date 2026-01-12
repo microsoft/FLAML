@@ -1473,7 +1473,12 @@ class AutoML(BaseEstimator):
                 try:
                     from pyspark.ml.pipeline import PipelineModel
 
-                    est._model = PipelineModel.load(abs_model_path)
+                    loaded_model = PipelineModel.load(abs_model_path)
+                    if not isinstance(loaded_model, model_cls):
+                        raise RuntimeError(
+                            f"Loaded model type '{type(loaded_model).__name__}' does not match expected type '{model_class}'."
+                        )
+                    est._model = loaded_model
                 except Exception as e:
                     raise RuntimeError(
                         f"Spark model class '{model_class}' does not support load/read(). "
