@@ -160,6 +160,11 @@ class TestRegression(unittest.TestCase):
         assert automl_loaded.best_loss == automl_experiment.best_loss
         automl_loaded.predict(X_train)
 
+        import shutil
+
+        shutil.rmtree("automl_xgboost_spark.pkl", ignore_errors=True)
+        shutil.rmtree("automl_xgboost_spark.pkl.flaml_artifacts", ignore_errors=True)
+
     def test_sparse_matrix_regression_holdout(self):
         X_train = scipy.sparse.random(8, 100)
         y_train = np.random.uniform(size=8)

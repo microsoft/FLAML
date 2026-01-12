@@ -209,6 +209,11 @@ def test_spark_input_df_and_pickle():
     automl_loaded.predict(df)
     automl_loaded.model.estimator.transform(test_data)
 
+    import shutil
+
+    shutil.rmtree("automl_spark.pkl", ignore_errors=True)
+    shutil.rmtree("automl_spark.pkl.flaml_artifacts", ignore_errors=True)
+
     if estimator_list == ["rf_spark"]:
         return
 
