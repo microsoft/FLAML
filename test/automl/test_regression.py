@@ -130,7 +130,7 @@ class TestRegression(unittest.TestCase):
         )
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **settings)
 
-    def test_parallel(self, hpo_method=None):
+    def test_parallel_and_pickle(self, hpo_method=None):
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 10,
@@ -152,6 +152,13 @@ class TestRegression(unittest.TestCase):
             print(automl_experiment.best_estimator)
         except ImportError:
             return
+
+        # test pickle and load_pickle, should work for prediction
+        automl_experiment.pickle("automl_xgboost_spark.pkl")
+        automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
+        assert automl_loaded.best_estimator == automl_experiment.best_estimator
+        assert automl_loaded.best_loss == automl_experiment.best_loss
+        automl_loaded.predict(X_train)
 
     def test_sparse_matrix_regression_holdout(self):
         X_train = scipy.sparse.random(8, 100)
