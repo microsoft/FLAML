@@ -121,7 +121,12 @@ class TimeSeriesDataset:
 
     @property
     def X_all(self) -> pd.DataFrame:
-        return pd.concat([self.X_train, self.X_val], axis=0)
+        # Remove empty or all-NA columns before concatenation
+        X_train_filtered = self.X_train.dropna(axis=1, how="all")
+        X_val_filtered = self.X_val.dropna(axis=1, how="all")
+
+        # Concatenate the filtered DataFrames
+        return pd.concat([X_train_filtered, X_val_filtered], axis=0)
 
     @property
     def y_train(self) -> pd.DataFrame:
@@ -472,7 +477,7 @@ class DataTransformerTS:
                 if "__NAN__" not in X[col].cat.categories:
                     X[col] = X[col].cat.add_categories("__NAN__").fillna("__NAN__")
             else:
-                X[col] = X[col].fillna("__NAN__")
+                X[col] = X[col].fillna("__NAN__").infer_objects(copy=False)
                 X[col] = X[col].astype("category")
 
         for column in self.num_columns:

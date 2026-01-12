@@ -396,7 +396,7 @@ def load_model(checkpoint_path, task, num_labels=None):
 
         if task in (SEQCLASSIFICATION, SEQREGRESSION):
             return AutoModelForSequenceClassification.from_pretrained(
-                checkpoint_path, config=model_config, ignore_mismatched_sizes=True
+                checkpoint_path, config=model_config, ignore_mismatched_sizes=True, trust_remote_code=True
             )
         elif task == TOKENCLASSIFICATION:
             return AutoModelForTokenClassification.from_pretrained(checkpoint_path, config=model_config)
