@@ -151,7 +151,7 @@ class TimeSeriesTask(Task):
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
             try:
-                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
