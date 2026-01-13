@@ -1,4 +1,3 @@
-````markdown
 # Best Practices
 
 This page collects practical guidance for using FLAML effectively across common tasks.
@@ -16,7 +15,10 @@ from flaml.automl.task.factory import task_factory
 
 automl = AutoML()
 print("Built-in sklearn metrics:", sorted(automl.supported_metrics[0]))
-print("classification estimators:", sorted(task_factory("classification").estimators.keys()))
+print(
+    "classification estimators:",
+    sorted(task_factory("classification").estimators.keys()),
+)
 ```
 
 ## Classification
@@ -86,7 +88,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 automl = AutoML()
 mlflow.set_experiment("flaml")
 with mlflow.start_run(run_name="flaml_run") as run:
-    automl.fit(X_train, y_train, task="classification", time_budget=3, retrain_full=False, eval_method="holdout")
+    automl.fit(X_train, y_train, task="classification", time_budget=3)
 
 run_id = run.info.run_id
 
@@ -95,11 +97,11 @@ automl2 = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
 assert np.array_equal(automl2.predict(X_test), automl.predict(X_test))
 ```
 
-### Option 2: Pickle the full `AutoML` instance (convenient / Fabric)
+### Option 2: Pickle the full `AutoML` instance (convenient)
 
 Pickling stores the *entire* `AutoML` instance (not just the best estimator). This is useful when you prefer not to rely on MLflow or when you want to reuse additional attributes of the AutoML object without retraining.
 
-In Microsoft Fabric scenarios, this is particularly important for re-plotting visualization figures without requiring model retraining.
+In Microsoft Fabric scenarios, additional attributes is particularly important for re-plotting visualization figures without requiring model retraining.
 
 ```python
 import mlflow
@@ -117,7 +119,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 automl = AutoML()
 mlflow.set_experiment("flaml")
 with mlflow.start_run(run_name="flaml_run") as run:
-    automl.fit(X_train, y_train, task="classification", time_budget=3, retrain_full=False, eval_method="holdout")
+    automl.fit(X_train, y_train, task="classification", time_budget=3)
 
 automl.pickle("automl.pkl")
 automl2 = AutoML.load_pickle("automl.pkl")
@@ -128,5 +130,3 @@ assert automl.mlflow_integration.infos == automl2.mlflow_integration.infos
 ```
 
 See also: [Task-Oriented AutoML](Use-Cases/Task-Oriented-AutoML) and [FAQ](FAQ).
-
-````
