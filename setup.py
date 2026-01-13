@@ -116,14 +116,14 @@ setuptools.setup(
             "scikit-learn",
         ],
         "hf": [
-            "transformers[torch]==4.26",
+            "transformers[torch]>=4.26",
             "datasets",
             "nltk<=3.8.1",
             "rouge_score",
             "seqeval",
         ],
         "nlp": [  # for backward compatibility; hf is the new option name
-            "transformers[torch]==4.26",
+            "transformers[torch]>=4.26",
             "datasets",
             "nltk<=3.8.1",
             "rouge_score",
