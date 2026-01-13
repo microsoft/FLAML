@@ -16,7 +16,7 @@ FLAML is powered by a series of [research studies](/docs/Research) from Microsof
 
 ### Quickstart
 
-Install FLAML from pip: `pip install flaml`. Find more options in [Installation](/docs/Installation).
+Install FLAML from pip: `pip install flaml` (**requires Python >= 3.10**). Find more options in [Installation](/docs/Installation).
 
 There are several ways of using flaml:
 
@@ -143,6 +143,7 @@ Then, you can use it just like you use the original `LGMBClassifier`. Your other
 - Understand the use cases for [AutoGen](https://microsoft.github.io/autogen/), [Task-oriented AutoML](/docs/Use-Cases/Task-Oriented-Automl), [Tune user-defined function](/docs/Use-Cases/Tune-User-Defined-Function) and [Zero-shot AutoML](/docs/Use-Cases/Zero-Shot-AutoML).
 - Find code examples under "Examples": from [AutoGen - AgentChat](/docs/Examples/AutoGen-AgentChat) to [Tune - PyTorch](/docs/Examples/Tune-PyTorch).
 - Learn about [research](/docs/Research) around FLAML and check [blogposts](/blog).
+- Apply practical guidance in [Best Practices](/docs/Best-Practices).
 - Chat on [Discord](https://discord.gg/Cppx2vSPVP).
 
 If you like our project, please give it a [star](https://github.com/microsoft/FLAML/stargazers) on GitHub. If you are interested in contributing, please read [Contributor's Guide](/docs/Contribute).
