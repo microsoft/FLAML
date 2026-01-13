@@ -62,10 +62,10 @@ There is currently no formal reviewer solicitation process. Current reviewers id
 
 ```bash
 git clone https://github.com/microsoft/FLAML.git
-pip install -e FLAML[notebook,autogen]
+pip install -e ".[notebook]"
 ```
 
-In case the `pip install` command fails, try escaping the brackets such as `pip install -e FLAML\[notebook,autogen\]`.
+In case the `pip install` command fails, try escaping the brackets such as `pip install -e .\[notebook\]`.
 
 ### Docker
 
