@@ -46,8 +46,7 @@ print("classification estimators:", sorted(task_factory("classification").estima
 ```python
 from flaml.automl.task.factory import task_factory
 
-estimators_all = task_factory("forecast").estimators.keys()
-print(sorted(estimators_all))
+print("forecast:", sorted(task_factory("forecast").estimators.keys()))
 ```
 
 ## NLP (Transformers)

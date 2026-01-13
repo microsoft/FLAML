@@ -158,8 +158,18 @@ The estimator list can contain one or more estimator names, each corresponding t
   - 'arima': ARIMA for task "ts_forecast". Hyperparameters: p, d, q.
   - 'sarimax': SARIMAX for task "ts_forecast". Hyperparameters: p, d, q, P, D, Q, s.
   - 'holt-winters': Holt-Winters (triple exponential smoothing) model for task "ts_forecast". Hyperparameters: seasonal_perdiods, seasonal, use_boxcox, trend, damped_trend.
-    - 'transformer': Huggingface transformer models for task "seq-classification", "seq-regression", "multichoice-classification", "token-classification" and "summarization". Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
-    - 'tft': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate. There is a [known issue](https://github.com/jdb78/pytorch-forecasting/issues/1145) with pytorch-forecast logging.
+  - 'transformer': Huggingface transformer models for task "seq-classification", "seq-regression", "multichoice-classification", "token-classification" and "summarization". Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
+  - 'tft': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate.
+  - 'tcn': Temporal Convolutional Network (TCN) estimator for task "ts_forecast" (requires optional deep learning dependencies, e.g., `torch` and `pytorch_lightning`).
+  - Spark estimators (for Spark / pandas-on-Spark DataFrames; the exact set depends on your Spark runtime and installed packages):
+    - 'lgbm_spark': Spark LightGBM models via [SynapseML](https://microsoft.github.io/SynapseML/docs/features/lightgbm/about/).
+    - 'rf_spark': Spark MLlib RandomForestClassifier/Regressor.
+    - 'gbt_spark': Spark MLlib GBTClassifier/GBTRegressor.
+    - 'lr_spark': Spark MLlib LinearRegression.
+    - 'glr_spark': Spark MLlib GeneralizedLinearRegression.
+    - 'svc_spark': Spark MLlib LinearSVC (binary classification only).
+    - 'nb_spark': Spark MLlib NaiveBayes (classification only).
+    - 'aft_spark': Spark MLlib AFTSurvivalRegression.
 - Custom estimator. Use custom estimator for:
   - tuning an estimator that is not built-in;
   - customizing search space for a built-in estimator.
