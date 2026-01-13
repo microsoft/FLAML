@@ -86,7 +86,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 automl = AutoML()
 mlflow.set_experiment("flaml")
 with mlflow.start_run(run_name="flaml_run") as run:
-    automl.fit(X_train, y_train, task="classification", time_budget=3, retrain_full=False, eval_method="holdout")
+    automl.fit(X_train, y_train, task="classification", time_budget=3)
 
 run_id = run.info.run_id
 
@@ -117,7 +117,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 automl = AutoML()
 mlflow.set_experiment("flaml")
 with mlflow.start_run(run_name="flaml_run") as run:
-    automl.fit(X_train, y_train, task="classification", time_budget=3, retrain_full=False, eval_method="holdout")
+    automl.fit(X_train, y_train, task="classification", time_budget=3)
 
 automl.pickle("automl.pkl")
 automl2 = AutoML.load_pickle("automl.pkl")
