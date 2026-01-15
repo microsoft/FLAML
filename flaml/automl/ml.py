@@ -616,7 +616,12 @@ def _eval_estimator(
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
+            # For time series forecasting, X_train may be a sampled dataset whose
+            # test partition can be empty. Use the training partition from X_val
+            # (which is the dataset used to define y_train above) to keep shapes
+            # aligned and avoid empty prediction inputs.
+            X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
+            train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,

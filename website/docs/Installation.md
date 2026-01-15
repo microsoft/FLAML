@@ -2,7 +2,7 @@
 
 ## Python
 
-FLAML requires **Python version >= 3.7**. It can be installed from pip:
+FLAML requires **Python version >= 3.10**. It can be installed from pip:
 
 ```bash
 pip install flaml
@@ -15,12 +15,6 @@ conda install flaml -c conda-forge
 ```
 
 ### Optional Dependencies
-
-#### [Autogen](Use-Cases/Autogen)
-
-```bash
-pip install "flaml[autogen]"
-```
 
 #### [Task-oriented AutoML](Use-Cases/Task-Oriented-AutoML)
 
