@@ -7,6 +7,7 @@ NumPy 2.0 removed several deprecated attributes including np.NaN (use np.nan ins
 import unittest
 
 import numpy as np
+from packaging import version
 
 
 class TestNumPyCompatibility(unittest.TestCase):
@@ -16,7 +17,6 @@ class TestNumPyCompatibility(unittest.TestCase):
         """Test that numpy is available and has a version."""
         self.assertTrue(hasattr(np, "__version__"))
         self.assertTrue(len(np.__version__) > 0)
-        print(f"Testing with NumPy version: {np.__version__}")
 
     def test_numpy_nan_lowercase(self):
         """Test that np.nan (lowercase) works in all NumPy versions."""
@@ -30,17 +30,14 @@ class TestNumPyCompatibility(unittest.TestCase):
 
     def test_numpy2_deprecated_attributes(self):
         """Test handling of NumPy 2.0 removed attributes."""
-        numpy_major = int(np.__version__.split(".")[0])
+        numpy_version = version.parse(np.__version__)
 
-        if numpy_major >= 2:
+        if numpy_version >= version.parse("2.0.0"):
             # In NumPy 2.0+, np.NaN should not exist
             with self.assertRaises(AttributeError):
                 _ = np.NaN
-            print("✓ Confirmed np.NaN is not available in NumPy 2.0+ (as expected)")
-        else:
-            # In NumPy 1.x, np.NaN might exist but we shouldn't use it
-            # We just verify our code uses np.nan instead
-            print(f"✓ Running with NumPy {np.__version__} (< 2.0)")
+        # In NumPy 1.x, np.NaN might exist but we shouldn't use it
+        # We just verify our code uses np.nan instead
 
     def test_flaml_imports_with_numpy(self):
         """Test that FLAML imports successfully with current NumPy version."""
@@ -48,7 +45,6 @@ class TestNumPyCompatibility(unittest.TestCase):
             import flaml
 
             self.assertTrue(hasattr(flaml, "__version__"))
-            print(f"✓ FLAML {flaml.__version__} imports successfully with NumPy {np.__version__}")
         except ImportError as e:
             self.fail(f"Failed to import FLAML: {e}")
 
@@ -70,7 +66,6 @@ class TestNumPyCompatibility(unittest.TestCase):
             predictions = automl.predict(X[:5])
 
             self.assertEqual(len(predictions), 5)
-            print(f"✓ AutoML fit and predict work correctly with NumPy {np.__version__}")
 
         except ImportError:
             # AutoML might not be installed (requires flaml[automl])
