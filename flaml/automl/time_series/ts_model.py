@@ -194,7 +194,13 @@ class Orbit(TimeSeriesEstimator):
 
         elif isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[[self.time_col] + X.regressors]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
 
         if self._model is not None:
             forecast = self._model.predict(X, **kwargs)
@@ -301,7 +307,13 @@ class Prophet(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
 
         X = X.rename(columns={self.time_col: "ds"})
         if self._model is not None:
@@ -327,11 +339,19 @@ class StatsModelsEstimator(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
         else:
             X = X[self.regressors + [self.time_col]]
 
         if isinstance(X, DataFrame):
+            if X.shape[0] == 0:
+                return pd.Series([], name=self.target_names[0], dtype=float)
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
             if len(self.regressors):
@@ -829,6 +849,13 @@ class TS_SKLearn(TimeSeriesEstimator):
         if isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data
+            else:
+                X = data.train_data
 
         if self._model is not None:
             X = X[self.regressors]

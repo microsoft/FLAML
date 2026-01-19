@@ -23,13 +23,13 @@ Related arguments:
 
 - `evaluation_function`: A user-defined evaluation function.
 - `metric`: A string of the metric name to optimize for.
-- `mode`:  A string in \['min', 'max'\] to specify the objective as minimization or maximization.
+- `mode`: A string in ['min', 'max'] to specify the objective as minimization or maximization.
 
 The first step is to specify your tuning objective.
 To do it, you should first specify your evaluation procedure (e.g., perform a machine learning model training and validation) with respect to the hyperparameters in a user-defined function `evaluation_function`.
 The function requires a hyperparameter configuration as input, and can simply return a metric value in a scalar or return a dictionary of metric name and metric value pairs.
 
-In the following code, we define an evaluation function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. Note that we use this toy example here for more accessible demonstration purposes. In real use cases, the evaluation function usually cannot be written in this closed form, but instead involves a black-box and expensive evaluation procedure.  Please check out [Tune HuggingFace](/docs/Examples/Tune-HuggingFace), [Tune PyTorch](/docs/Examples/Tune-PyTorch) and [Tune LightGBM](/docs/Getting-Started#tune-user-defined-function) for real examples of tuning tasks.
+In the following code, we define an evaluation function with respect to two hyperparameters named `x` and `y` according to $obj := (x-85000)^2 - x/y$. Note that we use this toy example here for more accessible demonstration purposes. In real use cases, the evaluation function usually cannot be written in this closed form, but instead involves a black-box and expensive evaluation procedure. Please check out [Tune HuggingFace](/docs/Examples/Tune-HuggingFace), [Tune PyTorch](/docs/Examples/Tune-PyTorch) and [Tune LightGBM](/docs/Getting-Started#tune-user-defined-function) for real examples of tuning tasks.
 
 ```python
 import time
@@ -72,7 +72,7 @@ Related arguments:
 
 The second step is to specify a search space of the hyperparameters through the argument `config`. In the search space, you need to specify valid values for your hyperparameters and can specify how these values are sampled (e.g., from a uniform distribution or a log-uniform distribution).
 
-In the following code example, we include a search space for the two hyperparameters `x` and `y` as introduced above. The valid values for both are integers in the range of \[1, 100000\]. The values for `x` are sampled uniformly in the specified range (using `tune.randint(lower=1, upper=100000)`), and the values for `y` are sampled uniformly in logarithmic space of the specified range (using `tune.lograndit(lower=1, upper=100000)`).
+In the following code example, we include a search space for the two hyperparameters `x` and `y` as introduced above. The valid values for both are integers in the range of [1, 100000]. The values for `x` are sampled uniformly in the specified range (using `tune.randint(lower=1, upper=100000)`), and the values for `y` are sampled uniformly in logarithmic space of the specified range (using `tune.lograndit(lower=1, upper=100000)`).
 
 ```python
 from flaml import tune
@@ -186,10 +186,10 @@ config = {
 Cost-related hyperparameters are a subset of the hyperparameters which directly affect the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners. So they are cost-related hyperparameters for tree-based learners.
 
 When cost-related hyperparameters exist, the evaluation cost in the search space is heterogeneous.
-In this case, designing a search space with proper ranges of the hyperparameter values is highly non-trivial. Classical tuning algorithms such as Bayesian optimization and random search are typically sensitive to such ranges.  It may take them a very high cost to find a good choice if the ranges are too large. And if the ranges are too small, the optimal choice(s) may not be included and thus not possible to be found. With our method, you can use a search space with larger ranges in the case of heterogeneous cost.
+In this case, designing a search space with proper ranges of the hyperparameter values is highly non-trivial. Classical tuning algorithms such as Bayesian optimization and random search are typically sensitive to such ranges. It may take them a very high cost to find a good choice if the ranges are too large. And if the ranges are too small, the optimal choice(s) may not be included and thus not possible to be found. With our method, you can use a search space with larger ranges in the case of heterogeneous cost.
 
 Our search algorithms are designed to finish the tuning process at a low total cost when the evaluation cost in the search space is heterogeneous.
-So in such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are encouraged to set them as the `low_cost_partial_config`, which is a dictionary of a subset of the hyperparameter coordinates whose value corresponds to a configuration with known low cost.  Using the example of the tree-based methods again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that 4 is the lower bound of search space for these two hyperparameters), e.g., in LGBM. Please find more details on how the algorithm works [here](#cfo-frugal-optimization-for-cost-related-hyperparameters).
+So in such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are encouraged to set them as the `low_cost_partial_config`, which is a dictionary of a subset of the hyperparameter coordinates whose value corresponds to a configuration with known low cost. Using the example of the tree-based methods again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that 4 is the lower bound of search space for these two hyperparameters), e.g., in LGBM. Please find more details on how the algorithm works [here](#cfo-frugal-optimization-for-cost-related-hyperparameters).
 
 In addition, if you are aware of the cost relationship between different categorical hyperparameter choices, you are encouraged to provide this information through `cat_hp_cost`. It also helps the search algorithm to reduce the total cost.
 
@@ -202,7 +202,7 @@ Related arguments:
 - `config_constraints` (optional): A list of config constraints to be satisfied.
 - `metric_constraints` (optional): A list of metric constraints to be satisfied. e.g., `['precision', '>=', 0.9]`.
 
-The third step is to specify constraints of the tuning task. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`.  The following example shows three use cases:
+The third step is to specify constraints of the tuning task. One notable property of `flaml.tune` is that it is able to finish the tuning process (obtaining good results) within a required resource constraint. A user can either provide the resource constraint in terms of wall-clock time (in seconds) through the argument `time_budget_s`, or in terms of the number of trials through the argument `num_samples`. The following example shows three use cases:
 
 ```python
 # Set a resource constraint of 60 seconds wall-clock time for the tuning.
@@ -295,8 +295,8 @@ Related arguments:
 
 Details about parallel tuning with Spark could be found [here](/docs/Examples/Integrate%20-%20Spark#parallel-spark-jobs).
 
-You can perform parallel tuning by specifying `use_ray=True` (requiring flaml\[ray\] option installed) or `use_spark=True`
-(requiring flaml\[spark\] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`,
+You can perform parallel tuning by specifying `use_ray=True` (requiring flaml[ray] option installed) or `use_spark=True`
+(requiring flaml[spark] option installed). You can also limit the amount of resources allocated per trial by specifying `resources_per_trial`,
 e.g., `resources_per_trial={'cpu': 2}` when `use_ray=True`.
 
 ```python
@@ -409,11 +409,11 @@ analysis = tune.run(
 
 You can find more details about this scheduler in [this paper](https://arxiv.org/pdf/1911.04706.pdf).
 
-#### 2. A scheduler of the  [`TrialScheduler`](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-schedulers) class from `ray.tune`.
+#### 2. A scheduler of the [`TrialScheduler`](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-schedulers) class from `ray.tune`.
 
 There is a handful of schedulers of this type implemented in `ray.tune`, for example, [ASHA](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler), [HyperBand](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-original-hyperband), [BOHB](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#tune-scheduler-bohb), etc.
 
-To use this type of scheduler you can either (1) set `scheduler='asha'`, which will automatically create an  [ASHAScheduler](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler) instance using the provided inputs (`resource_attr`, `min_resource`, `max_resource`, and `reduction_factor`); or (2) create an instance by yourself and provided it via `scheduler`, as shown in the following code example,
+To use this type of scheduler you can either (1) set `scheduler='asha'`, which will automatically create an [ASHAScheduler](https://docs.ray.io/en/latest/tune/api_docs/schedulers.html#asha-tune-schedulers-ashascheduler) instance using the provided inputs (`resource_attr`, `min_resource`, `max_resource`, and `reduction_factor`); or (2) create an instance by yourself and provided it via `scheduler`, as shown in the following code example,
 
 ```python
 #  require: pip install flaml[ray]
@@ -589,7 +589,7 @@ NOTE:
 
 ## Hyperparameter Optimization Algorithm
 
-To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default when the option \[blendsearch\] is installed.
+To tune the hyperparameters toward your objective, you will want to use a hyperparameter optimization algorithm which can help suggest hyperparameters with better performance (regarding your objective). `flaml` offers two HPO methods: CFO and BlendSearch. `flaml.tune` uses BlendSearch by default when the option [blendsearch] is installed.
 
 <!-- ![png](images/CFO.png) | ![png](images/BlendSearch.png)
 :---:|:---: -->

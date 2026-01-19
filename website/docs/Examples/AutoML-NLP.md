@@ -2,7 +2,7 @@
 
 ### Requirements
 
-This example requires GPU. Install the \[automl,hf\] option:
+This example requires GPU. Install the [automl,hf] option:
 
 ```python
 pip install "flaml[automl,hf]"
