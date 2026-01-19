@@ -88,13 +88,7 @@ def test_lgbm_objective():
         "task": "regression",
         "estimator_list": ["lgbm"],
         "verbose": 0,
-        "custom_hp": {
-            "lgbm": {
-                "objective": {
-                    "domain": "mape"  # Fixed value, not tuned
-                }
-            }
-        },
+        "custom_hp": {"lgbm": {"objective": {"domain": "mape"}}},  # Fixed value, not tuned
     }
 
     automl.fit(X_train, y_train, **settings)
