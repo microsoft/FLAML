@@ -311,14 +311,14 @@ def get_y_pred(estimator, X, eval_metric, task: Task):
     else:
         y_pred = estimator.predict(X)
 
-    if isinstance(y_pred, Series) or isinstance(y_pred, DataFrame):
+    if isinstance(y_pred, (Series, DataFrame)):
         y_pred = y_pred.values
 
     return y_pred
 
 
 def to_numpy(x):
-    if isinstance(x, Series or isinstance(x, DataFrame)):
+    if isinstance(x, (Series, DataFrame)):
         x = x.values
     else:
         x = np.ndarray(x)
@@ -586,7 +586,7 @@ def _eval_estimator(
 
         # TODO: why are integer labels being cast to str in the first place?
 
-        if isinstance(val_pred_y, Series) or isinstance(val_pred_y, DataFrame) or isinstance(val_pred_y, np.ndarray):
+        if isinstance(val_pred_y, (Series, DataFrame, np.ndarray)):
             test = val_pred_y if isinstance(val_pred_y, np.ndarray) else val_pred_y.values
             if not np.issubdtype(test.dtype, np.number):
                 # some NLP models return a list
