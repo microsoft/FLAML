@@ -546,14 +546,12 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
 
 
 def validate_data_basic(X_train_all, y_train_all):
-    assert isinstance(X_train_all, np.ndarray) or issparse(X_train_all) or isinstance(X_train_all, pd.DataFrame), (
-        "X_train_all must be a numpy array, a pandas dataframe, " "or Scipy sparse matrix."
-    )
+    assert isinstance(X_train_all, (np.ndarray, DataFrame)) or issparse(
+        X_train_all
+    ), "X_train_all must be a numpy array, a pandas dataframe, or Scipy sparse matrix."
 
-    assert (
-        isinstance(y_train_all, np.ndarray)
-        or isinstance(y_train_all, pd.Series)
-        or isinstance(y_train_all, pd.DataFrame)
+    assert isinstance(
+        y_train_all, (np.ndarray, pd.Series, pd.DataFrame)
     ), "y_train_all must be a numpy array or a pandas series or DataFrame."
 
     assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty, use None if no data"
