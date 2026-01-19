@@ -217,9 +217,23 @@ class BlendSearch(Searcher):
         if global_search_alg is not None:
             self._gs = global_search_alg
         elif getattr(self, "__name__", None) != "CFO":
-            # Use define-by-run function for Ray's OptunaSearch to avoid
-            # "unresolved search space" warning when passing Ray Tune domains
-            if space:
+            # Use define-by-run for OptunaSearch when needed:
+            # - Hierarchical/conditional spaces are best supported via define-by-run.
+            # - Ray Tune domain/grid specs can trigger an "unresolved search space" warning
+            #   unless we switch to define-by-run.
+            use_define_by_run = bool(getattr(self._ls, "hierarchical", False))
+            if (not use_define_by_run) and isinstance(space, dict) and space:
+                try:
+                    from .variant_generator import parse_spec_vars
+
+                    _, domain_vars, grid_vars = parse_spec_vars(space)
+                    use_define_by_run = bool(domain_vars or grid_vars)
+                except Exception:
+                    # Be conservative: if we can't determine whether the space is
+                    # unresolved, fall back to the original behavior.
+                    use_define_by_run = False
+
+            if use_define_by_run:
                 from functools import partial
 
                 gs_space = partial(define_by_run_func, space=space)
