@@ -386,9 +386,8 @@ class TimeSeriesTask(Task):
         return X
 
     def preprocess(self, X, transformer=None):
-        if isinstance(X, pd.DataFrame) or isinstance(X, np.ndarray) or isinstance(X, pd.Series):
-            X = X.copy()
-            X = normalize_ts_data(X, self.target_names, self.time_col)
+        if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
+            X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
             return self._preprocess(X, transformer)
         elif isinstance(X, int):
             return X
