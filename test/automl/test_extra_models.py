@@ -192,16 +192,7 @@ def _test_sparse_matrix_classification(estimator):
     # Windows + Python 3.13), `scipy.sparse.random(..., dtype=int)` may trigger
     # integer sampling paths which raise "low is out of bounds for int32".
     # A float sparse matrix is sufficient to validate sparse-input support.
-    rs = np.random.RandomState(0)
-    X_train = scipy.sparse.random(
-        1554,
-        21,
-        density=0.1,
-        format="csr",
-        random_state=rs,
-        data_rvs=rs.random_sample,
-        dtype=np.float32,
-    )
+    X_train = scipy.sparse.random(1554, 21, dtype=np.float32)
     y_train = np.random.randint(3, size=1554)
     automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
 
