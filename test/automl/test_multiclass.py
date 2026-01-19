@@ -368,11 +368,7 @@ class TestMultiClass(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True,
         }
-        # NOTE: Avoid `dtype=int` here. On some NumPy/SciPy combinations (notably
-        # Windows + Python 3.13), `scipy.sparse.random(..., dtype=int)` may trigger
-        # integer sampling paths which raise "low is out of bounds for int32".
-        # A float sparse matrix is sufficient to validate sparse-input support.
-        X_train = scipy.sparse.random(1554, 21, dtype=np.float32)
+        X_train = scipy.sparse.random(1554, 21, dtype=int)
         y_train = np.random.randint(3, size=1554)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.classes_)
@@ -534,6 +530,32 @@ class TestMultiClass(unittest.TestCase):
         # print('Best hyperparmeter config:', new_automl.best_config)
         print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
+
+    def test_starting_points_should_improve_performance(self):
+        N = 10000  # a large N is needed to see the improvement
+        X_train, y_train = load_iris(return_X_y=True)
+        X_train = np.concatenate([X_train + 0.1 * i for i in range(N)], axis=0)
+        y_train = np.concatenate([y_train] * N, axis=0)
+
+        am1 = AutoML()
+        am1.fit(X_train, y_train, estimator_list=["lgbm"], time_budget=3, seed=11)
+
+        am2 = AutoML()
+        am2.fit(
+            X_train,
+            y_train,
+            estimator_list=["lgbm"],
+            time_budget=2,
+            seed=11,
+            starting_points=am1.best_config_per_estimator,
+        )
+
+        print(f"am1.best_loss: {am1.best_loss:.4f}")
+        print(f"am2.best_loss: {am2.best_loss:.4f}")
+
+        assert np.round(am2.best_loss, 4) <= np.round(
+            am1.best_loss, 4
+        ), "Starting points should help improve the performance!"
 
 
 if __name__ == "__main__":
