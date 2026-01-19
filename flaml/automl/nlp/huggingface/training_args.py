@@ -5,7 +5,7 @@ from typing import List, Optional
 from flaml.automl.task.task import NLG_TASKS
 
 try:
-    from transformers import TrainingArguments
+    from transformers import Seq2SeqTrainingArguments as TrainingArguments
 except ImportError:
     TrainingArguments = object
 

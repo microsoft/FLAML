@@ -201,3 +201,57 @@ from sklearn.ensemble import RandomForestClassifier
 model = RandomForestClassifier(**best_params)
 model.fit(X, y)
 ```
+
+### How to save and load an AutoML object? (`pickle` / `load_pickle`)
+
+FLAML provides `AutoML.pickle()` / `AutoML.load_pickle()` as a convenient and robust way to persist an AutoML run.
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+automl.fit(X_train, y_train, task="classification", time_budget=60)
+
+# Save
+automl.pickle("automl.pkl")
+
+# Load
+automl_loaded = AutoML.load_pickle("automl.pkl")
+pred = automl_loaded.predict(X_test)
+```
+
+Notes:
+
+- If you used Spark estimators, `AutoML.pickle()` externalizes Spark ML models into an adjacent artifact folder and keeps
+  the pickle itself lightweight.
+- If you want to skip re-loading externalized Spark models (e.g., in an environment without Spark), use:
+
+```python
+automl_loaded = AutoML.load_pickle("automl.pkl", load_spark_models=False)
+```
+
+### How to list all available estimators for a task?
+
+The available estimator set is task-dependent and can vary with optional dependencies. You can list the estimator keys
+that FLAML currently has registered in your environment:
+
+```python
+from flaml.automl.task.factory import task_factory
+
+print(sorted(task_factory("classification").estimators.keys()))
+print(sorted(task_factory("regression").estimators.keys()))
+print(sorted(task_factory("forecast").estimators.keys()))
+print(sorted(task_factory("rank").estimators.keys()))
+```
+
+### How to list supported built-in metrics?
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+sklearn_metrics, hf_metrics, spark_metrics = automl.supported_metrics
+print(sorted(sklearn_metrics))
+print(sorted(hf_metrics))
+print(spark_metrics)
+```

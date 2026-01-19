@@ -165,7 +165,7 @@ def test_spark_synapseml_rank():
     _test_spark_synapseml_lightgbm(spark, "rank")
 
 
-def test_spark_input_df():
+def test_spark_input_df_and_pickle():
     import pandas as pd
 
     file_url = "https://mmlspark.blob.core.windows.net/publicwasb/company_bankruptcy_prediction_data.csv"
@@ -200,6 +200,19 @@ def test_spark_input_df():
         isUnbalance=True,
         **settings,
     )
+
+    # test pickle and load_pickle, should work for prediction
+    automl.pickle("automl_spark.pkl")
+    automl_loaded = AutoML().load_pickle("automl_spark.pkl")
+    assert automl_loaded.best_estimator == automl.best_estimator
+    assert automl_loaded.best_loss == automl.best_loss
+    automl_loaded.predict(df)
+    automl_loaded.model.estimator.transform(test_data)
+
+    import shutil
+
+    shutil.rmtree("automl_spark.pkl", ignore_errors=True)
+    shutil.rmtree("automl_spark.pkl.flaml_artifacts", ignore_errors=True)
 
     if estimator_list == ["rf_spark"]:
         return
@@ -393,13 +406,13 @@ def test_auto_convert_dtypes_spark():
 
 
 if __name__ == "__main__":
-    test_spark_synapseml_classification()
-    test_spark_synapseml_regression()
-    test_spark_synapseml_rank()
-    test_spark_input_df()
-    test_get_random_dataframe()
-    test_auto_convert_dtypes_pandas()
-    test_auto_convert_dtypes_spark()
+    # test_spark_synapseml_classification()
+    # test_spark_synapseml_regression()
+    # test_spark_synapseml_rank()
+    test_spark_input_df_and_pickle()
+    # test_get_random_dataframe()
+    # test_auto_convert_dtypes_pandas()
+    # test_auto_convert_dtypes_spark()
 
     # import cProfile
     # import pstats
