@@ -552,6 +552,8 @@ automl2.fit(
 
 `starting_points` is a dictionary or a str to specify the starting hyperparameter config. (1) When it is a dictionary, the keys are the estimator names. If you do not need to specify starting points for an estimator, exclude its name from the dictionary. The value for each key can be either a dictionary of a list of dictionaries, corresponding to one hyperparameter configuration, or multiple hyperparameter configurations, respectively. (2) When it is a str: if "data", use data-dependent defaults; if "data:path", use data-dependent defaults which are stored at path; if "static", use data-independent defaults. Please find more details about data-dependent defaults in [zero shot AutoML](Zero-Shot-AutoML#combine-zero-shot-automl-and-hyperparameter-tuning).
 
+**Note on sample size preservation**: When using `best_config_per_estimator` as starting points, the configurations now preserve `FLAML_sample_size` (if subsampling was used during the search). This ensures that the warm-started run continues optimization with the same sample sizes that produced the best results in the previous run, leading to more effective warm-starting.
+
 ### Log the trials
 
 The trials are logged in a file if a `log_file_name` is passed.
@@ -672,6 +674,12 @@ print(automl.best_config_per_estimator)
 ```
 
 The `None` value corresponds to the estimators which have not been tried.
+
+**Note**: When subsampling is used during the search (e.g., with large datasets), the configurations may also include `FLAML_sample_size` to indicate the sample size used. For example:
+```python
+# {'lgbm': {'n_estimators': 729, 'num_leaves': 21, ..., 'FLAML_sample_size': 45000}, ...}
+```
+This information is preserved in `best_config_per_estimator` and is important for warm-starting subsequent runs with the correct sample sizes.
 
 Other useful information:
 
