@@ -27,11 +27,64 @@ DEFAULT_TIMEOUT = 600
 
 
 def infer_lang(code):
-    """infer the language for the code.
-    TODO: make it robust.
+    """Infer the language for the code based on syntax patterns.
+
+    Args:
+        code (str): The code string to analyze.
+
+    Returns:
+        str: The inferred language, either "python" or "sh".
     """
-    if code.startswith("python ") or code.startswith("pip") or code.startswith("python3 "):
-        return "sh"
+    if not code:
+        return "python"
+
+    code = code.strip()
+
+    # Check for shebang line
+    if code.startswith("#!"):
+        first_line = code.split("\n")[0].lower()
+        if "python" in first_line:
+            return "python"
+        if "bash" in first_line or "/sh" in first_line:
+            return "sh"
+
+    # Shell command patterns - commands that indicate shell execution
+    shell_patterns = (
+        "python ",
+        "python3 ",
+        "pip ",
+        "pip3 ",
+        "cd ",
+        "ls ",
+        "mkdir ",
+        "rm ",
+        "cp ",
+        "mv ",
+        "chmod ",
+        "chown ",
+        "sudo ",
+        "apt ",
+        "apt-get ",
+        "brew ",
+        "npm ",
+        "yarn ",
+        "curl ",
+        "wget ",
+        "echo ",
+        "export ",
+        "source ",
+        "cat ",
+        "grep ",
+        "find ",
+        "tar ",
+        "unzip ",
+        "git ",
+    )
+    for pattern in shell_patterns:
+        if code.startswith(pattern):
+            return "sh"
+
+    # Default to python
     return "python"
 
 
@@ -280,9 +333,7 @@ def execute_code(
     image_list = (
         ["python:3-alpine", "python:3", "python:3-windowsservercore"]
         if use_docker is True
-        else [use_docker]
-        if isinstance(use_docker, str)
-        else use_docker
+        else [use_docker] if isinstance(use_docker, str) else use_docker
     )
     for image in image_list:
         # check if the image exists
