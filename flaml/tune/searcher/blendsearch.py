@@ -233,6 +233,7 @@ class BlendSearch(Searcher):
                     # unresolved, fall back to the original behavior.
                     use_define_by_run = False
 
+            self._use_define_by_run = use_define_by_run
             if use_define_by_run:
                 from functools import partial
 
@@ -503,7 +504,7 @@ class BlendSearch(Searcher):
                             self._ls_bound_max,
                             self._subspace.get(trial_id, self._ls.space),
                         )
-                    if self._gs is not None and self._experimental and (not self._ls.hierarchical):
+                    if self._gs is not None and self._experimental and (not getattr(self, "_use_define_by_run", False)):
                         self._gs.add_evaluated_point(flatten_dict(config), objective)
                         # TODO: recover when supported
                         # converted = convert_key(config, self._gs.space)
