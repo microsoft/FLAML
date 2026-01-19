@@ -23,5 +23,6 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pre-commit
+          python-version: "3.12"
           key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
       - uses: pre-commit/action@v3.0.0
