@@ -1,7 +1,7 @@
 try:
     from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
-except ImportError:
-    pass
+except ImportError as e:
+    print(f"scikit-learn is required for HistGradientBoostingEstimator. Please install it; error: {e}")
 
 from flaml import tune
 from flaml.automl.model import SKLearnEstimator

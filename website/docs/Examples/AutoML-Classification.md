@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-Install the \[automl\] option.
+Install the [automl] option.
 
 ```bash
 pip install "flaml[automl]"
@@ -31,6 +31,8 @@ print(automl.predict_proba(X_train))
 # Print the best model
 print(automl.model.estimator)
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample of output
 

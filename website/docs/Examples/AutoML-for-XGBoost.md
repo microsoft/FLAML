@@ -2,7 +2,7 @@
 
 ### Prerequisites for this example
 
-Install the \[automl\] option.
+Install the [automl] option.
 
 ```bash
 pip install "flaml[automl] matplotlib openml"
@@ -30,6 +30,8 @@ settings = {
 }
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 

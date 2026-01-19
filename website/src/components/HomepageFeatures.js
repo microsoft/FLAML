@@ -21,19 +21,20 @@ const FeatureList = [
     description: (
       <>
         By automatically adapting LLMs to applications, FLAML
-        maximizes the benefits of expensive LLMs and reduce monetary cost.
+        maximizes the benefits of expensive LLMs and reduces monetary costs.
         FLAML enables users to build and use intelligent adaptive AI agents with minimal effort.
       </>
     ),
   },
+//   Uncomment if needed
 //   {
 //     title: 'Easy to Customize or Extend',
 //     Svg: require('../../static/img/extend.svg').default,
 //     description: (
 //       <>
-//         FLAML is designed easy to extend, such as adding custom learners or metrics.
+//         FLAML is designed to be easy to extend, such as adding custom learners or metrics.
 //         The customization level ranges smoothly from minimal
-// (training data and task type as only input) to full (tuning a user-defined function).
+//         (training data and task type as the only input) to full (tuning a user-defined function).
 //       </>
 //     ),
 //   },
@@ -42,8 +43,8 @@ const FeatureList = [
     Svg: require('../../static/img/fast.svg').default,
     description: (
       <>
-        FLAML offers a fast auto tuning tool powered by a novel cost-effective tuning approach.
-        It is capable of handling large search space with heterogeneous evaluation cost
+        FLAML offers a fast auto-tuning tool powered by a novel cost-effective tuning approach.
+        It is capable of handling large search spaces with heterogeneous evaluation costs
         and complex constraints/guidance/early stopping.
       </>
     ),

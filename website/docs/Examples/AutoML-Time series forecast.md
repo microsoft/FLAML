@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-Install the \[automl,ts_forecast\] option.
+Install the [automl,ts_forecast] option.
 
 ```bash
 pip install "flaml[automl,ts_forecast]"
@@ -28,6 +28,8 @@ automl.fit(
 )
 print(automl.predict(X_train[84:]))
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 

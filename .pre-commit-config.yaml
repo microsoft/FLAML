@@ -23,13 +23,20 @@ repos:
     - id: end-of-file-fixer
     - id: no-commit-to-branch
 
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.31.1
+    hooks:
+      - id: pyupgrade
+        args: [--py38-plus]
+        name: Upgrade code
+
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
     - id: black
 
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.17
+    rev: 0.7.22
     hooks:
       - id: mdformat
         additional_dependencies:

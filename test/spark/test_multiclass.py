@@ -2,6 +2,7 @@ import os
 import unittest
 
 import numpy as np
+import pytest
 import scipy.sparse
 from sklearn.datasets import load_iris, load_wine
 
@@ -12,6 +13,7 @@ from flaml.tune.spark.utils import check_spark
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
+pytestmark = pytest.mark.spark
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -260,7 +262,11 @@ class TestMultiClass(unittest.TestCase):
             "n_concurrent_trials": 2,
             "use_spark": True,
         }
-        X_train = scipy.sparse.random(1554, 21, dtype=int)
+        # NOTE: Avoid `dtype=int` here. On some NumPy/SciPy combinations (notably
+        # Windows + Python 3.13), `scipy.sparse.random(..., dtype=int)` may trigger
+        # integer sampling paths which raise "low is out of bounds for int32".
+        # A float sparse matrix is sufficient to validate sparse-input support.
+        X_train = scipy.sparse.random(1554, 21, dtype=np.float32)
         y_train = np.random.randint(3, size=1554)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.classes_)
@@ -344,8 +350,8 @@ class TestMultiClass(unittest.TestCase):
         automl_val_accuracy = 1.0 - automl_experiment.best_loss
         print("Best ML leaner:", automl_experiment.best_estimator)
         print("Best hyperparmeter config:", automl_experiment.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(automl_experiment.best_config_train_time))
+        print(f"Best accuracy on validation data: {automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {automl_experiment.best_config_train_time:.4g} s")
 
         starting_points = automl_experiment.best_config_per_estimator
         print("starting_points", starting_points)
@@ -369,8 +375,8 @@ class TestMultiClass(unittest.TestCase):
         new_automl_val_accuracy = 1.0 - new_automl_experiment.best_loss
         print("Best ML leaner:", new_automl_experiment.best_estimator)
         print("Best hyperparmeter config:", new_automl_experiment.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(new_automl_experiment.best_config_train_time))
+        print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {new_automl_experiment.best_config_train_time:.4g} s")
 
     def test_fit_w_starting_points_list(self, as_frame=True):
         automl_experiment = AutoML()
@@ -394,8 +400,8 @@ class TestMultiClass(unittest.TestCase):
         automl_val_accuracy = 1.0 - automl_experiment.best_loss
         print("Best ML leaner:", automl_experiment.best_estimator)
         print("Best hyperparmeter config:", automl_experiment.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(automl_val_accuracy))
-        print("Training duration of best run: {0:.4g} s".format(automl_experiment.best_config_train_time))
+        print(f"Best accuracy on validation data: {automl_val_accuracy:.4g}")
+        print(f"Training duration of best run: {automl_experiment.best_config_train_time:.4g} s")
 
         starting_points = {}
         log_file_name = automl_settings["log_file_name"]
@@ -409,7 +415,7 @@ class TestMultiClass(unittest.TestCase):
                 if learner not in starting_points:
                     starting_points[learner] = []
                 starting_points[learner].append(config)
-        max_iter = sum([len(s) for k, s in starting_points.items()])
+        max_iter = sum(len(s) for k, s in starting_points.items())
         automl_settings_resume = {
             "time_budget": 2,
             "metric": "accuracy",
@@ -431,7 +437,7 @@ class TestMultiClass(unittest.TestCase):
         new_automl_val_accuracy = 1.0 - new_automl_experiment.best_loss
         # print('Best ML leaner:', new_automl_experiment.best_estimator)
         # print('Best hyperparmeter config:', new_automl_experiment.best_config)
-        print("Best accuracy on validation data: {0:.4g}".format(new_automl_val_accuracy))
+        print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
 
 

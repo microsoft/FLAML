@@ -32,14 +32,15 @@ from flaml import AutoML
 automl = AutoML()
 automl.fit(X_train, y_train, task="regression", time_budget=60, **other_settings)
 # Save the model
-with open("automl.pkl", "wb") as f:
-    pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
+automl.pickle("automl.pkl")
 
 # At prediction time
-with open("automl.pkl", "rb") as f:
-    automl = pickle.load(f)
+automl = AutoML.load_pickle("automl.pkl")
 pred = automl.predict(X_test)
 ```
+
+FLAML also supports plain `pickle.dump()` / `pickle.load()`, but `automl.pickle()` / `AutoML.load_pickle()` is recommended,
+especially when Spark estimators are involved.
 
 If users provide the minimal inputs only, `AutoML` uses the default settings for optimization metric, estimator list etc.
 
@@ -122,6 +123,18 @@ def custom_metric(
 
 It returns the validation loss penalized by the gap between validation and training loss as the metric to minimize, and three metrics to log: val_loss, train_loss and pred_time. The arguments `config`, `groups_val` and `groups_train` are not used in the function.
 
+You can also inspect what FLAML recognizes as built-in metrics at runtime:
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+sklearn_metrics, hf_metrics, spark_metrics = automl.supported_metrics
+print(sorted(sklearn_metrics))
+print(sorted(hf_metrics))
+print(spark_metrics)
+```
+
 ### Estimator and search space
 
 The estimator list can contain one or more estimator names, each corresponding to a built-in estimator or a custom estimator. Each estimator has a search space for hyperparameter configurations. FLAML supports both classical machine learning models and deep neural networks.
@@ -131,7 +144,7 @@ The estimator list can contain one or more estimator names, each corresponding t
 - Built-in estimator.
   - 'lgbm': LGBMEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, num_leaves, min_child_samples, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), colsample_bytree, reg_alpha, reg_lambda.
   - 'xgboost': XGBoostSkLearnEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
-  - 'xgb_limitdepth': XGBoostLimitDepthEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators,  max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
+  - 'xgb_limitdepth': XGBoostLimitDepthEstimator for task "classification", "regression", "rank", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_depth, min_child_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, reg_lambda.
   - 'rf': RandomForestEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
     it uses a fixed random_state by default.
   - 'extra_tree': ExtraTreesEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
@@ -146,10 +159,44 @@ The estimator list can contain one or more estimator names, each corresponding t
   - 'sarimax': SARIMAX for task "ts_forecast". Hyperparameters: p, d, q, P, D, Q, s.
   - 'holt-winters': Holt-Winters (triple exponential smoothing) model for task "ts_forecast". Hyperparameters: seasonal_perdiods, seasonal, use_boxcox, trend, damped_trend.
   - 'transformer': Huggingface transformer models for task "seq-classification", "seq-regression", "multichoice-classification", "token-classification" and "summarization". Hyperparameters: learning_rate, num_train_epochs, per_device_train_batch_size, warmup_ratio, weight_decay, adam_epsilon, seed.
-  - 'temporal_fusion_transformer': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate. There is a [known issue](https://github.com/jdb78/pytorch-forecasting/issues/1145) with pytorch-forecast logging.
+  - 'tft': TemporalFusionTransformerEstimator for task "ts_forecast_panel". Hyperparameters: gradient_clip_val, hidden_size, hidden_continuous_size, attention_head_size, dropout, learning_rate.
+  - 'tcn': Temporal Convolutional Network (TCN) estimator for task "ts_forecast" (requires optional deep learning dependencies, e.g., `torch` and `pytorch_lightning`).
+  - Spark estimators (for Spark / pandas-on-Spark DataFrames; the exact set depends on your Spark runtime and installed packages):
+    - 'lgbm_spark': Spark LightGBM models via [SynapseML](https://microsoft.github.io/SynapseML/docs/features/lightgbm/about/).
+    - 'rf_spark': Spark MLlib RandomForestClassifier/Regressor.
+    - 'gbt_spark': Spark MLlib GBTClassifier/GBTRegressor.
+    - 'lr_spark': Spark MLlib LinearRegression.
+    - 'glr_spark': Spark MLlib GeneralizedLinearRegression.
+    - 'svc_spark': Spark MLlib LinearSVC (binary classification only).
+    - 'nb_spark': Spark MLlib NaiveBayes (classification only).
+    - 'aft_spark': Spark MLlib AFTSurvivalRegression.
 - Custom estimator. Use custom estimator for:
   - tuning an estimator that is not built-in;
   - customizing search space for a built-in estimator.
+
+#### List all available estimators (recommended)
+
+The exact set of available estimators depends on the `task` and optional dependencies (e.g., Prophet/Orbit/PyTorch).
+To list the estimator keys available in your environment:
+
+```python
+from flaml.automl.task.factory import task_factory
+
+print("classification:", sorted(task_factory("classification").estimators.keys()))
+print("regression:", sorted(task_factory("regression").estimators.keys()))
+print("forecast:", sorted(task_factory("forecast").estimators.keys()))
+print("rank:", sorted(task_factory("rank").estimators.keys()))
+```
+
+For reference, the built-in estimator keys included in the codebase are:
+
+- Tabular / ranking / NLP tasks (GenericTask):
+  `['aft_spark', 'catboost', 'enet', 'extra_tree', 'gbt_spark', 'glr_spark', 'histgb', 'kneighbor', 'lassolars', 'lgbm', 'lgbm_spark', 'lr_spark', 'lrl1', 'lrl2', 'nb_spark', 'rf', 'rf_spark', 'sgd', 'svc', 'svc_spark', 'transformer', 'transformer_ms', 'xgb_limitdepth', 'xgboost']`
+- Time series tasks (TimeSeriesTask):
+  `['arima', 'avg', 'catboost', 'extra_tree', 'holt-winters', 'lassolars', 'lgbm', 'naive', 'prophet', 'rf', 'sarimax', 'savg', 'snaive', 'tcn', 'tft', 'xgb_limitdepth', 'xgboost', 'orbit']`
+
+Some of the time series estimators (e.g., `prophet`, `orbit`, `tcn`, `tft`) are only available when the corresponding
+optional dependencies are installed.
 
 #### Guidelines on tuning a custom estimator
 
@@ -393,7 +440,7 @@ For holdout, you can also set:
 
 - `split_ratio`: the fraction for validation data, 0.1 by default.
 - `X_val`, `y_val`: a separate validation dataset. When they are passed, the validation metrics will be computed against this given validation dataset. If they are not passed, then a validation dataset will be split from the training data and held out from training during the model search. After the model search, flaml will retrain the model with best configuration on the full training data.
-  You can set`retrain_full` to be `False` to skip the final retraining or "budget" to ask flaml to do its best to retrain within the time budget.
+  You can set`retrain_full` to be `False` to skip the final retraining or "budget" to ask flaml to do its best to retrain within the time budget. When `retrain_full` is set to `True`, the user-provided validation data is not used in the final retraining of the model.
 
 For cross validation, you can also set `n_splits` of the number of folds. By default it is 5.
 
@@ -415,7 +462,7 @@ For both classification and regression tasks more advanced split configurations 
 
 More in general, `split_type` can also be set as a custom splitter object, when `eval_method="cv"`. It needs to be an instance of a derived class of scikit-learn
 [KFold](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html#sklearn.model_selection.KFold)
-and have `split` and `get_n_splits` methods with the same signatures.  To disable shuffling, the splitter instance must contain the attribute `shuffle=False`.
+and have `split` and `get_n_splits` methods with the same signatures. To disable shuffling, the splitter instance must contain the attribute `shuffle=False`.
 
 ### Parallel tuning
 
@@ -504,6 +551,8 @@ automl2.fit(
 ```
 
 `starting_points` is a dictionary or a str to specify the starting hyperparameter config. (1) When it is a dictionary, the keys are the estimator names. If you do not need to specify starting points for an estimator, exclude its name from the dictionary. The value for each key can be either a dictionary of a list of dictionaries, corresponding to one hyperparameter configuration, or multiple hyperparameter configurations, respectively. (2) When it is a str: if "data", use data-dependent defaults; if "data:path", use data-dependent defaults which are stored at path; if "static", use data-independent defaults. Please find more details about data-dependent defaults in [zero shot AutoML](Zero-Shot-AutoML#combine-zero-shot-automl-and-hyperparameter-tuning).
+
+**Note on sample size preservation**: When using `best_config_per_estimator` as starting points, the configurations now preserve `FLAML_sample_size` (if subsampling was used during the search). This ensures that the warm-started run continues optimization with the same sample sizes that produced the best results in the previous run, leading to more effective warm-starting.
 
 ### Log the trials
 
@@ -617,6 +666,25 @@ print(automl.best_config)
 # {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}
 ```
 
+**Note**: The config contains FLAML's search space parameters, which may differ from the original model's parameters. For example, FLAML uses `log_max_bin` for LightGBM instead of `max_bin`. To convert to the original model's parameters, use the `config2params()` method:
+
+```python
+from flaml.automl.model import LGBMEstimator
+
+# Convert FLAML config to original model parameters
+flaml_estimator = LGBMEstimator(task="classification", **automl.best_config)
+original_params = flaml_estimator.params
+print(original_params)
+# {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'max_bin': 255, ...}
+# Note: 'log_max_bin': 8 is converted to 'max_bin': 255 (2^8 - 1)
+
+# Now you can use original LightGBM directly
+from lightgbm import LGBMClassifier
+
+lgbm_model = LGBMClassifier(**original_params)
+lgbm_model.fit(X_train, y_train)
+```
+
 We can also find the best configuration per estimator.
 
 ```python
@@ -625,6 +693,40 @@ print(automl.best_config_per_estimator)
 ```
 
 The `None` value corresponds to the estimators which have not been tried.
+
+**Converting configs for all estimators to original model parameters:**
+
+```python
+from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
+configs = automl.best_config_per_estimator
+
+# Convert and use LightGBM config
+if configs.get("lgbm"):
+    lgbm_config = configs["lgbm"].copy()
+    lgbm_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+    lgbm_model = LGBMClassifier(**flaml_lgbm.params)
+    lgbm_model.fit(X_train, y_train)
+
+# Convert and use XGBoost config
+if configs.get("xgboost"):
+    xgb_config = configs["xgboost"].copy()
+    xgb_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+    xgb_model = XGBClassifier(**flaml_xgb.params)
+    xgb_model.fit(X_train, y_train)
+```
+
+**Note**: When subsampling is used during the search (e.g., with large datasets), the configurations may also include `FLAML_sample_size` to indicate the sample size used. For example:
+
+```python
+# {'lgbm': {'n_estimators': 729, 'num_leaves': 21, ..., 'FLAML_sample_size': 45000}, ...}
+```
+
+This information is preserved in `best_config_per_estimator` and is important for warm-starting subsequent runs with the correct sample sizes.
 
 Other useful information:
 
@@ -693,7 +795,7 @@ If you want to get a sense of how much time is needed to find the best model, yo
 
 > INFO - Estimated sufficient time budget=145194s. Estimated necessary time budget=2118s.
 
-> INFO -  at 2.6s,  estimator lgbm's best error=0.4459,     best estimator lgbm's best error=0.4459
+> INFO - at 2.6s, estimator lgbm's best error=0.4459, best estimator lgbm's best error=0.4459
 
 You will see that the time to finish the first and cheapest trial is 2.6 seconds. The estimated necessary time budget is 2118 seconds, and the estimated sufficient time budget is 145194 seconds. Note that this is only an estimated range to help you decide your budget.
 

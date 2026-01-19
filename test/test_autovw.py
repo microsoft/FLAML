@@ -5,16 +5,37 @@ import sys
 import unittest
 
 import numpy as np
-import openml
+
+try:
+    import openml
+except ImportError:
+    openml = None
 import pandas as pd
 import pytest
 import scipy.sparse
-from minio.error import ServerError
+
+try:
+    from minio.error import ServerError
+except ImportError:
+
+    class ServerError(Exception):
+        pass
+
+
 from requests.exceptions import SSLError
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from flaml import AutoVW
 from flaml.tune import loguniform, polynomial_expansion_set
+
+try:
+    from vowpalwabbit import pyvw
+except ImportError:
+    skip_vw_test = True
+else:
+    skip_vw_test = False
+
+pytest.skip("skipping if no openml", allow_module_level=True) if openml is None else None
 
 VW_DS_DIR = "test/data/"
 NS_LIST = list(string.ascii_lowercase) + list(string.ascii_uppercase)
@@ -50,11 +71,11 @@ def oml_to_vw_w_grouping(X, y, ds_dir, fname, orginal_dim, group_num, grouping_m
                 for i in range(len(X)):
                     NS_content = []
                     for zz in range(len(group_indexes)):
-                        ns_features = " ".join("{}:{:.6f}".format(ind, X[i][ind]) for ind in group_indexes[zz])
+                        ns_features = " ".join(f"{ind}:{X[i][ind]:.6f}" for ind in group_indexes[zz])
                         NS_content.append(ns_features)
                     ns_line = "{} |{}".format(
                         str(y[i]),
-                        "|".join("{} {}".format(NS_LIST[j], NS_content[j]) for j in range(len(group_indexes))),
+                        "|".join(f"{NS_LIST[j]} {NS_content[j]}" for j in range(len(group_indexes))),
                     )
                     f.write(ns_line)
                     f.write("\n")
@@ -67,7 +88,7 @@ def save_vw_dataset_w_ns(X, y, did, ds_dir, max_ns_num, is_regression):
     """convert openml dataset to vw example and save to file"""
     print("is_regression", is_regression)
     if is_regression:
-        fname = "ds_{}_{}_{}.vw".format(did, max_ns_num, 0)
+        fname = f"ds_{did}_{max_ns_num}_{0}.vw"
         print("dataset size", X.shape[0], X.shape[1])
         print("saving data", did, ds_dir, fname)
         dim = X.shape[1]
@@ -91,11 +112,14 @@ def shuffle_data(X, y, seed):
 def get_oml_to_vw(did, max_ns_num, ds_dir=VW_DS_DIR):
     success = False
     print("-----getting oml dataset-------", did)
-    ds = openml.datasets.get_dataset(did)
-    target_attribute = ds.default_target_attribute
-    # if target_attribute is None and did in OML_target_attribute_dict:
-    #     target_attribute = OML_target_attribute_dict[did]
-
+    try:
+        ds = openml.datasets.get_dataset(did)
+        target_attribute = ds.default_target_attribute
+        # if target_attribute is None and did in OML_target_attribute_dict:
+        #     target_attribute = OML_target_attribute_dict[did]
+    except SSLError as e:
+        print(e)
+        return
     print("target=ds.default_target_attribute", target_attribute)
     data = ds.get_data(target=target_attribute, dataset_format="array")
     X, y = data[0], data[1]  # return X: pd DataFrame, y: pd series
@@ -128,7 +152,7 @@ def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
 
     if is_regression:
         # the second field specifies the largest number of namespaces using.
-        fname = "ds_{}_{}_{}.vw".format(did, max_ns_num, 0)
+        fname = f"ds_{did}_{max_ns_num}_{0}.vw"
         vw_dataset_file = os.path.join(ds_dir, fname)
         # if file does not exist, generate and save the datasets
         if not os.path.exists(vw_dataset_file) or os.stat(vw_dataset_file).st_size < 1000:
@@ -136,7 +160,7 @@ def load_vw_dataset(did, ds_dir, is_regression, max_ns_num):
         print(ds_dir, vw_dataset_file)
         if not os.path.exists(ds_dir):
             os.makedirs(ds_dir)
-        with open(os.path.join(ds_dir, fname), "r") as f:
+        with open(os.path.join(ds_dir, fname)) as f:
             vw_content = f.read().splitlines()
             print(type(vw_content), len(vw_content))
         return vw_content
@@ -348,14 +372,9 @@ def get_vw_tuning_problem(tuning_hp="NamesapceInteraction"):
     return vw_oml_problem_args, vw_online_aml_problem
 
 
-@pytest.mark.skipif(
-    "3.10" in sys.version,
-    reason="do not run on py 3.10",
-)
+@pytest.mark.skipif(skip_vw_test, reason="vowpalwabbit not installed")
 class TestAutoVW(unittest.TestCase):
     def test_vw_oml_problem_and_vanilla_vw(self):
-        from vowpalwabbit import pyvw
-
         try:
             vw_oml_problem_args, vw_online_aml_problem = get_vw_tuning_problem()
         except (SSLError, ServerError, Exception) as e:

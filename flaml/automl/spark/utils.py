@@ -59,17 +59,29 @@ def to_pandas_on_spark(
     ```
     """
     set_option("compute.default_index_type", default_index_type)
-    if isinstance(df, (DataFrame, Series)):
-        return ps.from_pandas(df)
-    elif isinstance(df, sparkDataFrame):
-        if _spark_major_minor_version[0] == 3 and _spark_major_minor_version[1] < 3:
-            return df.to_pandas_on_spark(index_col=index_col)
+    try:
+        orig_ps_conf = ps.get_option("compute.fail_on_ansi_mode")
+    except Exception:
+        orig_ps_conf = None
+    if orig_ps_conf:
+        ps.set_option("compute.fail_on_ansi_mode", False)
+
+    try:
+        if isinstance(df, (DataFrame, Series)):
+            return ps.from_pandas(df)
+        elif isinstance(df, sparkDataFrame):
+            if _spark_major_minor_version[0] == 3 and _spark_major_minor_version[1] < 3:
+                return df.to_pandas_on_spark(index_col=index_col)
+            else:
+                return df.pandas_api(index_col=index_col)
+        elif isinstance(df, (psDataFrame, psSeries)):
+            return df
         else:
-            return df.pandas_api(index_col=index_col)
-    elif isinstance(df, (psDataFrame, psSeries)):
-        return df
-    else:
-        raise TypeError(f"{type(df)} is not one of pandas.DataFrame, pandas.Series and pyspark.sql.DataFrame")
+            raise TypeError(f"{type(df)} is not one of pandas.DataFrame, pandas.Series and pyspark.sql.DataFrame")
+    finally:
+        # Restore original config
+        if orig_ps_conf:
+            ps.set_option("compute.fail_on_ansi_mode", orig_ps_conf)
 
 
 def train_test_split_pyspark(

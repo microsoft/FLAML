@@ -23,7 +23,7 @@ def test_metric_constraints():
         "log_type": "all",
         "retrain_full": "budget",
         "keep_search_state": True,
-        "time_budget": 2,
+        "time_budget": 5,
         "pred_time_limit": 5.1e-05,
     }
 
@@ -125,14 +125,12 @@ def test_metric_constraints_custom():
     print(automl.estimator_list)
     print(automl.search_space)
     print(automl.points_to_evaluate)
-    print("Best minimization objective on validation data: {0:.4g}".format(automl.best_loss))
+    print(f"Best minimization objective on validation data: {automl.best_loss:.4g}")
     print(
-        "pred_time of the best config on validation data: {0:.4g}".format(
-            automl.metrics_for_best_config[1]["pred_time"]
-        )
+        "pred_time of the best config on validation data: {:.4g}".format(automl.metrics_for_best_config[1]["pred_time"])
     )
     print(
-        "val_train_loss_gap of the best config on validation data: {0:.4g}".format(
+        "val_train_loss_gap of the best config on validation data: {:.4g}".format(
             automl.metrics_for_best_config[1]["val_train_loss_gap"]
         )
     )

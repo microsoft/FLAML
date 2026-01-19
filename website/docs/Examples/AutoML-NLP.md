@@ -2,7 +2,7 @@
 
 ### Requirements
 
-This example requires GPU. Install the \[automl,hf\] option:
+This example requires GPU. Install the [automl,hf] option:
 
 ```python
 pip install "flaml[automl,hf]"
@@ -46,6 +46,8 @@ Notice that after you run `automl.fit`, the intermediate checkpoints are saved u
 if os.path.exists("data/output/"):
     shutil.rmtree("data/output/")
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 

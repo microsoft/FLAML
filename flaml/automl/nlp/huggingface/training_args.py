@@ -5,7 +5,7 @@ from typing import List, Optional
 from flaml.automl.task.task import NLG_TASKS
 
 try:
-    from transformers import TrainingArguments
+    from transformers import Seq2SeqTrainingArguments as TrainingArguments
 except ImportError:
     TrainingArguments = object
 
@@ -76,6 +76,14 @@ class TrainingArgumentsForAuto(TrainingArguments):
     save_steps: int = field(default=500, metadata={"help": "Save checkpoint every X updates steps."})
 
     logging_steps: int = field(default=500, metadata={"help": "Log every X updates steps."})
+
+    # Newer versions of HuggingFace Transformers may access `TrainingArguments.generation_config`
+    # (e.g., in generation-aware trainers/callbacks). Keep this attribute to remain compatible
+    # while defaulting to None for non-generation tasks.
+    generation_config: Optional[object] = field(
+        default=None,
+        metadata={"help": "Optional generation config (or path) used by generation-aware trainers."},
+    )
 
     @staticmethod
     def load_args_from_console():

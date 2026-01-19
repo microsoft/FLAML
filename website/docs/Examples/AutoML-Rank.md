@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-Install the \[automl\] option.
+Install the [automl] option.
 
 ```bash
 pip install "flaml[automl]"
@@ -27,6 +27,8 @@ automl.fit(
     time_budget=10,  # in seconds
 )
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 

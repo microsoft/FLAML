@@ -310,7 +310,7 @@ def test_searchers():
     print(searcher.suggest("t1"))
     from flaml import tune
 
-    tune.run(lambda x: 1, config={}, use_ray=use_ray, log_file_name="logs/searcher.log")
+    tune.run(lambda x: 1, config={}, mode="max", use_ray=use_ray, log_file_name="logs/searcher.log")
     searcher = BlendSearch(space=config, cost_attr="cost", cost_budget=10, metric="m", mode="min")
     analysis = tune.run(lambda x: {"cost": 2, "m": x["b"]}, search_alg=searcher, num_samples=10)
     assert len(analysis.trials) == 5
@@ -324,3 +324,26 @@ def test_no_optuna():
     import flaml.tune.searcher.suggestion
 
     subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna==2.8.0"])
+
+
+def test_unresolved_search_space(caplog):
+    import logging
+
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import BlendSearch
+
+    if caplog is not None:
+        caplog.set_level(logging.INFO)
+
+    BlendSearch(metric="loss", mode="min", space={"lr": tune.uniform(0.001, 0.1), "depth": tune.randint(1, 10)})
+    try:
+        text = caplog.text
+    except AttributeError:
+        text = ""
+    assert (
+        "unresolved search space" not in text and text
+    ), "BlendSearch should not produce warning about unresolved search space"
+
+
+if __name__ == "__main__":
+    test_unresolved_search_space(None)

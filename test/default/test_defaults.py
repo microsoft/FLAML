@@ -60,7 +60,7 @@ def test_housing(as_frame=True):
         "starting_points": "data",
         "max_iter": 0,
     }
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame, data_home="test")
     automl.fit(X_train, y_train, **automl_settings)
 
 
@@ -115,7 +115,7 @@ def test_suggest_classification():
 
 def test_suggest_regression():
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     suggested = suggest_hyperparams("regression", X_train, y_train, "lgbm", location=location)
     print(suggested)
     suggested = preprocess_and_suggest_hyperparams("regression", X_train, y_train, "xgboost", location=location)
@@ -137,7 +137,7 @@ def test_rf():
     print(rf)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     rf = RandomForestRegressor(default_location=location)
     rf.fit(X_train[:100], y_train[:100])
     rf.predict(X_train)
@@ -155,7 +155,7 @@ def test_extratrees():
     print(classifier)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = ExtraTreesRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
@@ -175,7 +175,7 @@ def test_lgbm():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = LGBMRegressor(default_location=location)
     regressor.fit(X_train, y_train)
     regressor.predict(X_train)
@@ -194,7 +194,7 @@ def test_xgboost():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = XGBRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)

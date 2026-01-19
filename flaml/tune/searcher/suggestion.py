@@ -35,6 +35,73 @@ from ..sample import (
     Quantized,
     Uniform,
 )
+
+# If Ray is installed, flaml.tune may re-export Ray Tune sampling functions.
+# In that case, the search space contains Ray Tune Domain/Sampler objects,
+# which should be accepted by our Optuna search-space conversion.
+try:
+    from ray import __version__ as _ray_version  # type: ignore
+
+    if str(_ray_version).startswith("1."):
+        from ray.tune.sample import (  # type: ignore
+            Categorical as _RayCategorical,
+        )
+        from ray.tune.sample import (
+            Domain as _RayDomain,
+        )
+        from ray.tune.sample import (
+            Float as _RayFloat,
+        )
+        from ray.tune.sample import (
+            Integer as _RayInteger,
+        )
+        from ray.tune.sample import (
+            LogUniform as _RayLogUniform,
+        )
+        from ray.tune.sample import (
+            Quantized as _RayQuantized,
+        )
+        from ray.tune.sample import (
+            Uniform as _RayUniform,
+        )
+    else:
+        from ray.tune.search.sample import (  # type: ignore
+            Categorical as _RayCategorical,
+        )
+        from ray.tune.search.sample import (
+            Domain as _RayDomain,
+        )
+        from ray.tune.search.sample import (
+            Float as _RayFloat,
+        )
+        from ray.tune.search.sample import (
+            Integer as _RayInteger,
+        )
+        from ray.tune.search.sample import (
+            LogUniform as _RayLogUniform,
+        )
+        from ray.tune.search.sample import (
+            Quantized as _RayQuantized,
+        )
+        from ray.tune.search.sample import (
+            Uniform as _RayUniform,
+        )
+
+    _FLOAT_TYPES = (Float, _RayFloat)
+    _INTEGER_TYPES = (Integer, _RayInteger)
+    _CATEGORICAL_TYPES = (Categorical, _RayCategorical)
+    _DOMAIN_TYPES = (Domain, _RayDomain)
+    _QUANTIZED_TYPES = (Quantized, _RayQuantized)
+    _UNIFORM_TYPES = (Uniform, _RayUniform)
+    _LOGUNIFORM_TYPES = (LogUniform, _RayLogUniform)
+except Exception:  # pragma: no cover
+    _FLOAT_TYPES = (Float,)
+    _INTEGER_TYPES = (Integer,)
+    _CATEGORICAL_TYPES = (Categorical,)
+    _DOMAIN_TYPES = (Domain,)
+    _QUANTIZED_TYPES = (Quantized,)
+    _UNIFORM_TYPES = (Uniform,)
+    _LOGUNIFORM_TYPES = (LogUniform,)
 from ..trial import flatten_dict, unflatten_dict
 from .variant_generator import parse_spec_vars
 
@@ -191,7 +258,7 @@ class ConcurrencyLimiter(Searcher):
         self.batch = batch
         self.live_trials = set()
         self.cached_results = {}
-        super(ConcurrencyLimiter, self).__init__(metric=self.searcher.metric, mode=self.searcher.mode)
+        super().__init__(metric=self.searcher.metric, mode=self.searcher.mode)
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         assert trial_id not in self.live_trials, f"Trial ID {trial_id} must be unique: already found in set."
@@ -285,25 +352,21 @@ def validate_warmstart(
     """
     if points_to_evaluate:
         if not isinstance(points_to_evaluate, list):
-            raise TypeError("points_to_evaluate expected to be a list, got {}.".format(type(points_to_evaluate)))
+            raise TypeError(f"points_to_evaluate expected to be a list, got {type(points_to_evaluate)}.")
         for point in points_to_evaluate:
             if not isinstance(point, (dict, list)):
                 raise TypeError(f"points_to_evaluate expected to include list or dict, " f"got {point}.")
 
             if validate_point_name_lengths and (not len(point) == len(parameter_names)):
-                raise ValueError(
-                    "Dim of point {}".format(point)
-                    + " and parameter_names {}".format(parameter_names)
-                    + " do not match."
-                )
+                raise ValueError(f"Dim of point {point}" + f" and parameter_names {parameter_names}" + " do not match.")
 
     if points_to_evaluate and evaluated_rewards:
         if not isinstance(evaluated_rewards, list):
-            raise TypeError("evaluated_rewards expected to be a list, got {}.".format(type(evaluated_rewards)))
+            raise TypeError(f"evaluated_rewards expected to be a list, got {type(evaluated_rewards)}.")
         if not len(evaluated_rewards) == len(points_to_evaluate):
             raise ValueError(
-                "Dim of evaluated_rewards {}".format(evaluated_rewards)
-                + " and points_to_evaluate {}".format(points_to_evaluate)
+                f"Dim of evaluated_rewards {evaluated_rewards}"
+                + f" and points_to_evaluate {points_to_evaluate}"
                 + " do not match."
             )
 
@@ -547,7 +610,7 @@ class OptunaSearch(Searcher):
         evaluated_rewards: Optional[List] = None,
     ):
         assert ot is not None, "Optuna must be installed! Run `pip install optuna`."
-        super(OptunaSearch, self).__init__(metric=metric, mode=mode)
+        super().__init__(metric=metric, mode=mode)
 
         if isinstance(space, dict) and space:
             resolved_vars, domain_vars, grid_vars = parse_spec_vars(space)
@@ -561,7 +624,15 @@ class OptunaSearch(Searcher):
         self._space = space
 
         self._points_to_evaluate = points_to_evaluate or []
-        self._evaluated_rewards = evaluated_rewards
+        # rewards should be a list of floats, not a dict
+        # After Optuna > 3.5.0, there is a check for NaN in the list "any(math.isnan(x) for x in self._values)"
+        # which will raise an error when encountering a dict
+        if evaluated_rewards is not None:
+            self._evaluated_rewards = [
+                list(item.values())[0] if isinstance(item, dict) else item for item in evaluated_rewards
+            ]
+        else:
+            self._evaluated_rewards = evaluated_rewards
 
         self._study_name = "optuna"  # Fixed study name for in-memory storage
 
@@ -846,19 +917,22 @@ class OptunaSearch(Searcher):
         def resolve_value(domain: Domain) -> ot.distributions.BaseDistribution:
             quantize = None
 
-            sampler = domain.get_sampler()
-            if isinstance(sampler, Quantized):
+            # Ray Tune Domains and FLAML Domains both provide get_sampler(), but
+            # fall back to the .sampler attribute for robustness.
+            sampler = domain.get_sampler() if hasattr(domain, "get_sampler") else getattr(domain, "sampler", None)
+
+            if isinstance(sampler, _QUANTIZED_TYPES) or type(sampler).__name__ == "Quantized":
                 quantize = sampler.q
-                sampler = sampler.sampler
-                if isinstance(sampler, LogUniform):
+                sampler = getattr(sampler, "sampler", None) or sampler.get_sampler()
+                if isinstance(sampler, _LOGUNIFORM_TYPES) or type(sampler).__name__ == "LogUniform":
                     logger.warning(
                         "Optuna does not handle quantization in loguniform "
                         "sampling. The parameter will be passed but it will "
                         "probably be ignored."
                     )
 
-            if isinstance(domain, Float):
-                if isinstance(sampler, LogUniform):
+            if isinstance(domain, _FLOAT_TYPES) or type(domain).__name__ == "Float":
+                if isinstance(sampler, _LOGUNIFORM_TYPES) or type(sampler).__name__ == "LogUniform":
                     if quantize:
                         logger.warning(
                             "Optuna does not support both quantization and "
@@ -866,17 +940,17 @@ class OptunaSearch(Searcher):
                         )
                     return ot.distributions.LogUniformDistribution(domain.lower, domain.upper)
 
-                elif isinstance(sampler, Uniform):
+                elif isinstance(sampler, _UNIFORM_TYPES) or type(sampler).__name__ == "Uniform":
                     if quantize:
                         return ot.distributions.DiscreteUniformDistribution(domain.lower, domain.upper, quantize)
                     return ot.distributions.UniformDistribution(domain.lower, domain.upper)
 
-            elif isinstance(domain, Integer):
-                if isinstance(sampler, LogUniform):
-                    return ot.distributions.IntLogUniformDistribution(
-                        domain.lower, domain.upper - 1, step=quantize or 1
-                    )
-                elif isinstance(sampler, Uniform):
+            elif isinstance(domain, _INTEGER_TYPES) or type(domain).__name__ == "Integer":
+                if isinstance(sampler, _LOGUNIFORM_TYPES) or type(sampler).__name__ == "LogUniform":
+                    # ``step`` argument Deprecated in v2.0.0. ``step`` argument should be 1 in Log Distribution
+                    # The removal of this feature is currently scheduled for v4.0.0,
+                    return ot.distributions.IntLogUniformDistribution(domain.lower, domain.upper - 1, step=1)
+                elif isinstance(sampler, _UNIFORM_TYPES) or type(sampler).__name__ == "Uniform":
                     # Upper bound should be inclusive for quantization and
                     # exclusive otherwise
                     return ot.distributions.IntUniformDistribution(
@@ -884,13 +958,13 @@ class OptunaSearch(Searcher):
                         domain.upper - int(bool(not quantize)),
                         step=quantize or 1,
                     )
-            elif isinstance(domain, Categorical):
-                if isinstance(sampler, Uniform):
+            elif isinstance(domain, _CATEGORICAL_TYPES) or type(domain).__name__ == "Categorical":
+                if isinstance(sampler, _UNIFORM_TYPES) or type(sampler).__name__ == "Uniform":
                     return ot.distributions.CategoricalDistribution(domain.categories)
 
             raise ValueError(
                 "Optuna search does not support parameters of type "
-                "`{}` with samplers of type `{}`".format(type(domain).__name__, type(domain.sampler).__name__)
+                "`{}` with samplers of type `{}`".format(type(domain).__name__, type(sampler).__name__)
             )
 
         # Parameter name is e.g. "a/b/c" for nested dicts

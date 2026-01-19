@@ -9,7 +9,7 @@ from flaml.tune.spark.utils import check_spark
 spark_available, _ = check_spark()
 skip_spark = not spark_available
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
@@ -22,7 +22,7 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
     except (ServerError, Exception):
         from sklearn.datasets import fetch_california_housing
 
-        X_train, y_train = fetch_california_housing(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
     automl = AutoML()
     settings = {
         "time_budget": 3,  # total running time in seconds
@@ -41,8 +41,8 @@ def base_automl(n_concurrent_trials=1, use_ray=False, use_spark=False, verbose=0
 
     print("Best ML leaner:", automl.best_estimator)
     print("Best hyperparmeter config:", automl.best_config)
-    print("Best accuracy on validation data: {0:.4g}".format(1 - automl.best_loss))
-    print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+    print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
+    print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
 
 
 def test_both_ray_spark():

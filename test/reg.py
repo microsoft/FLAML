@@ -11,7 +11,7 @@ automl_settings = {
     "task": "regression",
     "log_file_name": "test/california.log",
 }
-X_train, y_train = fetch_california_housing(return_X_y=True)
+X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
 # Train with labeled input data
 automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 print(automl.model)

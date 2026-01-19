@@ -3,8 +3,10 @@
 import logging
 import math
 import os
+import sys
 import time
 
+import pytest
 import sklearn.datasets
 import sklearn.metrics
 import xgboost as xgb
@@ -16,6 +18,7 @@ try:
     from ray.tune.integration.xgboost import TuneReportCheckpointCallback
 except ImportError:
     print("skip test_xgboost because ray tune cannot be imported.")
+
 
 logger = logging.getLogger(__name__)
 os.makedirs("logs", exist_ok=True)
@@ -50,6 +53,11 @@ def _easy_objective(config):
 
 
 def test_nested_run():
+    """
+    nested tuning example: Tune -> AutoML -> MLflow autolog
+    mlflow logging is complicated in nested tuning. It's better to turn off mlflow autologging to avoid
+    potential issues in FLAML's mlflow_integration.adopt_children() function.
+    """
     from flaml import AutoML, tune
 
     data, labels = sklearn.datasets.load_breast_cancer(return_X_y=True)
@@ -496,4 +504,8 @@ def _test_xgboost_bohb():
 
 
 if __name__ == "__main__":
+    test_nested_run()
+    test_nested_space()
+    test_run_training_function_return_value()
+    test_passing_search_alg()
     test_xgboost_bs()

@@ -38,7 +38,7 @@ class TestLogging(unittest.TestCase):
                 "keep_search_state": True,
                 "learner_selector": "roundrobin",
             }
-            X_train, y_train = fetch_california_housing(return_X_y=True)
+            X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
             n = len(y_train) >> 1
             print(automl.model, automl.classes_, automl.predict(X_train))
             automl.fit(

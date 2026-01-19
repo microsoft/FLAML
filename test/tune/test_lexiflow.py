@@ -1,19 +1,40 @@
 import math
+import sys
 from collections import defaultdict
 
 import numpy as np
-import thop
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
+import pytest
+
+try:
+    import thop
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+except ImportError:
+    thop = None
+    torch = None
+    nn = None
+    F = None
+
+try:
+    import torchvision
+except ImportError:
+    torchvision = None
 
 from flaml import tune
+
+if thop is None or torch is None or nn is None or F is None or torchvision is None:
+    pytest.skip(
+        "skipping test_lexiflow.py because torch, torchvision or thop is not installed.", allow_module_level=True
+    )
 
 DEVICE = torch.device("cpu")
 BATCHSIZE = 128
 N_TRAIN_EXAMPLES = BATCHSIZE * 30
 N_VALID_EXAMPLES = BATCHSIZE * 10
+
+if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
+    pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
 
 
 def _BraninCurrin(config):
@@ -35,6 +56,9 @@ def _BraninCurrin(config):
 
 
 def test_lexiflow():
+    if torchvision is None:
+        return False
+
     train_dataset = torchvision.datasets.FashionMNIST(
         "test/data",
         train=True,
@@ -63,10 +87,10 @@ def test_lexiflow():
         layers = []
         in_features = 28 * 28
         for i in range(n_layers):
-            out_features = configuration["n_units_l{}".format(i)]
+            out_features = configuration[f"n_units_l{i}"]
             layers.append(nn.Linear(in_features, out_features))
             layers.append(nn.ReLU())
-            p = configuration["dropout_{}".format(i)]
+            p = configuration[f"dropout_{i}"]
             layers.append(nn.Dropout(p))
             in_features = out_features
         layers.append(nn.Linear(in_features, 10))

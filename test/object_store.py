@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from flaml import tune
 from flaml.automl.model import LGBMEstimator
 
-data = fetch_california_housing(return_X_y=False, as_frame=True)
+data = fetch_california_housing(return_X_y=False, as_frame=True, data_home="test")
 X, y = data.data, data.target
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 X_train_ref = ray.put(X_train)

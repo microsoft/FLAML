@@ -14,10 +14,20 @@ on:
       - 'setup.py'
   pull_request:
     branches: ['main']
+    paths:
+      - 'flaml/**'
+      - 'test/**'
+      - 'notebook/**'
+      - '.github/workflows/python-package.yml'
+      - 'setup.py'
   merge_group:
     types: [checks_requested]
+  schedule:
+    # Every other day at 02:00 UTC
+    - cron: '0 2 */2 * *'
 
-permissions: {}
+permissions:
+  contents: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -29,20 +39,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-2019]
-        python-version: ["3.8", "3.9", "3.10"]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: On mac + python 3.10, install libomp to facilitate lgbm and xgboost install
-        if: matrix.os == 'macOS-latest' && matrix.python-version == '3.10'
+      - name: On mac, install libomp to facilitate lgbm and xgboost install
+        if: matrix.os == 'macos-latest'
         run: |
-          # remove libomp version constraint after xgboost works with libomp>11.1.0 on python 3.10
-          wget https://raw.githubusercontent.com/Homebrew/homebrew-core/679923b4eb48a8dc7ecc1f05d06063cd79b3fc00/Formula/libomp.rb -O $(find $(brew --repository) -name libomp.rb)
-          brew unlink libomp
+          brew update
           brew install libomp
           export CC=/usr/bin/clang
           export CXX=/usr/bin/clang++
@@ -52,76 +60,81 @@ jobs:
           export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
       - name: Install packages and dependencies
         run: |
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel setuptools
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
-      - name: On Ubuntu python 3.8, install pyspark 3.2.3
-        if: matrix.python-version == '3.8' && matrix.os == 'ubuntu-latest'
+      - name: On Ubuntu python 3.11, install pyspark 3.5.1
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         run: |
-          pip install pyspark==3.2.3
+          pip install pyspark==3.5.1
           pip list | grep "pyspark"
-      - name: If linux, install ray 2
+      - name: On Ubuntu python 3.12, install pyspark 4.0.1
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install pyspark==4.0.1
+          pip list | grep "pyspark"
+      - name: On Ubuntu python 3.13, install pyspark 4.1.0
+        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install pyspark==4.1.0
+          pip list | grep "pyspark"
+      # # TODO: support ray
+      # - name: If linux and python<3.11, install ray 2
+      #   if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.11'
+      #   run: |
+      #     pip install "ray[tune]<2.5.0"
+      - name: Install prophet when on linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          pip install "ray[tune]<2.5.0"
-      - name: If mac, install ray and xgboost 1
-        if: matrix.os == 'macOS-latest'
-        run: |
-          pip install -e .[ray]
-          # use macOS to test xgboost 1, but macOS also supports xgboost 2
-          pip install "xgboost<2"
-      - name: If linux or mac, install prophet on python < 3.9
-        if: (matrix.os == 'macOS-latest' || matrix.os == 'ubuntu-latest') && matrix.python-version != '3.9' && matrix.python-version != '3.10'
-        run: |
           pip install -e .[forecast]
-      - name: Install vw on python < 3.10
-        if: matrix.python-version != '3.10'
+      # TODO: support vw for python 3.10+
+      - name:  If linux and python<3.10, install vw
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.10'
         run: |
           pip install -e .[vw]
-      - name: Uninstall pyspark on (python 3.9) or (python 3.8 + windows)
-        if: matrix.python-version == '3.9' || (matrix.python-version == '3.8' && matrix.os == 'windows-2019')
+      - name: Pip freeze
         run: |
-          # Uninstall pyspark to test env without pyspark
-          pip uninstall -y pyspark
+          pip freeze
+      - name: Check dependencies
+        run: |
+          python test/check_dependency.py
+      - name: Clear pip cache
+        run: |
+          pip cache purge
       - name: Test with pytest
-        if: matrix.python-version != '3.10'
+        timeout-minutes: 120
+        if: matrix.python-version != '3.11'
         run: |
-          pytest test
+          pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
       - name: Coverage
-        if: matrix.python-version == '3.10'
+        timeout-minutes: 120
+        if: matrix.python-version == '3.11'
         run: |
           pip install coverage
-          coverage run -a -m pytest test
+          coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.10'
+        if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
           flags: unittests
+      - name: Save dependencies
+        shell: bash
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config advice.addIgnoredFile false
 
-  # docs:
+          BRANCH=unit-tests-installed-dependencies
+          git fetch origin
+          git checkout -B "$BRANCH" "origin/$BRANCH"
 
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.8'
-  #     - name: Compile documentation
-  #       run: |
-  #           pip install -e .
-  #           python -m pip install sphinx sphinx_rtd_theme
-  #           cd docs
-  #           make html
-  #     - name: Deploy to GitHub pages
-  #       if: ${{ github.ref == 'refs/heads/main' }}
-  #       uses: JamesIves/github-pages-deploy-action@3.6.2
-  #       with:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         BRANCH: gh-pages
-  #         FOLDER: docs/_build/html
-  #         CLEAN: true
+          pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
+          git add installed_*dependencies*.txt
+          mv coverage.xml ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
+          git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
+          git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
+          git push origin "$BRANCH" --force

@@ -60,6 +60,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+junit
 
 # Translations
 *.mo
@@ -163,5 +164,28 @@ output/
 flaml/tune/spark/mylearner.py
 *.pkl
 
+data/
+benchmark/pmlb/csv_datasets
+benchmark/*.csv
+
+checkpoints/
+test/default
+test/housing.json
+test/nlp/default/transformer_ms/seq-classification.json
+
+flaml/fabric/fanova/*fanova.c
 # local config files
 *.config.local
+
+local_debug/
+patch.diff
+
+# Test things
+notebook/lightning_logs/
+lightning_logs/
+flaml/autogen/extensions/tmp/
+test/autogen/my_tmp/
+catboost_*
+
+# Internal configs
+.pypirc

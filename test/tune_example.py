@@ -6,12 +6,12 @@ from sklearn.model_selection import train_test_split
 from flaml import tune
 from flaml.automl.model import LGBMEstimator
 
-data = fetch_california_housing(return_X_y=False, as_frame=True)
+data = fetch_california_housing(return_X_y=False, as_frame=True, data_home="test")
 df, X, y = data.frame, data.data, data.target
 df_train, _, X_train, X_test, _, y_test = train_test_split(df, X, y, test_size=0.33, random_state=42)
 csv_file_name = "test/housing.csv"
 df_train.to_csv(csv_file_name, index=False)
-# X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+# X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
 # X_train, X_test, y_train, y_test = train_test_split(
 #     X, y, test_size=0.33, random_state=42
 # )
