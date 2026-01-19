@@ -505,59 +505,57 @@ class GenericTask(Task):
             elif self.is_classification():
                 # for classification, make sure the labels are complete in both
                 # training and validation data
-                label_set, first = unique_value_first_index(y_train_all)
-                rest = []
-                last = 0
-                first.sort()
-                for i in range(len(first)):
-                    rest.extend(range(last, first[i]))
-                    last = first[i] + 1
-                rest.extend(range(last, len(y_train_all)))
-                X_first = X_train_all.iloc[first] if data_is_df else X_train_all[first]
-                if len(first) < len(y_train_all) / 2:
-                    # Get X_rest and y_rest with drop, sparse matrix can't apply np.delete
-                    X_rest = (
-                        np.delete(X_train_all, first, axis=0)
-                        if isinstance(X_train_all, np.ndarray)
-                        else X_train_all.drop(first.tolist())
-                        if data_is_df
-                        else X_train_all[rest]
-                    )
-                    y_rest = (
-                        np.delete(y_train_all, first, axis=0)
-                        if isinstance(y_train_all, np.ndarray)
-                        else y_train_all.drop(first.tolist())
-                        if data_is_df
-                        else y_train_all[rest]
-                    )
-                else:
-                    X_rest = (
-                        iloc_pandas_on_spark(X_train_all, rest)
-                        if is_spark_dataframe
-                        else X_train_all.iloc[rest]
-                        if data_is_df
-                        else X_train_all[rest]
-                    )
-                    y_rest = (
-                        iloc_pandas_on_spark(y_train_all, rest)
-                        if is_spark_dataframe
-                        else y_train_all.iloc[rest]
-                        if data_is_df
-                        else y_train_all[rest]
-                    )
-                stratify = y_rest if split_type == "stratified" else None
+                stratify = y_train_all if split_type == "stratified" else None
                 X_train, X_val, y_train, y_val = self._train_test_split(
-                    state, X_rest, y_rest, first, rest, split_ratio, stratify
+                    state, X_train_all, y_train_all, split_ratio=split_ratio, stratify=stratify
                 )
-                X_train = concat(X_first, X_train)
-                y_train = concat(label_set, y_train) if data_is_df else np.concatenate([label_set, y_train])
-                X_val = concat(X_first, X_val)
-                y_val = concat(label_set, y_val) if data_is_df else np.concatenate([label_set, y_val])
+                
+                # Check which labels are present in train and val sets
+                if is_spark_dataframe:
+                    label_set_train, _ = unique_pandas_on_spark(y_train)
+                    label_set_val, _ = unique_pandas_on_spark(y_val)
+                    label_set_all, first = unique_value_first_index(y_train_all)
+                else:
+                    label_set_all, first = unique_value_first_index(y_train_all)
+                    label_set_train = np.unique(y_train)
+                    label_set_val = np.unique(y_val)
+                
+                # Find missing labels
+                missing_in_train = np.setdiff1d(label_set_all, label_set_train)
+                missing_in_val = np.setdiff1d(label_set_all, label_set_val)
+                
+                # Only add missing labels where needed
+                if len(missing_in_train) > 0:
+                    # Add missing labels to training set
+                    missing_train_indices = [first[np.where(label_set_all == label)[0][0]] for label in missing_in_train]
+                    X_missing_train = X_train_all.iloc[missing_train_indices] if data_is_df else X_train_all[missing_train_indices]
+                    y_missing_train = y_train_all.iloc[missing_train_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_train_indices]
+                    X_train = concat(X_missing_train, X_train)
+                    y_train = concat(y_missing_train, y_train) if data_is_df else np.concatenate([y_missing_train, y_train])
+                    
+                    # Handle sample_weight if present
+                    if "sample_weight" in state.fit_kwargs:
+                        missing_weights = state.sample_weight_all[missing_train_indices] if hasattr(state, 'sample_weight_all') else state.fit_kwargs["sample_weight"][missing_train_indices]
+                        state.fit_kwargs["sample_weight"] = concat(missing_weights, state.fit_kwargs["sample_weight"])
+                
+                if len(missing_in_val) > 0:
+                    # Add missing labels to validation set
+                    missing_val_indices = [first[np.where(label_set_all == label)[0][0]] for label in missing_in_val]
+                    X_missing_val = X_train_all.iloc[missing_val_indices] if data_is_df else X_train_all[missing_val_indices]
+                    y_missing_val = y_train_all.iloc[missing_val_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_val_indices]
+                    X_val = concat(X_missing_val, X_val)
+                    y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
+                    
+                    # Handle sample_weight if present
+                    if "sample_weight" in state.fit_kwargs and hasattr(state, 'weight_val'):
+                        missing_weights = state.sample_weight_all[missing_val_indices] if hasattr(state, 'sample_weight_all') else state.fit_kwargs["sample_weight"][missing_val_indices]
+                        state.weight_val = concat(missing_weights, state.weight_val)
 
                 if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
                     y_train = y_train[y_train.columns[0]]
                     y_val = y_val[y_val.columns[0]]
-                    y_train.name = y_val.name = y_rest.name
+                    if isinstance(y_train_all, (psDataFrame, pd.DataFrame)) and hasattr(y_train_all, 'name'):
+                        y_train.name = y_val.name = y_train_all.name
 
             elif self.is_regression():
                 X_train, X_val, y_train, y_val = self._train_test_split(
