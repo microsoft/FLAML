@@ -535,6 +535,32 @@ class TestMultiClass(unittest.TestCase):
         print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
 
+    def test_starting_points_should_improve_performance(self):
+        N = 10000  # a large N is needed to see the improvement
+        X_train, y_train = load_iris(return_X_y=True)
+        X_train = np.concatenate([X_train + 0.1 * i for i in range(N)], axis=0)
+        y_train = np.concatenate([y_train] * N, axis=0)
+
+        am1 = AutoML()
+        am1.fit(X_train, y_train, estimator_list=["lgbm"], time_budget=3, seed=11)
+
+        am2 = AutoML()
+        am2.fit(
+            X_train,
+            y_train,
+            estimator_list=["lgbm"],
+            time_budget=2,
+            seed=11,
+            starting_points=am1.best_config_per_estimator,
+        )
+
+        print(f"am1.best_loss: {am1.best_loss:.4f}")
+        print(f"am2.best_loss: {am2.best_loss:.4f}")
+
+        assert np.round(am2.best_loss, 4) <= np.round(
+            am1.best_loss, 4
+        ), "Starting points should help improve the performance!"
+
 
 if __name__ == "__main__":
     unittest.main()

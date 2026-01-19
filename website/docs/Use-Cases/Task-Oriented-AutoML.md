@@ -552,6 +552,8 @@ automl2.fit(
 
 `starting_points` is a dictionary or a str to specify the starting hyperparameter config. (1) When it is a dictionary, the keys are the estimator names. If you do not need to specify starting points for an estimator, exclude its name from the dictionary. The value for each key can be either a dictionary of a list of dictionaries, corresponding to one hyperparameter configuration, or multiple hyperparameter configurations, respectively. (2) When it is a str: if "data", use data-dependent defaults; if "data:path", use data-dependent defaults which are stored at path; if "static", use data-independent defaults. Please find more details about data-dependent defaults in [zero shot AutoML](Zero-Shot-AutoML#combine-zero-shot-automl-and-hyperparameter-tuning).
 
+**Note on sample size preservation**: When using `best_config_per_estimator` as starting points, the configurations now preserve `FLAML_sample_size` (if subsampling was used during the search). This ensures that the warm-started run continues optimization with the same sample sizes that produced the best results in the previous run, leading to more effective warm-starting.
+
 ### Log the trials
 
 The trials are logged in a file if a `log_file_name` is passed.
@@ -664,6 +666,25 @@ print(automl.best_config)
 # {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}
 ```
 
+**Note**: The config contains FLAML's search space parameters, which may differ from the original model's parameters. For example, FLAML uses `log_max_bin` for LightGBM instead of `max_bin`. To convert to the original model's parameters, use the `config2params()` method:
+
+```python
+from flaml.automl.model import LGBMEstimator
+
+# Convert FLAML config to original model parameters
+flaml_estimator = LGBMEstimator(task="classification", **automl.best_config)
+original_params = flaml_estimator.params
+print(original_params)
+# {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'max_bin': 255, ...}
+# Note: 'log_max_bin': 8 is converted to 'max_bin': 255 (2^8 - 1)
+
+# Now you can use original LightGBM directly
+from lightgbm import LGBMClassifier
+
+lgbm_model = LGBMClassifier(**original_params)
+lgbm_model.fit(X_train, y_train)
+```
+
 We can also find the best configuration per estimator.
 
 ```python
@@ -672,6 +693,40 @@ print(automl.best_config_per_estimator)
 ```
 
 The `None` value corresponds to the estimators which have not been tried.
+
+**Converting configs for all estimators to original model parameters:**
+
+```python
+from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
+configs = automl.best_config_per_estimator
+
+# Convert and use LightGBM config
+if configs.get("lgbm"):
+    lgbm_config = configs["lgbm"].copy()
+    lgbm_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+    lgbm_model = LGBMClassifier(**flaml_lgbm.params)
+    lgbm_model.fit(X_train, y_train)
+
+# Convert and use XGBoost config
+if configs.get("xgboost"):
+    xgb_config = configs["xgboost"].copy()
+    xgb_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+    xgb_model = XGBClassifier(**flaml_xgb.params)
+    xgb_model.fit(X_train, y_train)
+```
+
+**Note**: When subsampling is used during the search (e.g., with large datasets), the configurations may also include `FLAML_sample_size` to indicate the sample size used. For example:
+
+```python
+# {'lgbm': {'n_estimators': 729, 'num_leaves': 21, ..., 'FLAML_sample_size': 45000}, ...}
+```
+
+This information is preserved in `best_config_per_estimator` and is important for warm-starting subsequent runs with the correct sample sizes.
 
 Other useful information:
 
