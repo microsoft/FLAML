@@ -25,9 +25,7 @@ def load_default_huggingface_metric_for_task(task):
 
 
 def is_a_list_of_str(this_obj):
-    return (isinstance(this_obj, list) or isinstance(this_obj, np.ndarray)) and all(
-        isinstance(x, str) for x in this_obj
-    )
+    return isinstance(this_obj, (list, np.ndarray)) and all(isinstance(x, str) for x in this_obj)
 
 
 def _clean_value(value: Any) -> str:

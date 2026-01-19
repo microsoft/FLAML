@@ -76,6 +76,8 @@ class SklearnWrapper:
             self.pca = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         self._X = X
         self._y = y
 
@@ -92,7 +94,14 @@ class SklearnWrapper:
 
         for i, model in enumerate(self.models):
             offset = i + self.lags
-            model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            if len(X) - offset > 2:
+                # series with length 2 will meet All features are either constant or ignored.
+                # TODO: see why the non-constant features are ignored. Selector?
+                model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            elif len(X) > offset and "catboost" not in str(model).lower():
+                model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            else:
+                print("[INFO]: Length of data should longer than period + lags.")
         return self
 
     def predict(self, X, X_train=None, y_train=None):
