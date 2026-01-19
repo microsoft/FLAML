@@ -1460,9 +1460,6 @@ class LGBMEstimator(BaseEstimator):
                 "domain": tune.loguniform(lower=1 / 1024, upper=1024),
                 "init_value": 1.0,
             },
-            "objective": {
-                "domain": None,  # not tuned, but can be set via custom_hp
-            },
         }
 
     def config2params(self, config: dict) -> dict:
