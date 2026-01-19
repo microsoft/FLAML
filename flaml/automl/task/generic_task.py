@@ -527,34 +527,54 @@ class GenericTask(Task):
                 # Only add missing labels where needed
                 if len(missing_in_train) > 0:
                     # Add missing labels to training set
-                    missing_train_indices = [first[np.where(label_set_all == label)[0][0]] for label in missing_in_train]
-                    X_missing_train = X_train_all.iloc[missing_train_indices] if data_is_df else X_train_all[missing_train_indices]
-                    y_missing_train = y_train_all.iloc[missing_train_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_train_indices]
-                    X_train = concat(X_missing_train, X_train)
-                    y_train = concat(y_missing_train, y_train) if data_is_df else np.concatenate([y_missing_train, y_train])
+                    missing_train_indices = []
+                    for label in missing_in_train:
+                        label_matches = np.where(label_set_all == label)[0]
+                        if len(label_matches) > 0:
+                            missing_train_indices.append(first[label_matches[0]])
                     
-                    # Handle sample_weight if present
-                    if "sample_weight" in state.fit_kwargs:
-                        missing_weights = state.sample_weight_all[missing_train_indices] if hasattr(state, 'sample_weight_all') else state.fit_kwargs["sample_weight"][missing_train_indices]
-                        state.fit_kwargs["sample_weight"] = concat(missing_weights, state.fit_kwargs["sample_weight"])
+                    if len(missing_train_indices) > 0:
+                        X_missing_train = X_train_all.iloc[missing_train_indices] if data_is_df else X_train_all[missing_train_indices]
+                        y_missing_train = y_train_all.iloc[missing_train_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_train_indices]
+                        X_train = concat(X_missing_train, X_train)
+                        y_train = concat(y_missing_train, y_train) if data_is_df else np.concatenate([y_missing_train, y_train])
+                        
+                        # Handle sample_weight if present
+                        if "sample_weight" in state.fit_kwargs:
+                            # Use sample_weight_all if available, otherwise use the original sample_weight
+                            sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
+                            if sample_weight_source is not None and len(sample_weight_source) > max(missing_train_indices):
+                                missing_weights = sample_weight_source[missing_train_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_train_indices]
+                                state.fit_kwargs["sample_weight"] = concat(missing_weights, state.fit_kwargs["sample_weight"])
                 
                 if len(missing_in_val) > 0:
                     # Add missing labels to validation set
-                    missing_val_indices = [first[np.where(label_set_all == label)[0][0]] for label in missing_in_val]
-                    X_missing_val = X_train_all.iloc[missing_val_indices] if data_is_df else X_train_all[missing_val_indices]
-                    y_missing_val = y_train_all.iloc[missing_val_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_val_indices]
-                    X_val = concat(X_missing_val, X_val)
-                    y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
+                    missing_val_indices = []
+                    for label in missing_in_val:
+                        label_matches = np.where(label_set_all == label)[0]
+                        if len(label_matches) > 0:
+                            missing_val_indices.append(first[label_matches[0]])
                     
-                    # Handle sample_weight if present
-                    if "sample_weight" in state.fit_kwargs and hasattr(state, 'weight_val'):
-                        missing_weights = state.sample_weight_all[missing_val_indices] if hasattr(state, 'sample_weight_all') else state.fit_kwargs["sample_weight"][missing_val_indices]
-                        state.weight_val = concat(missing_weights, state.weight_val)
+                    if len(missing_val_indices) > 0:
+                        X_missing_val = X_train_all.iloc[missing_val_indices] if data_is_df else X_train_all[missing_val_indices]
+                        y_missing_val = y_train_all.iloc[missing_val_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_val_indices]
+                        X_val = concat(X_missing_val, X_val)
+                        y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
+                        
+                        # Handle sample_weight if present
+                        if "sample_weight" in state.fit_kwargs and hasattr(state, 'weight_val'):
+                            # Use sample_weight_all if available, otherwise use the original sample_weight
+                            sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
+                            if sample_weight_source is not None and len(sample_weight_source) > max(missing_val_indices):
+                                missing_weights = sample_weight_source[missing_val_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_val_indices]
+                                state.weight_val = concat(missing_weights, state.weight_val)
+
 
                 if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
                     y_train = y_train[y_train.columns[0]]
                     y_val = y_val[y_val.columns[0]]
-                    if isinstance(y_train_all, (psDataFrame, pd.DataFrame)) and hasattr(y_train_all, 'name'):
+                    # Only set name if y_train_all is a Series (not a DataFrame)
+                    if isinstance(y_train_all, (pd.Series, psSeries)):
                         y_train.name = y_val.name = y_train_all.name
 
             elif self.is_regression():
