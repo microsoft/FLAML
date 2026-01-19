@@ -34,7 +34,7 @@ FLAML has a .NET implementation in [ML.NET](http://dot.net/ml), an open-source, 
 
 ## Installation
 
-The latest version of FLAML requires **Python >= 3.10 and < 3.13**. While other Python versions may work for core components, full model support is not guaranteed. FLAML can be installed via `pip`:
+The latest version of FLAML requires **Python >= 3.10 and < 3.14**. While other Python versions may work for core components, full model support is not guaranteed. FLAML can be installed via `pip`:
 
 ```bash
 pip install flaml
