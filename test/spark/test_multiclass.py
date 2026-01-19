@@ -262,7 +262,11 @@ class TestMultiClass(unittest.TestCase):
             "n_concurrent_trials": 2,
             "use_spark": True,
         }
-        X_train = scipy.sparse.random(1554, 21, dtype=int)
+        # NOTE: Avoid `dtype=int` here. On some NumPy/SciPy combinations (notably
+        # Windows + Python 3.13), `scipy.sparse.random(..., dtype=int)` may trigger
+        # integer sampling paths which raise "low is out of bounds for int32".
+        # A float sparse matrix is sufficient to validate sparse-input support.
+        X_train = scipy.sparse.random(1554, 21, dtype=np.float32)
         y_train = np.random.randint(3, size=1554)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.classes_)

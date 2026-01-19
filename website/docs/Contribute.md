@@ -49,7 +49,7 @@ print(flaml.__version__)
 ```
 
 - Please ensure all **code snippets and error messages are formatted in
-  appropriate code blocks**.  See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
+  appropriate code blocks**. See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
   for more details.
 
 ## Becoming a Reviewer
@@ -88,7 +88,7 @@ Run `pre-commit install` to install pre-commit into your git hooks. Before you c
 
 ### Coverage
 
-Any code you commit should not decrease coverage. To run all unit tests, install the \[test\] option under FLAML/:
+Any code you commit should not decrease coverage. To run all unit tests, install the [test] option under FLAML/:
 
 ```bash
 pip install -e."[test]"

@@ -57,7 +57,7 @@ pip install "flaml[hf]"
 #### Notebook
 
 To run the [notebook examples](https://github.com/microsoft/FLAML/tree/main/notebook),
-install flaml with the \[notebook\] option:
+install flaml with the [notebook] option:
 
 ```bash
 pip install "flaml[notebook]"

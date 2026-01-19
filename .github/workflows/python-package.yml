@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -73,6 +73,11 @@ jobs:
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |
           pip install pyspark==4.0.1
+          pip list | grep "pyspark"
+      - name: On Ubuntu python 3.13, install pyspark 4.1.0
+        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install pyspark==4.1.0
           pip list | grep "pyspark"
       # # TODO: support ray
       # - name: If linux and python<3.11, install ray 2

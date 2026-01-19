@@ -4,7 +4,7 @@
 
 **Date and Time**: 04-26, 09:00–10:30 PT.
 
-Location:  Microsoft Conference Center, Seattle, WA.
+Location: Microsoft Conference Center, Seattle, WA.
 
 Duration: 1.5 hours
 
