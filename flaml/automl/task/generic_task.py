@@ -543,7 +543,7 @@ class GenericTask(Task):
                         if "sample_weight" in state.fit_kwargs:
                             # Use sample_weight_all if available, otherwise use the original sample_weight
                             sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
-                            if sample_weight_source is not None and len(sample_weight_source) > max(missing_train_indices):
+                            if sample_weight_source is not None and max(missing_train_indices) < len(sample_weight_source):
                                 missing_weights = sample_weight_source[missing_train_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_train_indices]
                                 state.fit_kwargs["sample_weight"] = concat(missing_weights, state.fit_kwargs["sample_weight"])
                 
@@ -562,10 +562,10 @@ class GenericTask(Task):
                         y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
                         
                         # Handle sample_weight if present
-                        if "sample_weight" in state.fit_kwargs and hasattr(state, 'weight_val'):
+                        if "sample_weight" in state.fit_kwargs and hasattr(state, 'weight_val') and state.weight_val is not None:
                             # Use sample_weight_all if available, otherwise use the original sample_weight
                             sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
-                            if sample_weight_source is not None and len(sample_weight_source) > max(missing_val_indices):
+                            if sample_weight_source is not None and max(missing_val_indices) < len(sample_weight_source):
                                 missing_weights = sample_weight_source[missing_val_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_val_indices]
                                 state.weight_val = concat(missing_weights, state.weight_val)
 
