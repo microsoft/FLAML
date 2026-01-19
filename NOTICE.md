@@ -4,8 +4,8 @@ This repository incorporates material as listed below or described in the code.
 
 ## Component. Ray.
 
-Code in tune/\[analysis.py, sample.py, trial.py, result.py\],
-searcher/\[suggestion.py, variant_generator.py\], and scheduler/trial_scheduler.py is adapted from
+Code in tune/[analysis.py, sample.py, trial.py, result.py],
+searcher/[suggestion.py, variant_generator.py], and scheduler/trial_scheduler.py is adapted from
 https://github.com/ray-project/ray/blob/master/python/ray/tune/
 
 ## Open Source License/Copyright Notice.

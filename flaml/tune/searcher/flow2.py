@@ -641,8 +641,10 @@ class FLOW2(Searcher):
             else:
                 # key must be in space
                 domain = space[key]
-                if self.hierarchical and not (
-                    domain is None or type(domain) in (str, int, float) or isinstance(domain, sample.Domain)
+                if (
+                    self.hierarchical
+                    and domain is not None
+                    and not isinstance(domain, (str, int, float, sample.Domain))
                 ):
                     # not domain or hashable
                     # get rid of list type for hierarchical search space.

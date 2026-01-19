@@ -8,7 +8,7 @@
 
 ### About `low_cost_partial_config` in `tune`.
 
-- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model).  The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and  `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215).  Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.
+- Definition and purpose: The `low_cost_partial_config` is a dictionary of subset of the hyperparameter coordinates whose value corresponds to a configuration with known low-cost (i.e., low computation cost for training the corresponding model). The concept of low/high-cost is meaningful in the case where a subset of the hyperparameters to tune directly affects the computation cost for training the model. For example, `n_estimators` and `max_leaves` are known to affect the training cost of tree-based learners. We call this subset of hyperparameters, *cost-related hyperparameters*. In such scenarios, if you are aware of low-cost configurations for the cost-related hyperparameters, you are recommended to set them as the `low_cost_partial_config`. Using the tree-based method example again, since we know that small `n_estimators` and `max_leaves` generally correspond to simpler models and thus lower cost, we set `{'n_estimators': 4, 'max_leaves': 4}` as the `low_cost_partial_config` by default (note that `4` is the lower bound of search space for these two hyperparameters), e.g., in [LGBM](https://github.com/microsoft/FLAML/blob/main/flaml/model.py#L215). Configuring `low_cost_partial_config` helps the search algorithms make more cost-efficient choices.
   In AutoML, the `low_cost_init_value` in `search_space()` function for each estimator serves the same role.
 
 - Usage in practice: It is recommended to configure it if there are cost-related hyperparameters in your tuning task and you happen to know the low-cost values for them, but it is not required (It is fine to leave it the default value, i.e., `None`).
@@ -114,4 +114,58 @@ from sklearn.ensemble import RandomForestClassifier
 
 model = RandomForestClassifier(**best_params)
 model.fit(X, y)
+```
+
+### How to save and load an AutoML object? (`pickle` / `load_pickle`)
+
+FLAML provides `AutoML.pickle()` / `AutoML.load_pickle()` as a convenient and robust way to persist an AutoML run.
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+automl.fit(X_train, y_train, task="classification", time_budget=60)
+
+# Save
+automl.pickle("automl.pkl")
+
+# Load
+automl_loaded = AutoML.load_pickle("automl.pkl")
+pred = automl_loaded.predict(X_test)
+```
+
+Notes:
+
+- If you used Spark estimators, `AutoML.pickle()` externalizes Spark ML models into an adjacent artifact folder and keeps
+  the pickle itself lightweight.
+- If you want to skip re-loading externalized Spark models (e.g., in an environment without Spark), use:
+
+```python
+automl_loaded = AutoML.load_pickle("automl.pkl", load_spark_models=False)
+```
+
+### How to list all available estimators for a task?
+
+The available estimator set is task-dependent and can vary with optional dependencies. You can list the estimator keys
+that FLAML currently has registered in your environment:
+
+```python
+from flaml.automl.task.factory import task_factory
+
+print(sorted(task_factory("classification").estimators.keys()))
+print(sorted(task_factory("regression").estimators.keys()))
+print(sorted(task_factory("forecast").estimators.keys()))
+print(sorted(task_factory("rank").estimators.keys()))
+```
+
+### How to list supported built-in metrics?
+
+```python
+from flaml import AutoML
+
+automl = AutoML()
+sklearn_metrics, hf_metrics, spark_metrics = automl.supported_metrics
+print(sorted(sklearn_metrics))
+print(sorted(hf_metrics))
+print(spark_metrics)
 ```

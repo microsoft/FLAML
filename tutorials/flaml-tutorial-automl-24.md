@@ -4,7 +4,7 @@
 
 **Date and Time**: 09.09.2024, 15:30-17:00
 
-Location:  Sorbonne University, 4 place Jussieu, 75005 Paris
+Location: Sorbonne University, 4 place Jussieu, 75005 Paris
 
 Duration: 1.5 hours
 
