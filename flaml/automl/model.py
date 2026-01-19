@@ -135,6 +135,7 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
         self._task = task if isinstance(task, Task) else task_factory(task, None, None)
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
+        self.estimator_baseclass = "sklearn"
         if "_estimator_type" in self.params:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
@@ -439,6 +440,7 @@ class SparkEstimator(BaseEstimator):
             raise SPARK_ERROR
         super().__init__(task, **config)
         self.df_train = None
+        self.estimator_baseclass = "spark"
 
     def _preprocess(
         self,
@@ -974,7 +976,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.utils import tokenize_text
         from .nlp.utils import is_a_list_of_str
 
-        is_str = str(X.dtypes[0]) in ("string", "str")
+        is_str = str(X.dtypes.iloc[0]) in ("string", "str")
         is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
 
         if is_str or is_list_of_str:

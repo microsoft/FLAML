@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-Install the \[automl,ts_forecast\] option.
+Install the [automl,ts_forecast] option.
 
 ```bash
 pip install "flaml[automl,ts_forecast]"

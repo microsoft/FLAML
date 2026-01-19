@@ -151,7 +151,7 @@ class TimeSeriesTask(Task):
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
             try:
-                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
@@ -386,9 +386,8 @@ class TimeSeriesTask(Task):
         return X
 
     def preprocess(self, X, transformer=None):
-        if isinstance(X, pd.DataFrame) or isinstance(X, np.ndarray) or isinstance(X, pd.Series):
-            X = X.copy()
-            X = normalize_ts_data(X, self.target_names, self.time_col)
+        if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
+            X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
             return self._preprocess(X, transformer)
         elif isinstance(X, int):
             return X
