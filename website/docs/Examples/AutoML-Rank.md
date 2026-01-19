@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-Install the \[automl\] option.
+Install the [automl] option.
 
 ```bash
 pip install "flaml[automl]"

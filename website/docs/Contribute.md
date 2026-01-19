@@ -49,7 +49,7 @@ print(flaml.__version__)
 ```
 
 - Please ensure all **code snippets and error messages are formatted in
-  appropriate code blocks**.  See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
+  appropriate code blocks**. See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
   for more details.
 
 ## Becoming a Reviewer
@@ -62,10 +62,10 @@ There is currently no formal reviewer solicitation process. Current reviewers id
 
 ```bash
 git clone https://github.com/microsoft/FLAML.git
-pip install -e FLAML[notebook,autogen]
+pip install -e ".[notebook]"
 ```
 
-In case the `pip install` command fails, try escaping the brackets such as `pip install -e FLAML\[notebook,autogen\]`.
+In case the `pip install` command fails, try escaping the brackets such as `pip install -e .\[notebook\]`.
 
 ### Docker
 
@@ -88,7 +88,7 @@ Run `pre-commit install` to install pre-commit into your git hooks. Before you c
 
 ### Coverage
 
-Any code you commit should not decrease coverage. To run all unit tests, install the \[test\] option under FLAML/:
+Any code you commit should not decrease coverage. To run all unit tests, install the [test] option under FLAML/:
 
 ```bash
 pip install -e."[test]"

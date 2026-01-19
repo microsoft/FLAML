@@ -324,3 +324,26 @@ def test_no_optuna():
     import flaml.tune.searcher.suggestion
 
     subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna==2.8.0"])
+
+
+def test_unresolved_search_space(caplog):
+    import logging
+
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import BlendSearch
+
+    if caplog is not None:
+        caplog.set_level(logging.INFO)
+
+    BlendSearch(metric="loss", mode="min", space={"lr": tune.uniform(0.001, 0.1), "depth": tune.randint(1, 10)})
+    try:
+        text = caplog.text
+    except AttributeError:
+        text = ""
+    assert (
+        "unresolved search space" not in text and text
+    ), "BlendSearch should not produce warning about unresolved search space"
+
+
+if __name__ == "__main__":
+    test_unresolved_search_space(None)
