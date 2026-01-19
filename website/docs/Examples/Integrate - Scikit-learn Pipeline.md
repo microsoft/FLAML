@@ -2,7 +2,7 @@ As FLAML's AutoML module can be used a transformer in the Sklearn's pipeline we 
 
 ### Prerequisites
 
-Install the \[automl\] option.
+Install the [automl] option.
 
 ```bash
 pip install "flaml[automl] openml"

@@ -6,7 +6,7 @@ Flamlized estimators automatically use data-dependent default hyperparameter con
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] lightgbm openml
