@@ -503,14 +503,124 @@ class AutoML(BaseEstimator):
 
     @property
     def best_config(self):
-        """A dictionary of the best configuration."""
+        """A dictionary of the best configuration.
+
+        The returned config dictionary can be used to:
+        1. Pass as `starting_points` to a new AutoML run.
+        2. Initialize the corresponding FLAML estimator directly.
+        3. Initialize the original model (e.g., LightGBM, XGBoost) after converting
+           FLAML-specific parameters.
+
+        Note:
+            The config contains FLAML's search space parameters, which may differ from
+            the original model's parameters. For example, FLAML uses `log_max_bin` for
+            LightGBM instead of `max_bin`. Use the FLAML estimator's `config2params()`
+            method to convert to the original model's parameters.
+
+        Example:
+
+        ```python
+        from flaml import AutoML
+        from flaml.automl.model import LGBMEstimator
+        from lightgbm import LGBMClassifier
+        from sklearn.datasets import load_iris
+
+        X, y = load_iris(return_X_y=True)
+
+        # Train with AutoML
+        automl = AutoML()
+        automl.fit(X, y, task="classification", time_budget=10)
+
+        # Get the best config
+        best_config = automl.best_config
+        print("Best config:", best_config)
+        # Example output: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+        #                  'learning_rate': 0.1, 'log_max_bin': 8, ...}
+
+        # Option 1: Use FLAML estimator directly (handles parameter conversion internally)
+        flaml_estimator = LGBMEstimator(task="classification", **best_config)
+        flaml_estimator.fit(X, y)
+
+        # Option 2: Convert to original model parameters using config2params()
+        # This converts FLAML-specific params (e.g., log_max_bin -> max_bin)
+        original_params = flaml_estimator.params  # or use flaml_estimator.config2params(best_config)
+        print("Original model params:", original_params)
+        # Example output: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+        #                  'learning_rate': 0.1, 'max_bin': 255, ...}  # log_max_bin converted to max_bin
+
+        # Now use with original LightGBM
+        lgbm_model = LGBMClassifier(**original_params)
+        lgbm_model.fit(X, y)
+        ```
+        """
         state = self._search_states.get(self._best_estimator)
         config = state and getattr(state, "best_config", None)
         return config and AutoMLState.sanitize(config)
 
     @property
     def best_config_per_estimator(self):
-        """A dictionary of all estimators' best configuration."""
+        """A dictionary of all estimators' best configuration.
+
+        Returns a dictionary where keys are estimator names (e.g., 'lgbm', 'xgboost')
+        and values are the best hyperparameter configurations found for each estimator.
+        The config may include `FLAML_sample_size` which indicates the sample size used
+        during training.
+
+        This is useful for:
+        1. Passing as `starting_points` to a new AutoML run for warm-starting.
+        2. Comparing the best configurations across different estimators.
+        3. Initializing the original models after converting FLAML-specific parameters.
+
+        Note:
+            The configs contain FLAML's search space parameters, which may differ from
+            the original models' parameters. Use each estimator's `config2params()` method
+            to convert to the original model's parameters.
+
+        Example:
+
+        ```python
+        from flaml import AutoML
+        from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+        from lightgbm import LGBMClassifier
+        from xgboost import XGBClassifier
+        from sklearn.datasets import load_iris
+
+        X, y = load_iris(return_X_y=True)
+
+        # Train with AutoML
+        automl = AutoML()
+        automl.fit(X, y, task="classification", time_budget=30,
+                   estimator_list=['lgbm', 'xgboost'])
+
+        # Get best configs for all estimators
+        configs = automl.best_config_per_estimator
+        print(configs)
+        # Example output: {'lgbm': {'n_estimators': 4, 'num_leaves': 4, 'log_max_bin': 8, ...},
+        #                  'xgboost': {'n_estimators': 4, 'max_leaves': 4, ...}}
+
+        # Use as starting points for a new AutoML run (warm start)
+        new_automl = AutoML()
+        new_automl.fit(X, y, task="classification", time_budget=30,
+                       starting_points=configs)
+
+        # Or convert to original model parameters for direct use
+        if configs.get('lgbm'):
+            lgbm_config = configs['lgbm'].copy()
+            lgbm_config.pop('FLAML_sample_size', None)  # Remove FLAML internal param
+            flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+            original_lgbm_params = flaml_lgbm.params  # Converted params (log_max_bin -> max_bin), or use flaml_lgbm.config2params(lgbm_config)
+            lgbm_model = LGBMClassifier(**original_lgbm_params)
+            lgbm_model.fit(X, y)
+
+        if configs.get('xgboost'):
+            xgb_config = configs['xgboost'].copy()
+            xgb_config.pop('FLAML_sample_size', None)  # Remove FLAML internal param
+            flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+            original_xgb_params = flaml_xgb.params  # Converted params
+            xgb_model = XGBClassifier(**original_xgb_params)
+            xgb_model.fit(X, y)
+        ```
+        """
         result = {}
         for e, e_search_state in self._search_states.items():
             if e_search_state.best_config:

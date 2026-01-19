@@ -666,6 +666,25 @@ print(automl.best_config)
 # {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}
 ```
 
+**Note**: The config contains FLAML's search space parameters, which may differ from the original model's parameters. For example, FLAML uses `log_max_bin` for LightGBM instead of `max_bin`. To convert to the original model's parameters, use the `config2params()` method:
+
+```python
+from flaml.automl.model import LGBMEstimator
+
+# Convert FLAML config to original model parameters
+flaml_estimator = LGBMEstimator(task="classification", **automl.best_config)
+original_params = flaml_estimator.params
+print(original_params)
+# {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'max_bin': 255, ...}
+# Note: 'log_max_bin': 8 is converted to 'max_bin': 255 (2^8 - 1)
+
+# Now you can use original LightGBM directly
+from lightgbm import LGBMClassifier
+
+lgbm_model = LGBMClassifier(**original_params)
+lgbm_model.fit(X_train, y_train)
+```
+
 We can also find the best configuration per estimator.
 
 ```python
@@ -675,10 +694,38 @@ print(automl.best_config_per_estimator)
 
 The `None` value corresponds to the estimators which have not been tried.
 
+**Converting configs for all estimators to original model parameters:**
+
+```python
+from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
+configs = automl.best_config_per_estimator
+
+# Convert and use LightGBM config
+if configs.get("lgbm"):
+    lgbm_config = configs["lgbm"].copy()
+    lgbm_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+    lgbm_model = LGBMClassifier(**flaml_lgbm.params)
+    lgbm_model.fit(X_train, y_train)
+
+# Convert and use XGBoost config
+if configs.get("xgboost"):
+    xgb_config = configs["xgboost"].copy()
+    xgb_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+    xgb_model = XGBClassifier(**flaml_xgb.params)
+    xgb_model.fit(X_train, y_train)
+```
+
 **Note**: When subsampling is used during the search (e.g., with large datasets), the configurations may also include `FLAML_sample_size` to indicate the sample size used. For example:
+
 ```python
 # {'lgbm': {'n_estimators': 729, 'num_leaves': 21, ..., 'FLAML_sample_size': 45000}, ...}
 ```
+
 This information is preserved in `best_config_per_estimator` and is important for warm-starting subsequent runs with the correct sample sizes.
 
 Other useful information:
