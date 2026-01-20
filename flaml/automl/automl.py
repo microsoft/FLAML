@@ -370,15 +370,7 @@ class AutoML(BaseEstimator):
         settings["auto_augment"] = settings.get("auto_augment", True)
         settings["metric"] = settings.get("metric", "auto")
         # Validate that custom metric is callable if not a string
-        metric = settings["metric"]
-        if metric != "auto" and not isinstance(metric, str) and not callable(metric):
-            raise ValueError(
-                f"The 'metric' parameter must be either a string or a callable function, "
-                f"but got {type(metric).__name__}. "
-                f"If you defined a custom_metric function, make sure to pass the function itself "
-                f"(e.g., metric=custom_metric) and not the result of calling it "
-                f"(e.g., metric=custom_metric(...))."
-            )
+        self._validate_metric_parameter(settings["metric"], allow_auto=True)
         settings["estimator_list"] = settings.get("estimator_list", "auto")
         settings["log_file_name"] = settings.get("log_file_name", "")
         settings["max_iter"] = settings.get("max_iter")  # no budget by default
@@ -470,6 +462,28 @@ class AutoML(BaseEstimator):
                     mi.mlflow_client = _mlflow.tracking.MlflowClient()
                 except Exception:
                     mi.mlflow_client = None
+
+    @staticmethod
+    def _validate_metric_parameter(metric, allow_auto=True):
+        """Validate that the metric parameter is either a string or a callable function.
+        
+        Args:
+            metric: The metric parameter to validate.
+            allow_auto: Whether to allow "auto" as a valid string value.
+            
+        Raises:
+            ValueError: If metric is not a string or callable function.
+        """
+        if allow_auto and metric == "auto":
+            return
+        if not isinstance(metric, str) and not callable(metric):
+            raise ValueError(
+                f"The 'metric' parameter must be either a string or a callable function, "
+                f"but got {type(metric).__name__}. "
+                f"If you defined a custom_metric function, make sure to pass the function itself "
+                f"(e.g., metric=custom_metric) and not the result of calling it "
+                f"(e.g., metric=custom_metric(...))."
+            )
 
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
@@ -2343,14 +2357,7 @@ class AutoML(BaseEstimator):
             )
 
         # Validate metric parameter before processing
-        if metric != "auto" and not isinstance(metric, str) and not callable(metric):
-            raise ValueError(
-                f"The 'metric' parameter must be either a string or a callable function, "
-                f"but got {type(metric).__name__}. "
-                f"If you defined a custom_metric function, make sure to pass the function itself "
-                f"(e.g., metric=custom_metric) and not the result of calling it "
-                f"(e.g., metric=custom_metric(...))."
-            )
+        self._validate_metric_parameter(metric, allow_auto=True)
 
         metric = task.default_metric(metric)
         self._state.metric = metric
