@@ -71,7 +71,7 @@ X_test.shape: (5160, 8), y_test.shape: (5160,)
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] lightgbm openml
@@ -193,7 +193,7 @@ XGBClassifier(base_score=0.5, booster='gbtree',
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] scikit-learn openml
@@ -230,7 +230,7 @@ RandomForestRegressor(max_features=0.8, min_samples_leaf=2, min_samples_split=5,
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] scikit-learn openml
@@ -271,7 +271,7 @@ RandomForestClassifier(max_features=0.7, min_samples_leaf=3, min_samples_split=5
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] scikit-learn openml
@@ -308,7 +308,7 @@ ExtraTreesRegressor(max_features=0.75, min_samples_leaf=2, min_samples_split=5,
 
 ### Prerequisites
 
-This example requires the \[autozero\] option.
+This example requires the [autozero] option.
 
 ```bash
 pip install flaml[autozero] scikit-learn openml
