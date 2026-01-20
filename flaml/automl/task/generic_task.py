@@ -509,7 +509,7 @@ class GenericTask(Task):
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio, stratify=stratify
                 )
-                
+
                 # Check which labels are present in train and val sets
                 if is_spark_dataframe:
                     label_set_train, _ = unique_pandas_on_spark(y_train)
@@ -519,11 +519,11 @@ class GenericTask(Task):
                     label_set_all, first = unique_value_first_index(y_train_all)
                     label_set_train = np.unique(y_train)
                     label_set_val = np.unique(y_val)
-                
+
                 # Find missing labels
                 missing_in_train = np.setdiff1d(label_set_all, label_set_train)
                 missing_in_val = np.setdiff1d(label_set_all, label_set_val)
-                
+
                 # Only add missing labels where needed
                 if len(missing_in_train) > 0:
                     # Add missing labels to training set
@@ -532,7 +532,7 @@ class GenericTask(Task):
                         label_matches = np.where(label_set_all == label)[0]
                         if len(label_matches) > 0 and label_matches[0] < len(first):
                             missing_train_indices.append(first[label_matches[0]])
-                    
+
                     if len(missing_train_indices) > 0:
                         X_missing_train = (
                             iloc_pandas_on_spark(X_train_all, missing_train_indices)
@@ -549,16 +549,32 @@ class GenericTask(Task):
                             else y_train_all[missing_train_indices]
                         )
                         X_train = concat(X_missing_train, X_train)
-                        y_train = concat(y_missing_train, y_train) if data_is_df else np.concatenate([y_missing_train, y_train])
-                        
+                        y_train = (
+                            concat(y_missing_train, y_train)
+                            if data_is_df
+                            else np.concatenate([y_missing_train, y_train])
+                        )
+
                         # Handle sample_weight if present
                         if "sample_weight" in state.fit_kwargs and len(missing_train_indices) > 0:
                             # Use sample_weight_all if available, otherwise use the original sample_weight
-                            sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
-                            if sample_weight_source is not None and max(missing_train_indices) < len(sample_weight_source):
-                                missing_weights = sample_weight_source[missing_train_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_train_indices]
-                                state.fit_kwargs["sample_weight"] = concat(missing_weights, state.fit_kwargs["sample_weight"])
-                
+                            sample_weight_source = (
+                                state.sample_weight_all
+                                if hasattr(state, "sample_weight_all")
+                                else state.fit_kwargs.get("sample_weight")
+                            )
+                            if sample_weight_source is not None and max(missing_train_indices) < len(
+                                sample_weight_source
+                            ):
+                                missing_weights = (
+                                    sample_weight_source[missing_train_indices]
+                                    if isinstance(sample_weight_source, np.ndarray)
+                                    else sample_weight_source.iloc[missing_train_indices]
+                                )
+                                state.fit_kwargs["sample_weight"] = concat(
+                                    missing_weights, state.fit_kwargs["sample_weight"]
+                                )
+
                 if len(missing_in_val) > 0:
                     # Add missing labels to validation set
                     missing_val_indices = []
@@ -566,7 +582,7 @@ class GenericTask(Task):
                         label_matches = np.where(label_set_all == label)[0]
                         if len(label_matches) > 0 and label_matches[0] < len(first):
                             missing_val_indices.append(first[label_matches[0]])
-                    
+
                     if len(missing_val_indices) > 0:
                         X_missing_val = (
                             iloc_pandas_on_spark(X_train_all, missing_val_indices)
@@ -584,15 +600,29 @@ class GenericTask(Task):
                         )
                         X_val = concat(X_missing_val, X_val)
                         y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
-                        
-                        # Handle sample_weight if present
-                        if "sample_weight" in state.fit_kwargs and len(missing_val_indices) > 0 and hasattr(state, 'weight_val') and state.weight_val is not None:
-                            # Use sample_weight_all if available, otherwise use the original sample_weight
-                            sample_weight_source = state.sample_weight_all if hasattr(state, 'sample_weight_all') else state.fit_kwargs.get("sample_weight")
-                            if sample_weight_source is not None and max(missing_val_indices) < len(sample_weight_source):
-                                missing_weights = sample_weight_source[missing_val_indices] if isinstance(sample_weight_source, np.ndarray) else sample_weight_source.iloc[missing_val_indices]
-                                state.weight_val = concat(missing_weights, state.weight_val)
 
+                        # Handle sample_weight if present
+                        if (
+                            "sample_weight" in state.fit_kwargs
+                            and len(missing_val_indices) > 0
+                            and hasattr(state, "weight_val")
+                            and state.weight_val is not None
+                        ):
+                            # Use sample_weight_all if available, otherwise use the original sample_weight
+                            sample_weight_source = (
+                                state.sample_weight_all
+                                if hasattr(state, "sample_weight_all")
+                                else state.fit_kwargs.get("sample_weight")
+                            )
+                            if sample_weight_source is not None and max(missing_val_indices) < len(
+                                sample_weight_source
+                            ):
+                                missing_weights = (
+                                    sample_weight_source[missing_val_indices]
+                                    if isinstance(sample_weight_source, np.ndarray)
+                                    else sample_weight_source.iloc[missing_val_indices]
+                                )
+                                state.weight_val = concat(missing_weights, state.weight_val)
 
                 if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
                     y_train = y_train[y_train.columns[0]]
