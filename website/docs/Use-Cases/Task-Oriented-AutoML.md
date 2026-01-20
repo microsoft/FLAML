@@ -51,6 +51,7 @@ If users provide the minimal inputs only, `AutoML` uses the default settings for
 The optimization metric is specified via the `metric` argument. It can be either a string which refers to a built-in metric, or a user-defined function.
 
 - Built-in metric.
+
   - 'accuracy': 1 - accuracy as the corresponding metric to minimize.
   - 'log_loss': default metric for multiclass classification.
   - 'r2': 1 - r2_score as the corresponding metric to minimize. Default metric for regression.
@@ -70,6 +71,40 @@ The optimization metric is specified via the `metric` argument. It can be either
   - 'ap': minimize 1 - average_precision_score.
   - 'ndcg': minimize 1 - ndcg_score.
   - 'ndcg@k': minimize 1 - ndcg_score@k. k is an integer.
+  - 'pr_auc': minimize 1 - precision-recall AUC score. (Spark-specific)
+  - 'var': minimize variance. (Spark-specific)
+
+- Built-in HuggingFace metrics (for NLP tasks).
+
+  - 'accuracy': minimize 1 - accuracy.
+  - 'bertscore': minimize 1 - BERTScore.
+  - 'bleu': minimize 1 - BLEU score.
+  - 'bleurt': minimize 1 - BLEURT score.
+  - 'cer': minimize character error rate.
+  - 'chrf': minimize ChrF score.
+  - 'code_eval': minimize 1 - code evaluation score.
+  - 'comet': minimize 1 - COMET score.
+  - 'competition_math': minimize 1 - competition math score.
+  - 'coval': minimize 1 - CoVal score.
+  - 'cuad': minimize 1 - CUAD score.
+  - 'f1': minimize 1 - F1 score.
+  - 'gleu': minimize 1 - GLEU score.
+  - 'google_bleu': minimize 1 - Google BLEU score.
+  - 'matthews_correlation': minimize 1 - Matthews correlation coefficient.
+  - 'meteor': minimize 1 - METEOR score.
+  - 'pearsonr': minimize 1 - Pearson correlation coefficient.
+  - 'precision': minimize 1 - precision.
+  - 'recall': minimize 1 - recall.
+  - 'rouge': minimize 1 - ROUGE score.
+  - 'rouge1': minimize 1 - ROUGE-1 score.
+  - 'rouge2': minimize 1 - ROUGE-2 score.
+  - 'sacrebleu': minimize 1 - SacreBLEU score.
+  - 'sari': minimize 1 - SARI score.
+  - 'seqeval': minimize 1 - SeqEval score.
+  - 'spearmanr': minimize 1 - Spearman correlation coefficient.
+  - 'ter': minimize translation error rate.
+  - 'wer': minimize word error rate.
+
 - User-defined function.
   A customized metric function that requires the following (input) signature, and returns the input config’s value in terms of the metric you want to minimize, and a dictionary of auxiliary information at your choice:
 
@@ -552,6 +587,8 @@ automl2.fit(
 
 `starting_points` is a dictionary or a str to specify the starting hyperparameter config. (1) When it is a dictionary, the keys are the estimator names. If you do not need to specify starting points for an estimator, exclude its name from the dictionary. The value for each key can be either a dictionary of a list of dictionaries, corresponding to one hyperparameter configuration, or multiple hyperparameter configurations, respectively. (2) When it is a str: if "data", use data-dependent defaults; if "data:path", use data-dependent defaults which are stored at path; if "static", use data-independent defaults. Please find more details about data-dependent defaults in [zero shot AutoML](Zero-Shot-AutoML#combine-zero-shot-automl-and-hyperparameter-tuning).
 
+**Note on sample size preservation**: When using `best_config_per_estimator` as starting points, the configurations now preserve `FLAML_sample_size` (if subsampling was used during the search). This ensures that the warm-started run continues optimization with the same sample sizes that produced the best results in the previous run, leading to more effective warm-starting.
+
 ### Log the trials
 
 The trials are logged in a file if a `log_file_name` is passed.
@@ -664,6 +701,25 @@ print(automl.best_config)
 # {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'log_max_bin': 8, 'colsample_bytree': 0.6649148062238498, 'reg_alpha': 0.0009765625, 'reg_lambda': 0.0067613624509965}
 ```
 
+**Note**: The config contains FLAML's search space parameters, which may differ from the original model's parameters. For example, FLAML uses `log_max_bin` for LightGBM instead of `max_bin`. To convert to the original model's parameters, use the `config2params()` method:
+
+```python
+from flaml.automl.model import LGBMEstimator
+
+# Convert FLAML config to original model parameters
+flaml_estimator = LGBMEstimator(task="classification", **automl.best_config)
+original_params = flaml_estimator.params
+print(original_params)
+# {'n_estimators': 148, 'num_leaves': 18, 'min_child_samples': 3, 'learning_rate': 0.17402065726724145, 'max_bin': 255, ...}
+# Note: 'log_max_bin': 8 is converted to 'max_bin': 255 (2^8 - 1)
+
+# Now you can use original LightGBM directly
+from lightgbm import LGBMClassifier
+
+lgbm_model = LGBMClassifier(**original_params)
+lgbm_model.fit(X_train, y_train)
+```
+
 We can also find the best configuration per estimator.
 
 ```python
@@ -672,6 +728,40 @@ print(automl.best_config_per_estimator)
 ```
 
 The `None` value corresponds to the estimators which have not been tried.
+
+**Converting configs for all estimators to original model parameters:**
+
+```python
+from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
+configs = automl.best_config_per_estimator
+
+# Convert and use LightGBM config
+if configs.get("lgbm"):
+    lgbm_config = configs["lgbm"].copy()
+    lgbm_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+    lgbm_model = LGBMClassifier(**flaml_lgbm.params)
+    lgbm_model.fit(X_train, y_train)
+
+# Convert and use XGBoost config
+if configs.get("xgboost"):
+    xgb_config = configs["xgboost"].copy()
+    xgb_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+    xgb_model = XGBClassifier(**flaml_xgb.params)
+    xgb_model.fit(X_train, y_train)
+```
+
+**Note**: When subsampling is used during the search (e.g., with large datasets), the configurations may also include `FLAML_sample_size` to indicate the sample size used. For example:
+
+```python
+# {'lgbm': {'n_estimators': 729, 'num_leaves': 21, ..., 'FLAML_sample_size': 45000}, ...}
+```
+
+This information is preserved in `best_config_per_estimator` and is important for warm-starting subsequent runs with the correct sample sizes.
 
 Other useful information:
 
