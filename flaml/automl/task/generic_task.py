@@ -576,8 +576,8 @@ class GenericTask(Task):
                                     )
                         else:
                             # Multiple instances: move some from val to train (no overlap needed)
-                            # Calculate how many to move to train
-                            num_to_train = max(1, int(num_instances * (1 - split_ratio)))
+                            # Calculate how many to move to train (leave at least 1 in val)
+                            num_to_train = max(1, min(num_instances - 1, int(num_instances * (1 - split_ratio))))
                             indices_to_move = label_indices[:num_to_train]
 
                             X_to_move = (
@@ -720,8 +720,8 @@ class GenericTask(Task):
                                         state.weight_val = concat(single_weight, state.weight_val)
                         else:
                             # Multiple instances: move some from train to val (no overlap needed)
-                            # Calculate how many to move to val
-                            num_to_val = max(1, int(num_instances * split_ratio))
+                            # Calculate how many to move to val (leave at least 1 in train)
+                            num_to_val = max(1, min(num_instances - 1, int(num_instances * split_ratio)))
                             indices_to_move = label_indices[:num_to_val]
 
                             X_to_move = (
