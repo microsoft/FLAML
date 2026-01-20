@@ -704,6 +704,64 @@ plt.barh(
 
 ![png](images/feature_importance.png)
 
+### Preprocess data
+
+FLAML provides two levels of preprocessing that can be accessed as public APIs:
+
+1. **Task-level preprocessing** (`automl.preprocess()`): This applies transformations that are specific to the task type, such as handling data types, sparse matrices, and feature transformations learned during training.
+
+2. **Estimator-level preprocessing** (`estimator.preprocess()`): This applies transformations specific to the estimator type (e.g., LightGBM, XGBoost).
+
+The task-level preprocessing should be applied before the estimator-level preprocessing.
+
+#### Task-level preprocessing
+
+```python
+from flaml import AutoML
+import numpy as np
+
+# Train the model
+automl = AutoML()
+automl.fit(X_train, y_train, task="classification", time_budget=60)
+
+# Apply task-level preprocessing to new data
+X_test_preprocessed = automl.preprocess(X_test)
+
+# Now you can use this with the estimator
+predictions = automl.model.predict(X_test_preprocessed)
+```
+
+#### Estimator-level preprocessing
+
+```python
+# Get the trained estimator
+estimator = automl.model
+
+# Apply task-level preprocessing first
+X_test_task = automl.preprocess(X_test)
+
+# Then apply estimator-level preprocessing
+X_test_estimator = estimator.preprocess(X_test_task)
+
+# Use the fully preprocessed data with the underlying model
+predictions = estimator._model.predict(X_test_estimator)
+```
+
+#### Complete preprocessing pipeline
+
+For most use cases, the `predict()` method already handles both levels of preprocessing internally. However, if you need to apply preprocessing separately (e.g., for custom inference pipelines or debugging), you can use:
+
+```python
+# Complete preprocessing pipeline
+X_task_preprocessed = automl.preprocess(X_test)
+X_final = automl.model.preprocess(X_task_preprocessed)
+
+# This is equivalent to what happens internally in:
+predictions = automl.predict(X_test)
+```
+
+**Note**: The `preprocess()` methods can only be called after `fit()` has been executed, as they rely on the transformations learned during training.
+
 ### Get best configuration
 
 We can find the best estimator's name and best configuration by:
