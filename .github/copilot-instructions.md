@@ -170,7 +170,7 @@ website/            # Documentation website
 - `[automl]`: lightgbm, xgboost, scipy, pandas, scikit-learn
 - `[test]`: Full test suite dependencies
 - `[spark]`: PySpark and joblib dependencies
-- `[forecast]`: Prophet, statsmodels, hcrystalball, pytorch-forecasting
+- `[forecast]`: holidays, prophet, statsmodels, hcrystalball, pytorch-forecasting, pytorch-lightning, tensorboardX
 - `[hf]`: Hugging Face transformers and datasets
 - See `setup.py` for complete list
 
