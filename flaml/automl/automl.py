@@ -180,6 +180,11 @@ class AutoML(BaseEstimator):
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
                 'n_jobs' as the key to specify the number of jobs for the stacker.
+                Note: The hyperparameters of a custom 'final_estimator' are NOT
+                automatically tuned. If you provide an estimator instance (e.g.,
+                CatBoostClassifier()), it will use the parameters you specified
+                or their defaults. If 'final_estimator' is not provided, the best
+                model found during the search will be used as the final estimator.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -1859,6 +1864,11 @@ class AutoML(BaseEstimator):
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
                 'n_jobs' as the key to specify the number of jobs for the stacker.
+                Note: The hyperparameters of a custom 'final_estimator' are NOT
+                automatically tuned. If you provide an estimator instance (e.g.,
+                CatBoostClassifier()), it will use the parameters you specified
+                or their defaults. If 'final_estimator' is not provided, the best
+                model found during the search will be used as the final estimator.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -3182,6 +3192,10 @@ class AutoML(BaseEstimator):
                     # the total degree of parallelization = parallelization degree per estimator * parallelization degree of ensemble
                 )
                 if isinstance(self._ensemble, dict):
+                    # Note: If a custom final_estimator is provided, it is used as-is without
+                    # hyperparameter tuning. The user is responsible for setting appropriate
+                    # parameters or using defaults. If not provided, the best model found
+                    # during the search (self._trained_estimator) is used.
                     final_estimator = self._ensemble.get("final_estimator", self._trained_estimator)
                     passthrough = self._ensemble.get("passthrough", True)
                     ensemble_n_jobs = self._ensemble.get("n_jobs", ensemble_n_jobs)
