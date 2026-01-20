@@ -334,6 +334,12 @@ class AutoML(BaseEstimator):
          }
         ```
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to both train and
+                validation sets, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 e.g.,
 
@@ -1683,6 +1689,7 @@ class AutoML(BaseEstimator):
             n_splits,
             self._df,
             self._sample_weight_full,
+            self._allow_label_overlap,
         )
         self.data_size_full = self._state.data_size_full
 
@@ -1739,6 +1746,7 @@ class AutoML(BaseEstimator):
         time_col=None,
         cv_score_agg_func=None,
         skip_transform=None,
+        allow_label_overlap=True,
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
@@ -2267,6 +2275,7 @@ class AutoML(BaseEstimator):
 
         self._retrain_in_budget = retrain_full == "budget" and (eval_method == "holdout" and self._state.X_val is None)
         self._auto_augment = auto_augment
+        self._allow_label_overlap = allow_label_overlap
 
         _sample_size_from_starting_points = {}
         if isinstance(starting_points, dict):
