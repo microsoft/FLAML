@@ -17,8 +17,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
-    """Transform input data X, y into autoregressive form - shift
-    them appropriately based on horizon and create `lags` columns.
+    """Transform input data X, y into autoregressive form by creating `lags` columns.
     
     This function is called automatically by FLAML during the training process
     to convert time series data into a format suitable for sklearn-based regression
@@ -28,7 +27,7 @@ def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
     Parameters
     ----------
     X : pandas.DataFrame
-        Input features, typically containing timestamps and optional exogenous variables.
+        Input feature DataFrame, which may contain temporal features and/or exogenous variables.
 
     y : array_like, (1d)
         Target vector (time series values to forecast).
