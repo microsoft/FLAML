@@ -183,15 +183,15 @@ class TestMultiClass(unittest.TestCase):
 
     def test_ensemble_final_estimator_params_not_tuned(self):
         """Test that final_estimator parameters in ensemble are not automatically tuned.
-        
+
         This test verifies that when a custom final_estimator is provided with specific
         parameters, those parameters are used as-is without any hyperparameter tuning.
         """
         from sklearn.linear_model import LogisticRegression
-        
+
         automl = AutoML()
         X_train, y_train = load_wine(return_X_y=True)
-        
+
         # Create a LogisticRegression with specific non-default parameters
         custom_params = {
             "C": 0.5,  # Non-default value
@@ -199,7 +199,7 @@ class TestMultiClass(unittest.TestCase):
             "random_state": 42,
         }
         final_est = LogisticRegression(**custom_params)
-        
+
         settings = {
             "time_budget": 5,
             "estimator_list": ["rf", "lgbm"],
@@ -211,15 +211,17 @@ class TestMultiClass(unittest.TestCase):
             "n_jobs": 1,
         }
         automl.fit(X_train=X_train, y_train=y_train, **settings)
-        
+
         # Verify that the final estimator in the stacker uses the exact parameters we specified
         if hasattr(automl.model, "final_estimator_"):
             # The model is a StackingClassifier
             fitted_final_estimator = automl.model.final_estimator_
-            assert abs(fitted_final_estimator.C - custom_params["C"]) < 1e-9, \
-                f"Expected C={custom_params['C']}, but got {fitted_final_estimator.C}"
-            assert fitted_final_estimator.max_iter == custom_params["max_iter"], \
-                f"Expected max_iter={custom_params['max_iter']}, but got {fitted_final_estimator.max_iter}"
+            assert (
+                abs(fitted_final_estimator.C - custom_params["C"]) < 1e-9
+            ), f"Expected C={custom_params['C']}, but got {fitted_final_estimator.C}"
+            assert (
+                fitted_final_estimator.max_iter == custom_params["max_iter"]
+            ), f"Expected max_iter={custom_params['max_iter']}, but got {fitted_final_estimator.max_iter}"
             print("✓ Final estimator parameters were preserved (not tuned)")
 
     def test_dataframe(self):

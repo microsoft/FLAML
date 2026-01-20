@@ -475,7 +475,9 @@ For example,
 
 ```python
 automl.fit(
-    X_train, y_train, task="classification",
+    X_train,
+    y_train,
+    task="classification",
     ensemble={
         "final_estimator": LogisticRegression(),  # Uses default LogisticRegression parameters
         "passthrough": False,
@@ -489,9 +491,13 @@ Or with custom parameters:
 from catboost import CatBoostClassifier
 
 automl.fit(
-    X_train, y_train, task="classification",
+    X_train,
+    y_train,
+    task="classification",
     ensemble={
-        "final_estimator": CatBoostClassifier(iterations=100, depth=6, learning_rate=0.1),
+        "final_estimator": CatBoostClassifier(
+            iterations=100, depth=6, learning_rate=0.1
+        ),
         "passthrough": True,
     },
 )
