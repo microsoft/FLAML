@@ -66,7 +66,7 @@ ruff check . --fix
 - **Formatter:** Black (v23.3.0+)
 - **Linter:** Ruff with Pyflakes and pycodestyle rules
 - **Import sorting:** Use isort (via Ruff)
-- **Python version:** Requires Python >= 3.10 and < 3.14
+- **Python version:** Supports Python >= 3.10 (full support for 3.10, 3.11, 3.12; Python 3.13 tested but some optional dependencies may have limited compatibility)
 
 ### Code Quality Rules
 
@@ -163,7 +163,7 @@ website/            # Documentation website
 ### Core Dependencies
 
 - NumPy >= 1.17
-- Python >= 3.10, < 3.14
+- Python >= 3.10 (officially supported: 3.10, 3.11, 3.12; Python 3.13 is tested in CI but may have limited compatibility with some optional dependencies)
 
 ### Optional Dependencies
 
