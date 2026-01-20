@@ -323,7 +323,7 @@ class AutoML(BaseEstimator):
             mlflow_logging: boolean, default=True | Whether to log the training results to mlflow.
                 This requires mlflow to be installed and to have an active mlflow run.
                 FLAML will create nested runs.
-            mutioutput_train_size: int, default=None | For multi-output tasks, when `eval_method` is set to
+            multioutput_train_size: int, default=None | For multi-output tasks, when `eval_method` is set to
                 "holdout" and a validation set is manually specified, set this parameter to the length of
                 the training set. When calling the `fit` method, concatenate the training set and the validation set.
                 e.g.,
