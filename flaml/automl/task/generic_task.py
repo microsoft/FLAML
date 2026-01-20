@@ -530,7 +530,7 @@ class GenericTask(Task):
                     missing_train_indices = []
                     for label in missing_in_train:
                         label_matches = np.where(label_set_all == label)[0]
-                        if len(label_matches) > 0:
+                        if len(label_matches) > 0 and label_matches[0] < len(first):
                             missing_train_indices.append(first[label_matches[0]])
                     
                     if len(missing_train_indices) > 0:
@@ -552,7 +552,7 @@ class GenericTask(Task):
                     missing_val_indices = []
                     for label in missing_in_val:
                         label_matches = np.where(label_set_all == label)[0]
-                        if len(label_matches) > 0:
+                        if len(label_matches) > 0 and label_matches[0] < len(first):
                             missing_val_indices.append(first[label_matches[0]])
                     
                     if len(missing_val_indices) > 0:
