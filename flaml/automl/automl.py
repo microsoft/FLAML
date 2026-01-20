@@ -1549,6 +1549,12 @@ class AutoML(BaseEstimator):
         task = task or self._settings.get("task")
         multioutput_train_size = self._settings.get("multioutput_train_size")
         if multioutput_train_size is not None:
+            if X_val is not None or y_val is not None:
+                raise ValueError(
+                    "multioutput_train_size cannot be used together with explicitly provided "
+                    "validation data (X_val and/or y_val). Please either remove multioutput_train_size "
+                    "from settings or do not pass X_val/y_val."
+                )
             X_train, X_val = self._train_val_split(X_train, multioutput_train_size)
             y_train, y_val = self._train_val_split(y_train, multioutput_train_size)
         if isinstance(task, str):
