@@ -979,8 +979,8 @@ class AutoML(BaseEstimator):
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
                         This is the number of time steps ahead to forecast (e.g., period=12 means
-                        forecasting 12 steps into the future). This represents the future prediction
-                        window length during training. Note: during prediction, the output length
+                        forecasting 12 steps into the future). This represents the forecast horizon
+                        used during model training. Note: during prediction, the output length
                         equals the length of X_test. FLAML automatically handles feature
                         engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
                         lagged features created automatically, while time series native models (prophet,
@@ -2068,8 +2068,8 @@ class AutoML(BaseEstimator):
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
                         This is the number of time steps ahead to forecast (e.g., period=12 means
-                        forecasting 12 steps into the future). This represents the future prediction
-                        window length during training. Note: during prediction, the output length
+                        forecasting 12 steps into the future). This represents the forecast horizon
+                        used during model training. Note: during prediction, the output length
                         equals the length of X_test. FLAML automatically handles feature
                         engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
                         lagged features created automatically, while time series native models (prophet,
