@@ -41,14 +41,14 @@ def test_no_overlap_holdout_classification():
     assert train_size + val_size == input_size, \
         f"Overlap detected! Input: {input_size}, Train: {train_size}, Val: {val_size}, Total: {train_size + val_size}"
     
-    # Also verify all classes are present in both sets
-    train_labels = np.unique(automl._state.y_train)
-    val_labels = np.unique(automl._state.y_val)
-    all_labels = np.unique(y_train)
+    # Verify all classes are represented in the combined train+val
+    train_labels = set(np.unique(automl._state.y_train))
+    val_labels = set(np.unique(automl._state.y_val))
+    all_labels = set(np.unique(y_train))
     
-    # Check all labels are in training set
-    assert set(all_labels) <= set(train_labels) or set(all_labels) <= set(val_labels) or \
-           (set(train_labels).union(set(val_labels)) == set(all_labels)), \
+    # Check that all labels are covered by the union of train and val sets
+    combined_labels = train_labels.union(val_labels)
+    assert combined_labels == all_labels, \
         f"Not all labels present. All: {all_labels}, Train: {train_labels}, Val: {val_labels}"
     
     print(f"✓ Test passed: No overlap detected. Input: {input_size}, Train: {train_size}, Val: {val_size}")
