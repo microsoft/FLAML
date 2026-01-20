@@ -19,22 +19,29 @@ from sklearn.preprocessing import StandardScaler
 def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
     """Transform input data X, y into autoregressive form - shift
     them appropriately based on horizon and create `lags` columns.
+    
+    This function is called automatically by FLAML during the training process
+    to convert time series data into a format suitable for sklearn-based regression
+    models (e.g., lgbm, rf, xgboost). Users do NOT need to manually call this function
+    or create lagged features themselves.
 
     Parameters
     ----------
     X : pandas.DataFrame
-        Input features.
+        Input features, typically containing timestamps and optional exogenous variables.
 
     y : array_like, (1d)
-        Target vector.
-
-    horizon : int
-        length of X for `predict` method
+        Target vector (time series values to forecast).
+    
+    lags : int
+        Number of lagged time steps to use as features.
 
     Returns
     -------
     pandas.DataFrame
-        shifted dataframe with `lags` columns
+        Shifted dataframe with `lags` columns for each original feature.
+        The target variable y is also lagged to prevent data leakage
+        (i.e., we use y(t-1), y(t-2), ..., y(t-lags) to predict y(t)).
     """
     lag_features = []
 
@@ -55,6 +62,16 @@ def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
 
 
 class SklearnWrapper:
+    """Wrapper class for using sklearn-based models for time series forecasting.
+    
+    This wrapper automatically handles the transformation of time series data into
+    a supervised learning format by creating lagged features. It trains separate
+    models for each step in the forecast horizon.
+    
+    Users typically don't interact with this class directly - it's used internally
+    by FLAML when sklearn-based estimators (lgbm, rf, xgboost, etc.) are selected
+    for time series forecasting tasks.
+    """
     def __init__(
         self,
         model_class: type,

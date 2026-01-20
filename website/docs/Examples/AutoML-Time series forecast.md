@@ -8,6 +8,22 @@ Install the [automl,ts_forecast] option.
 pip install "flaml[automl,ts_forecast]"
 ```
 
+### Understanding the `period` Parameter
+
+The `period` parameter specifies the **forecast horizon** - the number of time steps into the future you want to predict. For example:
+- `period=12` means you want to forecast 12 time steps ahead (e.g., 12 months, 12 days)
+- `period=7` means you want to forecast 7 time steps ahead
+
+#### Automatic Feature Engineering
+
+**Important**: You do NOT need to manually lag the target variable before training. FLAML handles this automatically:
+
+- **For sklearn-based models** (lgbm, rf, xgboost, extra_tree, catboost): FLAML automatically creates lagged features of both the target variable and any exogenous variables. This transforms the time series forecasting problem into a supervised learning regression problem.
+
+- **For time series native models** (prophet, arima, sarimax, holt-winters): These models have built-in time series forecasting capabilities and handle temporal dependencies natively.
+
+The automatic lagging is implemented internally when you call `automl.fit()` with `task="ts_forecast"` or `task="ts_forecast_classification"`, so you can focus on providing clean input data without worrying about feature engineering.
+
 ### Simple NumPy Example
 
 ```python

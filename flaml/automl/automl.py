@@ -973,6 +973,12 @@ class AutoML(BaseEstimator):
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
+                        This is the number of time steps ahead to forecast (e.g., period=12 means
+                        forecasting 12 steps into the future). FLAML automatically handles feature
+                        engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
+                        lagged features created automatically, while time series native models (prophet,
+                        arima, sarimax) use their built-in forecasting capabilities. You do NOT need
+                        to manually create lagged features of the target variable.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                         only used by TransformersEstimator, XGBoostSklearnEstimator, and
                         TemporalFusionTransformerEstimator.
@@ -2049,6 +2055,12 @@ class AutoML(BaseEstimator):
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
+                        This is the number of time steps ahead to forecast (e.g., period=12 means
+                        forecasting 12 steps into the future). FLAML automatically handles feature
+                        engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
+                        lagged features created automatically, while time series native models (prophet,
+                        arima, sarimax) use their built-in forecasting capabilities. You do NOT need
+                        to manually create lagged features of the target variable.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                         only used by TransformersEstimator, XGBoostSklearnEstimator, and
                         TemporalFusionTransformerEstimator.
