@@ -156,6 +156,10 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
+                **Note:** When passing a custom metric function, pass the function itself 
+                (e.g., `metric=custom_metric`), not the result of calling it 
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function 
+                internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression', 'summarization',
@@ -365,6 +369,16 @@ class AutoML(BaseEstimator):
         settings["n_splits"] = settings.get("n_splits", N_SPLITS)
         settings["auto_augment"] = settings.get("auto_augment", True)
         settings["metric"] = settings.get("metric", "auto")
+        # Validate that custom metric is callable if not a string
+        metric = settings["metric"]
+        if metric != "auto" and not isinstance(metric, str) and not callable(metric):
+            raise ValueError(
+                f"The 'metric' parameter must be either a string or a callable function, "
+                f"but got {type(metric).__name__}. "
+                f"If you defined a custom_metric function, make sure to pass the function itself "
+                f"(e.g., metric=custom_metric) and not the result of calling it "
+                f"(e.g., metric=custom_metric(...))."
+            )
         settings["estimator_list"] = settings.get("estimator_list", "auto")
         settings["log_file_name"] = settings.get("log_file_name", "")
         settings["max_iter"] = settings.get("max_iter")  # no budget by default
@@ -1805,6 +1819,10 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
+                **Note:** When passing a custom metric function, pass the function itself 
+                (e.g., `metric=custom_metric`), not the result of calling it 
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function 
+                internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
                 'ts_forecast_classification', 'rank', 'seq-classification',
@@ -2085,7 +2103,7 @@ class AutoML(BaseEstimator):
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
-        metric = metric or self._settings.get("metric")
+        metric = self._settings.get("metric") if metric is None else metric
         estimator_list = estimator_list or self._settings.get("estimator_list")
         log_file_name = self._settings.get("log_file_name") if log_file_name is None else log_file_name
         max_iter = self._settings.get("max_iter") if max_iter is None else max_iter
@@ -2322,6 +2340,16 @@ class AutoML(BaseEstimator):
                 and not task.is_rank()
                 and eval_method != "cv"
                 and (self._min_sample_size * SAMPLE_MULTIPLY_FACTOR < self._state.data_size[0])
+            )
+
+        # Validate metric parameter before processing
+        if metric != "auto" and not isinstance(metric, str) and not callable(metric):
+            raise ValueError(
+                f"The 'metric' parameter must be either a string or a callable function, "
+                f"but got {type(metric).__name__}. "
+                f"If you defined a custom_metric function, make sure to pass the function itself "
+                f"(e.g., metric=custom_metric) and not the result of calling it "
+                f"(e.g., metric=custom_metric(...))."
             )
 
         metric = task.default_metric(metric)
