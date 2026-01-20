@@ -749,7 +749,7 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: np.array | DataFrame | list[str] | list[list[str]] | psDataFrame,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
         **pred_kwargs,
     ):
         """Predict label from features.
@@ -817,7 +817,7 @@ class AutoML(BaseEstimator):
 
     def preprocess(
         self,
-        X: np.array | DataFrame | list[str] | list[list[str]] | psDataFrame,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
     ):
         """Preprocess data using task-level preprocessing.
 

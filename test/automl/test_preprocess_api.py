@@ -101,11 +101,10 @@ class TestPreprocessAPI(unittest.TestCase):
         # Test preprocessing
         X_preprocessed = automl.preprocess(X_test)
         
-        # Verify the output
+        # Verify the output - check the number of rows matches
         self.assertIsNotNone(X_preprocessed)
-        # The preprocessed data should have the same number of rows
-        self.assertEqual(len(X_preprocessed) if hasattr(X_preprocessed, '__len__') else X_preprocessed.shape[0], 
-                         len(X_test))
+        preprocessed_len = len(X_preprocessed) if hasattr(X_preprocessed, '__len__') else X_preprocessed.shape[0]
+        self.assertEqual(preprocessed_len, len(X_test))
 
     def test_estimator_preprocess(self):
         """Test estimator-level preprocessing."""
