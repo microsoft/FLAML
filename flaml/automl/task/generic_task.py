@@ -377,10 +377,12 @@ class GenericTask(Task):
         is_spark_dataframe,
         data_is_df,
     ):
-        """Handle missing labels by adding first instance to both train and val sets.
+        """Handle missing labels by adding first instance to the set with missing label.
 
         This is the faster version that may create some overlap but ensures all labels
-        are present in both sets. This was the original behavior before the fix.
+        are present in both sets. If a label is missing from train, it adds the first
+        instance to train. If a label is missing from val, it adds the first instance to val.
+        If no labels are missing, no instances are duplicated.
 
         Args:
             state: The state object containing fit parameters
@@ -970,7 +972,7 @@ class GenericTask(Task):
 
                 # Handle missing labels using the appropriate strategy
                 if allow_label_overlap:
-                    # Fast version: adds first instance to both sets (may create overlap)
+                    # Fast version: adds first instance to set with missing label (may create overlap)
                     X_train, X_val, y_train, y_val = self._handle_missing_labels_fast(
                         state,
                         X_train,
