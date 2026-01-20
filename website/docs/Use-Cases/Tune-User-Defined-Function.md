@@ -197,21 +197,24 @@ In this example, we have two model types (linear and tree-based), each with thei
 from flaml import tune
 
 search_space = {
-    "model": tune.choice([
-        {
-            "model_type": "linear",
-            "learning_rate": tune.loguniform(1e-4, 1e-1),
-            "regularization": tune.uniform(0, 1),
-        },
-        {
-            "model_type": "tree",
-            "n_estimators": tune.randint(10, 100),
-            "max_depth": tune.randint(3, 10),
-        },
-    ]),
+    "model": tune.choice(
+        [
+            {
+                "model_type": "linear",
+                "learning_rate": tune.loguniform(1e-4, 1e-1),
+                "regularization": tune.uniform(0, 1),
+            },
+            {
+                "model_type": "tree",
+                "n_estimators": tune.randint(10, 100),
+                "max_depth": tune.randint(3, 10),
+            },
+        ]
+    ),
     # Common hyperparameters for all models
     "batch_size": tune.choice([32, 64, 128]),
 }
+
 
 def evaluate_config(config):
     model_config = config["model"]
@@ -221,7 +224,7 @@ def evaluate_config(config):
         score = train_linear_model(
             lr=model_config["learning_rate"],
             reg=model_config["regularization"],
-            batch_size=config["batch_size"]
+            batch_size=config["batch_size"],
         )
     else:  # tree
         # Use n_estimators and max_depth
@@ -229,9 +232,10 @@ def evaluate_config(config):
         score = train_tree_model(
             n_est=model_config["n_estimators"],
             depth=model_config["max_depth"],
-            batch_size=config["batch_size"]
+            batch_size=config["batch_size"],
         )
     return {"score": score}
+
 
 # Run tuning
 analysis = tune.run(
@@ -249,21 +253,24 @@ You can also mix constant values with nested hyperparameter spaces in `tune.choi
 
 ```python
 search_space = {
-    "optimizer": tune.choice([
-        "sgd",  # constant value
-        {
-            "optimizer_type": "adam",
-            "beta1": tune.uniform(0.8, 0.99),
-            "beta2": tune.uniform(0.9, 0.999),
-        },
-        {
-            "optimizer_type": "rmsprop",
-            "decay": tune.loguniform(1e-3, 1e-1),
-            "momentum": tune.uniform(0, 0.99),
-        },
-    ]),
+    "optimizer": tune.choice(
+        [
+            "sgd",  # constant value
+            {
+                "optimizer_type": "adam",
+                "beta1": tune.uniform(0.8, 0.99),
+                "beta2": tune.uniform(0.9, 0.999),
+            },
+            {
+                "optimizer_type": "rmsprop",
+                "decay": tune.loguniform(1e-3, 1e-1),
+                "momentum": tune.uniform(0, 0.99),
+            },
+        ]
+    ),
     "learning_rate": tune.loguniform(1e-5, 1e-1),
 }
+
 
 def evaluate_config(config):
     optimizer_config = config["optimizer"]
@@ -295,25 +302,28 @@ search_space = {
         "normalize": tune.choice([True, False]),
         "feature_selection": tune.choice(["none", "pca", "lda"]),
     },
-    "model": tune.choice([
-        {
-            "type": "neural_net",
-            "layers": tune.randint(1, 5),
-            "units_per_layer": tune.randint(32, 256),
-        },
-        {
-            "type": "ensemble",
-            "n_models": tune.randint(3, 10),
-        },
-    ]),
+    "model": tune.choice(
+        [
+            {
+                "type": "neural_net",
+                "layers": tune.randint(1, 5),
+                "units_per_layer": tune.randint(32, 256),
+            },
+            {
+                "type": "ensemble",
+                "n_models": tune.randint(3, 10),
+            },
+        ]
+    ),
 }
+
 
 def evaluate_config(config):
     # Access nested hyperparameters
     normalize = config["preprocessing"]["normalize"]
     feature_selection = config["preprocessing"]["feature_selection"]
     model_config = config["model"]
-    
+
     # Use the hyperparameters accordingly
     # train_with_config() is a placeholder for your actual training code
     score = train_with_config(normalize, feature_selection, model_config)
@@ -321,6 +331,7 @@ def evaluate_config(config):
 ```
 
 **Notes:**
+
 - When a configuration is sampled, only the selected branch of the hierarchical space will be active.
 - The evaluation function should check which choice was selected and use the corresponding nested hyperparameters.
 - Hierarchical search spaces work with all FLAML search algorithms (CFO, BlendSearch).
