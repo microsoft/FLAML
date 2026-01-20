@@ -51,6 +51,7 @@ If users provide the minimal inputs only, `AutoML` uses the default settings for
 The optimization metric is specified via the `metric` argument. It can be either a string which refers to a built-in metric, or a user-defined function.
 
 - Built-in metric.
+
   - 'accuracy': 1 - accuracy as the corresponding metric to minimize.
   - 'log_loss': default metric for multiclass classification.
   - 'r2': 1 - r2_score as the corresponding metric to minimize. Default metric for regression.
@@ -70,6 +71,40 @@ The optimization metric is specified via the `metric` argument. It can be either
   - 'ap': minimize 1 - average_precision_score.
   - 'ndcg': minimize 1 - ndcg_score.
   - 'ndcg@k': minimize 1 - ndcg_score@k. k is an integer.
+  - 'pr_auc': minimize 1 - precision-recall AUC score. (Spark-specific)
+  - 'var': minimize variance. (Spark-specific)
+
+- Built-in HuggingFace metrics (for NLP tasks).
+
+  - 'accuracy': minimize 1 - accuracy.
+  - 'bertscore': minimize 1 - BERTScore.
+  - 'bleu': minimize 1 - BLEU score.
+  - 'bleurt': minimize 1 - BLEURT score.
+  - 'cer': minimize character error rate.
+  - 'chrf': minimize ChrF score.
+  - 'code_eval': minimize 1 - code evaluation score.
+  - 'comet': minimize 1 - COMET score.
+  - 'competition_math': minimize 1 - competition math score.
+  - 'coval': minimize 1 - CoVal score.
+  - 'cuad': minimize 1 - CUAD score.
+  - 'f1': minimize 1 - F1 score.
+  - 'gleu': minimize 1 - GLEU score.
+  - 'google_bleu': minimize 1 - Google BLEU score.
+  - 'matthews_correlation': minimize 1 - Matthews correlation coefficient.
+  - 'meteor': minimize 1 - METEOR score.
+  - 'pearsonr': minimize 1 - Pearson correlation coefficient.
+  - 'precision': minimize 1 - precision.
+  - 'recall': minimize 1 - recall.
+  - 'rouge': minimize 1 - ROUGE score.
+  - 'rouge1': minimize 1 - ROUGE-1 score.
+  - 'rouge2': minimize 1 - ROUGE-2 score.
+  - 'sacrebleu': minimize 1 - SacreBLEU score.
+  - 'sari': minimize 1 - SARI score.
+  - 'seqeval': minimize 1 - SeqEval score.
+  - 'spearmanr': minimize 1 - Spearman correlation coefficient.
+  - 'ter': minimize translation error rate.
+  - 'wer': minimize word error rate.
+
 - User-defined function.
   A customized metric function that requires the following (input) signature, and returns the input config’s value in terms of the metric you want to minimize, and a dictionary of auxiliary information at your choice:
 
