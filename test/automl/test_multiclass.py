@@ -181,6 +181,49 @@ class TestMultiClass(unittest.TestCase):
         }
         automl.fit(X_train=X_train, y_train=y_train, **settings)
 
+    def test_ensemble_final_estimator_params_not_tuned(self):
+        """Test that final_estimator parameters in ensemble are not automatically tuned.
+
+        This test verifies that when a custom final_estimator is provided with specific
+        parameters, those parameters are used as-is without any hyperparameter tuning.
+        """
+        from sklearn.linear_model import LogisticRegression
+
+        automl = AutoML()
+        X_train, y_train = load_wine(return_X_y=True)
+
+        # Create a LogisticRegression with specific non-default parameters
+        custom_params = {
+            "C": 0.5,  # Non-default value
+            "max_iter": 50,  # Non-default value
+            "random_state": 42,
+        }
+        final_est = LogisticRegression(**custom_params)
+
+        settings = {
+            "time_budget": 5,
+            "estimator_list": ["rf", "lgbm"],
+            "task": "classification",
+            "ensemble": {
+                "final_estimator": final_est,
+                "passthrough": False,
+            },
+            "n_jobs": 1,
+        }
+        automl.fit(X_train=X_train, y_train=y_train, **settings)
+
+        # Verify that the final estimator in the stacker uses the exact parameters we specified
+        if hasattr(automl.model, "final_estimator_"):
+            # The model is a StackingClassifier
+            fitted_final_estimator = automl.model.final_estimator_
+            assert (
+                abs(fitted_final_estimator.C - custom_params["C"]) < 1e-9
+            ), f"Expected C={custom_params['C']}, but got {fitted_final_estimator.C}"
+            assert (
+                fitted_final_estimator.max_iter == custom_params["max_iter"]
+            ), f"Expected max_iter={custom_params['max_iter']}, but got {fitted_final_estimator.max_iter}"
+            print("✓ Final estimator parameters were preserved (not tuned)")
+
     def test_dataframe(self):
         self.test_classification(True)
 
@@ -368,7 +411,11 @@ class TestMultiClass(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True,
         }
-        X_train = scipy.sparse.random(1554, 21, dtype=int)
+        # NOTE: Avoid `dtype=int` here. On some NumPy/SciPy combinations (notably
+        # Windows + Python 3.13), `scipy.sparse.random(..., dtype=int)` may trigger
+        # integer sampling paths which raise "low is out of bounds for int32".
+        # A float sparse matrix is sufficient to validate sparse-input support.
+        X_train = scipy.sparse.random(1554, 21, dtype=np.float32)
         y_train = np.random.randint(3, size=1554)
         automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
         print(automl_experiment.classes_)
@@ -530,6 +577,32 @@ class TestMultiClass(unittest.TestCase):
         # print('Best hyperparmeter config:', new_automl.best_config)
         print(f"Best accuracy on validation data: {new_automl_val_accuracy:.4g}")
         # print('Training duration of best run: {0:.4g} s'.format(new_automl_experiment.best_config_train_time))
+
+    def test_starting_points_should_improve_performance(self):
+        N = 10000  # a large N is needed to see the improvement
+        X_train, y_train = load_iris(return_X_y=True)
+        X_train = np.concatenate([X_train + 0.1 * i for i in range(N)], axis=0)
+        y_train = np.concatenate([y_train] * N, axis=0)
+
+        am1 = AutoML()
+        am1.fit(X_train, y_train, estimator_list=["lgbm"], time_budget=3, seed=11)
+
+        am2 = AutoML()
+        am2.fit(
+            X_train,
+            y_train,
+            estimator_list=["lgbm"],
+            time_budget=2,
+            seed=11,
+            starting_points=am1.best_config_per_estimator,
+        )
+
+        print(f"am1.best_loss: {am1.best_loss:.4f}")
+        print(f"am2.best_loss: {am2.best_loss:.4f}")
+
+        assert np.round(am2.best_loss, 4) <= np.round(
+            am1.best_loss, 4
+        ), "Starting points should help improve the performance!"
 
 
 if __name__ == "__main__":

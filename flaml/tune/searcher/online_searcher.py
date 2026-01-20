@@ -207,7 +207,7 @@ class ChampionFrontierSearcher(BaseSearcher):
                     hyperparameter_config_groups.append(partial_new_configs)
                     # does not have searcher_trial_ids
                     searcher_trial_ids_groups.append([])
-            elif isinstance(config_domain, Float) or isinstance(config_domain, Categorical):
+            elif isinstance(config_domain, (Float, Categorical)):
                 # otherwise we need to deal with them in group
                 nonpoly_config[k] = v
                 if k not in self._space_of_nonpoly_hp:
