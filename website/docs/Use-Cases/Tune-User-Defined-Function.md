@@ -217,6 +217,7 @@ def evaluate_config(config):
     model_config = config["model"]
     if model_config["model_type"] == "linear":
         # Use learning_rate and regularization
+        # train_linear_model() is a placeholder for your actual training code
         score = train_linear_model(
             lr=model_config["learning_rate"],
             reg=model_config["regularization"],
@@ -224,6 +225,7 @@ def evaluate_config(config):
         )
     else:  # tree
         # Use n_estimators and max_depth
+        # train_tree_model() is a placeholder for your actual training code
         score = train_tree_model(
             n_est=model_config["n_estimators"],
             depth=model_config["max_depth"],
@@ -279,6 +281,7 @@ def evaluate_config(config):
             decay=optimizer_config["decay"],
             momentum=optimizer_config["momentum"],
         )
+    # train_model() is a placeholder for your actual training code
     return train_model(optimizer)
 ```
 
@@ -312,6 +315,7 @@ def evaluate_config(config):
     model_config = config["model"]
     
     # Use the hyperparameters accordingly
+    # train_with_config() is a placeholder for your actual training code
     score = train_with_config(normalize, feature_selection, model_config)
     return {"score": score}
 ```
