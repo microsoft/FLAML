@@ -10,9 +10,11 @@ pip install "flaml[automl,ts_forecast]"
 
 ### Understanding the `period` Parameter
 
-The `period` parameter specifies the **forecast horizon** - the number of time steps into the future you want to predict. For example:
+The `period` parameter (also called **horizon** in the code) specifies the **future prediction window length during training** - the number of time steps into the future you want to predict. For example:
 - `period=12` means you want to forecast 12 time steps ahead (e.g., 12 months, 12 days)
 - `period=7` means you want to forecast 7 time steps ahead
+
+**Important Note on Prediction**: During the prediction stage, the output length equals the length of `X_test`. This means you can generate predictions for any number of time steps by providing the corresponding timestamps in `X_test`, regardless of the `period` value used during training.
 
 #### Automatic Feature Engineering
 
