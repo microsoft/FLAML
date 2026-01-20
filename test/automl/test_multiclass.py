@@ -216,7 +216,7 @@ class TestMultiClass(unittest.TestCase):
         if hasattr(automl.model, "final_estimator_"):
             # The model is a StackingClassifier
             fitted_final_estimator = automl.model.final_estimator_
-            assert fitted_final_estimator.C == custom_params["C"], \
+            assert abs(fitted_final_estimator.C - custom_params["C"]) < 1e-9, \
                 f"Expected C={custom_params['C']}, but got {fitted_final_estimator.C}"
             assert fitted_final_estimator.max_iter == custom_params["max_iter"], \
                 f"Expected max_iter={custom_params['max_iter']}, but got {fitted_final_estimator.max_iter}"
