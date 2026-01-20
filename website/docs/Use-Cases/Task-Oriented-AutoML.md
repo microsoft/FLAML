@@ -469,14 +469,30 @@ To use stacked ensemble after the model search, set `ensemble=True` or a dict. W
 - "final_estimator": an instance of the final estimator in the stacker.
 - "passthrough": True (default) or False, whether to pass the original features to the stacker.
 
+**Important Note:** The hyperparameters of a custom `final_estimator` are **NOT automatically tuned**. If you provide an estimator instance (e.g., `CatBoostClassifier()`), it will use the parameters you specified or their defaults. To use specific hyperparameters, you must set them when creating the estimator instance. If `final_estimator` is not provided, the best model found during the search will be used as the final estimator (recommended for best performance).
+
 For example,
 
 ```python
 automl.fit(
     X_train, y_train, task="classification",
     "ensemble": {
-        "final_estimator": LogisticRegression(),
+        "final_estimator": LogisticRegression(),  # Uses default LogisticRegression parameters
         "passthrough": False,
+    },
+)
+```
+
+Or with custom parameters:
+
+```python
+from catboost import CatBoostClassifier
+
+automl.fit(
+    X_train, y_train, task="classification",
+    "ensemble": {
+        "final_estimator": CatBoostClassifier(iterations=100, depth=6, learning_rate=0.1),
+        "passthrough": True,
     },
 )
 ```
