@@ -524,105 +524,301 @@ class GenericTask(Task):
                 missing_in_train = np.setdiff1d(label_set_all, label_set_train)
                 missing_in_val = np.setdiff1d(label_set_all, label_set_val)
 
-                # Only add missing labels where needed
+                # Handle missing labels intelligently
+                # For classes with only 1 instance: add to both sets (unavoidable overlap)
+                # For classes with multiple instances: move/split them properly to avoid overlap
+
                 if len(missing_in_train) > 0:
-                    # Add missing labels to training set
-                    missing_train_indices = []
+                    # Process missing labels in training set
                     for label in missing_in_train:
-                        label_matches = np.where(label_set_all == label)[0]
-                        if len(label_matches) > 0 and label_matches[0] < len(first):
-                            missing_train_indices.append(first[label_matches[0]])
+                        # Find all indices for this label in the original data
+                        if is_spark_dataframe:
+                            label_indices = np.where(y_train_all.to_numpy() == label)[0].tolist()
+                        else:
+                            label_indices = np.where(np.asarray(y_train_all) == label)[0].tolist()
 
-                    if len(missing_train_indices) > 0:
-                        X_missing_train = (
-                            iloc_pandas_on_spark(X_train_all, missing_train_indices)
-                            if is_spark_dataframe
-                            else X_train_all.iloc[missing_train_indices]
-                            if data_is_df
-                            else X_train_all[missing_train_indices]
-                        )
-                        y_missing_train = (
-                            iloc_pandas_on_spark(y_train_all, missing_train_indices)
-                            if is_spark_dataframe
-                            else y_train_all.iloc[missing_train_indices]
-                            if isinstance(y_train_all, (pd.Series, psSeries))
-                            else y_train_all[missing_train_indices]
-                        )
-                        X_train = concat(X_missing_train, X_train)
-                        y_train = (
-                            concat(y_missing_train, y_train)
-                            if data_is_df
-                            else np.concatenate([y_missing_train, y_train])
-                        )
+                        num_instances = len(label_indices)
 
-                        # Handle sample_weight if present
-                        if "sample_weight" in state.fit_kwargs and len(missing_train_indices) > 0:
-                            # Use sample_weight_all if available, otherwise use the original sample_weight
-                            sample_weight_source = (
-                                state.sample_weight_all
-                                if hasattr(state, "sample_weight_all")
-                                else state.fit_kwargs.get("sample_weight")
+                        if num_instances == 1:
+                            # Single instance: must add to both train and val (unavoidable overlap)
+                            X_single = (
+                                iloc_pandas_on_spark(X_train_all, label_indices)
+                                if is_spark_dataframe
+                                else X_train_all.iloc[label_indices]
+                                if data_is_df
+                                else X_train_all[label_indices]
                             )
-                            if sample_weight_source is not None and max(missing_train_indices) < len(
-                                sample_weight_source
-                            ):
-                                missing_weights = (
-                                    sample_weight_source[missing_train_indices]
-                                    if isinstance(sample_weight_source, np.ndarray)
-                                    else sample_weight_source.iloc[missing_train_indices]
+                            y_single = (
+                                iloc_pandas_on_spark(y_train_all, label_indices)
+                                if is_spark_dataframe
+                                else y_train_all.iloc[label_indices]
+                                if isinstance(y_train_all, (pd.Series, psSeries))
+                                else y_train_all[label_indices]
+                            )
+                            X_train = concat(X_single, X_train)
+                            y_train = concat(y_single, y_train) if data_is_df else np.concatenate([y_single, y_train])
+
+                            # Handle sample_weight
+                            if "sample_weight" in state.fit_kwargs:
+                                sample_weight_source = (
+                                    state.sample_weight_all
+                                    if hasattr(state, "sample_weight_all")
+                                    else state.fit_kwargs.get("sample_weight")
                                 )
-                                state.fit_kwargs["sample_weight"] = concat(
-                                    missing_weights, state.fit_kwargs["sample_weight"]
+                                if sample_weight_source is not None and label_indices[0] < len(sample_weight_source):
+                                    single_weight = (
+                                        sample_weight_source[label_indices]
+                                        if isinstance(sample_weight_source, np.ndarray)
+                                        else sample_weight_source.iloc[label_indices]
+                                    )
+                                    state.fit_kwargs["sample_weight"] = concat(
+                                        single_weight, state.fit_kwargs["sample_weight"]
+                                    )
+                        else:
+                            # Multiple instances: move some from val to train (no overlap needed)
+                            # Calculate how many to move to train
+                            num_to_train = max(1, int(num_instances * (1 - split_ratio)))
+                            indices_to_move = label_indices[:num_to_train]
+
+                            X_to_move = (
+                                iloc_pandas_on_spark(X_train_all, indices_to_move)
+                                if is_spark_dataframe
+                                else X_train_all.iloc[indices_to_move]
+                                if data_is_df
+                                else X_train_all[indices_to_move]
+                            )
+                            y_to_move = (
+                                iloc_pandas_on_spark(y_train_all, indices_to_move)
+                                if is_spark_dataframe
+                                else y_train_all.iloc[indices_to_move]
+                                if isinstance(y_train_all, (pd.Series, psSeries))
+                                else y_train_all[indices_to_move]
+                            )
+
+                            # Add to train
+                            X_train = concat(X_to_move, X_train)
+                            y_train = concat(y_to_move, y_train) if data_is_df else np.concatenate([y_to_move, y_train])
+
+                            # Remove from val (they are currently all in val)
+                            if is_spark_dataframe:
+                                val_mask = ~y_val.isin([label])
+                                X_val = X_val[val_mask]
+                                y_val = y_val[val_mask]
+                            else:
+                                val_mask = np.asarray(y_val) != label
+                                if data_is_df:
+                                    X_val = X_val[val_mask]
+                                    y_val = y_val[val_mask]
+                                else:
+                                    X_val = X_val[val_mask]
+                                    y_val = y_val[val_mask]
+
+                            # Add remaining instances back to val
+                            remaining_indices = label_indices[num_to_train:]
+                            if len(remaining_indices) > 0:
+                                X_remaining = (
+                                    iloc_pandas_on_spark(X_train_all, remaining_indices)
+                                    if is_spark_dataframe
+                                    else X_train_all.iloc[remaining_indices]
+                                    if data_is_df
+                                    else X_train_all[remaining_indices]
                                 )
+                                y_remaining = (
+                                    iloc_pandas_on_spark(y_train_all, remaining_indices)
+                                    if is_spark_dataframe
+                                    else y_train_all.iloc[remaining_indices]
+                                    if isinstance(y_train_all, (pd.Series, psSeries))
+                                    else y_train_all[remaining_indices]
+                                )
+                                X_val = concat(X_remaining, X_val)
+                                y_val = (
+                                    concat(y_remaining, y_val) if data_is_df else np.concatenate([y_remaining, y_val])
+                                )
+
+                            # Handle sample_weight
+                            if "sample_weight" in state.fit_kwargs:
+                                sample_weight_source = (
+                                    state.sample_weight_all
+                                    if hasattr(state, "sample_weight_all")
+                                    else state.fit_kwargs.get("sample_weight")
+                                )
+                                if sample_weight_source is not None and max(indices_to_move) < len(
+                                    sample_weight_source
+                                ):
+                                    weights_to_move = (
+                                        sample_weight_source[indices_to_move]
+                                        if isinstance(sample_weight_source, np.ndarray)
+                                        else sample_weight_source.iloc[indices_to_move]
+                                    )
+                                    state.fit_kwargs["sample_weight"] = concat(
+                                        weights_to_move, state.fit_kwargs["sample_weight"]
+                                    )
+
+                                    if (
+                                        len(remaining_indices) > 0
+                                        and hasattr(state, "weight_val")
+                                        and state.weight_val is not None
+                                    ):
+                                        # Remove and re-add weights for val
+                                        if isinstance(state.weight_val, np.ndarray):
+                                            state.weight_val = state.weight_val[val_mask]
+                                        else:
+                                            state.weight_val = state.weight_val[val_mask]
+
+                                        if max(remaining_indices) < len(sample_weight_source):
+                                            remaining_weights = (
+                                                sample_weight_source[remaining_indices]
+                                                if isinstance(sample_weight_source, np.ndarray)
+                                                else sample_weight_source.iloc[remaining_indices]
+                                            )
+                                            state.weight_val = concat(remaining_weights, state.weight_val)
 
                 if len(missing_in_val) > 0:
-                    # Add missing labels to validation set
-                    missing_val_indices = []
+                    # Process missing labels in validation set
                     for label in missing_in_val:
-                        label_matches = np.where(label_set_all == label)[0]
-                        if len(label_matches) > 0 and label_matches[0] < len(first):
-                            missing_val_indices.append(first[label_matches[0]])
+                        # Find all indices for this label in the original data
+                        if is_spark_dataframe:
+                            label_indices = np.where(y_train_all.to_numpy() == label)[0].tolist()
+                        else:
+                            label_indices = np.where(np.asarray(y_train_all) == label)[0].tolist()
 
-                    if len(missing_val_indices) > 0:
-                        X_missing_val = (
-                            iloc_pandas_on_spark(X_train_all, missing_val_indices)
-                            if is_spark_dataframe
-                            else X_train_all.iloc[missing_val_indices]
-                            if data_is_df
-                            else X_train_all[missing_val_indices]
-                        )
-                        y_missing_val = (
-                            iloc_pandas_on_spark(y_train_all, missing_val_indices)
-                            if is_spark_dataframe
-                            else y_train_all.iloc[missing_val_indices]
-                            if isinstance(y_train_all, (pd.Series, psSeries))
-                            else y_train_all[missing_val_indices]
-                        )
-                        X_val = concat(X_missing_val, X_val)
-                        y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
+                        num_instances = len(label_indices)
 
-                        # Handle sample_weight if present
-                        if (
-                            "sample_weight" in state.fit_kwargs
-                            and len(missing_val_indices) > 0
-                            and hasattr(state, "weight_val")
-                            and state.weight_val is not None
-                        ):
-                            # Use sample_weight_all if available, otherwise use the original sample_weight
-                            sample_weight_source = (
-                                state.sample_weight_all
-                                if hasattr(state, "sample_weight_all")
-                                else state.fit_kwargs.get("sample_weight")
+                        if num_instances == 1:
+                            # Single instance: must add to both train and val (unavoidable overlap)
+                            X_single = (
+                                iloc_pandas_on_spark(X_train_all, label_indices)
+                                if is_spark_dataframe
+                                else X_train_all.iloc[label_indices]
+                                if data_is_df
+                                else X_train_all[label_indices]
                             )
-                            if sample_weight_source is not None and max(missing_val_indices) < len(
-                                sample_weight_source
-                            ):
-                                missing_weights = (
-                                    sample_weight_source[missing_val_indices]
-                                    if isinstance(sample_weight_source, np.ndarray)
-                                    else sample_weight_source.iloc[missing_val_indices]
+                            y_single = (
+                                iloc_pandas_on_spark(y_train_all, label_indices)
+                                if is_spark_dataframe
+                                else y_train_all.iloc[label_indices]
+                                if isinstance(y_train_all, (pd.Series, psSeries))
+                                else y_train_all[label_indices]
+                            )
+                            X_val = concat(X_single, X_val)
+                            y_val = concat(y_single, y_val) if data_is_df else np.concatenate([y_single, y_val])
+
+                            # Handle sample_weight
+                            if "sample_weight" in state.fit_kwargs and hasattr(state, "weight_val"):
+                                sample_weight_source = (
+                                    state.sample_weight_all
+                                    if hasattr(state, "sample_weight_all")
+                                    else state.fit_kwargs.get("sample_weight")
                                 )
-                                state.weight_val = concat(missing_weights, state.weight_val)
+                                if sample_weight_source is not None and label_indices[0] < len(sample_weight_source):
+                                    single_weight = (
+                                        sample_weight_source[label_indices]
+                                        if isinstance(sample_weight_source, np.ndarray)
+                                        else sample_weight_source.iloc[label_indices]
+                                    )
+                                    if state.weight_val is not None:
+                                        state.weight_val = concat(single_weight, state.weight_val)
+                        else:
+                            # Multiple instances: move some from train to val (no overlap needed)
+                            # Calculate how many to move to val
+                            num_to_val = max(1, int(num_instances * split_ratio))
+                            indices_to_move = label_indices[:num_to_val]
+
+                            X_to_move = (
+                                iloc_pandas_on_spark(X_train_all, indices_to_move)
+                                if is_spark_dataframe
+                                else X_train_all.iloc[indices_to_move]
+                                if data_is_df
+                                else X_train_all[indices_to_move]
+                            )
+                            y_to_move = (
+                                iloc_pandas_on_spark(y_train_all, indices_to_move)
+                                if is_spark_dataframe
+                                else y_train_all.iloc[indices_to_move]
+                                if isinstance(y_train_all, (pd.Series, psSeries))
+                                else y_train_all[indices_to_move]
+                            )
+
+                            # Add to val
+                            X_val = concat(X_to_move, X_val)
+                            y_val = concat(y_to_move, y_val) if data_is_df else np.concatenate([y_to_move, y_val])
+
+                            # Remove from train (they are currently all in train)
+                            if is_spark_dataframe:
+                                train_mask = ~y_train.isin([label])
+                                X_train = X_train[train_mask]
+                                y_train = y_train[train_mask]
+                            else:
+                                train_mask = np.asarray(y_train) != label
+                                if data_is_df:
+                                    X_train = X_train[train_mask]
+                                    y_train = y_train[train_mask]
+                                else:
+                                    X_train = X_train[train_mask]
+                                    y_train = y_train[train_mask]
+
+                            # Add remaining instances back to train
+                            remaining_indices = label_indices[num_to_val:]
+                            if len(remaining_indices) > 0:
+                                X_remaining = (
+                                    iloc_pandas_on_spark(X_train_all, remaining_indices)
+                                    if is_spark_dataframe
+                                    else X_train_all.iloc[remaining_indices]
+                                    if data_is_df
+                                    else X_train_all[remaining_indices]
+                                )
+                                y_remaining = (
+                                    iloc_pandas_on_spark(y_train_all, remaining_indices)
+                                    if is_spark_dataframe
+                                    else y_train_all.iloc[remaining_indices]
+                                    if isinstance(y_train_all, (pd.Series, psSeries))
+                                    else y_train_all[remaining_indices]
+                                )
+                                X_train = concat(X_remaining, X_train)
+                                y_train = (
+                                    concat(y_remaining, y_train)
+                                    if data_is_df
+                                    else np.concatenate([y_remaining, y_train])
+                                )
+
+                            # Handle sample_weight
+                            if "sample_weight" in state.fit_kwargs:
+                                sample_weight_source = (
+                                    state.sample_weight_all
+                                    if hasattr(state, "sample_weight_all")
+                                    else state.fit_kwargs.get("sample_weight")
+                                )
+                                if sample_weight_source is not None and max(indices_to_move) < len(
+                                    sample_weight_source
+                                ):
+                                    weights_to_move = (
+                                        sample_weight_source[indices_to_move]
+                                        if isinstance(sample_weight_source, np.ndarray)
+                                        else sample_weight_source.iloc[indices_to_move]
+                                    )
+                                    if hasattr(state, "weight_val") and state.weight_val is not None:
+                                        state.weight_val = concat(weights_to_move, state.weight_val)
+
+                                    if len(remaining_indices) > 0:
+                                        # Remove and re-add weights for train
+                                        if isinstance(state.fit_kwargs["sample_weight"], np.ndarray):
+                                            state.fit_kwargs["sample_weight"] = state.fit_kwargs["sample_weight"][
+                                                train_mask
+                                            ]
+                                        else:
+                                            state.fit_kwargs["sample_weight"] = state.fit_kwargs["sample_weight"][
+                                                train_mask
+                                            ]
+
+                                        if max(remaining_indices) < len(sample_weight_source):
+                                            remaining_weights = (
+                                                sample_weight_source[remaining_indices]
+                                                if isinstance(sample_weight_source, np.ndarray)
+                                                else sample_weight_source.iloc[remaining_indices]
+                                            )
+                                            state.fit_kwargs["sample_weight"] = concat(
+                                                remaining_weights, state.fit_kwargs["sample_weight"]
+                                            )
 
                 if isinstance(y_train, (psDataFrame, pd.DataFrame)) and y_train.shape[1] == 1:
                     y_train = y_train[y_train.columns[0]]
