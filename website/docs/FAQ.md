@@ -73,7 +73,9 @@ Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoM
 
 ### How to get the best config of an estimator and use it to train the original model outside FLAML?
 
-When you finished training an AutoML estimator, you may want to use it in other code w/o depending on FLAML. You can get the `automl.best_config` and convert it to the parameters of the original model with below code:
+When you finished training an AutoML estimator, you may want to use it in other code w/o depending on FLAML. The `automl.best_config` contains FLAML's search space parameters, which may differ from the original model's parameters (e.g., FLAML uses `log_max_bin` for LightGBM instead of `max_bin`). You need to convert them using the `config2params()` method.
+
+**Method 1: Using the trained model instance**
 
 ```python
 from flaml import AutoML
@@ -86,10 +88,43 @@ automl.fit(X, y)
 
 print(f"{automl.best_estimator=}")
 print(f"{automl.best_config=}")
-print(f"params for best estimator: {automl.model.config2params(automl.best_config)}")
+# Example: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+#           'learning_rate': 0.1, 'log_max_bin': 8, ...}
+
+# Convert to original model parameters
+best_params = automl.model.config2params(automl.best_config)
+print(f"params for best estimator: {best_params}")
+# Example: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+#           'learning_rate': 0.1, 'max_bin': 255, ...}  # log_max_bin -> max_bin
 ```
 
-If the automl instance is not accessible and you've the `best_config`. You can also convert it with below code:
+**Method 2: Using FLAML estimator classes directly**
+
+If the automl instance is not accessible and you only have the `best_config`, you can convert it with below code:
+
+```python
+from flaml.automl.model import LGBMEstimator
+
+best_config = {
+    "n_estimators": 4,
+    "num_leaves": 4,
+    "min_child_samples": 20,
+    "learning_rate": 0.1,
+    "log_max_bin": 8,  # FLAML-specific parameter
+    "colsample_bytree": 1.0,
+    "reg_alpha": 0.0009765625,
+    "reg_lambda": 1.0,
+}
+
+# Create FLAML estimator - this automatically converts parameters
+flaml_estimator = LGBMEstimator(task="classification", **best_config)
+best_params = flaml_estimator.params  # Converted params ready for original model
+print(f"Converted params: {best_params}")
+# Example: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+#           'learning_rate': 0.1, 'max_bin': 255, 'verbose': -1, ...}
+```
+
+**Method 3: Using task_factory (for any estimator type)**
 
 ```python
 from flaml.automl.task.factory import task_factory
@@ -107,13 +142,49 @@ model_class = task_factory(task).estimator_class_from_str(best_estimator)(task=t
 best_params = model_class.config2params(best_config)
 ```
 
-Then you can use it to train the sklearn estimators directly:
+Then you can use it to train the sklearn/lightgbm/xgboost estimators directly:
 
 ```python
-from sklearn.ensemble import RandomForestClassifier
+from lightgbm import LGBMClassifier
 
-model = RandomForestClassifier(**best_params)
+# Using LightGBM directly with converted parameters
+model = LGBMClassifier(**best_params)
 model.fit(X, y)
+```
+
+**Using best_config_per_estimator for multiple estimators**
+
+```python
+from flaml import AutoML
+from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier
+
+automl = AutoML()
+automl.fit(
+    X, y, task="classification", time_budget=30, estimator_list=["lgbm", "xgboost"]
+)
+
+# Get configs for all estimators
+configs = automl.best_config_per_estimator
+# Example: {'lgbm': {'n_estimators': 4, 'log_max_bin': 8, ...},
+#           'xgboost': {'n_estimators': 4, 'max_leaves': 4, ...}}
+
+# Convert and use LightGBM config
+if configs.get("lgbm"):
+    lgbm_config = configs["lgbm"].copy()
+    lgbm_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+    lgbm_model = LGBMClassifier(**flaml_lgbm.params)
+    lgbm_model.fit(X, y)
+
+# Convert and use XGBoost config
+if configs.get("xgboost"):
+    xgb_config = configs["xgboost"].copy()
+    xgb_config.pop("FLAML_sample_size", None)  # Remove FLAML internal param if present
+    flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+    xgb_model = XGBClassifier(**flaml_xgb.params)
+    xgb_model.fit(X, y)
 ```
 
 ### How to save and load an AutoML object? (`pickle` / `load_pickle`)
