@@ -242,6 +242,7 @@ To tune a custom estimator that is not built-in, you need to:
 
 ```python
 from flaml.automl.model import SKLearnEstimator
+
 # SKLearnEstimator is derived from BaseEstimator
 import rgf
 
@@ -250,31 +251,44 @@ class MyRegularizedGreedyForest(SKLearnEstimator):
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
 
-        if task in CLASSIFICATION:
-        from rgf.sklearn import RGFClassifier
+        if isinstance(task, str):
+            from flaml.automl.task.factory import task_factory
 
-        self.estimator_class = RGFClassifier
+            task = task_factory(task)
+
+        if task.is_classification():
+            from rgf.sklearn import RGFClassifier
+
+            self.estimator_class = RGFClassifier
         else:
-        from rgf.sklearn import RGFRegressor
+            from rgf.sklearn import RGFRegressor
 
-        self.estimator_class = RGFRegressor
+            self.estimator_class = RGFRegressor
 
     @classmethod
     def search_space(cls, data_size, task):
         space = {
-        "max_leaf": {
-            "domain": tune.lograndint(lower=4, upper=data_size),
-            "low_cost_init_value": 4,
-        },
-        "n_iter": {
-            "domain": tune.lograndint(lower=1, upper=data_size),
-            "low_cost_init_value": 1,
-        },
-        "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
-        "min_samples_leaf": {
-            "domain": tune.lograndint(lower=1, upper=20),
-            "init_value": 20,
-        },
+            "max_leaf": {
+                "domain": tune.lograndint(lower=4, upper=data_size[0]),
+                "init_value": 4,
+            },
+            "n_iter": {
+                "domain": tune.lograndint(lower=1, upper=data_size[0]),
+                "init_value": 1,
+            },
+            "n_tree_search": {
+                "domain": tune.lograndint(lower=1, upper=32768),
+                "init_value": 1,
+            },
+            "opt_interval": {
+                "domain": tune.lograndint(lower=1, upper=10000),
+                "init_value": 100,
+            },
+            "learning_rate": {"domain": tune.loguniform(lower=0.01, upper=20.0)},
+            "min_samples_leaf": {
+                "domain": tune.lograndint(lower=1, upper=20),
+                "init_value": 20,
+            },
         }
         return space
 ```
