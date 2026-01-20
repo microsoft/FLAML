@@ -281,26 +281,28 @@ class TestMultiClass(unittest.TestCase):
     def test_invalid_custom_metric(self):
         """Test that proper error is raised when custom_metric is called instead of passed."""
         from sklearn.datasets import load_iris
-        
+
         X_train, y_train = load_iris(return_X_y=True)
-        
+
         # Test with non-callable metric in __init__
         with self.assertRaises(ValueError) as context:
             automl = AutoML(metric=123)  # passing an int instead of function
         self.assertIn("must be either a string or a callable function", str(context.exception))
         self.assertIn("but got int", str(context.exception))
-        
+
         # Test with non-callable metric in fit
         automl = AutoML()
         with self.assertRaises(ValueError) as context:
             automl.fit(X_train=X_train, y_train=y_train, metric=[], task="classification", time_budget=1)
         self.assertIn("must be either a string or a callable function", str(context.exception))
         self.assertIn("but got list", str(context.exception))
-        
+
         # Test with tuple (simulating result of calling a function that returns tuple)
         with self.assertRaises(ValueError) as context:
             automl = AutoML()
-            automl.fit(X_train=X_train, y_train=y_train, metric=(0.5, {"loss": 0.5}), task="classification", time_budget=1)
+            automl.fit(
+                X_train=X_train, y_train=y_train, metric=(0.5, {"loss": 0.5}), task="classification", time_budget=1
+            )
         self.assertIn("must be either a string or a callable function", str(context.exception))
         self.assertIn("but got tuple", str(context.exception))
 

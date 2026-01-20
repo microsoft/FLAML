@@ -156,9 +156,9 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
-                **Note:** When passing a custom metric function, pass the function itself 
-                (e.g., `metric=custom_metric`), not the result of calling it 
-                (e.g., `metric=custom_metric(...)`). FLAML will call your function 
+                **Note:** When passing a custom metric function, pass the function itself
+                (e.g., `metric=custom_metric`), not the result of calling it
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function
                 internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
@@ -471,11 +471,11 @@ class AutoML(BaseEstimator):
     @staticmethod
     def _validate_metric_parameter(metric, allow_auto=True):
         """Validate that the metric parameter is either a string or a callable function.
-        
+
         Args:
             metric: The metric parameter to validate.
             allow_auto: Whether to allow "auto" as a valid string value.
-            
+
         Raises:
             ValueError: If metric is not a string or callable function.
         """
@@ -1838,9 +1838,9 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
-                **Note:** When passing a custom metric function, pass the function itself 
-                (e.g., `metric=custom_metric`), not the result of calling it 
-                (e.g., `metric=custom_metric(...)`). FLAML will call your function 
+                **Note:** When passing a custom metric function, pass the function itself
+                (e.g., `metric=custom_metric`), not the result of calling it
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function
                 internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
