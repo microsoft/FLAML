@@ -15,6 +15,107 @@
 
 - How does it work: `low_cost_partial_config` if configured, will be used as an initial point of the search. It also affects the search trajectory. For more details about how does it play a role in the search algorithms, please refer to the papers about the search algorithms used: Section 2 of [Frugal Optimization for Cost-related Hyperparameters (CFO)](https://arxiv.org/pdf/2005.01571.pdf) and Section 3 of [Economical Hyperparameter Optimization with Blended Search Strategy (BlendSearch)](https://openreview.net/pdf?id=VbLH04pRA3).
 
+### How does FLAML handle missing values?
+
+FLAML automatically preprocesses missing values in the input data through its `DataTransformer` class (for classification/regression tasks) and `DataTransformerTS` class (for time series tasks). The preprocessing behavior differs based on the column type:
+
+**Automatic Missing Value Preprocessing:**
+
+FLAML performs the following preprocessing automatically when you call `AutoML.fit()`:
+
+1. **Numerical/Continuous Columns**: Missing values (NaN) in numerical columns are imputed using `sklearn.impute.SimpleImputer` with the **median strategy**. This preprocessing is applied in the `DataTransformer.fit_transform()` method (see `flaml/automl/data.py` lines 357-369 and `flaml/automl/time_series/ts_data.py` lines 429-440).
+
+1. **Categorical Columns**: Missing values in categorical columns (object, category, or string dtypes) are filled with a special placeholder value `"__NAN__"`, which is treated as a distinct category.
+
+**Example of automatic preprocessing:**
+
+```python
+from flaml import AutoML
+import pandas as pd
+import numpy as np
+
+# Data with missing values
+X_train = pd.DataFrame(
+    {
+        "num_feature": [1.0, 2.0, np.nan, 4.0, 5.0],
+        "cat_feature": ["A", "B", None, "A", "B"],
+    }
+)
+y_train = [0, 1, 0, 1, 0]
+
+# FLAML automatically handles missing values
+automl = AutoML()
+automl.fit(X_train, y_train, task="classification", time_budget=60)
+# Numerical NaNs are imputed with median, categorical None becomes "__NAN__"
+```
+
+**Estimator-Specific Native Handling:**
+
+After FLAML's preprocessing, some estimators have additional native missing value handling capabilities:
+
+- **`lgbm`** (LightGBM): After preprocessing, can still handle any remaining NaN values natively by learning optimal split directions.
+- **`xgboost`** (XGBoost): After preprocessing, can handle remaining NaN values by learning the best direction during training.
+- **`xgb_limitdepth`** (XGBoost with depth limit): Same as `xgboost`.
+- **`catboost`** (CatBoost): After preprocessing, has additional sophisticated missing value handling strategies. See [CatBoost documentation](https://catboost.ai/en/docs/concepts/algorithm-missing-values-processing).
+- **`histgb`** (HistGradientBoosting): After preprocessing, can still handle NaN values natively.
+
+**Estimators that rely on preprocessing:**
+
+These estimators rely on FLAML's automatic preprocessing since they cannot handle missing values directly:
+
+- **`rf`** (RandomForest): Requires preprocessing (automatically done by FLAML).
+- **`extra_tree`** (ExtraTrees): Requires preprocessing (automatically done by FLAML).
+- **`lrl1`**, **`lrl2`** (LogisticRegression): Require preprocessing (automatically done by FLAML).
+- **`kneighbor`** (KNeighbors): Requires preprocessing (automatically done by FLAML).
+- **`sgd`** (SGDClassifier/Regressor): Require preprocessing (automatically done by FLAML).
+
+**Advanced: Customizing Missing Value Handling**
+
+In most cases, FLAML's automatic preprocessing (median imputation for numerical, "__NAN__" for categorical) works well. However, if you need custom preprocessing:
+
+1. **Skip automatic preprocessing** using the `skip_transform` parameter:
+
+```python
+from flaml import AutoML
+from sklearn.impute import SimpleImputer
+import numpy as np
+
+# Custom preprocessing with different strategy
+imputer = SimpleImputer(strategy="mean")  # Use mean instead of median
+X_train_preprocessed = imputer.fit_transform(X_train)
+X_test_preprocessed = imputer.transform(X_test)
+
+# Skip FLAML's automatic preprocessing
+automl = AutoML()
+automl.fit(
+    X_train_preprocessed,
+    y_train,
+    task="classification",
+    time_budget=60,
+    skip_transform=True,  # Skip automatic preprocessing
+)
+```
+
+2. **Use sklearn Pipeline** for integrated custom preprocessing:
+
+```python
+from flaml import AutoML
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer, KNNImputer
+
+# Custom pipeline with KNN imputation
+pipeline = Pipeline(
+    [
+        ("imputer", KNNImputer(n_neighbors=5)),  # Custom imputation strategy
+        ("automl", AutoML()),
+    ]
+)
+
+pipeline.fit(X_train, y_train)
+```
+
+**Note on time series forecasting**: For time series tasks (`ts_forecast`, `ts_forecast_panel`), the `DataTransformerTS` class applies the same preprocessing approach (median imputation for numerical columns, "__NAN__" for categorical). Missing values handling in the time dimension may require additional consideration depending on your specific forecasting model.
+
 ### How does FLAML handle imbalanced data (unequal distribution of target classes in classification task)?
 
 Currently FLAML does several things for imbalanced data.
