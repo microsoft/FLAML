@@ -732,7 +732,7 @@ FLAML provides two levels of preprocessing that can be accessed as public APIs:
 
 1. **Task-level preprocessing** (`automl.preprocess()`): This applies transformations that are specific to the task type, such as handling data types, sparse matrices, and feature transformations learned during training.
 
-2. **Estimator-level preprocessing** (`estimator.preprocess()`): This applies transformations specific to the estimator type (e.g., LightGBM, XGBoost).
+1. **Estimator-level preprocessing** (`estimator.preprocess()`): This applies transformations specific to the estimator type (e.g., LightGBM, XGBoost).
 
 The task-level preprocessing should be applied before the estimator-level preprocessing.
 

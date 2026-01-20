@@ -313,10 +313,10 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             ```python
             automl = AutoML()
             automl.fit(X_train, y_train, task="classification")
-            
+
             # First apply task-level preprocessing
             X_test_task = automl.preprocess(X_test)
-            
+
             # Then apply estimator-level preprocessing
             estimator = automl.model
             X_test_estimator = estimator.preprocess(X_test_task)

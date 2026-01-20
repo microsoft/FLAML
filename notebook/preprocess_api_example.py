@@ -5,10 +5,11 @@ This script shows how to use both task-level and estimator-level preprocessing
 APIs exposed by FLAML AutoML.
 """
 
-from flaml import AutoML
+import numpy as np
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
-import numpy as np
+
+from flaml import AutoML
 
 # Load and split data
 print("Loading breast cancer dataset...")

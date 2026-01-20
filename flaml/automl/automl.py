@@ -852,7 +852,7 @@ class AutoML(BaseEstimator):
             ```python
             automl = AutoML()
             automl.fit(X_train, y_train, task="classification")
-            
+
             # Apply task-level preprocessing to new data
             X_test_preprocessed = automl.preprocess(X_test)
             ```
@@ -861,7 +861,7 @@ class AutoML(BaseEstimator):
             raise AttributeError("AutoML instance has not been fitted yet. Please call fit() first.")
         if not hasattr(self, "_transformer"):
             raise AttributeError("Transformer not initialized. Please call fit() first.")
-        
+
         return self._state.task.preprocess(X, self._transformer)
 
     def add_learner(self, learner_name, learner_class):
