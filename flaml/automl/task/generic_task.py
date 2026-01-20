@@ -534,8 +534,20 @@ class GenericTask(Task):
                             missing_train_indices.append(first[label_matches[0]])
                     
                     if len(missing_train_indices) > 0:
-                        X_missing_train = X_train_all.iloc[missing_train_indices] if data_is_df else X_train_all[missing_train_indices]
-                        y_missing_train = y_train_all.iloc[missing_train_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_train_indices]
+                        X_missing_train = (
+                            iloc_pandas_on_spark(X_train_all, missing_train_indices)
+                            if is_spark_dataframe
+                            else X_train_all.iloc[missing_train_indices]
+                            if data_is_df
+                            else X_train_all[missing_train_indices]
+                        )
+                        y_missing_train = (
+                            iloc_pandas_on_spark(y_train_all, missing_train_indices)
+                            if is_spark_dataframe
+                            else y_train_all.iloc[missing_train_indices]
+                            if isinstance(y_train_all, (pd.Series, psSeries))
+                            else y_train_all[missing_train_indices]
+                        )
                         X_train = concat(X_missing_train, X_train)
                         y_train = concat(y_missing_train, y_train) if data_is_df else np.concatenate([y_missing_train, y_train])
                         
@@ -556,8 +568,20 @@ class GenericTask(Task):
                             missing_val_indices.append(first[label_matches[0]])
                     
                     if len(missing_val_indices) > 0:
-                        X_missing_val = X_train_all.iloc[missing_val_indices] if data_is_df else X_train_all[missing_val_indices]
-                        y_missing_val = y_train_all.iloc[missing_val_indices] if isinstance(y_train_all, (pd.Series, psSeries)) else y_train_all[missing_val_indices]
+                        X_missing_val = (
+                            iloc_pandas_on_spark(X_train_all, missing_val_indices)
+                            if is_spark_dataframe
+                            else X_train_all.iloc[missing_val_indices]
+                            if data_is_df
+                            else X_train_all[missing_val_indices]
+                        )
+                        y_missing_val = (
+                            iloc_pandas_on_spark(y_train_all, missing_val_indices)
+                            if is_spark_dataframe
+                            else y_train_all.iloc[missing_val_indices]
+                            if isinstance(y_train_all, (pd.Series, psSeries))
+                            else y_train_all[missing_val_indices]
+                        )
                         X_val = concat(X_missing_val, X_val)
                         y_val = concat(y_missing_val, y_val) if data_is_df else np.concatenate([y_missing_val, y_val])
                         
