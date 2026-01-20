@@ -2098,7 +2098,9 @@ class AutoML(BaseEstimator):
         self._mlflow_logging = (
             False
             if mlflow is None
-            else self._settings.get("mlflow_logging") if mlflow_logging is None else mlflow_logging
+            else self._settings.get("mlflow_logging")
+            if mlflow_logging is None
+            else mlflow_logging
         )
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         self._state.fit_kwargs_by_estimator = fit_kwargs_by_estimator.copy()  # shallow copy of fit_kwargs_by_estimator
@@ -2340,9 +2342,9 @@ class AutoML(BaseEstimator):
                 this_estimator_kwargs.update(
                     self._state.fit_kwargs
                 )  # update the shallow copy of fit_kwargs to fit_kwargs_by_estimator
-                self._state.fit_kwargs_by_estimator[estimator_name] = (
-                    this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
-                )
+                self._state.fit_kwargs_by_estimator[
+                    estimator_name
+                ] = this_estimator_kwargs  # set self._state.fit_kwargs_by_estimator[estimator_name] to the update, so only self._state.fit_kwargs_by_estimator will be updated
             else:
                 self._state.fit_kwargs_by_estimator[estimator_name] = self._state.fit_kwargs
 
