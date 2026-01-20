@@ -181,6 +181,147 @@ config = {
 
 <!-- Please refer to [ray.tune](https://docs.ray.io/en/latest/tune/api_docs/search_space.html#overview) for a more comprehensive introduction about possible choices of the domain. -->
 
+#### Hierarchical search space
+
+A hierarchical (or conditional) search space allows you to define hyperparameters that depend on the value of other hyperparameters. This is useful when different choices for a categorical hyperparameter require different sets of hyperparameters.
+
+For example, if you're tuning a machine learning pipeline where different models require different hyperparameters, or when the choice of an optimizer determines which optimizer-specific hyperparameters are relevant.
+
+**Syntax**: To create a hierarchical search space, use `tune.choice()` with a list where some elements are dictionaries containing nested hyperparameter definitions.
+
+**Example 1: Model selection with model-specific hyperparameters**
+
+In this example, we have two model types (linear and tree-based), each with their own specific hyperparameters:
+
+```python
+from flaml import tune
+
+search_space = {
+    "model": tune.choice([
+        {
+            "model_type": "linear",
+            "learning_rate": tune.loguniform(1e-4, 1e-1),
+            "regularization": tune.uniform(0, 1),
+        },
+        {
+            "model_type": "tree",
+            "n_estimators": tune.randint(10, 100),
+            "max_depth": tune.randint(3, 10),
+        },
+    ]),
+    # Common hyperparameters for all models
+    "batch_size": tune.choice([32, 64, 128]),
+}
+
+def evaluate_config(config):
+    model_config = config["model"]
+    if model_config["model_type"] == "linear":
+        # Use learning_rate and regularization
+        score = train_linear_model(
+            lr=model_config["learning_rate"],
+            reg=model_config["regularization"],
+            batch_size=config["batch_size"]
+        )
+    else:  # tree
+        # Use n_estimators and max_depth
+        score = train_tree_model(
+            n_est=model_config["n_estimators"],
+            depth=model_config["max_depth"],
+            batch_size=config["batch_size"]
+        )
+    return {"score": score}
+
+# Run tuning
+analysis = tune.run(
+    evaluate_config,
+    config=search_space,
+    metric="score",
+    mode="min",
+    num_samples=20,
+)
+```
+
+**Example 2: Mixed choices with constants and nested spaces**
+
+You can also mix constant values with nested hyperparameter spaces in `tune.choice()`:
+
+```python
+search_space = {
+    "optimizer": tune.choice([
+        "sgd",  # constant value
+        {
+            "optimizer_type": "adam",
+            "beta1": tune.uniform(0.8, 0.99),
+            "beta2": tune.uniform(0.9, 0.999),
+        },
+        {
+            "optimizer_type": "rmsprop",
+            "decay": tune.loguniform(1e-3, 1e-1),
+            "momentum": tune.uniform(0, 0.99),
+        },
+    ]),
+    "learning_rate": tune.loguniform(1e-5, 1e-1),
+}
+
+def evaluate_config(config):
+    optimizer_config = config["optimizer"]
+    if optimizer_config == "sgd":
+        optimizer = create_sgd_optimizer(lr=config["learning_rate"])
+    elif optimizer_config["optimizer_type"] == "adam":
+        optimizer = create_adam_optimizer(
+            lr=config["learning_rate"],
+            beta1=optimizer_config["beta1"],
+            beta2=optimizer_config["beta2"],
+        )
+    else:  # rmsprop
+        optimizer = create_rmsprop_optimizer(
+            lr=config["learning_rate"],
+            decay=optimizer_config["decay"],
+            momentum=optimizer_config["momentum"],
+        )
+    return train_model(optimizer)
+```
+
+**Example 3: Nested hierarchical spaces**
+
+You can also nest dictionaries within the search space for organizing related hyperparameters:
+
+```python
+search_space = {
+    "preprocessing": {
+        "normalize": tune.choice([True, False]),
+        "feature_selection": tune.choice(["none", "pca", "lda"]),
+    },
+    "model": tune.choice([
+        {
+            "type": "neural_net",
+            "layers": tune.randint(1, 5),
+            "units_per_layer": tune.randint(32, 256),
+        },
+        {
+            "type": "ensemble",
+            "n_models": tune.randint(3, 10),
+        },
+    ]),
+}
+
+def evaluate_config(config):
+    # Access nested hyperparameters
+    normalize = config["preprocessing"]["normalize"]
+    feature_selection = config["preprocessing"]["feature_selection"]
+    model_config = config["model"]
+    
+    # Use the hyperparameters accordingly
+    score = train_with_config(normalize, feature_selection, model_config)
+    return {"score": score}
+```
+
+**Notes:**
+- When a configuration is sampled, only the selected branch of the hierarchical space will be active.
+- The evaluation function should check which choice was selected and use the corresponding nested hyperparameters.
+- Hierarchical search spaces work with all FLAML search algorithms (CFO, BlendSearch).
+- You can specify `low_cost_partial_config` for hierarchical spaces as well by providing the path to the nested parameters.
+
 #### Cost-related hyperparameters
 
 Cost-related hyperparameters are a subset of the hyperparameters which directly affect the computation cost incurred in the evaluation of any hyperparameter configuration. For example, the number of estimators (`n_estimators`) and the maximum number of leaves (`max_leaves`) are known to affect the training cost of tree-based learners. So they are cost-related hyperparameters for tree-based learners.
