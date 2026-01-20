@@ -1,13 +1,14 @@
-from typing import List, Union, Dict, Tuple
-import os
-import requests
-from urllib.parse import urlparse
 import glob
-import tiktoken
-import chromadb
-from chromadb.api import API
-import chromadb.utils.embedding_functions as ef
 import logging
+import os
+from typing import Dict, List, Tuple, Union
+from urllib.parse import urlparse
+
+import chromadb
+import chromadb.utils.embedding_functions as ef
+import requests
+import tiktoken
+from chromadb.api import API
 
 logger = logging.getLogger(__name__)
 TEXT_FORMATS = ["txt", "json", "csv", "tsv", "md", "html", "htm", "rtf", "rst", "jsonl", "log", "xml", "yaml", "yml"]
@@ -125,7 +126,7 @@ def split_files_to_chunks(
     """Split a list of files into chunks of max_tokens."""
     chunks = []
     for file in files:
-        with open(file, "r") as f:
+        with open(file) as f:
             text = f.read()
         chunks += split_text_to_chunks(text, max_tokens, chunk_mode, must_break_at_empty_line)
     return chunks

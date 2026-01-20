@@ -2,30 +2,31 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
-import time
-from typing import Union, Callable, TypeVar, Optional, Tuple
 import logging
+import time
+from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
-
 from flaml.automl.data import group_counts
-from flaml.automl.task.task import Task
 from flaml.automl.model import BaseEstimator, TransformersEstimator
-from flaml.automl.spark import psDataFrame, psSeries, ERROR as SPARK_ERROR, Series, DataFrame
+from flaml.automl.spark import ERROR as SPARK_ERROR
+from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.task.task import Task
+from flaml.automl.time_series import TimeSeriesDataset
 
 try:
     from sklearn.metrics import (
-        mean_squared_error,
-        r2_score,
-        roc_auc_score,
         accuracy_score,
-        mean_absolute_error,
-        log_loss,
         average_precision_score,
         f1_score,
+        log_loss,
+        mean_absolute_error,
         mean_absolute_percentage_error,
+        mean_squared_error,
         ndcg_score,
+        r2_score,
+        roc_auc_score,
     )
 except ImportError:
     pass
@@ -33,7 +34,6 @@ except ImportError:
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
 
-from flaml.automl.time_series import TimeSeriesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,11 @@ huggingface_metric_to_mode = {
     "wer": "min",
 }
 huggingface_submetric_to_metric = {"rouge1": "rouge", "rouge2": "rouge"}
+spark_metric_name_dict = {
+    "Regression": ["r2", "rmse", "mse", "mae", "var"],
+    "Binary Classification": ["pr_auc", "roc_auc"],
+    "Multi-class Classification": ["accuracy", "log_loss", "f1", "micro_f1", "macro_f1"],
+}
 
 
 def metric_loss_score(
@@ -122,8 +127,20 @@ def metric_loss_score(
             import datasets
 
             datasets_metric_name = huggingface_submetric_to_metric.get(metric_name, metric_name.split(":")[0])
-            metric = datasets.load_metric(datasets_metric_name)
             metric_mode = huggingface_metric_to_mode[datasets_metric_name]
+
+            # datasets>=3 removed load_metric; prefer evaluate if available
+            try:
+                import evaluate
+
+                metric = evaluate.load(datasets_metric_name, trust_remote_code=True)
+            except Exception:
+                if hasattr(datasets, "load_metric"):
+                    metric = datasets.load_metric(datasets_metric_name, trust_remote_code=True)
+                else:
+                    from datasets import load_metric as _load_metric  # older datasets
+
+                    metric = _load_metric(datasets_metric_name, trust_remote_code=True)
 
             if metric_name.startswith("seqeval"):
                 y_processed_true = [[labels[tr] for tr in each_list] for each_list in y_processed_true]
@@ -294,14 +311,14 @@ def get_y_pred(estimator, X, eval_metric, task: Task):
     else:
         y_pred = estimator.predict(X)
 
-    if isinstance(y_pred, Series) or isinstance(y_pred, DataFrame):
+    if isinstance(y_pred, (Series, DataFrame)):
         y_pred = y_pred.values
 
     return y_pred
 
 
 def to_numpy(x):
-    if isinstance(x, Series or isinstance(x, DataFrame)):
+    if isinstance(x, (Series, DataFrame)):
         x = x.values
     else:
         x = np.ndarray(x)
@@ -323,7 +340,7 @@ def compute_estimator(
     estimator_name: str,
     eval_method: str,
     eval_metric: Union[str, Callable],
-    best_val_loss=np.Inf,
+    best_val_loss=np.inf,
     n_jobs: Optional[int] = 1,  # some estimators of EstimatorSubclass don't accept n_jobs. Should be None in that case.
     estimator_class: Optional[EstimatorSubclass] = None,
     cv_score_agg_func: Optional[callable] = None,
@@ -333,6 +350,14 @@ def compute_estimator(
 ):
     if fit_kwargs is None:
         fit_kwargs = {}
+
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
 
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
@@ -401,12 +426,21 @@ def train_estimator(
     free_mem_ratio=0,
 ) -> Tuple[EstimatorSubclass, float]:
     start_time = time.time()
+    fe_params = {}
+    for param, value in config_dic.items():
+        if param.startswith("fe."):
+            fe_params[param] = value
+
+    for param, value in fe_params.items():
+        config_dic.pop(param)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
     if fit_kwargs is None:
         fit_kwargs = {}
 
@@ -552,7 +586,7 @@ def _eval_estimator(
 
         # TODO: why are integer labels being cast to str in the first place?
 
-        if isinstance(val_pred_y, Series) or isinstance(val_pred_y, DataFrame) or isinstance(val_pred_y, np.ndarray):
+        if isinstance(val_pred_y, (Series, DataFrame, np.ndarray)):
             test = val_pred_y if isinstance(val_pred_y, np.ndarray) else val_pred_y.values
             if not np.issubdtype(test.dtype, np.number):
                 # some NLP models return a list
@@ -567,17 +601,27 @@ def _eval_estimator(
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
-        val_loss = metric_loss_score(
-            eval_metric,
-            y_processed_predict=val_pred_y,
-            y_processed_true=y_val,
-            labels=labels,
-            sample_weight=weight_val,
-            groups=groups_val,
-        )
+        try:
+            val_loss = metric_loss_score(
+                eval_metric,
+                y_processed_predict=val_pred_y,
+                y_processed_true=y_val,
+                labels=labels,
+                sample_weight=weight_val,
+                groups=groups_val,
+            )
+        except ValueError as e:
+            # `r2_score` and other metrics may raise a `ValueError` when a model returns `inf` or `nan` values. In this case, we set the val_loss to infinity.
+            val_loss = np.inf
+            logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
         if log_training_metric:
-            train_pred_y = get_y_pred(estimator, X_train, eval_metric, task)
+            # For time series forecasting, X_train may be a sampled dataset whose
+            # test partition can be empty. Use the training partition from X_val
+            # (which is the dataset used to define y_train above) to keep shapes
+            # aligned and avoid empty prediction inputs.
+            X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
+            train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,

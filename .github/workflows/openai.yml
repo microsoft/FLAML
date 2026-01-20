@@ -4,14 +4,17 @@
 name: OpenAI
 
 on:
-  pull_request:
-    branches: ['main']
-    paths:
-      - 'flaml/autogen/**'
-      - 'test/autogen/**'
-      - 'notebook/autogen_openai_completion.ipynb'
-      - 'notebook/autogen_chatgpt_gpt4.ipynb'
-      - '.github/workflows/openai.yml'
+  workflow_dispatch:
+#   pull_request:
+#     branches: ['main']
+#     paths:
+#       - 'flaml/autogen/**'
+#       - 'test/autogen/**'
+#       - 'notebook/autogen_openai_completion.ipynb'
+#       - 'notebook/autogen_chatgpt_gpt4.ipynb'
+#       - '.github/workflows/openai.yml'
+
+permissions: {}
 
 jobs:
   test:

@@ -1,11 +1,12 @@
-import chromadb
-from flaml.autogen.agentchat.agent import Agent
-from flaml.autogen.agentchat import UserProxyAgent
-from flaml.autogen.retrieve_utils import create_vector_db_from_dir, query_vector_db, num_tokens_from_text
-from flaml.autogen.code_utils import extract_code
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from typing import Callable, Dict, Optional, Union, List, Tuple, Any
+import chromadb
 from IPython import get_ipython
+
+from flaml.autogen.agentchat import UserProxyAgent
+from flaml.autogen.agentchat.agent import Agent
+from flaml.autogen.code_utils import extract_code
+from flaml.autogen.retrieve_utils import create_vector_db_from_dir, num_tokens_from_text, query_vector_db
 
 try:
     from termcolor import colored
@@ -122,7 +123,7 @@ class RetrieveUserProxyAgent(UserProxyAgent):
                     can be found at `https://www.sbert.net/docs/pretrained_models.html`. The default model is a
                     fast model. If you want to use a high performance model, `all-mpnet-base-v2` is recommended.
                 - customized_prompt (Optional, str): the customized prompt for the retrieve chat. Default is None.
-            **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
+            **kwargs (dict): other kwargs in [UserProxyAgent](../user_proxy_agent#__init__).
         """
         super().__init__(
             name=name,

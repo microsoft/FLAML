@@ -11,9 +11,10 @@ try:
 except (ImportError, AssertionError):
     from . import sample
     from .searcher.variant_generator import generate_variants
-from typing import Dict, Optional, Any, Tuple, Generator, List, Union
-import numpy as np
 import logging
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +261,7 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                         low_cost[i] = point
                 if len(low_cost) > len(domain.categories):
                     if domain.ordered:
-                        low_cost[-1] = int(np.where(ind == low_cost[-1])[0])
+                        low_cost[-1] = int(np.where(ind == low_cost[-1])[0].item())
                     domain.low_cost_point = low_cost[-1]
                 return
         if low_cost:
@@ -489,7 +490,7 @@ def complete_config(
             elif domain.bounded:
                 up, low, gauss_std = 1, 0, 1.0
             else:
-                up, low, gauss_std = np.Inf, -np.Inf, 1.0
+                up, low, gauss_std = np.inf, -np.inf, 1.0
             if domain.bounded:
                 if isinstance(up, list):
                     up[-1] = min(up[-1], 1)

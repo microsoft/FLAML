@@ -1,10 +1,9 @@
-import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor
-from nbconvert.preprocessors import CellExecutionError
 import os
 import sys
-import pytest
 
+import nbformat
+import pytest
+from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
 
 here = os.path.abspath(os.path.dirname(__file__))
 

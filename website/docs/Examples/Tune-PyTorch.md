@@ -5,6 +5,7 @@ This example uses flaml to tune a pytorch model on CIFAR10.
 ## Prepare for tuning
 
 ### Requirements
+
 ```bash
 pip install torchvision "flaml[blendsearch,ray]"
 ```
@@ -24,7 +25,6 @@ import torchvision.transforms as transforms
 
 
 class Net(nn.Module):
-
     def __init__(self, l1=120, l2=84):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
@@ -48,16 +48,17 @@ class Net(nn.Module):
 
 ```python
 def load_data(data_dir="data"):
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
 
     trainset = torchvision.datasets.CIFAR10(
-        root=data_dir, train=True, download=True, transform=transform)
+        root=data_dir, train=True, download=True, transform=transform
+    )
 
     testset = torchvision.datasets.CIFAR10(
-        root=data_dir, train=False, download=True, transform=transform)
+        root=data_dir, train=False, download=True, transform=transform
+    )
 
     return trainset, testset
 ```
@@ -67,10 +68,11 @@ def load_data(data_dir="data"):
 ```python
 from ray import tune
 
+
 def train_cifar(config, checkpoint_dir=None, data_dir=None):
     if "l1" not in config:
         logger.warning(config)
-    net = Net(2**config["l1"], 2**config["l2"])
+    net = Net(2 ** config["l1"], 2 ** config["l2"])
 
     device = "cpu"
     if torch.cuda.is_available():
@@ -94,20 +96,25 @@ def train_cifar(config, checkpoint_dir=None, data_dir=None):
 
     test_abs = int(len(trainset) * 0.8)
     train_subset, val_subset = random_split(
-        trainset, [test_abs, len(trainset) - test_abs])
+        trainset, [test_abs, len(trainset) - test_abs]
+    )
 
     trainloader = torch.utils.data.DataLoader(
         train_subset,
-        batch_size=int(2**config["batch_size"]),
+        batch_size=int(2 ** config["batch_size"]),
         shuffle=True,
-        num_workers=4)
+        num_workers=4,
+    )
     valloader = torch.utils.data.DataLoader(
         val_subset,
-        batch_size=int(2**config["batch_size"]),
+        batch_size=int(2 ** config["batch_size"]),
         shuffle=True,
-        num_workers=4)
+        num_workers=4,
+    )
 
-    for epoch in range(int(round(config["num_epochs"]))):  # loop over the dataset multiple times
+    for epoch in range(
+        int(round(config["num_epochs"]))
+    ):  # loop over the dataset multiple times
         running_loss = 0.0
         epoch_steps = 0
         for i, data in enumerate(trainloader, 0):
@@ -128,8 +135,10 @@ def train_cifar(config, checkpoint_dir=None, data_dir=None):
             running_loss += loss.item()
             epoch_steps += 1
             if i % 2000 == 1999:  # print every 2000 mini-batches
-                print("[%d, %5d] loss: %.3f" % (epoch + 1, i + 1,
-                                                running_loss / epoch_steps))
+                print(
+                    "[%d, %5d] loss: %.3f"
+                    % (epoch + 1, i + 1, running_loss / epoch_steps)
+                )
                 running_loss = 0.0
 
         # Validation loss
@@ -156,8 +165,7 @@ def train_cifar(config, checkpoint_dir=None, data_dir=None):
         # parameter in future iterations.
         with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
-            torch.save(
-                (net.state_dict(), optimizer.state_dict()), path)
+            torch.save((net.state_dict(), optimizer.state_dict()), path)
 
         tune.report(loss=(val_loss / val_steps), accuracy=correct / total)
     print("Finished Training")
@@ -170,7 +178,8 @@ def _test_accuracy(net, device="cpu"):
     trainset, testset = load_data()
 
     testloader = torch.utils.data.DataLoader(
-        testset, batch_size=4, shuffle=False, num_workers=2)
+        testset, batch_size=4, shuffle=False, num_workers=2
+    )
 
     correct = 0
     total = 0
@@ -202,20 +211,22 @@ load_data(data_dir)  # Download data for all trials before starting the run
 ```python
 max_num_epoch = 100
 config = {
-    "l1": tune.randint(2, 9),   # log transformed with base 2
-    "l2": tune.randint(2, 9),   # log transformed with base 2
+    "l1": tune.randint(2, 9),  # log transformed with base 2
+    "l2": tune.randint(2, 9),  # log transformed with base 2
     "lr": tune.loguniform(1e-4, 1e-1),
     "num_epochs": tune.loguniform(1, max_num_epoch),
-    "batch_size": tune.randint(1, 5)    # log transformed with base 2
+    "batch_size": tune.randint(1, 5),  # log transformed with base 2
 }
 ```
 
 ### Budget and resource constraints
 
 ```python
-time_budget_s = 600     # time budget in seconds
-gpus_per_trial = 0.5    # number of gpus for each trial; 0.5 means two training jobs can share one gpu
-num_samples = 500       # maximal number of trials
+time_budget_s = 600  # time budget in seconds
+gpus_per_trial = (
+    0.5  # number of gpus for each trial; 0.5 means two training jobs can share one gpu
+)
+num_samples = 500  # maximal number of trials
 np.random.seed(7654321)
 ```
 
@@ -223,6 +234,7 @@ np.random.seed(7654321)
 
 ```python
 import time
+
 start_time = time.time()
 result = flaml.tune.run(
     tune.with_parameters(train_cifar, data_dir=data_dir),
@@ -234,10 +246,11 @@ result = flaml.tune.run(
     min_resource=1,
     scheduler="asha",  # Use asha scheduler to perform early stopping based on intermediate results reported
     resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
-    local_dir='logs/',
+    local_dir="logs/",
     num_samples=num_samples,
     time_budget_s=time_budget_s,
-    use_ray=True)
+    use_ray=True,
+)
 ```
 
 ### Check the result
@@ -247,13 +260,18 @@ print(f"#trials={len(result.trials)}")
 print(f"time={time.time()-start_time}")
 best_trial = result.get_best_trial("loss", "min", "all")
 print("Best trial config: {}".format(best_trial.config))
-print("Best trial final validation loss: {}".format(
-    best_trial.metric_analysis["loss"]["min"]))
-print("Best trial final validation accuracy: {}".format(
-    best_trial.metric_analysis["accuracy"]["max"]))
+print(
+    "Best trial final validation loss: {}".format(
+        best_trial.metric_analysis["loss"]["min"]
+    )
+)
+print(
+    "Best trial final validation accuracy: {}".format(
+        best_trial.metric_analysis["accuracy"]["max"]
+    )
+)
 
-best_trained_model = Net(2**best_trial.config["l1"],
-                         2**best_trial.config["l2"])
+best_trained_model = Net(2 ** best_trial.config["l1"], 2 ** best_trial.config["l2"])
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda:0"
@@ -261,7 +279,9 @@ if torch.cuda.is_available():
         best_trained_model = nn.DataParallel(best_trained_model)
 best_trained_model.to(device)
 
-checkpoint_value = getattr(best_trial.checkpoint, "dir_or_data", None) or best_trial.checkpoint.value
+checkpoint_value = (
+    getattr(best_trial.checkpoint, "dir_or_data", None) or best_trial.checkpoint.value
+)
 checkpoint_path = os.path.join(checkpoint_value, "checkpoint")
 
 model_state, optimizer_state = torch.load(checkpoint_path)

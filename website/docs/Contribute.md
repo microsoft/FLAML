@@ -2,13 +2,13 @@
 
 This project welcomes and encourages all forms of contributions, including but not limited to:
 
--  Pushing patches.
--  Code review of pull requests.
--  Documentation, examples and test cases.
--  Readability improvement, e.g., improvement on docstr and comments.
--  Community participation in [issues](https://github.com/microsoft/FLAML/issues), [discussions](https://github.com/microsoft/FLAML/discussions), and [discord](https://discord.gg/7ZVfhbTQZ5).
--  Tutorials, blog posts, talks that promote the project.
--  Sharing application scenarios and/or related research.
+- Pushing patches.
+- Code review of pull requests.
+- Documentation, examples and test cases.
+- Readability improvement, e.g., improvement on docstr and comments.
+- Community participation in [issues](https://github.com/microsoft/FLAML/issues), [discussions](https://github.com/microsoft/FLAML/discussions), and [discord](https://discord.gg/7ZVfhbTQZ5).
+- Tutorials, blog posts, talks that promote the project.
+- Sharing application scenarios and/or related research.
 
 You can take a look at the [Roadmap for Upcoming Features](https://github.com/microsoft/FLAML/wiki/Roadmap-for-Upcoming-Features) to identify potential things to work on.
 
@@ -41,15 +41,16 @@ feedback:
 - Please include your **operating system type and version number**, as well as
   your **Python, flaml, scikit-learn versions**. The version of flaml
   can be found by running the following code snippet:
+
 ```python
 import flaml
+
 print(flaml.__version__)
 ```
 
 - Please ensure all **code snippets and error messages are formatted in
-  appropriate code blocks**.  See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
+  appropriate code blocks**. See [Creating and highlighting code blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks)
   for more details.
-
 
 ## Becoming a Reviewer
 
@@ -61,10 +62,10 @@ There is currently no formal reviewer solicitation process. Current reviewers id
 
 ```bash
 git clone https://github.com/microsoft/FLAML.git
-pip install -e FLAML[notebook,autogen]
+pip install -e ".[notebook]"
 ```
 
-In case the `pip install` command fails, try escaping the brackets such as `pip install -e FLAML\[notebook,autogen\]`.
+In case the `pip install` command fails, try escaping the brackets such as `pip install -e .\[notebook\]`.
 
 ### Docker
 

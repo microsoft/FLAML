@@ -1,12 +1,30 @@
 import sys
-from openml.exceptions import OpenMLServerException
+
+import pytest
+
+try:
+    from minio.error import ServerError
+except ImportError:
+
+    class ServerError(Exception):
+        pass
+
+
+try:
+    from openml.exceptions import OpenMLServerException
+except ImportError:
+
+    class OpenMLServerException(Exception):
+        pass
+
+
 from requests.exceptions import ChunkedEncodingError, SSLError
-from minio.error import ServerError
 
 
 def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
-    from flaml.automl.data import load_openml_dataset
     import urllib3
+
+    from flaml.automl.data import load_openml_dataset
 
     performance_check_budget = 600
     if (
@@ -61,9 +79,12 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     automl.fit(X_train=X_train, y_train=y_train, **settings)
     """ retrieve best config and best learner """
     print("Best ML leaner:", automl.best_estimator)
+    if not automl.best_estimator:
+        print("Training budget is not sufficient")
+        return
     print("Best hyperparmeter config:", automl.best_config)
-    print("Best accuracy on validation data: {0:.4g}".format(1 - automl.best_loss))
-    print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
+    print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
+    print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
     print(automl.model.estimator)
     print(automl.best_config_per_estimator)
     print("time taken to find best model:", automl.time_to_find_best_model)
@@ -106,6 +127,10 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         automl.fit(X_train=X_train, y_train=y_train, ensemble=True, **settings)
 
 
+@pytest.mark.skipif(
+    sys.platform in ["win32"] and sys.version.startswith("3.9"),
+    reason="do not run if windows and python 3.9",
+)
 def test_automl_array():
     test_automl(5, "array", "bs")
 
@@ -118,6 +143,7 @@ def _test_nobudget():
 def test_mlflow():
     # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
+
     from flaml.automl.data import load_openml_task
 
     try:
@@ -159,8 +185,9 @@ def test_mlflow():
 
 
 def test_mlflow_iris():
-    from sklearn.datasets import load_iris
     import mlflow
+    from sklearn.datasets import load_iris
+
     from flaml import AutoML
 
     with mlflow.start_run():

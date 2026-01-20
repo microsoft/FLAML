@@ -1,12 +1,12 @@
-from flaml import BlendSearch, CFO, tune
+from flaml import CFO, BlendSearch, tune
 
 
 def test_define_by_run():
     from flaml.tune.space import (
-        unflatten_hierarchical,
-        normalize,
-        indexof,
         complete_config,
+        indexof,
+        normalize,
+        unflatten_hierarchical,
     )
 
     space = {
@@ -77,13 +77,13 @@ def test_define_by_run():
 
 
 def test_grid():
+    from flaml.tune import sample
     from flaml.tune.searcher.variant_generator import (
+        TuneError,
         generate_variants,
         grid_search,
-        TuneError,
         has_unresolved_values,
     )
-    from flaml.tune import sample
 
     space = {
         "activation": grid_search(["relu", "tanh"]),

@@ -1,8 +1,8 @@
-import time
 import logging
-import os
-from datetime import datetime
 import math
+import os
+import time
+from datetime import datetime
 from typing import List, Optional, Union
 
 try:
@@ -22,26 +22,27 @@ except ImportError:
 import numpy as np
 
 from flaml import tune
-from flaml.automl.model import (
-    suppress_stdout_stderr,
-    SKLearnEstimator,
-    logger,
-    LGBMEstimator,
-    XGBoostSklearnEstimator,
-    RandomForestEstimator,
-    ExtraTreesEstimator,
-    XGBoostLimitDepthEstimator,
-    CatBoostEstimator,
-)
 from flaml.automl.data import TS_TIMESTAMP_COL, TS_VALUE_COL
-from flaml.automl.time_series.ts_data import (
-    TimeSeriesDataset,
-    enrich_dataset,
-    enrich_dataframe,
-    normalize_ts_data,
-    create_forward_frame,
+from flaml.automl.model import (
+    CatBoostEstimator,
+    ExtraTreesEstimator,
+    LassoLarsEstimator,
+    LGBMEstimator,
+    RandomForestEstimator,
+    SKLearnEstimator,
+    XGBoostLimitDepthEstimator,
+    XGBoostSklearnEstimator,
+    logger,
+    suppress_stdout_stderr,
 )
 from flaml.automl.task import Task
+from flaml.automl.time_series.ts_data import (
+    TimeSeriesDataset,
+    create_forward_frame,
+    enrich_dataframe,
+    enrich_dataset,
+    normalize_ts_data,
+)
 
 
 class TimeSeriesEstimator(SKLearnEstimator):
@@ -143,6 +144,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
+
         from ..ml import metric_loss_score
 
         y_pred = self.predict(X_val, **kwargs)
@@ -192,7 +194,13 @@ class Orbit(TimeSeriesEstimator):
 
         elif isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[[self.time_col] + X.regressors]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
 
         if self._model is not None:
             forecast = self._model.predict(X, **kwargs)
@@ -299,7 +307,13 @@ class Prophet(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
 
         X = X.rename(columns={self.time_col: "ds"})
         if self._model is not None:
@@ -325,11 +339,19 @@ class StatsModelsEstimator(TimeSeriesEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             data = X
-            X = data.test_data[data.regressors + [data.time_col]]
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data[data.regressors + [data.time_col]]
+            else:
+                X = data.train_data[data.regressors + [data.time_col]]
         else:
             X = X[self.regressors + [self.time_col]]
 
         if isinstance(X, DataFrame):
+            if X.shape[0] == 0:
+                return pd.Series([], name=self.target_names[0], dtype=float)
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
             if len(self.regressors):
@@ -610,15 +632,13 @@ class HoltWinters(StatsModelsEstimator):
         ):  # this would prevent heuristic initialization to work properly
             self.params["seasonal"] = None
         if (
-            self.params["seasonal"] == "mul" and (train_df.y == 0).sum() > 0
+            self.params["seasonal"] == "mul" and (train_df[target_col] == 0).sum() > 0
         ):  # cannot have multiplicative seasonality in this case
             self.params["seasonal"] = "add"
-        if self.params["trend"] == "mul" and (train_df.y == 0).sum() > 0:
+        if self.params["trend"] == "mul" and (train_df[target_col] == 0).sum() > 0:
             self.params["trend"] = "add"
-
         if not self.params["seasonal"] or self.params["trend"] not in ["mul", "add"]:
             self.params["damped_trend"] = False
-
         model = HWExponentialSmoothing(
             train_df[[target_col]],
             damped_trend=self.params["damped_trend"],
@@ -630,6 +650,125 @@ class HoltWinters(StatsModelsEstimator):
         train_time = time.time() - current_time
         self._model = model
         return train_time
+
+
+class SimpleForecaster(StatsModelsEstimator):
+    """Base class for Naive Forecaster like Seasonal Naive, Naive, Seasonal Average, Average"""
+
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {
+            "season": {
+                "domain": tune.randint(1, pred_horizon),
+                "init_value": pred_horizon,
+            }
+        }
+
+    def joint_preprocess(self, X_train, y_train=None):
+        X_train = self.enrich(X_train)
+
+        self.regressors = []
+
+        if isinstance(X_train, TimeSeriesDataset):
+            data = X_train
+            target_col = data.target_names[0]
+            # this class only supports univariate regression
+            train_df = data.train_data[self.regressors + [target_col]]
+            train_df.index = to_datetime(data.train_data[data.time_col])
+        else:
+            target_col = TS_VALUE_COL
+            train_df = self._join(X_train, y_train)
+
+        self.time_col = data.time_col
+        self.target_names = data.target_names
+
+        train_df = self._preprocess(train_df)
+        return train_df, target_col
+
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+        self.season = self.params.get("season", 1)
+        current_time = time.time()
+        super().fit(X_train, y_train, budget=budget, **kwargs)
+
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+
+        model = SimpleExpSmoothing(
+            train_df[[target_col]],
+        )
+        with suppress_stdout_stderr():
+            model = model.fit(smoothing_level=self.smoothing_level)
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
+
+
+class SeasonalNaive(SimpleForecaster):
+    smoothing_level = 1.0
+
+    def predict(self, X, **kwargs):
+        if isinstance(X, int):
+            forecasts = []
+            for i in range(X):
+                forecast = self._model.forecast(steps=self.season)[0]
+                forecasts.append(forecast)
+            return pd.Series(forecasts)
+        else:
+            return super().predict(X, **kwargs)
+
+
+class Naive(SimpleForecaster):
+    smoothing_level = 0.0
+
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {}
+
+    def predict(self, X, **kwargs):
+        if isinstance(X, int):
+            last_observation = self._model.params["initial_level"]
+            return pd.Series([last_observation] * X)
+        else:
+            return super().predict(X, **kwargs)
+
+
+class SeasonalAverage(SimpleForecaster):
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        from statsmodels.tsa.ar_model import AutoReg, ar_select_order
+
+        start_time = time.time()
+
+        self.season = kwargs.get("season", 1)  # seasonality period
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+        selection_res = ar_select_order(train_df[target_col], maxlag=self.season)
+
+        # Fit autoregressive model with optimal order
+        model = AutoReg(train_df[target_col], lags=selection_res.ar_lags)
+        self._model = model.fit()
+        end_time = time.time()
+
+        return end_time - start_time
+
+
+class Average(SimpleForecaster):
+    @classmethod
+    def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        return {}
+
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        from statsmodels.tsa.ar_model import AutoReg
+
+        start_time = time.time()
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+        model = AutoReg(train_df[target_col], lags=0)
+        self._model = model.fit()
+        end_time = time.time()
+
+        return end_time - start_time
 
 
 class TS_SKLearn(TimeSeriesEstimator):
@@ -710,6 +849,13 @@ class TS_SKLearn(TimeSeriesEstimator):
         if isinstance(X, TimeSeriesDataset):
             data = X
             X = data.test_data
+            # By default we predict on the dataset's test partition.
+            # Some internal call paths (e.g., training-metric logging) may pass a
+            # dataset whose test partition is empty; fall back to train partition.
+            if data.test_data is not None and len(data.test_data):
+                X = data.test_data
+            else:
+                X = data.train_data
 
         if self._model is not None:
             X = X[self.regressors]
@@ -758,3 +904,7 @@ class XGBoostLimitDepth_TS(TS_SKLearn):
 # catboost regressor is invalid because it has a `name` parameter, making it incompatible with hcrystalball
 class CatBoost_TS(TS_SKLearn):
     base_class = CatBoostEstimator
+
+
+class LassoLars_TS(TS_SKLearn):
+    base_class = LassoLarsEstimator

@@ -1,6 +1,7 @@
-from flaml import AutoML
 import pandas as pd
 from sklearn.datasets import fetch_california_housing, fetch_openml
+
+from flaml import AutoML
 
 
 class TestScore:
@@ -141,7 +142,7 @@ class TestScore:
     def test_regression(self):
         automl_experiment = AutoML()
 
-        X_train, y_train = fetch_california_housing(return_X_y=True)
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
         n = int(len(y_train) * 9 // 10)
 
         for each_estimator in [
@@ -194,7 +195,7 @@ class TestScore:
             automl_settings = {
                 "time_budget": 2,
                 "task": "rank",
-                "log_file_name": "test/{}.log".format(dataset),
+                "log_file_name": f"test/{dataset}.log",
                 "model_history": True,
                 "groups": np.array([0] * 200 + [1] * 200 + [2] * 100),  # group labels
                 "learner_selector": "roundrobin",

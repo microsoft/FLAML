@@ -1,11 +1,13 @@
-from flaml.tune.space import unflatten_hierarchical
-from flaml import AutoML
-from sklearn.datasets import fetch_california_housing
-import os
-import unittest
-import logging
-import tempfile
 import io
+import logging
+import os
+import tempfile
+import unittest
+
+from sklearn.datasets import fetch_california_housing
+
+from flaml import AutoML
+from flaml.tune.space import unflatten_hierarchical
 
 
 class TestLogging(unittest.TestCase):
@@ -36,7 +38,7 @@ class TestLogging(unittest.TestCase):
                 "keep_search_state": True,
                 "learner_selector": "roundrobin",
             }
-            X_train, y_train = fetch_california_housing(return_X_y=True)
+            X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
             n = len(y_train) >> 1
             print(automl.model, automl.classes_, automl.predict(X_train))
             automl.fit(
@@ -49,7 +51,7 @@ class TestLogging(unittest.TestCase):
             import optuna as ot
 
             study = ot.create_study()
-            from flaml.tune.space import define_by_run_func, add_cost_to_space
+            from flaml.tune.space import add_cost_to_space, define_by_run_func
 
             sample = define_by_run_func(study.ask(), automl.search_space)
             logger.info(sample)
@@ -60,9 +62,10 @@ class TestLogging(unittest.TestCase):
                 config = automl.best_config.copy()
                 config["learner"] = automl.best_estimator
                 automl.trainable({"ml": config})
-            from flaml import tune, BlendSearch
-            from flaml.automl import size
             from functools import partial
+
+            from flaml import BlendSearch, tune
+            from flaml.automl import size
 
             low_cost_partial_config = automl.low_cost_partial_config
             search_alg = BlendSearch(

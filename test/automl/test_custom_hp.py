@@ -1,11 +1,22 @@
 import sys
+
 import pytest
+
 from flaml import AutoML, tune
 
+try:
+    import transformers
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+    _transformers_installed = True
+except ImportError:
+    _transformers_installed = False
+
+
+@pytest.mark.skipif(
+    sys.platform == "darwin" or not _transformers_installed, reason="do not run on mac os or transformers not installed"
+)
 def test_custom_hp_nlp():
-    from test.nlp.utils import get_toy_data_seqclassification, get_automl_settings
+    from test.nlp.utils import get_automl_settings, get_toy_data_seqclassification
 
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 
@@ -61,5 +72,39 @@ def test_custom_hp():
     print(automl.best_config_per_estimator)
 
 
+def test_lgbm_objective():
+    """Test that objective parameter can be set via custom_hp for LGBMEstimator"""
+    import numpy as np
+
+    # Create a simple regression dataset
+    np.random.seed(42)
+    X_train = np.random.rand(100, 5)
+    y_train = np.random.rand(100) * 100  # Scale to avoid division issues with MAPE
+
+    automl = AutoML()
+    settings = {
+        "time_budget": 3,
+        "metric": "mape",
+        "task": "regression",
+        "estimator_list": ["lgbm"],
+        "verbose": 0,
+        "custom_hp": {"lgbm": {"objective": {"domain": "mape"}}},  # Fixed value, not tuned
+    }
+
+    automl.fit(X_train, y_train, **settings)
+
+    # Verify that objective was set correctly
+    assert "objective" in automl.best_config, "objective should be in best_config"
+    assert automl.best_config["objective"] == "mape", "objective should be 'mape'"
+
+    # Verify the model has the correct objective
+    if hasattr(automl.model, "estimator") and hasattr(automl.model.estimator, "get_params"):
+        model_params = automl.model.estimator.get_params()
+        assert model_params.get("objective") == "mape", "Model should use 'mape' objective"
+
+    print("Test passed: objective parameter works correctly with LGBMEstimator")
+
+
 if __name__ == "__main__":
     test_custom_hp()
+    test_lgbm_objective()

@@ -1,8 +1,9 @@
-import sys
-import pytest
-from utils import get_toy_data_seqregression, get_automl_settings
 import os
 import shutil
+import sys
+
+import pytest
+from utils import get_automl_settings, get_toy_data_seqregression
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")

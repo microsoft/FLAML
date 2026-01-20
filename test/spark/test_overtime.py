@@ -14,8 +14,9 @@ except ImportError:
 
 try:
     import pyspark
-    from flaml.tune.spark.utils import check_spark
+
     from flaml.tune.spark.mylearner import lazy_metric
+    from flaml.tune.spark.utils import check_spark
 
     os.environ["FLAML_MAX_CONCURRENT"] = "10"
     spark = pyspark.sql.SparkSession.builder.appName("App4OvertimeTest").getOrCreate()
@@ -24,7 +25,7 @@ try:
 except ImportError:
     skip_spark = True
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
 def test_overtime():
@@ -54,7 +55,7 @@ def test_overtime():
     start_time = time.time()
     automl_experiment.fit(**automl_settings)
     elapsed_time = time.time() - start_time
-    print("time budget: {:.2f}s, actual elapsed time: {:.2f}s".format(time_budget, elapsed_time))
+    print(f"time budget: {time_budget:.2f}s, actual elapsed time: {elapsed_time:.2f}s")
     # assert abs(elapsed_time - time_budget) < 5  # cancel assertion because github VM sometimes is super slow, causing the test to fail
     print(automl_experiment.predict(df))
     print(automl_experiment.model)

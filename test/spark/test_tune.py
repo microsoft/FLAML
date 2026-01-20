@@ -1,18 +1,20 @@
+import os
+
 import lightgbm as lgb
 import numpy as np
+import pytest
 from sklearn.datasets import load_breast_cancer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+
 from flaml import tune
 from flaml.automl.model import LGBMEstimator
 from flaml.tune.spark.utils import check_spark
-import os
-import pytest
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 X, y = load_breast_cancer(return_X_y=True)

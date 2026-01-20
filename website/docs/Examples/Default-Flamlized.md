@@ -56,6 +56,7 @@ print(hyperparams)
 ```
 
 #### Sample output
+
 ```
 load dataset from ./openml_ds537.pkl
 Dataset name: houses
@@ -65,6 +66,82 @@ X_test.shape: (5160, 8), y_test.shape: (5160,)
 ```
 
 [Link to notebook](https://github.com/microsoft/FLAML/blob/main/notebook/zeroshot_lightgbm.ipynb) | [Open in colab](https://colab.research.google.com/github/microsoft/FLAML/blob/main/notebook/zeroshot_lightgbm.ipynb)
+
+## Flamlized LGBMClassifier
+
+### Prerequisites
+
+This example requires the [autozero] option.
+
+```bash
+pip install flaml[autozero] lightgbm openml
+```
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import LGBMClassifier
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
+lgbm = LGBMClassifier()
+lgbm.fit(X_train, y_train)
+y_pred = lgbm.predict(X_test)
+print(
+    "flamlized lgbm accuracy",
+    "=",
+    1 - sklearn_metric_loss_score("accuracy", y_pred, y_test),
+)
+print(lgbm)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds1169.pkl
+Dataset name: airlines
+X_train.shape: (404537, 7), y_train.shape: (404537,);
+X_test.shape: (134846, 7), y_test.shape: (134846,)
+flamlized lgbm accuracy = 0.6745
+LGBMClassifier(colsample_bytree=0.85, learning_rate=0.05, max_bin=255,
+               min_child_samples=20, n_estimators=500, num_leaves=31,
+               reg_alpha=0.01, reg_lambda=0.1, verbose=-1)
+```
+
+## Flamlized XGBRegressor
+
+### Prerequisites
+
+This example requires xgboost, sklearn, openml==0.10.2.
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import XGBRegressor
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir="./")
+xgb = XGBRegressor()
+xgb.fit(X_train, y_train)
+y_pred = xgb.predict(X_test)
+print("flamlized xgb r2", "=", 1 - sklearn_metric_loss_score("r2", y_pred, y_test))
+print(xgb)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds537.pkl
+Dataset name: houses
+X_train.shape: (15480, 8), y_train.shape: (15480,);
+X_test.shape: (5160, 8), y_test.shape: (5160,)
+flamlized xgb r2 = 0.8542
+XGBRegressor(colsample_bylevel=1, colsample_bytree=0.85, learning_rate=0.05,
+             max_depth=6, n_estimators=500, reg_alpha=0.01, reg_lambda=1.0,
+             subsample=0.9)
+```
 
 ## Flamlized XGBClassifier
 
@@ -83,7 +160,11 @@ X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir
 xgb = XGBClassifier()
 xgb.fit(X_train, y_train)
 y_pred = xgb.predict(X_test)
-print("flamlized xgb accuracy", "=", 1 - sklearn_metric_loss_score("accuracy", y_pred, y_test))
+print(
+    "flamlized xgb accuracy",
+    "=",
+    1 - sklearn_metric_loss_score("accuracy", y_pred, y_test),
+)
 print(xgb)
 ```
 
@@ -106,4 +187,160 @@ XGBClassifier(base_score=0.5, booster='gbtree',
               reg_alpha=0.0012362430984376035, reg_lambda=3.093428791531145,
               scale_pos_weight=1, subsample=1.0, tree_method='hist',
               use_label_encoder=False, validate_parameters=1, verbosity=0)
+```
+
+## Flamlized RandomForestRegressor
+
+### Prerequisites
+
+This example requires the [autozero] option.
+
+```bash
+pip install flaml[autozero] scikit-learn openml
+```
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import RandomForestRegressor
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir="./")
+rf = RandomForestRegressor()
+rf.fit(X_train, y_train)
+y_pred = rf.predict(X_test)
+print("flamlized rf r2", "=", 1 - sklearn_metric_loss_score("r2", y_pred, y_test))
+print(rf)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds537.pkl
+Dataset name: houses
+X_train.shape: (15480, 8), y_train.shape: (15480,);
+X_test.shape: (5160, 8), y_test.shape: (5160,)
+flamlized rf r2 = 0.8521
+RandomForestRegressor(max_features=0.8, min_samples_leaf=2, min_samples_split=5,
+                      n_estimators=500)
+```
+
+## Flamlized RandomForestClassifier
+
+### Prerequisites
+
+This example requires the [autozero] option.
+
+```bash
+pip install flaml[autozero] scikit-learn openml
+```
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import RandomForestClassifier
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
+rf = RandomForestClassifier()
+rf.fit(X_train, y_train)
+y_pred = rf.predict(X_test)
+print(
+    "flamlized rf accuracy",
+    "=",
+    1 - sklearn_metric_loss_score("accuracy", y_pred, y_test),
+)
+print(rf)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds1169.pkl
+Dataset name: airlines
+X_train.shape: (404537, 7), y_train.shape: (404537,);
+X_test.shape: (134846, 7), y_test.shape: (134846,)
+flamlized rf accuracy = 0.6701
+RandomForestClassifier(max_features=0.7, min_samples_leaf=3, min_samples_split=5,
+                       n_estimators=500)
+```
+
+## Flamlized ExtraTreesRegressor
+
+### Prerequisites
+
+This example requires the [autozero] option.
+
+```bash
+pip install flaml[autozero] scikit-learn openml
+```
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import ExtraTreesRegressor
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir="./")
+et = ExtraTreesRegressor()
+et.fit(X_train, y_train)
+y_pred = et.predict(X_test)
+print("flamlized et r2", "=", 1 - sklearn_metric_loss_score("r2", y_pred, y_test))
+print(et)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds537.pkl
+Dataset name: houses
+X_train.shape: (15480, 8), y_train.shape: (15480,);
+X_test.shape: (5160, 8), y_test.shape: (5160,)
+flamlized et r2 = 0.8534
+ExtraTreesRegressor(max_features=0.75, min_samples_leaf=2, min_samples_split=5,
+                    n_estimators=500)
+```
+
+## Flamlized ExtraTreesClassifier
+
+### Prerequisites
+
+This example requires the [autozero] option.
+
+```bash
+pip install flaml[autozero] scikit-learn openml
+```
+
+### Zero-shot AutoML
+
+```python
+from flaml.automl.data import load_openml_dataset
+from flaml.default import ExtraTreesClassifier
+from flaml.automl.ml import sklearn_metric_loss_score
+
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=1169, data_dir="./")
+et = ExtraTreesClassifier()
+et.fit(X_train, y_train)
+y_pred = et.predict(X_test)
+print(
+    "flamlized et accuracy",
+    "=",
+    1 - sklearn_metric_loss_score("accuracy", y_pred, y_test),
+)
+print(et)
+```
+
+#### Sample output
+
+```
+load dataset from ./openml_ds1169.pkl
+Dataset name: airlines
+X_train.shape: (404537, 7), y_train.shape: (404537,);
+X_test.shape: (134846, 7), y_test.shape: (134846,)
+flamlized et accuracy = 0.6698
+ExtraTreesClassifier(max_features=0.7, min_samples_leaf=3, min_samples_split=5,
+                     n_estimators=500)
 ```

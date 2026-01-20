@@ -2,26 +2,25 @@ import logging
 import time
 from typing import List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.sparse import issparse
 from sklearn.model_selection import (
     GroupKFold,
     TimeSeriesSplit,
 )
 
-from flaml.automl.ml import get_val_loss, default_cv_score_agg_func
-from flaml.automl.time_series.ts_data import (
-    TimeSeriesDataset,
-    DataTransformerTS,
-    normalize_ts_data,
-)
-
+from flaml.automl.ml import default_cv_score_agg_func, get_val_loss
 from flaml.automl.task.task import (
-    Task,
-    get_classification_objective,
     TS_FORECAST,
     TS_FORECASTPANEL,
+    Task,
+    get_classification_objective,
+)
+from flaml.automl.time_series.ts_data import (
+    DataTransformerTS,
+    TimeSeriesDataset,
+    normalize_ts_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,18 +32,24 @@ class TimeSeriesTask(Task):
         if self._estimators is None:
             # put this into a function to avoid circular dependency
             from flaml.automl.time_series import (
+                ARIMA,
+                LGBM_TS,
+                RF_TS,
+                SARIMAX,
+                Average,
+                CatBoost_TS,
+                ExtraTrees_TS,
+                HoltWinters,
+                LassoLars_TS,
+                Naive,
+                Orbit,
+                Prophet,
+                SeasonalAverage,
+                SeasonalNaive,
+                TCNEstimator,
+                TemporalFusionTransformerEstimator,
                 XGBoost_TS,
                 XGBoostLimitDepth_TS,
-                RF_TS,
-                LGBM_TS,
-                ExtraTrees_TS,
-                CatBoost_TS,
-                Prophet,
-                Orbit,
-                ARIMA,
-                SARIMAX,
-                TemporalFusionTransformerEstimator,
-                HoltWinters,
             )
 
             self._estimators = {
@@ -58,7 +63,18 @@ class TimeSeriesTask(Task):
                 "holt-winters": HoltWinters,
                 "catboost": CatBoost_TS,
                 "tft": TemporalFusionTransformerEstimator,
+                "lassolars": LassoLars_TS,
+                "tcn": TCNEstimator,
+                "snaive": SeasonalNaive,
+                "naive": Naive,
+                "savg": SeasonalAverage,
+                "avg": Average,
             }
+
+            if self._estimators["tcn"] is None:
+                # remove TCN if import failed
+                del self._estimators["tcn"]
+                logger.info("Couldn't import pytorch_lightning, skipping TCN estimator")
 
             try:
                 from prophet import Prophet as foo
@@ -72,7 +88,7 @@ class TimeSeriesTask(Task):
 
                 self._estimators["orbit"] = Orbit
             except ImportError:
-                logger.info("Couldn't import Prophet, skipping")
+                logger.info("Couldn't import orbit, skipping")
 
         return self._estimators
 
@@ -135,7 +151,7 @@ class TimeSeriesTask(Task):
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
             try:
-                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
@@ -370,9 +386,8 @@ class TimeSeriesTask(Task):
         return X
 
     def preprocess(self, X, transformer=None):
-        if isinstance(X, pd.DataFrame) or isinstance(X, np.ndarray) or isinstance(X, pd.Series):
-            X = X.copy()
-            X = normalize_ts_data(X, self.target_names, self.time_col)
+        if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
+            X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
             return self._preprocess(X, transformer)
         elif isinstance(X, int):
             return X
@@ -513,7 +528,7 @@ def remove_ts_duplicates(
     duplicates = X.duplicated()
 
     if any(duplicates):
-        logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, X][time_col]}")
+        logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, time_col]}")
         X = X.drop_duplicates()
         logger.warning("Removed duplicate rows based on all columns")
         assert (

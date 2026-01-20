@@ -1,28 +1,31 @@
-from time import sleep
 import logging
-import time
-from typing import List, Optional, Dict, Callable, Union
-import sys
 import shutil
+import sys
+import time
+from time import sleep
+from typing import Callable, Dict, List, Optional, Union
+
 import numpy as np
-from flaml import tune, BlendSearch
-from flaml.tune.space import is_constant
+
+from flaml import BlendSearch, tune
 from flaml.automl.logger import logger_formatter
+from flaml.tune.space import is_constant
+
 from .openai_utils import get_key
 
 try:
-    import openai
-    from openai.error import (
-        ServiceUnavailableError,
-        RateLimitError,
-        APIError,
-        InvalidRequestError,
-        APIConnectionError,
-        Timeout,
-        AuthenticationError,
-    )
-    from openai import Completion as openai_Completion
     import diskcache
+    import openai
+    from openai import Completion as openai_Completion
+    from openai.error import (
+        APIConnectionError,
+        APIError,
+        AuthenticationError,
+        InvalidRequestError,
+        RateLimitError,
+        ServiceUnavailableError,
+        Timeout,
+    )
 
     ERROR = None
 except ImportError:

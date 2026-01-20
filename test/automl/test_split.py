@@ -1,8 +1,10 @@
-from sklearn.datasets import fetch_openml
-from flaml.automl import AutoML
-from sklearn.model_selection import GroupKFold, train_test_split, KFold
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_openml, load_iris
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GroupKFold, KFold, train_test_split
 
+from flaml.automl import AutoML
 
 dataset = "credit-g"
 
@@ -16,7 +18,7 @@ def _test(split_type):
         "time_budget": 2,
         # "metric": 'accuracy',
         "task": "classification",
-        "log_file_name": "test/{}.log".format(dataset),
+        "log_file_name": f"test/{dataset}.log",
         "model_history": True,
         "log_training_metric": True,
         "split_type": split_type,
@@ -48,7 +50,7 @@ def test_time():
     _test(split_type="time")
 
 
-def test_groups():
+def test_groups_for_classification_task():
     from sklearn.externals._arff import ArffException
 
     try:
@@ -58,17 +60,15 @@ def test_groups():
 
         X, y = load_wine(return_X_y=True)
 
-    import numpy as np
-
     automl = AutoML()
     automl_settings = {
         "time_budget": 2,
         "task": "classification",
-        "log_file_name": "test/{}.log".format(dataset),
+        "log_file_name": f"test/{dataset}.log",
         "model_history": True,
         "eval_method": "cv",
         "groups": np.random.randint(low=0, high=10, size=len(y)),
-        "estimator_list": ["lgbm", "rf", "xgboost", "kneighbor"],
+        "estimator_list": ["catboost", "lgbm", "rf", "xgboost", "kneighbor"],
         "learner_selector": "roundrobin",
     }
     automl.fit(X, y, **automl_settings)
@@ -88,9 +88,76 @@ def test_groups():
     automl.fit(X, y, **automl_settings)
 
 
+def test_groups_for_regression_task():
+    """Append nonsensical groups to iris dataset and use it to test that GroupKFold works for regression tasks"""
+    iris_dict_data = load_iris(as_frame=True)  # numpy arrays
+    iris_data = iris_dict_data["frame"]  # pandas dataframe data + target
+
+    rng = np.random.default_rng(42)
+    iris_data["cluster"] = rng.integers(
+        low=0, high=5, size=iris_data.shape[0]
+    )  # np.random.randint(0, 5, iris_data.shape[0])
+
+    automl = AutoML()
+    X = iris_data[["sepal length (cm)", "sepal width (cm)", "petal length (cm)"]].to_numpy()
+    y = iris_data["petal width (cm)"]
+    X_train, X_test, y_train, y_test, groups_train, groups_test = train_test_split(
+        X, y, iris_data["cluster"], random_state=42
+    )
+    automl_settings = {
+        "max_iter": 5,
+        "time_budget": -1,
+        "metric": "r2",
+        "task": "regression",
+        "estimator_list": ["lgbm", "rf", "xgboost", "kneighbor"],
+        "eval_method": "cv",
+        "split_type": "uniform",
+        "groups": groups_train,
+    }
+    automl.fit(X_train, y_train, **automl_settings)
+
+
+def test_groups_with_sample_weights():
+    """Verifies that sample weights can be used with group splits i.e. that https://github.com/microsoft/FLAML/issues/1396 remains fixed"""
+    iris_dict_data = load_iris(as_frame=True)  # numpy arrays
+    iris_data = iris_dict_data["frame"]  # pandas dataframe data + target
+    iris_data["cluster"] = np.random.randint(0, 5, iris_data.shape[0])
+    automl = AutoML()
+
+    X = iris_data[["sepal length (cm)", "sepal width (cm)", "petal length (cm)"]].to_numpy()
+    y = iris_data["petal width (cm)"]
+    sample_weight = pd.Series(np.random.rand(X.shape[0]))
+    (
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        groups_train,
+        groups_test,
+        sample_weight_train,
+        sample_weight_test,
+    ) = train_test_split(X, y, iris_data["cluster"], sample_weight, random_state=42)
+    automl_settings = {
+        "max_iter": 5,
+        "time_budget": -1,
+        "metric": "r2",
+        "task": "regression",
+        "log_file_name": "error.log",
+        "log_type": "all",
+        "estimator_list": ["lgbm"],
+        "eval_method": "cv",
+        "split_type": "group",
+        "groups": groups_train,
+        "sample_weight": sample_weight_train,
+    }
+    automl.fit(X_train, y_train, **automl_settings)
+    assert automl.model is not None
+
+
 def test_stratified_groupkfold():
-    from sklearn.model_selection import StratifiedGroupKFold
     from minio.error import ServerError
+    from sklearn.model_selection import StratifiedGroupKFold
+
     from flaml.automl.data import load_openml_dataset
 
     try:
@@ -107,6 +174,7 @@ def test_stratified_groupkfold():
         "split_type": splitter,
         "groups": X_train["Airline"],
         "estimator_list": [
+            "catboost",
             "lgbm",
             "rf",
             "xgboost",
@@ -135,7 +203,7 @@ def test_rank():
     automl_settings = {
         "time_budget": 2,
         "task": "rank",
-        "log_file_name": "test/{}.log".format(dataset),
+        "log_file_name": f"test/{dataset}.log",
         "model_history": True,
         "eval_method": "cv",
         "groups": np.array([0] * 200 + [1] * 200 + [2] * 200 + [3] * 200 + [4] * 100 + [5] * 100),  # group labels
@@ -148,7 +216,7 @@ def test_rank():
         "time_budget": 2,
         "task": "rank",
         "metric": "ndcg@5",  # 5 can be replaced by any number
-        "log_file_name": "test/{}.log".format(dataset),
+        "log_file_name": f"test/{dataset}.log",
         "model_history": True,
         "groups": [200] * 4 + [100] * 2,  # alternative way: group counts
         # "estimator_list": ['lgbm', 'xgboost'],  # list of ML learners
@@ -187,7 +255,7 @@ def test_object():
     automl_settings = {
         "time_budget": 2,
         "task": "classification",
-        "log_file_name": "test/{}.log".format(dataset),
+        "log_file_name": f"test/{dataset}.log",
         "model_history": True,
         "log_training_metric": True,
         "split_type": TestKFold(5),
@@ -202,4 +270,4 @@ def test_object():
 
 
 if __name__ == "__main__":
-    test_groups()
+    test_groups_for_classification_task()

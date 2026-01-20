@@ -1,40 +1,76 @@
-import numpy as np
-import pandas as pd
+import atexit
+import os
 from functools import partial
 from timeit import timeit
+
+import numpy as np
+import pandas as pd
 import pytest
-import os
 
 try:
     os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
-    from pyspark.sql import SparkSession
     import pyspark
     import pyspark.pandas as ps
-    from flaml.tune.spark.utils import (
-        with_parameters,
-        check_spark,
-        get_n_cpus,
-        get_broadcast_data,
-    )
+    from pyspark.ml.linalg import Vectors
+    from pyspark.sql import SparkSession
+
+    from flaml.automl.ml import sklearn_metric_loss_score
+    from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
+    from flaml.automl.spark.metrics import spark_metric_loss_score
     from flaml.automl.spark.utils import (
+        iloc_pandas_on_spark,
+        len_labels,
         to_pandas_on_spark,
         train_test_split_pyspark,
         unique_pandas_on_spark,
-        len_labels,
         unique_value_first_index,
-        iloc_pandas_on_spark,
     )
-    from flaml.automl.spark.metrics import spark_metric_loss_score
-    from flaml.automl.ml import sklearn_metric_loss_score
-    from pyspark.ml.linalg import Vectors
+    from flaml.tune.spark.utils import (
+        _spark_major_minor_version,
+        check_spark,
+        get_broadcast_data,
+        get_n_cpus,
+        with_parameters,
+    )
 
     spark_available, _ = check_spark()
     skip_spark = not spark_available
 except ImportError:
     print("Spark is not installed. Skip all spark tests.")
     skip_spark = True
+    _spark_major_minor_version = (0, 0)
 
-pytestmark = pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
+
+pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
+
+
+@pytest.mark.skipif(_spark_major_minor_version[0] < 4, reason="Requires Spark 4.0+")
+def test_to_pandas_on_spark_temp_override():
+    import pyspark.pandas as ps
+    from pyspark.sql import Row
+
+    from flaml.automl.spark.utils import to_pandas_on_spark
+
+    spark_session = SparkSession.builder.getOrCreate()
+    spark, ansi_conf, adjusted = disable_spark_ansi_mode()
+    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
+
+    # Ensure we can toggle options
+    orig = ps.get_option("compute.fail_on_ansi_mode")
+
+    try:
+        spark_session.conf.set("spark.sql.ansi.enabled", "true")
+        ps.set_option("compute.fail_on_ansi_mode", True)
+
+        # create tiny spark df
+        sdf = spark_session.createDataFrame([Row(a=1, b=2)])
+        # Should not raise as our function temporarily disables fail_on_ansi_mode
+        pds = to_pandas_on_spark(sdf)
+        assert "a" in pds.columns
+    finally:
+        # restore test environment
+        ps.set_option("compute.fail_on_ansi_mode", orig)
+        spark_session.conf.set("spark.sql.ansi.enabled", "false")
 
 
 def test_with_parameters_spark():
@@ -69,8 +105,8 @@ def test_get_n_cpus_spark():
 
 
 def test_broadcast_code():
-    from flaml.tune.spark.utils import broadcast_code
     from flaml.automl.model import LGBMEstimator
+    from flaml.tune.spark.utils import broadcast_code
 
     custom_code = """
     from flaml.automl.model import LGBMEstimator
@@ -165,7 +201,7 @@ def test_len_labels():
     assert len_labels(y1) == 4
     ll, la = len_labels(y2, return_labels=True)
     assert ll == 4
-    assert set(la.to_numpy()) == set([1, 2, 5, 4])
+    assert set(la.to_numpy()) == {1, 2, 5, 4}
 
 
 def test_unique_value_first_index():

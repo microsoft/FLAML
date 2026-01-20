@@ -5,6 +5,7 @@
 ```python
 pip install "flaml>=1.1.0" thop torchvision torch
 ```
+
 Tuning multiple objectives with Lexicographic preference is a new feature added in version 1.1.0 and is subject to change in future versions.
 
 ## Tuning accurate and efficient neural networks with lexicographic preference
@@ -100,8 +101,6 @@ def eval_model(model, valid_loader):
     return np.log2(flops), 1 - accuracy, params
 ```
 
-
-
 ### Evaluation function
 
 ```python
@@ -116,6 +115,7 @@ def evaluate_function(configuration):
 ```
 
 ### Search space
+
 ```python
 search_space = {
     "n_layers": tune.randint(lower=1, upper=3),
@@ -133,7 +133,6 @@ search_space = {
 ### Launch the tuning process
 
 ```python
-
 # Low cost initial point
 low_cost_partial_config = {
     "n_layers": 1,
@@ -155,10 +154,10 @@ analysis = tune.run(
     evaluate_function,
     num_samples=-1,
     time_budget_s=100,
-    config=search_space, # search space of NN
+    config=search_space,  # search space of NN
     use_ray=False,
     lexico_objectives=lexico_objectives,
-    low_cost_partial_config=low_cost_partial_config, # low cost initial point
+    low_cost_partial_config=low_cost_partial_config,  # low cost initial point
 )
 ```
 

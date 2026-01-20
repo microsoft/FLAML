@@ -8,9 +8,10 @@ This file is a modification of the official pytorch mnist example:
 https://github.com/pytorch/examples/blob/master/mnist/main.py
 """
 
-import os
 import argparse
 import logging
+import os
+
 import nni
 import torch
 import torch.nn as nn
@@ -24,7 +25,7 @@ logger = logging.getLogger("mnist_AutoML")
 
 class Net(nn.Module):
     def __init__(self, hidden_size):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(4 * 4 * 50, hidden_size)
@@ -111,7 +112,7 @@ def main(args):
         ),
         batch_size=args["batch_size"],
         shuffle=True,
-        **kwargs
+        **kwargs,
     )
     test_loader = torch.utils.data.DataLoader(
         datasets.MNIST(
@@ -121,7 +122,7 @@ def main(args):
         ),
         batch_size=1000,
         shuffle=True,
-        **kwargs
+        **kwargs,
     )
 
     hidden_size = args["hidden_size"]

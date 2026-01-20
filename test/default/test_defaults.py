@@ -1,15 +1,18 @@
-import sys
 import pickle
-from sklearn.datasets import load_iris, fetch_california_housing, load_breast_cancer
-from sklearn.model_selection import train_test_split
+import sys
+
 import pandas as pd
+from sklearn.datasets import fetch_california_housing, load_breast_cancer, load_iris
+from sklearn.model_selection import train_test_split
+
 from flaml import AutoML
 from flaml.default import (
+    portfolio,
     preprocess_and_suggest_hyperparams,
+    regret,
     suggest_hyperparams,
     suggest_learner,
 )
-from flaml.default import portfolio, regret
 
 
 def test_greedy_feedback(path="test/default", strategy="greedy-feedback"):
@@ -57,7 +60,7 @@ def test_housing(as_frame=True):
         "starting_points": "data",
         "max_iter": 0,
     }
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame, data_home="test")
     automl.fit(X_train, y_train, **automl_settings)
 
 
@@ -112,7 +115,7 @@ def test_suggest_classification():
 
 def test_suggest_regression():
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     suggested = suggest_hyperparams("regression", X_train, y_train, "lgbm", location=location)
     print(suggested)
     suggested = preprocess_and_suggest_hyperparams("regression", X_train, y_train, "xgboost", location=location)
@@ -124,7 +127,7 @@ def test_suggest_regression():
 
 
 def test_rf():
-    from flaml.default import RandomForestRegressor, RandomForestClassifier
+    from flaml.default import RandomForestClassifier, RandomForestRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     rf = RandomForestClassifier()
@@ -134,7 +137,7 @@ def test_rf():
     print(rf)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     rf = RandomForestRegressor(default_location=location)
     rf.fit(X_train[:100], y_train[:100])
     rf.predict(X_train)
@@ -142,7 +145,7 @@ def test_rf():
 
 
 def test_extratrees():
-    from flaml.default import ExtraTreesRegressor, ExtraTreesClassifier
+    from flaml.default import ExtraTreesClassifier, ExtraTreesRegressor
 
     X_train, y_train = load_iris(return_X_y=True, as_frame=True)
     classifier = ExtraTreesClassifier()
@@ -152,7 +155,7 @@ def test_extratrees():
     print(classifier)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = ExtraTreesRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
@@ -160,7 +163,7 @@ def test_extratrees():
 
 
 def test_lgbm():
-    from flaml.default import LGBMRegressor, LGBMClassifier
+    from flaml.default import LGBMClassifier, LGBMRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     classifier = LGBMClassifier(n_jobs=1)
@@ -172,7 +175,7 @@ def test_lgbm():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = LGBMRegressor(default_location=location)
     regressor.fit(X_train, y_train)
     regressor.predict(X_train)
@@ -180,7 +183,7 @@ def test_lgbm():
 
 
 def test_xgboost():
-    from flaml.default import XGBRegressor, XGBClassifier
+    from flaml.default import XGBClassifier, XGBRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
     classifier = XGBClassifier(max_depth=0)
@@ -191,7 +194,7 @@ def test_xgboost():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True)
+    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     regressor = XGBRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)

@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 import pytest
 
 try:
@@ -15,8 +16,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 def run_notebook(input_nb, output_nb="executed_openai_notebook.ipynb", save=False):
     import nbformat
-    from nbconvert.preprocessors import ExecutePreprocessor
-    from nbconvert.preprocessors import CellExecutionError
+    from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
 
     try:
         nb_loc = os.path.join(here, os.pardir, os.pardir, "notebook")

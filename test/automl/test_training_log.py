@@ -30,7 +30,7 @@ class TestTrainingLog(unittest.TestCase):
                 "keep_search_state": True,
                 "estimator_list": estimator_list,
             }
-            X_train, y_train = fetch_california_housing(return_X_y=True)
+            X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
             # Check if the training log file is populated.
             self.assertTrue(os.path.exists(filename))
@@ -98,6 +98,8 @@ class TestTrainingLog(unittest.TestCase):
             print("IsADirectoryError happens as expected in linux.")
         except PermissionError:
             print("PermissionError happens as expected in windows.")
+        except FileExistsError:
+            print("FileExistsError happens as expected in MacOS.")
 
     def test_each_estimator(self):
         try:

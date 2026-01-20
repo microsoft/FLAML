@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import RobustScaler
 
 
 def _augment(row):
@@ -12,7 +12,7 @@ def _augment(row):
 def construct_portfolio(regret_matrix, meta_features, regret_bound):
     """The portfolio construction algorithm.
 
-    (Reference)[https://arxiv.org/abs/2202.09927].
+    Reference: [Mining Robust Default Configurations for Resource-constrained AutoML](https://arxiv.org/abs/2202.09927).
 
     Args:
         regret_matrix: A dataframe of regret matrix.
@@ -32,6 +32,7 @@ def construct_portfolio(regret_matrix, meta_features, regret_bound):
     if meta_features is not None:
         scaler = RobustScaler()
         meta_features = meta_features.loc[tasks]
+        meta_features = meta_features.astype(float)
         meta_features.loc[:, :] = scaler.fit_transform(meta_features)
         nearest_task = {}
         for t in tasks:

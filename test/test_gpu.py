@@ -1,15 +1,17 @@
-import sys
-import pytest
 import pickle
 import shutil
+import sys
+
+import pytest
 
 
 def test_xgboost():
-    from flaml import AutoML
-    from sklearn.datasets import make_moons
-    import scipy.sparse
     import numpy as np
+    import scipy.sparse
+    from sklearn.datasets import make_moons
     from xgboost.core import XGBoostError
+
+    from flaml import AutoML
 
     try:
         X_train = scipy.sparse.eye(900000)
@@ -45,15 +47,27 @@ def test_xgboost():
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
 def _test_hf_data():
-    from flaml import AutoML
     import requests
     from datasets import load_dataset
+
+    from flaml import AutoML
 
     try:
         train_dataset = load_dataset("glue", "mrpc", split="train[:1%]").to_pandas()
         dev_dataset = load_dataset("glue", "mrpc", split="validation[:1%]").to_pandas()
         test_dataset = load_dataset("glue", "mrpc", split="test[:1%]").to_pandas()
     except requests.exceptions.ConnectionError:
+        return
+
+    # Tests will only run if there is a GPU available
+    try:
+        import ray
+
+        pg = ray.util.placement_group([{"CPU": 1, "GPU": 1}])
+
+        if not pg.wait(timeout_seconds=10):  # Wait 10 seconds for resources
+            raise RuntimeError("No available node types can fulfill resource request!")
+    except RuntimeError:
         return
 
     custom_sent_keys = ["sentence1", "sentence2"]

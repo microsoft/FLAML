@@ -3,6 +3,7 @@
 ### Prerequisites for this example
 
 Install the [automl] option.
+
 ```bash
 pip install "flaml[automl] matplotlib openml"
 ```
@@ -14,19 +15,21 @@ from flaml import AutoML
 from flaml.automl.data import load_openml_dataset
 
 # Download [houses dataset](https://www.openml.org/d/537) from OpenML. The task is to predict median price of the house in the region based on demographic composition and a state of housing market in the region.
-X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir='./')
+X_train, X_test, y_train, y_test = load_openml_dataset(dataset_id=537, data_dir="./")
 
 automl = AutoML()
 settings = {
     "time_budget": 60,  # total running time in seconds
-    "metric": 'r2',  # primary metrics for regression can be chosen from: ['mae','mse','r2']
-    "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
-    "task": 'regression',  # task type
-    "log_file_name": 'houses_experiment.log',  # flaml log file
+    "metric": "r2",  # primary metrics for regression can be chosen from: ['mae','mse','r2']
+    "estimator_list": ["lgbm"],  # list of ML learners; we tune lightgbm in this example
+    "task": "regression",  # task type
+    "log_file_name": "houses_experiment.log",  # flaml log file
     "seed": 7654321,  # random seed
 }
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 
@@ -78,9 +81,9 @@ automl.fit(X_train=X_train, y_train=y_train, **settings)
 #### Retrieve best config
 
 ```python
-print('Best hyperparmeter config:', automl.best_config)
-print('Best r2 on validation data: {0:.4g}'.format(1-automl.best_loss))
-print('Training duration of best run: {0:.4g} s'.format(automl.best_config_train_time))
+print("Best hyperparmeter config:", automl.best_config)
+print("Best r2 on validation data: {0:.4g}".format(1 - automl.best_loss))
+print("Training duration of best run: {0:.4g} s".format(automl.best_config_train_time))
 print(automl.model.estimator)
 # Best hyperparmeter config: {'n_estimators': 363, 'num_leaves': 216, 'min_child_samples': 42, 'learning_rate': 0.09100963138990374, 'log_max_bin': 8, 'colsample_bytree': 0.8025848209352517, 'reg_alpha': 0.001113000336715291, 'reg_lambda': 76.50614276906414}
 # Best r2 on validation data: 0.8436
@@ -96,15 +99,17 @@ print(automl.model.estimator)
 
 ```python
 import matplotlib.pyplot as plt
+
 plt.barh(automl.feature_names_in_, automl.feature_importances_)
 ```
+
 ![png](../Use-Cases/images/feature_importance.png)
 
 #### Compute predictions of testing dataset
 
 ```python
 y_pred = automl.predict(X_test)
-print('Predicted labels', y_pred)
+print("Predicted labels", y_pred)
 # Predicted labels [143391.65036562 245535.13731811 153171.44071629 ... 184354.52735963
 #  235510.49470445 282617.22858956]
 ```
@@ -114,9 +119,9 @@ print('Predicted labels', y_pred)
 ```python
 from flaml.automl.ml import sklearn_metric_loss_score
 
-print('r2', '=', 1 - sklearn_metric_loss_score('r2', y_pred, y_test))
-print('mse', '=', sklearn_metric_loss_score('mse', y_pred, y_test))
-print('mae', '=', sklearn_metric_loss_score('mae', y_pred, y_test))
+print("r2", "=", 1 - sklearn_metric_loss_score("r2", y_pred, y_test))
+print("mse", "=", sklearn_metric_loss_score("mse", y_pred, y_test))
+print("mae", "=", sklearn_metric_loss_score("mae", y_pred, y_test))
 # r2 = 0.8505434326526395
 # mse = 1975592613.138005
 # mae = 29471.536046068788
@@ -132,7 +137,7 @@ lgbm.fit(X_train, y_train)
 y_pred = lgbm.predict(X_test)
 from flaml.automl.ml import sklearn_metric_loss_score
 
-print('default lgbm r2', '=', 1 - sklearn_metric_loss_score('r2', y_pred, y_test))
+print("default lgbm r2", "=", 1 - sklearn_metric_loss_score("r2", y_pred, y_test))
 # default lgbm r2 = 0.8296179648694404
 ```
 
@@ -152,6 +157,7 @@ plt.ylabel('Validation r2')
 plt.step(time_history, 1 - np.array(best_valid_loss_history), where='post')
 plt.show()
 ```
+
 ![png](images/lgbm_curve.png)
 
 ### Use a customized LightGBM learner
@@ -199,8 +205,8 @@ class MyLGBM(LGBMEstimator):
 
 ```python
 automl = AutoML()
-automl.add_learner(learner_name='my_lgbm', learner_class=MyLGBM)
-settings["estimator_list"] = ['my_lgbm']  # change the estimator list
+automl.add_learner(learner_name="my_lgbm", learner_class=MyLGBM)
+settings["estimator_list"] = ["my_lgbm"]  # change the estimator list
 automl.fit(X_train=X_train, y_train=y_train, **settings)
 ```
 

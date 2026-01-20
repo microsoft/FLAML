@@ -1,12 +1,13 @@
-import sys
-import pytest
-import requests
 import os
 import shutil
+import sys
+
+import pytest
+import requests
 from utils import (
+    get_automl_settings,
     get_toy_data_tokenclassification_idlabel,
     get_toy_data_tokenclassification_tokenlabel,
-    get_automl_settings,
 )
 
 
@@ -43,7 +44,7 @@ def test_tokenclassification_idlabel():
     # perf test
     import json
 
-    with open("seqclass.log", "r") as fin:
+    with open("seqclass.log") as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:
@@ -85,7 +86,7 @@ def test_tokenclassification_tokenlabel():
     # perf test
     import json
 
-    with open("seqclass.log", "r") as fin:
+    with open("seqclass.log") as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:

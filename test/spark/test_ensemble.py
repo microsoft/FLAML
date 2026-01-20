@@ -1,8 +1,11 @@
+import os
 import unittest
+
+import pytest
 from sklearn.datasets import load_wine
+
 from flaml import AutoML
 from flaml.tune.spark.utils import check_spark
-import os
 
 spark_available, _ = check_spark()
 skip_spark = not spark_available
@@ -13,6 +16,7 @@ os.environ["FLAML_MAX_CONCURRENT"] = "2"
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.py")):
     try:
         from test.spark.custom_mylearner import *
+
         from flaml.tune.spark.mylearner import MyRegularizedGreedyForest
 
         skip_my_learner = False
@@ -20,6 +24,8 @@ if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.p
         skip_my_learner = True
 else:
     skip_my_learner = True
+
+pytestmark = pytest.mark.spark
 
 
 class TestEnsemble(unittest.TestCase):

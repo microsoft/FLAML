@@ -3,6 +3,7 @@
 ### Prerequisites
 
 Install the [automl] option.
+
 ```bash
 pip install "flaml[automl]"
 ```
@@ -18,19 +19,20 @@ automl = AutoML()
 # Specify automl goal and constraint
 automl_settings = {
     "time_budget": 1,  # in seconds
-    "metric": 'r2',
-    "task": 'regression',
+    "metric": "r2",
+    "task": "regression",
     "log_file_name": "california.log",
 }
 X_train, y_train = fetch_california_housing(return_X_y=True)
 # Train with labeled input data
-automl.fit(X_train=X_train, y_train=y_train,
-           **automl_settings)
+automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
 # Predict
 print(automl.predict(X_train))
 # Print the best model
 print(automl.model.estimator)
 ```
+
+**Note**: You can access the best model's estimator using `automl.model.estimator`.
 
 #### Sample output
 
@@ -95,7 +97,9 @@ from sklearn.multioutput import MultiOutputRegressor
 X, y = make_regression(n_targets=3)
 
 # split into train and test data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.30, random_state=42
+)
 
 # train the model
 model = MultiOutputRegressor(AutoML(task="regression", time_budget=60))

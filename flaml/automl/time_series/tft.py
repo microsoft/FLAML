@@ -1,3 +1,4 @@
+import inspect
 import time
 
 try:
@@ -105,12 +106,18 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
 
     def fit(self, X_train, y_train, budget=None, **kwargs):
         import warnings
-        import pytorch_lightning as pl
+
+        try:
+            import lightning.pytorch as pl
+            from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
+            from lightning.pytorch.loggers import TensorBoardLogger
+        except ImportError:
+            import pytorch_lightning as pl
+            from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
+            from pytorch_lightning.loggers import TensorBoardLogger
         import torch
         from pytorch_forecasting import TemporalFusionTransformer
         from pytorch_forecasting.metrics import QuantileLoss
-        from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
-        from pytorch_lightning.loggers import TensorBoardLogger
 
         # a bit of monkey patching to fix the MacOS test
         # all the log_prediction method appears to do is plot stuff, which ?breaks github tests
@@ -131,12 +138,26 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         lr_logger = LearningRateMonitor()  # log the learning rate
         logger = TensorBoardLogger(kwargs.get("log_dir", "lightning_logs"))  # logging results to a tensorboard
         default_trainer_kwargs = dict(
-            gpus=self._kwargs.get("gpu_per_trial", [0]) if torch.cuda.is_available() else None,
             max_epochs=max_epochs,
             gradient_clip_val=gradient_clip_val,
             callbacks=[lr_logger, early_stop_callback],
             logger=logger,
         )
+
+        # PyTorch Lightning >=2.0 replaced `gpus` with `accelerator`/`devices`.
+        # Also, passing `gpus=None` is not accepted on newer versions.
+        trainer_sig_params = inspect.signature(pl.Trainer.__init__).parameters
+        if torch.cuda.is_available() and "gpus" in trainer_sig_params:
+            gpus = self._kwargs.get("gpu_per_trial", None)
+            if gpus is not None:
+                default_trainer_kwargs["gpus"] = gpus
+        elif torch.cuda.is_available() and "devices" in trainer_sig_params:
+            devices = self._kwargs.get("gpu_per_trial", None)
+            if devices == -1:
+                devices = "auto"
+            if devices is not None:
+                default_trainer_kwargs["accelerator"] = "gpu"
+                default_trainer_kwargs["devices"] = devices
         trainer = pl.Trainer(
             **default_trainer_kwargs,
         )
@@ -156,7 +177,14 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             val_dataloaders=val_dataloader,
         )
         best_model_path = trainer.checkpoint_callback.best_model_path
-        best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
+        # PyTorch 2.6 changed `torch.load` default `weights_only` from False -> True.
+        # Some Lightning checkpoints (including those produced here) can require full unpickling.
+        # This path is generated locally during training, so it's trusted.
+        load_sig_params = inspect.signature(TemporalFusionTransformer.load_from_checkpoint).parameters
+        if "weights_only" in load_sig_params:
+            best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path, weights_only=False)
+        else:
+            best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
         train_time = time.time() - current_time
         self._model = best_tft
         return train_time
@@ -169,7 +197,11 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         last_data_cols = self.group_ids.copy()
         last_data_cols.append(self.target_names[0])
         last_data = self.data[lambda x: x.time_idx == x.time_idx.max()][last_data_cols]
-        decoder_data = X.X_val if isinstance(X, TimeSeriesDataset) else X
+        # Use X_train if test_data is empty (e.g., when computing training metrics)
+        if isinstance(X, TimeSeriesDataset):
+            decoder_data = X.X_val if len(X.test_data) > 0 else X.X_train
+        else:
+            decoder_data = X
         if "time_idx" not in decoder_data:
             decoder_data = add_time_idx_col(decoder_data)
         decoder_data["time_idx"] += encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()

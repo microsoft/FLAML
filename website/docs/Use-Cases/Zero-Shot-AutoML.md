@@ -3,12 +3,13 @@
 `flaml.default` is a package for zero-shot AutoML, or "no-tuning" AutoML. It uses [`flaml.AutoML`](/docs/reference/automl/automl#automl-objects) and [`flaml.default.portfolio`](/docs/reference/default/portfolio) to mine good hyperparameter configurations across different datasets offline, and recommend data-dependent default configurations at runtime without expensive tuning.
 
 Zero-shot AutoML has several benefits:
-* The computation cost is just training one model. No tuning is involved.
-* The decision of hyperparameter configuration is instant. No overhead to worry about.
-* Your code remains the same. No breaking of the existing workflow.
-* It requires less input from the user. No need to specify a tuning budget etc.
-* All training data are used for, guess what, training. No need to worry about holding a subset of training data for validation (and overfitting the validation data).
-* The offline preparation can be customized for a domain and leverage the historical tuning data. No experience is wasted.
+
+- The computation cost is just training one model. No tuning is involved.
+- The decision of hyperparameter configuration is instant. No overhead to worry about.
+- Your code remains the same. No breaking of the existing workflow.
+- It requires less input from the user. No need to specify a tuning budget etc.
+- All training data are used for, guess what, training. No need to worry about holding a subset of training data for validation (and overfitting the validation data).
+- The offline preparation can be customized for a domain and leverage the historical tuning data. No experience is wasted.
 
 ## How to Use at Runtime
 
@@ -31,10 +32,11 @@ from flaml.default import LGBMRegressor
 All the other code remains the same. And you are expected to get a equal or better model in most cases.
 
 The current list of "flamlized" learners are:
-* LGBMClassifier, LGBMRegressor.
-* XGBClassifier, XGBRegressor.
-* RandomForestClassifier, RandomForestRegressor.
-* ExtraTreesClassifier, ExtraTreesRegressor.
+
+- LGBMClassifier, LGBMRegressor.
+- XGBClassifier, XGBRegressor.
+- RandomForestClassifier, RandomForestRegressor.
+- ExtraTreesClassifier, ExtraTreesRegressor.
 
 ### What's the magic behind the scene?
 
@@ -50,7 +52,12 @@ Yes. You can use `suggest_hyperparams()` to find the suggested configuration. Fo
 from flaml.default import LGBMRegressor
 
 estimator = LGBMRegressor()
-hyperparams, estimator_name, X_transformed, y_transformed = estimator.suggest_hyperparams(X_train, y_train)
+(
+    hyperparams,
+    estimator_name,
+    X_transformed,
+    y_transformed,
+) = estimator.suggest_hyperparams(X_train, y_train)
 print(hyperparams)
 ```
 
@@ -60,10 +67,17 @@ If you would like more control over the training, use an equivalent, open-box wa
 from flaml.default import preprocess_and_suggest_hyperparams
 
 X, y = load_iris(return_X_y=True, as_frame=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
-hyperparams, estimator_class, X_transformed, y_transformed, feature_transformer, label_transformer = preprocess_and_suggest_hyperparams(
-    "classification", X_train, y_train, "lgbm"
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=42
 )
+(
+    hyperparams,
+    estimator_class,
+    X_transformed,
+    y_transformed,
+    feature_transformer,
+    label_transformer,
+) = preprocess_and_suggest_hyperparams("classification", X_train, y_train, "lgbm")
 model = estimator_class(**hyperparams)  # estimator_class is lightgbm.LGBMClassifier
 model.fit(X_transformed, y_train)  # LGBMClassifier can handle raw labels
 X_test = feature_transformer.transform(X_test)  # preprocess test data
@@ -79,6 +93,7 @@ Zero Shot AutoML is fast. If tuning from the recommended data-dependent configur
 
 ```python
 from flaml import AutoML
+
 automl = AutoML()
 automl_settings = {
     "task": "classification",
@@ -133,6 +148,7 @@ Read the next section to understand how to generate these files if you would lik
 ## How to Prepare Offline
 
 This section is intended for:
+
 1. AutoML providers for a particular domain.
 1. Data scientists or engineers who need to repeatedly train models for similar tasks with varying training data.
 

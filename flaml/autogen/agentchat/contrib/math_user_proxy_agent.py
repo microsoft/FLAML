@@ -1,13 +1,13 @@
-import re
 import os
-from pydantic import BaseModel, Extra, root_validator
-from typing import Any, Callable, Dict, List, Optional, Union
+import re
 from time import sleep
+from typing import Any, Callable, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Extra, root_validator
 
 from flaml.autogen.agentchat import Agent, UserProxyAgent
-from flaml.autogen.code_utils import UNKNOWN, extract_code, execute_code, infer_lang
+from flaml.autogen.code_utils import UNKNOWN, execute_code, extract_code, infer_lang
 from flaml.autogen.math_utils import get_answer
-
 
 PROMPTS = {
     # default
@@ -156,7 +156,7 @@ class MathUserProxyAgent(UserProxyAgent):
                     when the number of auto reply reaches the max_consecutive_auto_reply or when is_termination_msg is True.
             default_auto_reply (str or dict or None): the default auto reply message when no code execution or llm based reply is generated.
             max_invalid_q_per_step (int): (ADDED) the maximum number of invalid queries per step.
-            **kwargs (dict): other kwargs in [UserProxyAgent](user_proxy_agent#__init__).
+            **kwargs (dict): other kwargs in [UserProxyAgent](../user_proxy_agent#__init__).
         """
         super().__init__(
             name=name,

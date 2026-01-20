@@ -1,8 +1,10 @@
-import time
-import flaml
-import submit_train_pipeline
 import logging
+import time
+
+import submit_train_pipeline
 from ray import tune
+
+import flaml
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ def run_with_config(config: dict):
 
             new_metric = run_metrics[0]["eval_binary_error"]
 
-            if type(new_metric) == list:
+            if isinstance(new_metric, list):
                 new_metric = new_metric[-1]
 
             print(f"eval_binary_error: {new_metric}")

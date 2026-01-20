@@ -1,4 +1,5 @@
 from sklearn.datasets import fetch_openml
+
 from flaml import AutoML
 
 X_train, y_train = fetch_openml(name="credit-g", return_X_y=True, as_frame=False)

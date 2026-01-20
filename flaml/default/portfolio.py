@@ -1,11 +1,13 @@
-import pandas as pd
-import numpy as np
 import argparse
-from pathlib import Path
 import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from sklearn.preprocessing import RobustScaler
+
 from flaml.default import greedy
-from flaml.default.regret import load_result, build_regret
+from flaml.default.regret import build_regret, load_result
 from flaml.version import __version__
 
 regret_bound = 0.01
@@ -24,6 +26,7 @@ def config_predictor_tuple(tasks, configs, meta_features, regret_matrix):
     # pre-processing
     scaler = RobustScaler()
     meta_features_norm = meta_features.loc[tasks]  # this makes a copy
+    meta_features_norm = meta_features_norm.astype(float)
     meta_features_norm.loc[:, :] = scaler.fit_transform(meta_features_norm)
 
     proc = {
@@ -67,7 +70,7 @@ def build_portfolio(meta_features, regret, strategy):
 
 def load_json(filename):
     """Returns the contents of json file filename."""
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return json.load(f)
 
 
