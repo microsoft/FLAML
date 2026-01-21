@@ -25,6 +25,31 @@ from .flow2 import FLOW2
 logger = logging.getLogger(__name__)
 
 
+def _recursive_dict_update(target: Dict, source: Dict) -> None:
+    """Recursively update target dictionary with source dictionary.
+
+    Unlike dict.update(), this function merges nested dictionaries instead of
+    replacing them entirely. This is crucial for configurations with nested
+    structures (e.g., XGBoost params).
+
+    Args:
+        target: The dictionary to be updated (modified in place).
+        source: The dictionary containing values to merge into target.
+
+    Example:
+        >>> target = {'params': {'eta': 0.1, 'max_depth': 3}}
+        >>> source = {'params': {'verbosity': 0}}
+        >>> _recursive_dict_update(target, source)
+        >>> target
+        {'params': {'eta': 0.1, 'max_depth': 3, 'verbosity': 0}}
+    """
+    for key, value in source.items():
+        if isinstance(value, dict) and key in target and isinstance(target[key], dict):
+            _recursive_dict_update(target[key], value)
+        else:
+            target[key] = value
+
+
 class SearchThread:
     """Class of global or local search thread."""
 
@@ -65,7 +90,7 @@ class SearchThread:
             try:
                 config = self._search_alg.suggest(trial_id)
                 if isinstance(self._search_alg._space, dict):
-                    config.update(self._const)
+                    _recursive_dict_update(config, self._const)
                 else:
                     # define by run
                     config, self.space = unflatten_hierarchical(config, self._space)

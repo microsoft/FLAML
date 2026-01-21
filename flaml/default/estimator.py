@@ -95,6 +95,27 @@ def flamlize_estimator(super_class, name: str, task: str, alternatives=None):
         def fit(self, X, y, *args, **params):
             hyperparams, estimator_name, X, y_transformed = self.suggest_hyperparams(X, y)
             self.set_params(**hyperparams)
+
+            # Transform eval_set if present
+            if "eval_set" in params and params["eval_set"] is not None:
+                transformed_eval_set = []
+                for eval_X, eval_y in params["eval_set"]:
+                    # Transform features
+                    eval_X_transformed = self._feature_transformer.transform(eval_X)
+                    # Transform labels if applicable
+                    if self._label_transformer and estimator_name in [
+                        "rf",
+                        "extra_tree",
+                        "xgboost",
+                        "xgb_limitdepth",
+                        "choose_xgb",
+                    ]:
+                        eval_y_transformed = self._label_transformer.transform(eval_y)
+                        transformed_eval_set.append((eval_X_transformed, eval_y_transformed))
+                    else:
+                        transformed_eval_set.append((eval_X_transformed, eval_y))
+                params["eval_set"] = transformed_eval_set
+
             if self._label_transformer and estimator_name in [
                 "rf",
                 "extra_tree",

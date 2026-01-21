@@ -183,6 +183,8 @@ def test_lgbm():
 
 
 def test_xgboost():
+    import numpy as np
+
     from flaml.default import XGBClassifier, XGBRegressor
 
     X_train, y_train = load_breast_cancer(return_X_y=True, as_frame=True)
@@ -199,6 +201,65 @@ def test_xgboost():
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
     print(regressor)
+
+    # Test eval_set with categorical features (Issue: eval_set not preprocessed)
+    np.random.seed(42)
+    n = 500
+    df = pd.DataFrame(
+        {
+            "num1": np.random.randn(n),
+            "num2": np.random.rand(n) * 10,
+            "cat1": np.random.choice(["A", "B", "C"], size=n),
+            "cat2": np.random.choice(["X", "Y"], size=n),
+            "target": np.random.choice([0, 1], size=n),
+        }
+    )
+
+    X = df.drop(columns="target")
+    y = df["target"]
+
+    X_train_cat, X_valid_cat, y_train_cat, y_valid_cat = train_test_split(X, y, test_size=0.2, random_state=0)
+
+    # Convert categorical columns to pandas 'category' dtype
+    for col in X_train_cat.select_dtypes(include="object").columns:
+        X_train_cat[col] = X_train_cat[col].astype("category")
+        X_valid_cat[col] = X_valid_cat[col].astype("category")
+
+    # Test XGBClassifier with eval_set
+    classifier_eval = XGBClassifier(
+        tree_method="hist",
+        enable_categorical=True,
+        eval_metric="logloss",
+        use_label_encoder=False,
+        early_stopping_rounds=10,
+        random_state=0,
+        n_estimators=10,
+    )
+    classifier_eval.fit(X_train_cat, y_train_cat, eval_set=[(X_valid_cat, y_valid_cat)], verbose=False)
+    y_pred = classifier_eval.predict(X_valid_cat)
+    assert len(y_pred) == len(y_valid_cat)
+
+    # Test XGBRegressor with eval_set
+    y_reg = df["num1"]  # Use num1 as target for regression
+    X_reg = df.drop(columns=["num1", "target"])
+
+    X_train_reg, X_valid_reg, y_train_reg, y_valid_reg = train_test_split(X_reg, y_reg, test_size=0.2, random_state=0)
+
+    for col in X_train_reg.select_dtypes(include="object").columns:
+        X_train_reg[col] = X_train_reg[col].astype("category")
+        X_valid_reg[col] = X_valid_reg[col].astype("category")
+
+    regressor_eval = XGBRegressor(
+        tree_method="hist",
+        enable_categorical=True,
+        eval_metric="rmse",
+        early_stopping_rounds=10,
+        random_state=0,
+        n_estimators=10,
+    )
+    regressor_eval.fit(X_train_reg, y_train_reg, eval_set=[(X_valid_reg, y_valid_reg)], verbose=False)
+    y_pred = regressor_eval.predict(X_valid_reg)
+    assert len(y_pred) == len(y_valid_reg)
 
 
 def test_nobudget():
