@@ -28,6 +28,35 @@ print(
   - pass `sample_weight` to `AutoML.fit()`;
   - consider setting class weights via `custom_hp` / `fit_kwargs_by_estimator` for specific estimators (see [FAQ](FAQ)).
 - **Probability vs label metrics**: use `roc_auc` / `log_loss` when you care about calibrated probabilities.
+- **Label overlap control** (holdout evaluation only):
+  - By default, FLAML uses a fast strategy (`allow_label_overlap=True`) that ensures all labels are present in both training and validation sets by adding missing labels' first instances to both sets. This is efficient but may create minor overlap.
+  - For strict no-overlap validation, use `allow_label_overlap=False`. This slower but more precise strategy intelligently re-splits multi-instance classes to avoid overlap while maintaining label completeness.
+
+```python
+from flaml import AutoML
+
+# Fast version (default): allows overlap for efficiency
+automl_fast = AutoML()
+automl_fast.fit(
+    X_train,
+    y_train,
+    task="classification",
+    eval_method="holdout",
+    allow_label_overlap=True,
+)  # default
+
+# Precise version: avoids overlap when possible
+automl_precise = AutoML()
+automl_precise.fit(
+    X_train,
+    y_train,
+    task="classification",
+    eval_method="holdout",
+    allow_label_overlap=False,
+)  # slower but more precise
+```
+
+Note: This only affects holdout evaluation. CV and custom validation sets are unaffected.
 
 ## Regression
 

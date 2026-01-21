@@ -343,6 +343,12 @@ class AutoML(BaseEstimator):
          }
         ```
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to the set that is
+                missing them, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 e.g.,
 
@@ -373,6 +379,7 @@ class AutoML(BaseEstimator):
         settings["split_ratio"] = settings.get("split_ratio", SPLIT_RATIO)
         settings["n_splits"] = settings.get("n_splits", N_SPLITS)
         settings["auto_augment"] = settings.get("auto_augment", True)
+        settings["allow_label_overlap"] = settings.get("allow_label_overlap", True)
         settings["metric"] = settings.get("metric", "auto")
         # Validate that custom metric is callable if not a string
         self._validate_metric_parameter(settings["metric"], allow_auto=True)
@@ -1113,6 +1120,7 @@ class AutoML(BaseEstimator):
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
+        self._allow_label_overlap = self._settings.get("allow_label_overlap", True)
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = -1
         self._state.free_mem_ratio = 0
@@ -1716,6 +1724,7 @@ class AutoML(BaseEstimator):
             n_splits,
             self._df,
             self._sample_weight_full,
+            self._allow_label_overlap,
         )
         self.data_size_full = self._state.data_size_full
 
@@ -1772,6 +1781,7 @@ class AutoML(BaseEstimator):
         time_col=None,
         cv_score_agg_func=None,
         skip_transform=None,
+        allow_label_overlap=True,
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
@@ -2058,6 +2068,12 @@ class AutoML(BaseEstimator):
         ```
 
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to the set that is
+                missing them, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             mlflow_logging: boolean, default=None | Whether to log the training results to mlflow.
                 Default value is None, which means the logging decision is made based on
                 AutoML.__init__'s mlflow_logging argument. Not valid if mlflow is not installed.
@@ -2127,6 +2143,9 @@ class AutoML(BaseEstimator):
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        allow_label_overlap = (
+            self._settings.get("allow_label_overlap") if allow_label_overlap is None else allow_label_overlap
+        )
         metric = self._settings.get("metric") if metric is None else metric
         estimator_list = estimator_list or self._settings.get("estimator_list")
         log_file_name = self._settings.get("log_file_name") if log_file_name is None else log_file_name
@@ -2309,6 +2328,7 @@ class AutoML(BaseEstimator):
 
         self._retrain_in_budget = retrain_full == "budget" and (eval_method == "holdout" and self._state.X_val is None)
         self._auto_augment = auto_augment
+        self._allow_label_overlap = allow_label_overlap
 
         _sample_size_from_starting_points = {}
         if isinstance(starting_points, dict):
