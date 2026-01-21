@@ -361,6 +361,11 @@ class AutoML(BaseEstimator):
         }
         ```
             mlflow_logging: boolean, default=True | Whether to log the training results to mlflow. Not valid if mlflow is not installed.
+            multioutput_train_size: int, float or None, default=None | For multi-output regression tasks with
+                "holdout" evaluation, allows manual specification of validation set by concatenating training and
+                validation data and specifying where to split. If int, represents the number of samples in the
+                training set. If float (between 0.0 and 1.0), represents the proportion of the dataset to include
+                in the training set. If None, no split is performed. Only used when X_val and y_val are not provided.
 
         """
         if ERROR:
@@ -419,6 +424,7 @@ class AutoML(BaseEstimator):
         settings["custom_hp"] = settings.get("custom_hp", {})
         settings["skip_transform"] = settings.get("skip_transform", False)
         settings["mlflow_logging"] = settings.get("mlflow_logging", True)
+        settings["multioutput_train_size"] = settings.get("multioutput_train_size", None)
 
         self._estimator_type = "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         self.best_run_id = None
@@ -1720,6 +1726,28 @@ class AutoML(BaseEstimator):
         """
         return self._metric_constraints
 
+    def _train_val_split(self, X, y, train_size):
+        """Split concatenated training and validation data.
+
+        Args:
+            X: Combined training and validation features
+            y: Combined training and validation labels
+            train_size: int or float - if int, number of samples for training set;
+                       if float, proportion of samples for training set
+
+        Returns:
+            X_train, X_val, y_train, y_val
+        """
+        if isinstance(train_size, float):
+            train_size = int(len(X) * train_size)
+        
+        X_train = X[:train_size]
+        X_val = X[train_size:]
+        y_train = y[:train_size]
+        y_val = y[train_size:]
+        
+        return X_train, X_val, y_train, y_val
+
     def _prepare_data(self, eval_method, split_ratio, n_splits):
         self._state.task.prepare_data(
             self._state,
@@ -1793,6 +1821,7 @@ class AutoML(BaseEstimator):
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
+        multioutput_train_size=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -2110,6 +2139,11 @@ class AutoML(BaseEstimator):
             }
         }
         ```
+            multioutput_train_size: int, float or None, default=None | For multi-output regression tasks with
+                "holdout" evaluation, allows manual specification of validation set by concatenating training and
+                validation data and specifying where to split. If int, represents the number of samples in the
+                training set. If float (between 0.0 and 1.0), represents the proportion of the dataset to include
+                in the training set. If None, no split is performed. Only used when X_val and y_val are not provided.
 
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Below are a few examples of
@@ -2312,6 +2346,19 @@ class AutoML(BaseEstimator):
                     self.mlflow_integration.only_history = True
             except KeyError:
                 logger.info("Not in Fabric, Skipped")
+        
+        # Handle multioutput_train_size parameter
+        multioutput_train_size = (
+            self._settings.get("multioutput_train_size") if multioutput_train_size is None else multioutput_train_size
+        )
+        if multioutput_train_size is not None and X_val is None and y_val is None:
+            # Split the concatenated training data into train and validation sets
+            X_train, X_val, y_train, y_val = self._train_val_split(X_train, y_train, multioutput_train_size)
+            logger.info(
+                f"Split data using multioutput_train_size={multioutput_train_size}: "
+                f"train size={len(X_train)}, val size={len(X_val)}"
+            )
+        
         task.validate_data(
             self,
             self._state,
