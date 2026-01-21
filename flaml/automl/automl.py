@@ -789,7 +789,7 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: np.array | DataFrame | list[str] | list[list[str]] | psDataFrame,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
         **pred_kwargs,
     ):
         """Predict label from features.
@@ -854,6 +854,50 @@ class AutoML(BaseEstimator):
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
+
+    def preprocess(
+        self,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
+    ):
+        """Preprocess data using task-level preprocessing.
+
+        This method applies task-level preprocessing transformations to the input data,
+        including handling of data types, sparse matrices, and feature transformations
+        that were learned during the fit phase. This should be called before any
+        estimator-level preprocessing.
+
+        Args:
+            X: A numpy array or pandas dataframe or pyspark.pandas dataframe
+                of featurized instances, shape n * m,
+                or for time series forecast tasks:
+                    a pandas dataframe with the first column containing
+                    timestamp values (datetime type) or an integer n for
+                    the predict steps (only valid when the estimator is
+                    arima or sarimax). Other columns in the dataframe
+                    are assumed to be exogenous variables (categorical
+                    or numeric).
+
+        Returns:
+            Preprocessed data in the same format as input (numpy array, DataFrame, etc.).
+
+        Raises:
+            AttributeError: If the model has not been fitted yet.
+
+        Example:
+            ```python
+            automl = AutoML()
+            automl.fit(X_train, y_train, task="classification")
+
+            # Apply task-level preprocessing to new data
+            X_test_preprocessed = automl.preprocess(X_test)
+            ```
+        """
+        if not hasattr(self, "_state") or self._state is None:
+            raise AttributeError("AutoML instance has not been fitted yet. Please call fit() first.")
+        if not hasattr(self, "_transformer"):
+            raise AttributeError("Transformer not initialized. Please call fit() first.")
+
+        return self._state.task.preprocess(X, self._transformer)
 
     def add_learner(self, learner_name, learner_class):
         """Add a customized learner.
