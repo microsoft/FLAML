@@ -31,7 +31,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "classification",
             "metric": "accuracy",
             "estimator_list": ["lgbm"],
@@ -56,7 +56,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "regression",
             "metric": "r2",
             "estimator_list": ["lgbm"],
@@ -94,7 +94,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "classification",
             "metric": "accuracy",
             "estimator_list": ["lgbm"],
@@ -120,7 +120,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "classification",
             "metric": "accuracy",
             "estimator_list": ["lgbm"],
@@ -152,7 +152,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "classification",
             "metric": "accuracy",
             "estimator_list": ["lgbm"],
@@ -198,7 +198,7 @@ class TestPreprocessAPI(unittest.TestCase):
         # Train AutoML
         automl = AutoML()
         automl_settings = {
-            "time_budget": 5,
+            "max_iter": 5,
             "task": "classification",
             "metric": "accuracy",
             "estimator_list": ["lgbm"],
