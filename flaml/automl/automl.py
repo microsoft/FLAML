@@ -2068,6 +2068,12 @@ class AutoML(BaseEstimator):
         ```
 
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to the set that is
+                missing them, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             mlflow_logging: boolean, default=None | Whether to log the training results to mlflow.
                 Default value is None, which means the logging decision is made based on
                 AutoML.__init__'s mlflow_logging argument. Not valid if mlflow is not installed.
