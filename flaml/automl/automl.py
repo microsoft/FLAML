@@ -3015,7 +3015,7 @@ class AutoML(BaseEstimator):
                     )
 
                 logger.info(
-                    " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(
+                    " at {:.1f}s,\testimator {}'s best error={:.4e},\tbest estimator {}'s best error={:.4e}".format(
                         self._state.time_from_start,
                         estimator,
                         search_state.best_loss,
