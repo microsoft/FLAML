@@ -51,7 +51,7 @@ executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@b59486e842a8071fe82c9d8d8716209fa0fbeaae#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@7ecd6c54aa2a78266a661b80c80b880db47604a6#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -178,7 +178,7 @@ pydantic_core==2.41.5
 Pygments==2.19.2
 pyluach==2.3.0
 PyMeeus==0.5.12
-pyparsing==3.3.1
+pyparsing==3.3.2
 pyperclip==1.11.0
 pytest==9.0.2
 pytest-rerunfailures==16.1
