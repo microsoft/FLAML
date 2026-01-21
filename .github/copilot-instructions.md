@@ -66,7 +66,7 @@ ruff check . --fix
 - **Formatter:** Black (v23.3.0+)
 - **Linter:** Ruff with Pyflakes and pycodestyle rules
 - **Import sorting:** Use isort (via Ruff)
-- **Python version:** Supports Python >= 3.10 (full support for 3.10, 3.11, 3.12; Python 3.13 tested but some optional dependencies may have limited compatibility)
+- **Python version:** Supports Python >= 3.10 (full support for 3.10, 3.11, 3.12 and 3.13)
 
 ### Code Quality Rules
 
@@ -104,7 +104,7 @@ The repository uses pre-commit hooks for:
 ### Test Requirements
 
 - Write tests for new functionality
-- Ensure tests pass on multiple Python versions (3.10, 3.11, 3.12, 3.13)
+- Ensure tests pass on multiple Python versions (3.10, 3.11, 3.12 and 3.13)
 - Tests should work on both Ubuntu and Windows
 - Use pytest markers for platform-specific tests (e.g., `@pytest.mark.spark`)
 - Tests should be idempotent and not depend on external state
@@ -128,6 +128,7 @@ The repository uses pre-commit hooks for:
 
 - Use clear, descriptive commit messages
 - Reference issue numbers when applicable
+- ALWAYS run `pre-commit run --all-files` before each commit to avoid formatting issues
 
 ### Pull Requests
 
@@ -163,7 +164,7 @@ website/            # Documentation website
 ### Core Dependencies
 
 - NumPy >= 1.17
-- Python >= 3.10 (officially supported: 3.10, 3.11, 3.12; Python 3.13 is tested in CI but may have limited compatibility with some optional dependencies)
+- Python >= 3.10 (officially supported: 3.10, 3.11, 3.12 and 3.13)
 
 ### Optional Dependencies
 
