@@ -829,7 +829,7 @@ class AutoML(BaseEstimator):
 
         # Only flatten if not multi-target regression
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1:
-            is_multi_target = getattr(self._state, 'is_multi_target', False)
+            is_multi_target = getattr(self._state, "is_multi_target", False)
             if not is_multi_target:
                 y_pred = y_pred.flatten()
         if self._label_transformer:
@@ -2495,7 +2495,7 @@ class AutoML(BaseEstimator):
         self._state.error_metric = error_metric
 
         is_spark_dataframe = isinstance(X_train, psDataFrame) or isinstance(dataframe, psDataFrame)
-        is_multi_target = getattr(self._state, 'is_multi_target', False)
+        is_multi_target = getattr(self._state, "is_multi_target", False)
         estimator_list = task.default_estimator_list(estimator_list, is_spark_dataframe, is_multi_target)
 
         if is_spark_dataframe and self._use_spark:

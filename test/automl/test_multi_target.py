@@ -16,9 +16,7 @@ class TestMultiTargetRegression(unittest.TestCase):
     def setUp(self):
         """Create multi-target regression datasets for testing."""
         # Create synthetic multi-target regression data
-        self.X, self.y = make_regression(
-            n_samples=200, n_features=10, n_targets=3, random_state=42, noise=0.1
-        )
+        self.X, self.y = make_regression(n_samples=200, n_features=10, n_targets=3, random_state=42, noise=0.1)
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             self.X, self.y, test_size=0.2, random_state=42
         )

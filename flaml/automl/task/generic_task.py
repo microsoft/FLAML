@@ -231,7 +231,7 @@ class GenericTask(Task):
             elif isinstance(automl._y_train_all, pd.DataFrame):
                 is_multi_target = True
                 n_targets = automl._y_train_all.shape[1]
-        
+
         state.is_multi_target = is_multi_target
         state.n_targets = n_targets
 
@@ -1287,7 +1287,9 @@ class GenericTask(Task):
         pred_time /= n
         return val_loss, metric, train_time, pred_time
 
-    def default_estimator_list(self, estimator_list: List[str], is_spark_dataframe: bool = False, is_multi_target: bool = False) -> List[str]:
+    def default_estimator_list(
+        self, estimator_list: List[str], is_spark_dataframe: bool = False, is_multi_target: bool = False
+    ) -> List[str]:
         if "auto" != estimator_list:
             n_estimators = len(estimator_list)
             if is_spark_dataframe:
@@ -1316,7 +1318,7 @@ class GenericTask(Task):
                         "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
                         "estimators are removed."
                     )
-            
+
             # Filter out unsupported estimators for multi-target regression
             if is_multi_target and self.is_regression():
                 # List of estimators that support multi-target regression natively
@@ -1382,7 +1384,7 @@ class GenericTask(Task):
             for est in estimator_list
             if (est.endswith("_spark") if is_spark_dataframe else not est.endswith("_spark"))
         ]
-        
+
         # Filter for multi-target regression support
         if is_multi_target and self.is_regression():
             # List of estimators that support multi-target regression natively
@@ -1393,7 +1395,7 @@ class GenericTask(Task):
                     "Multi-target regression only supports estimators: xgboost, xgb_limitdepth, catboost. "
                     "No supported estimator is available."
                 )
-        
+
         return estimator_list
 
     def default_metric(self, metric: str) -> str:

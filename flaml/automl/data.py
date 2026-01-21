@@ -373,14 +373,14 @@ class DataTransformer:
                 datetime_columns,
             )
             self._drop = drop
-        
+
         # Check if y is multi-target (DataFrame or 2D array with multiple targets)
         is_multi_target = False
         if isinstance(y, DataFrame) and y.shape[1] > 1:
             is_multi_target = True
         elif isinstance(y, np.ndarray) and y.ndim == 2 and y.shape[1] > 1:
             is_multi_target = True
-        
+
         # Skip label encoding for multi-target regression
         if is_multi_target and task.is_regression():
             self.label_transformer = None
