@@ -379,6 +379,7 @@ class AutoML(BaseEstimator):
         settings["split_ratio"] = settings.get("split_ratio", SPLIT_RATIO)
         settings["n_splits"] = settings.get("n_splits", N_SPLITS)
         settings["auto_augment"] = settings.get("auto_augment", True)
+        settings["allow_label_overlap"] = settings.get("allow_label_overlap", True)
         settings["metric"] = settings.get("metric", "auto")
         # Validate that custom metric is callable if not a string
         self._validate_metric_parameter(settings["metric"], allow_auto=True)
@@ -1119,6 +1120,7 @@ class AutoML(BaseEstimator):
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
+        self._allow_label_overlap = self._settings.get("allow_label_overlap", True)
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = -1
         self._state.free_mem_ratio = 0
@@ -2135,6 +2137,9 @@ class AutoML(BaseEstimator):
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        allow_label_overlap = (
+            self._settings.get("allow_label_overlap") if allow_label_overlap is None else allow_label_overlap
+        )
         metric = self._settings.get("metric") if metric is None else metric
         estimator_list = estimator_list or self._settings.get("estimator_list")
         log_file_name = self._settings.get("log_file_name") if log_file_name is None else log_file_name
