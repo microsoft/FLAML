@@ -263,7 +263,7 @@ def test_multioutput_train_size():
 
     # predict on a subset
     predictions = model.predict(X[:10])
-    
+
     # Verify predictions have correct shape
     assert predictions.shape == (10, 3), f"Expected shape (10, 3), got {predictions.shape}"
     print(f"Predictions shape: {predictions.shape}")
@@ -276,7 +276,7 @@ def test_multioutput_train_size():
     model2.fit(X, y)
     predictions2 = model2.predict(X[:10])
     assert predictions2.shape == (10, 3), f"Expected shape (10, 3), got {predictions2.shape}"
-    print(f"Model with float train_size also works correctly")
+    print("Model with float train_size also works correctly")
 
 
 @pytest.mark.parametrize(

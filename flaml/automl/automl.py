@@ -1783,35 +1783,27 @@ class AutoML(BaseEstimator):
             X_train, X_val, y_train, y_val
         """
         n_samples = len(X)
-        
+
         # Validate train_size parameter
         if isinstance(train_size, float):
             if not 0.0 < train_size < 1.0:
-                raise ValueError(
-                    f"train_size as a float must be between 0.0 and 1.0, got {train_size}"
-                )
+                raise ValueError(f"train_size as a float must be between 0.0 and 1.0, got {train_size}")
             train_size = int(n_samples * train_size)
         elif isinstance(train_size, int):
             if train_size <= 0 or train_size >= n_samples:
-                raise ValueError(
-                    f"train_size as an integer must be between 1 and {n_samples - 1}, got {train_size}"
-                )
+                raise ValueError(f"train_size as an integer must be between 1 and {n_samples - 1}, got {train_size}")
         else:
-            raise TypeError(
-                f"train_size must be int or float, got {type(train_size).__name__}"
-            )
-        
+            raise TypeError(f"train_size must be int or float, got {type(train_size).__name__}")
+
         # Check we have at least one sample for validation
         if train_size >= n_samples:
-            raise ValueError(
-                f"train_size ({train_size}) must be less than the number of samples ({n_samples})"
-            )
-        
+            raise ValueError(f"train_size ({train_size}) must be less than the number of samples ({n_samples})")
+
         X_train = X[:train_size]
         X_val = X[train_size:]
         y_train = y[:train_size]
         y_val = y[train_size:]
-        
+
         return X_train, X_val, y_train, y_val
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
@@ -2412,7 +2404,7 @@ class AutoML(BaseEstimator):
                     self.mlflow_integration.only_history = True
             except KeyError:
                 logger.info("Not in Fabric, Skipped")
-        
+
         # Handle multioutput_train_size parameter
         multioutput_train_size = (
             self._settings.get("multioutput_train_size") if multioutput_train_size is None else multioutput_train_size
@@ -2432,10 +2424,8 @@ class AutoML(BaseEstimator):
                     f"train size={len(X_train)}, val size={len(X_val)}"
                 )
             else:
-                logger.warning(
-                    "multioutput_train_size is ignored because X_val and y_val are already provided."
-                )
-        
+                logger.warning("multioutput_train_size is ignored because X_val and y_val are already provided.")
+
         task.validate_data(
             self,
             self._state,
