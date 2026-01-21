@@ -295,6 +295,35 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
+    def preprocess(self, X):
+        """Preprocess data using estimator-level preprocessing.
+
+        This method applies estimator-specific preprocessing transformations to the input data.
+        This is the second level of preprocessing that should be applied after task-level
+        preprocessing (automl.preprocess()). Different estimator types may apply different
+        preprocessing steps (e.g., sparse matrix conversion, dataframe handling).
+
+        Args:
+            X: A numpy array or a dataframe of featurized instances, shape n*m.
+
+        Returns:
+            Preprocessed data ready for the estimator's predict/fit methods.
+
+        Example:
+            ```python
+            automl = AutoML()
+            automl.fit(X_train, y_train, task="classification")
+
+            # First apply task-level preprocessing
+            X_test_task = automl.preprocess(X_test)
+
+            # Then apply estimator-level preprocessing
+            estimator = automl.model
+            X_test_estimator = estimator.preprocess(X_test_task)
+            ```
+        """
+        return self._preprocess(X)
+
     def predict(self, X, **kwargs):
         """Predict label from features.
 
