@@ -243,13 +243,21 @@ class TimeSeriesDataset:
                 y_pred[self.time_col] = self.test_data[self.time_col]
 
         else:
+            # Auto-create timestamps when test_data is None
             if isinstance(y_pred, np.ndarray):
-                raise ValueError("Can't enrich np.ndarray as self.test_data is None")
+                y_pred = pd.DataFrame(data=y_pred, columns=self.target_names)
             elif isinstance(y_pred, pd.Series):
                 assert len(self.target_names) == 1, "Not enough columns in y_pred"
                 y_pred = pd.DataFrame({self.target_names[0]: y_pred})
-            # TODO auto-create the timestamps for the time column instead of throwing
-            raise NotImplementedError("Need a non-None test_data for this to work, for now")
+
+            # Generate timestamps based on training data's end_date and frequency
+            train_end_date = self.train_data[self.time_col].max()
+            pred_timestamps = pd.date_range(
+                start=train_end_date + pd.Timedelta(1, self.frequency),
+                periods=len(y_pred),
+                freq=self.frequency,
+            )
+            y_pred[self.time_col] = pred_timestamps
 
         assert isinstance(y_pred, pd.DataFrame)
         assert self.time_col in y_pred.columns
