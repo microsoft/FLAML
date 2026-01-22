@@ -121,6 +121,7 @@ jobs:
           file: ./coverage.xml
           flags: unittests
       - name: Save dependencies
+        if: github.ref == 'refs/heads/main'
         shell: bash
         run: |
           git config --global user.name 'github-actions[bot]'
