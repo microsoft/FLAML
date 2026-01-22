@@ -253,10 +253,10 @@ class TimeSeriesDataset:
             # Generate timestamps based on training data's end_date and frequency
             train_end_date = self.train_data[self.time_col].max()
             pred_timestamps = pd.date_range(
-                start=train_end_date + pd.Timedelta(1, self.frequency),
-                periods=len(y_pred),
+                start=train_end_date,
+                periods=len(y_pred) + 1,
                 freq=self.frequency,
-            )
+            )[1:]  # Skip the first timestamp (train_end_date itself)
             y_pred[self.time_col] = pred_timestamps
 
         assert isinstance(y_pred, pd.DataFrame)
