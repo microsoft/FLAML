@@ -148,6 +148,23 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             params["_estimator_type"] = self._estimator_type
         return params
 
+    def __sklearn_tags__(self):
+        """Override sklearn tags to respect the _estimator_type attribute.
+
+        This is needed for sklearn 1.7+ which uses get_tags() instead of
+        checking _estimator_type directly. Since BaseEstimator inherits from
+        ClassifierMixin, it would otherwise always be tagged as a classifier.
+        """
+        tags = super().__sklearn_tags__()
+        if hasattr(self, "_estimator_type"):
+            tags.estimator_type = self._estimator_type
+            if self._estimator_type == "regressor":
+                from sklearn.utils._tags import RegressorTags
+
+                tags.regressor_tags = RegressorTags()
+                tags.classifier_tags = None
+        return tags
+
     @property
     def classes_(self):
         return self._model.classes_
