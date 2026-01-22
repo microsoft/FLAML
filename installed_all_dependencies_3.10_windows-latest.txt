@@ -51,7 +51,7 @@ executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@6234d4608b76340a5dffa65d3771b64ec5c9615b#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@c0f933e2eb6e0c7374f52f4290fbb585a3b0dc43#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -150,7 +150,7 @@ pure_eval==0.2.3
 pyarrow==23.0.0
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
-pycparser==2.23
+pycparser==3.0
 pycryptodome==3.23.0
 pydantic==2.12.5
 pydantic_core==2.41.5
@@ -191,7 +191,7 @@ seqeval==1.2.2
 six==1.17.0
 smmap==5.0.2
 soupsieve==2.8.3
-SQLAlchemy==2.0.45
+SQLAlchemy==2.0.46
 sqlparse==0.5.5
 stack-data==0.6.3
 starlette==0.50.0
@@ -205,9 +205,9 @@ threadpoolctl==3.6.0
 tinycss2==1.4.0
 tokenizers==0.22.2
 tomli==2.4.0
-torch==2.9.1
+torch==2.10.0
 torchmetrics==1.8.2
-torchvision==0.24.1
+torchvision==0.25.0
 tornado==6.5.4
 tqdm==4.67.1
 traitlets==5.14.3
@@ -219,7 +219,7 @@ uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.40.0
 virtualenv==20.36.1
-wcwidth==0.2.14
+wcwidth==0.3.0
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
