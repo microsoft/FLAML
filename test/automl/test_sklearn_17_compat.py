@@ -66,9 +66,7 @@ def test_xgboost_regressor_type():
     """Test that XGBoostSklearnEstimator with regression task is recognized as regressor."""
     est = XGBoostSklearnEstimator(task="regression")
     assert is_regressor(est), "XGBoostSklearnEstimator(task='regression') should be recognized as a regressor"
-    assert not is_classifier(
-        est
-    ), "XGBoostSklearnEstimator(task='regression') should not be recognized as a classifier"
+    assert not is_classifier(est), "XGBoostSklearnEstimator(task='regression') should not be recognized as a classifier"
 
 
 def test_xgboost_classifier_type():
