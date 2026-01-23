@@ -37,7 +37,7 @@ contourpy==1.3.2
 convertdate==2.4.0
 coverage==7.13.1
 cycler==0.12.1
-databricks-sdk==0.78.0
+databricks-sdk==0.80.0
 dataclasses==0.6
 datasets==4.5.0
 debugpy==1.8.19
@@ -51,7 +51,7 @@ executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@c0f933e2eb6e0c7374f52f4290fbb585a3b0dc43#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@34009fc4971e62f81c901bb3df25ec8669fba187#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -219,7 +219,7 @@ uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.40.0
 virtualenv==20.36.1
-wcwidth==0.3.0
+wcwidth==0.3.1
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
