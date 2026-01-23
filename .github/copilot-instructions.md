@@ -135,6 +135,7 @@ The repository uses pre-commit hooks for:
 - Ensure all tests pass before requesting review
 - Update documentation if adding new features
 - Follow the PR template in `.github/PULL_REQUEST_TEMPLATE.md`
+- ALWAYS run `pre-commit run --all-files` before each commit to avoid formatting issues
 
 ## Project Structure
 
