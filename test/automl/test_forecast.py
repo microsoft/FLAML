@@ -725,10 +725,13 @@ def test_log_training_metric_ts_models():
 
 
 def test_prettify_prediction_auto_timestamps_data_types():
-    """Test auto-timestamp generation with different input data types (orthogonal test).
+    """Test auto-timestamp generation with different input data types.
 
-    This tests the fix for the TODO that previously raised NotImplementedError.
-    Tests np.ndarray, pd.Series, and pd.DataFrame inputs with daily frequency.
+    Before this PR fix, calling prettify_prediction() with test_data=None raised:
+    - ValueError for np.ndarray: "Can't enrich np.ndarray as self.test_data is None"
+    - NotImplementedError for pd.Series/DataFrame: "Need a non-None test_data for this to work"
+
+    This test verifies the fix works for np.ndarray, pd.Series, and pd.DataFrame inputs.
     """
     from flaml.automl.time_series import TimeSeriesDataset
 
@@ -766,8 +769,9 @@ def test_prettify_prediction_auto_timestamps_data_types():
 
 
 def test_prettify_prediction_auto_timestamps_frequencies():
-    """Test auto-timestamp generation with different frequencies (orthogonal test).
+    """Test auto-timestamp generation with different frequencies.
 
+    Before this PR fix, this would raise NotImplementedError when test_data is None.
     Tests daily and monthly frequencies with np.ndarray input.
     """
     from flaml.automl.time_series import TimeSeriesDataset

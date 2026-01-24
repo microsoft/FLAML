@@ -256,7 +256,9 @@ class TimeSeriesDataset:
                 start=train_end_date,
                 periods=len(y_pred) + 1,
                 freq=self.frequency,
-            )[1:]  # Skip the first timestamp (train_end_date itself)
+            )[
+                1:
+            ]  # Skip the first timestamp (train_end_date itself)
             y_pred[self.time_col] = pred_timestamps
 
         assert isinstance(y_pred, pd.DataFrame)
