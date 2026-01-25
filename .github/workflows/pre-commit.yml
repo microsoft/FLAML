@@ -3,8 +3,6 @@ name: Code formatting
 # see: https://help.github.com/en/actions/reference/events-that-trigger-workflows
 on:
   pull_request: {}
-  push:
-    branches-ignore: [main]
 
 defaults:
   run:
