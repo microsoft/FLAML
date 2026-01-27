@@ -1201,7 +1201,7 @@ class TransformersEstimator(BaseEstimator):
             model_init=self._model_init,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=self.tokenizer,
+            processing_class=self.tokenizer,
             data_collator=self.data_collator,
             compute_metrics=self._compute_metrics_by_dataset_name,
             callbacks=[EarlyStoppingCallbackForAuto],
