@@ -1216,7 +1216,7 @@ class TransformersEstimator(BaseEstimator):
                 trainer_kwargs["processing_class"] = self.tokenizer
             else:
                 trainer_kwargs["tokenizer"] = self.tokenizer
-        except Exception:
+        except (ImportError, AttributeError, ValueError):
             # Fallback to tokenizer if version check fails
             trainer_kwargs["tokenizer"] = self.tokenizer
 
