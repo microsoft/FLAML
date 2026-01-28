@@ -1196,16 +1196,31 @@ class TransformersEstimator(BaseEstimator):
                     control.should_save = True
                     control.should_evaluate = True
 
-        self._trainer = TrainerForAuto(
-            args=self._training_args,
-            model_init=self._model_init,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=self.tokenizer,
-            data_collator=self.data_collator,
-            compute_metrics=self._compute_metrics_by_dataset_name,
-            callbacks=[EarlyStoppingCallbackForAuto],
-        )
+        # Use processing_class for transformers >= 4.44.0, tokenizer for older versions
+        trainer_kwargs = {
+            "args": self._training_args,
+            "model_init": self._model_init,
+            "train_dataset": train_dataset,
+            "eval_dataset": eval_dataset,
+            "data_collator": self.data_collator,
+            "compute_metrics": self._compute_metrics_by_dataset_name,
+            "callbacks": [EarlyStoppingCallbackForAuto],
+        }
+
+        # Check if processing_class parameter is supported (transformers >= 4.44.0)
+        try:
+            import transformers
+            from packaging import version
+
+            if version.parse(transformers.__version__) >= version.parse("4.44.0"):
+                trainer_kwargs["processing_class"] = self.tokenizer
+            else:
+                trainer_kwargs["tokenizer"] = self.tokenizer
+        except (ImportError, AttributeError, ValueError):
+            # Fallback to tokenizer if version check fails
+            trainer_kwargs["tokenizer"] = self.tokenizer
+
+        self._trainer = TrainerForAuto(**trainer_kwargs)
 
         if self._task in NLG_TASKS:
             setattr(self._trainer, "_is_seq2seq", True)

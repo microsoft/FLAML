@@ -211,29 +211,28 @@ def tokenize_onedataframe(
     hf_args=None,
     prefix_str=None,
 ):
-    with tokenizer.as_target_tokenizer():
-        _, tokenized_column_names = tokenize_row(
-            dict(X.iloc[0]),
+    _, tokenized_column_names = tokenize_row(
+        dict(X.iloc[0]),
+        tokenizer,
+        prefix=(prefix_str,) if task is SUMMARIZATION else None,
+        task=task,
+        hf_args=hf_args,
+        return_column_name=True,
+    )
+    d = X.apply(
+        lambda x: tokenize_row(
+            x,
             tokenizer,
             prefix=(prefix_str,) if task is SUMMARIZATION else None,
             task=task,
             hf_args=hf_args,
-            return_column_name=True,
-        )
-        d = X.apply(
-            lambda x: tokenize_row(
-                x,
-                tokenizer,
-                prefix=(prefix_str,) if task is SUMMARIZATION else None,
-                task=task,
-                hf_args=hf_args,
-            ),
-            axis=1,
-            result_type="expand",
-        )
-        X_tokenized = pd.DataFrame(columns=tokenized_column_names)
-        X_tokenized[tokenized_column_names] = d
-        return X_tokenized
+        ),
+        axis=1,
+        result_type="expand",
+    )
+    X_tokenized = pd.DataFrame(columns=tokenized_column_names)
+    X_tokenized[tokenized_column_names] = d
+    return X_tokenized
 
 
 def tokenize_row(
