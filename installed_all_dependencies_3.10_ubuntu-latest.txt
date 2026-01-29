@@ -1,9 +1,9 @@
-absl-py==2.3.1
+absl-py==2.4.0
 accelerate==1.12.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
-alembic==1.18.1
+alembic==1.18.2
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -54,7 +54,7 @@ executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@ba930078fe62b222c62e47f73a7a3bfd94fc6789#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@d06b36af28b30d992fea73deaad391b919ad2ec4#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -168,7 +168,7 @@ prompt_toolkit==3.0.52
 propcache==0.4.1
 prophet==1.3.0
 protobuf==6.33.4
-psutil==7.2.1
+psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.3
 pyarrow==23.0.0
