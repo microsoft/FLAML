@@ -11,7 +11,7 @@ joblibspark==0.6.0
 jupyter==1.1.1
 lightgbm==4.6.0
 mlflow-skinny==2.22.1
-nbconvert==7.16.6
+nbconvert==7.17.0
 nbformat==5.10.4
 nltk==3.9.2
 numpy==1.26.4
@@ -23,7 +23,7 @@ psutil==7.2.2
 pytest-rerunfailures==16.1
 pytest==9.0.2
 pytorch-forecasting==1.6.1
-pytorch-lightning==2.6.0
+pytorch-lightning==2.6.1
 requests==2.32.5
 rgf-python==3.12.0
 rouge_score==0.1.2
@@ -38,4 +38,4 @@ torchvision==0.25.0
 transformers==5.0.0
 xgboost==1.7.6
 xgboost==1.7.6
-Current commit hash: ff1eb9ef38d272a6db2540631824100074d0d741
+Current commit hash: 5ec8e36f771cd7781c37a4847f283dc65d520f67
