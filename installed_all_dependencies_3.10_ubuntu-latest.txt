@@ -3,7 +3,7 @@ accelerate==1.12.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
-alembic==1.18.2
+alembic==1.18.3
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -14,7 +14,7 @@ asttokens==3.0.1
 async-lru==2.1.0
 async-timeout==5.0.1
 attrs==25.4.0
-autopage==0.5.2
+autopage==0.6.0
 babel==2.17.0
 backports.strenum==1.3.1
 beautifulsoup4==4.14.3
@@ -40,10 +40,10 @@ cryptography==46.0.4
 cuda-bindings==12.9.4
 cuda-pathfinder==1.3.3
 cycler==0.12.1
-databricks-sdk==0.81.0
+databricks-sdk==0.82.0
 dataclasses==0.6
 datasets==4.5.0
-debugpy==1.8.19
+debugpy==1.8.20
 decorator==5.2.1
 defusedxml==0.7.1
 dill==0.4.0
@@ -54,7 +54,7 @@ executing==2.2.1
 fastapi==0.128.0
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@d06b36af28b30d992fea73deaad391b919ad2ec4#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@ae86fe076e82177163694f4468ee669a2ab117d1#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -70,7 +70,7 @@ hf-xet==1.2.0
 holidays==0.89
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.3.4
+huggingface_hub==1.3.5
 identify==2.6.16
 idna==3.11
 importlib_metadata==8.7.1
@@ -104,7 +104,7 @@ kiwisolver==1.4.9
 lark==1.3.1
 liac-arff==2.5.0
 lightgbm==4.6.0
-lightning==2.6.0
+lightning==2.6.1
 lightning-utilities==0.15.2
 lunardate==0.2.2
 Mako==1.3.10
@@ -121,7 +121,7 @@ multidict==6.7.1
 multiprocess==0.70.18
 narwhals==2.15.0
 nbclient==0.10.4
-nbconvert==7.16.6
+nbconvert==7.17.0
 nbformat==5.10.4
 nest-asyncio==1.6.0
 networkx==3.4.2
@@ -167,7 +167,7 @@ prometheus_client==0.24.1
 prompt_toolkit==3.0.52
 propcache==0.4.1
 prophet==1.3.0
-protobuf==6.33.4
+protobuf==6.33.5
 psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.3
@@ -188,7 +188,7 @@ pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
 python-json-logger==4.0.0
 pytorch-forecasting==1.6.1
-pytorch-lightning==2.6.0
+pytorch-lightning==2.6.1
 pytz==2025.2
 PyYAML==6.0.3
 pyzmq==27.1.0
@@ -233,7 +233,7 @@ torch==2.10.0
 torchmetrics==1.8.2
 torchvision==0.25.0
 tornado==6.5.4
-tqdm==4.67.1
+tqdm==4.67.2
 traitlets==5.14.3
 transformers==5.0.0
 triton==3.6.0
@@ -245,7 +245,7 @@ uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.40.0
 virtualenv==20.36.1
-wcwidth==0.5.0
+wcwidth==0.5.2
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
