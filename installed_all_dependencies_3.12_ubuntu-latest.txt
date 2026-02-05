@@ -27,18 +27,18 @@ click==8.3.1
 cliff==4.13.1
 cloudpickle==3.1.2
 cmaes==0.12.0
-cmd2==3.1.2
+cmd2==3.1.3
 cmdstanpy==1.3.0
 colorlog==6.10.1
 comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.0
-coverage==7.13.2
+coverage==7.13.3
 cryptography==46.0.4
 cuda-bindings==12.9.4
 cuda-pathfinder==1.3.3
 cycler==0.12.1
-databricks-sdk==0.82.0
+databricks-sdk==0.84.0
 dataclasses==0.6
 datasets==4.5.0
 debugpy==1.8.20
@@ -48,10 +48,10 @@ dill==0.4.0
 distlib==0.4.0
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.128.0
+fastapi==0.128.1
 fastjsonschema==2.21.2
 filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@9ddd6a9df5d15e932254fe420aa48aa042c0e2f2#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@e6380356df496feed547ecf02738c53e1b2c25d7#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -67,7 +67,7 @@ hf-xet==1.2.0
 holidays==0.90
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.3.7
+huggingface_hub==1.4.0
 identify==2.6.16
 idna==3.11
 importlib_metadata==8.7.1
@@ -232,7 +232,7 @@ torch==2.10.0
 torchmetrics==1.8.2
 torchvision==0.25.0
 tornado==6.5.4
-tqdm==4.67.2
+tqdm==4.67.3
 traitlets==5.14.3
 transformers==5.0.0
 triton==3.6.0
