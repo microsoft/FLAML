@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkwebsite=globalThis.webpackChunkwebsite||[]).push([[9799],{3276(e){e.exports=JSON.parse('{"allTagsPath":"/FLAML/blog/tags","slug":"/FLAML/blog/tags/research","name":"research","count":3,"permalink":"/FLAML/blog/tags/research"}')}}]);
