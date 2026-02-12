@@ -33,7 +33,7 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          pip install twine wheel setuptools
+          pip install twine wheel "setuptools<82"
           python setup.py sdist bdist_wheel
       - name: Publish to PyPI
         env:
