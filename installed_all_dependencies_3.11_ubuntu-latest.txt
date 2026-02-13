@@ -38,7 +38,7 @@ cryptography==46.0.5
 cuda-bindings==12.9.4
 cuda-pathfinder==1.3.4
 cycler==0.12.1
-databricks-sdk==0.87.0
+databricks-sdk==0.88.0
 dataclasses==0.6
 datasets==4.5.0
 debugpy==1.8.20
@@ -48,10 +48,10 @@ dill==0.4.0
 distlib==0.4.0
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.128.8
+fastapi==0.129.0
 fastjsonschema==2.21.2
-filelock==3.20.3
--e git+https://github.com/microsoft/FLAML@41016d6087aa546653ed5aef274597782594bcf3#egg=FLAML
+filelock==3.21.2
+-e git+https://github.com/microsoft/FLAML@9ecb642685dab2de9f6fcc052380d42addcb33c7#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -156,7 +156,7 @@ parso==0.8.6
 patsy==1.0.2
 pexpect==4.9.0
 pillow==12.1.1
-platformdirs==4.5.1
+platformdirs==4.7.0
 plotly==6.5.2
 pluggy==1.6.0
 pre_commit==4.5.1
