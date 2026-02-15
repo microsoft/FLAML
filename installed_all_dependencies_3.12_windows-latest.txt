@@ -49,8 +49,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.129.0
 fastjsonschema==2.21.2
-filelock==3.21.2
--e git+https://github.com/microsoft/FLAML@b0886939abed0f46c7a43686d5313ff2bca07173#egg=FLAML
+filelock==3.24.0
+-e git+https://github.com/microsoft/FLAML@579f795f333e6eb7e7e9c769a1f24721bc86700b#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -214,8 +214,8 @@ tornado==6.5.4
 tqdm==4.67.3
 traitlets==5.14.3
 transformers==5.1.0
-typer==0.23.0
-typer-slim==0.23.0
+typer==0.23.1
+typer-slim==0.23.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
