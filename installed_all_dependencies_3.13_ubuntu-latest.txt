@@ -50,8 +50,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.129.0
 fastjsonschema==2.21.2
-filelock==3.21.2
--e git+https://github.com/microsoft/FLAML@e88a464fab3da5982e4e047756574a234d833301#egg=FLAML
+filelock==3.24.0
+-e git+https://github.com/microsoft/FLAML@1d301b413c65128d61006a4c19a95a911ca308ad#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -155,7 +155,7 @@ parso==0.8.6
 patsy==1.0.2
 pexpect==4.9.0
 pillow==12.1.1
-platformdirs==4.7.0
+platformdirs==4.9.1
 plotly==6.5.2
 pluggy==1.6.0
 pre_commit==4.5.1
@@ -236,8 +236,8 @@ tqdm==4.67.3
 traitlets==5.14.3
 transformers==5.1.0
 triton==3.6.0
-typer==0.23.0
-typer-slim==0.23.0
+typer==0.23.1
+typer-slim==0.23.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
