@@ -110,8 +110,8 @@ The optimization metric is specified via the `metric` argument. It can be either
 
 ```python
 def custom_metric(
-    X_val,
-    y_val,
+    X_test,
+    y_test,
     estimator,
     labels,
     X_train,
@@ -129,8 +129,8 @@ For example,
 
 ```python
 def custom_metric(
-    X_val,
-    y_val,
+    X_test,
+    y_test,
     estimator,
     labels,
     X_train,
@@ -143,9 +143,9 @@ def custom_metric(
     import time
 
     start = time.time()
-    y_pred = estimator.predict_proba(X_val)
-    pred_time = (time.time() - start) / len(X_val)
-    val_loss = log_loss(y_val, y_pred, labels=labels, sample_weight=weight_val)
+    y_pred = estimator.predict_proba(X_test)
+    pred_time = (time.time() - start) / len(X_test)
+    val_loss = log_loss(y_test, y_pred, labels=labels, sample_weight=weight_val)
     y_pred = estimator.predict_proba(X_train)
     train_loss = log_loss(y_train, y_pred, labels=labels, sample_weight=weight_train)
     alpha = 0.5
