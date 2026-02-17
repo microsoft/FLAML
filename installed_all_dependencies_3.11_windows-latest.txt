@@ -48,8 +48,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.129.0
 fastjsonschema==2.21.2
-filelock==3.21.2
--e git+https://github.com/microsoft/FLAML@06111054a40bde57cca96dccd7476a3211b19893#egg=FLAML
+filelock==3.24.2
+-e git+https://github.com/microsoft/FLAML@59f825ce6f8b153e5df8588118a4ee98f933bc2a#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -136,7 +136,7 @@ pandocfilters==1.5.1
 parso==0.8.6
 patsy==1.0.2
 pillow==12.1.1
-platformdirs==4.7.0
+platformdirs==4.9.2
 plotly==6.5.2
 pluggy==1.6.0
 pre_commit==4.5.1
@@ -147,7 +147,7 @@ propcache==0.4.1
 protobuf==6.33.5
 psutil==7.2.2
 pure_eval==0.2.3
-pyarrow==23.0.0
+pyarrow==23.0.1
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pycparser==3.0
@@ -211,16 +211,16 @@ torchvision==0.25.0
 tornado==6.5.4
 tqdm==4.67.3
 traitlets==5.14.3
-transformers==5.1.0
-typer==0.23.0
-typer-slim==0.23.0
+transformers==5.2.0
+typer==0.24.0
+typer-slim==0.24.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
 uri-template==1.3.0
 urllib3==2.6.3
-uvicorn==0.40.0
-virtualenv==20.36.1
+uvicorn==0.41.0
+virtualenv==20.37.0
 wcwidth==0.6.0
 webcolors==25.10.0
 webencodings==0.5.1
@@ -228,7 +228,7 @@ websocket-client==1.9.0
 widgetsnbextension==4.0.15
 workalendar==17.0.0
 xgboost==3.2.0
-xmltodict==1.0.2
+xmltodict==1.0.3
 xxhash==3.6.0
 yarl==1.22.0
 zipp==3.23.0
