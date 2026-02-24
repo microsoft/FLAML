@@ -54,7 +54,7 @@ class TestRegression(unittest.TestCase):
         y_pred = automl.predict(X_train)
         print(y_pred)
         print(automl.model.estimator)
-        n_iter = automl.model.estimator.get_params("n_estimators")
+        n_iter = automl.model.estimator.get_params().get("n_estimators")
         print(automl.config_history)
         print(automl.best_model_for_estimator("xgboost"))
         print(automl.best_iteration)
@@ -86,7 +86,7 @@ class TestRegression(unittest.TestCase):
         print(automl.model.estimator)
         y_pred2 = automl.predict(X_train)
         # In some rare case, the last config is early stopped and it's the best config. But the logged config's n_estimator is not reduced.
-        assert n_iter != automl.model.estimator.get_params("n_estimator") or (y_pred == y_pred2).all()
+        assert n_iter != automl.model.estimator.get_params().get("n_estimators") or (y_pred == y_pred2).all()
 
     def test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
