@@ -13,7 +13,7 @@ lightgbm==4.6.0
 mlflow-skinny==2.22.1
 nbconvert==7.17.0
 nbformat==5.10.4
-nltk==3.9.2
+nltk==3.9.3
 numpy==2.4.2
 openml==0.15.1
 optuna==2.8.0
@@ -38,4 +38,4 @@ torchvision==0.25.0
 transformers==5.2.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: cfd6f0fc0858137ac1f57d599a1b8215f1782c22
+Current commit hash: 6045e7107ca03bb895384c415effcb4e900d1145
