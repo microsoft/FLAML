@@ -119,13 +119,15 @@ class GenericTask(Task):
                 "a Scipy sparse matrix or a pyspark.pandas dataframe."
             )
             assert isinstance(
-                y_train_all, (np.ndarray, pd.Series, psSeries)
-            ), "y_train_all must be a numpy array, a pandas series or a pyspark.pandas series."
+                y_train_all, (np.ndarray, pd.Series, pd.DataFrame, psSeries)
+            ), "y_train_all must be a numpy array, a pandas series, a pandas dataframe or a pyspark.pandas series."
             assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty."
             if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
                 X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
             if isinstance(y_train_all, np.ndarray):
-                y_train_all = y_train_all.flatten()
+                # Only flatten if it's truly 1D (not multi-target)
+                if y_train_all.ndim == 1 or (y_train_all.ndim == 2 and y_train_all.shape[1] == 1):
+                    y_train_all = y_train_all.flatten()
             assert X_train_all.shape[0] == y_train_all.shape[0], "# rows in X_train must match length of y_train."
             if isinstance(X_train_all, psDataFrame):
                 X_train_all = X_train_all.spark.cache()  # cache data to improve compute speed
@@ -219,6 +221,20 @@ class GenericTask(Task):
                 automl._X_train_all.columns.to_list() if hasattr(automl._X_train_all, "columns") else None
             )
 
+        # Detect multi-target regression
+        is_multi_target = False
+        n_targets = 1
+        if self.is_regression():
+            if isinstance(automl._y_train_all, np.ndarray) and automl._y_train_all.ndim == 2:
+                is_multi_target = True
+                n_targets = automl._y_train_all.shape[1]
+            elif isinstance(automl._y_train_all, pd.DataFrame):
+                is_multi_target = True
+                n_targets = automl._y_train_all.shape[1]
+
+        state.is_multi_target = is_multi_target
+        state.n_targets = n_targets
+
         automl._sample_weight_full = state.fit_kwargs.get(
             "sample_weight"
         )  # NOTE: _validate_data is before kwargs is updated to fit_kwargs_by_estimator
@@ -227,14 +243,16 @@ class GenericTask(Task):
                 "X_val must be None, a numpy array, a pandas dataframe, "
                 "a Scipy sparse matrix or a pyspark.pandas dataframe."
             )
-            assert isinstance(y_val, (np.ndarray, pd.Series, psSeries)), (
-                "y_val must be None, a numpy array, a pandas series " "or a pyspark.pandas series."
+            assert isinstance(y_val, (np.ndarray, pd.Series, pd.DataFrame, psSeries)), (
+                "y_val must be None, a numpy array, a pandas series, a pandas dataframe " "or a pyspark.pandas series."
             )
             assert X_val.size != 0 and y_val.size != 0, (
                 "Validation data are expected to be nonempty. " "Use None for X_val and y_val if no validation data."
             )
             if isinstance(y_val, np.ndarray):
-                y_val = y_val.flatten()
+                # Only flatten if it's truly 1D (not multi-target)
+                if y_val.ndim == 1 or (y_val.ndim == 2 and y_val.shape[1] == 1):
+                    y_val = y_val.flatten()
             assert X_val.shape[0] == y_val.shape[0], "# rows in X_val must match length of y_val."
             if automl._transformer:
                 state.X_val = automl._transformer.transform(X_val)
@@ -1217,7 +1235,10 @@ class GenericTask(Task):
             else:
                 X_train, X_val = X_train_split[train_index], X_train_split[val_index]
             if not is_spark_dataframe:
-                y_train, y_val = y_train_split[train_index], y_train_split[val_index]
+                if isinstance(y_train_split, (pd.DataFrame, pd.Series)):
+                    y_train, y_val = y_train_split.iloc[train_index], y_train_split.iloc[val_index]
+                else:
+                    y_train, y_val = y_train_split[train_index], y_train_split[val_index]
                 if weight is not None:
                     fit_kwargs["sample_weight"] = (
                         weight[train_index] if isinstance(weight, np.ndarray) else weight.iloc[train_index]
@@ -1266,7 +1287,9 @@ class GenericTask(Task):
         pred_time /= n
         return val_loss, metric, train_time, pred_time
 
-    def default_estimator_list(self, estimator_list: List[str], is_spark_dataframe: bool = False) -> List[str]:
+    def default_estimator_list(
+        self, estimator_list: List[str], is_spark_dataframe: bool = False, is_multi_target: bool = False
+    ) -> List[str]:
         if "auto" != estimator_list:
             n_estimators = len(estimator_list)
             if is_spark_dataframe:
@@ -1294,6 +1317,23 @@ class GenericTask(Task):
                     logger.warning(
                         "Non-spark dataframes only support estimator names not ending with `_spark`. Non-supported "
                         "estimators are removed."
+                    )
+
+            # Filter out unsupported estimators for multi-target regression
+            if is_multi_target and self.is_regression():
+                # List of estimators that support multi-target regression natively
+                multi_target_supported = ["xgboost", "xgb_limitdepth", "catboost"]
+                original_len = len(estimator_list)
+                estimator_list = [est for est in estimator_list if est in multi_target_supported]
+                if len(estimator_list) == 0:
+                    raise ValueError(
+                        "Multi-target regression only supports estimators: xgboost, xgb_limitdepth, catboost. "
+                        "Non-supported estimators are removed. No estimator is left."
+                    )
+                elif original_len != len(estimator_list):
+                    logger.warning(
+                        "Multi-target regression only supports estimators: xgboost, xgb_limitdepth, catboost. "
+                        "Non-supported estimators are removed."
                     )
             return estimator_list
         if self.is_rank():
@@ -1344,6 +1384,18 @@ class GenericTask(Task):
             for est in estimator_list
             if (est.endswith("_spark") if is_spark_dataframe else not est.endswith("_spark"))
         ]
+
+        # Filter for multi-target regression support
+        if is_multi_target and self.is_regression():
+            # List of estimators that support multi-target regression natively
+            multi_target_supported = ["xgboost", "xgb_limitdepth", "catboost"]
+            estimator_list = [est for est in estimator_list if est in multi_target_supported]
+            if len(estimator_list) == 0:
+                raise ValueError(
+                    "Multi-target regression only supports estimators: xgboost, xgb_limitdepth, catboost. "
+                    "No supported estimator is available."
+                )
+
         return estimator_list
 
     def default_metric(self, metric: str) -> str:
