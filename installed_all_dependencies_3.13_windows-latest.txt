@@ -36,9 +36,9 @@ convertdate==2.4.1
 coverage==7.13.4
 cryptography==46.0.5
 cycler==0.12.1
-databricks-sdk==0.92.0
+databricks-sdk==0.94.0
 dataclasses==0.6
-datasets==4.5.0
+datasets==4.6.0
 debugpy==1.8.20
 decorator==5.2.1
 defusedxml==0.7.1
@@ -46,14 +46,14 @@ dill==0.4.0
 distlib==0.4.0
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.133.0
+fastapi==0.133.1
 fastjsonschema==2.21.2
 filelock==3.24.3
--e git+https://github.com/microsoft/FLAML@6045e7107ca03bb895384c415effcb4e900d1145#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@9f0b377b3e1b57f9a7ce9a688925ffee19ded8e9#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
-fsspec==2025.10.0
+fsspec==2026.2.0
 gitdb==4.0.12
 GitPython==3.1.46
 google-auth==2.48.0
@@ -64,7 +64,7 @@ hcrystalball==0.1.12
 hf-xet==1.3.1
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.4.1
+huggingface_hub==1.5.0
 identify==2.6.16
 idna==3.11
 importlib_metadata==8.7.1
@@ -162,6 +162,7 @@ pyreadline3==3.5.4
 pytest==9.0.2
 pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
+python-discovery==1.1.0
 python-json-logger==4.0.0
 pytorch-forecasting==1.6.1
 pytorch-lightning==2.6.1
@@ -220,7 +221,7 @@ tzdata==2025.3
 uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.41.0
-virtualenv==20.39.0
+virtualenv==21.0.0
 wcwidth==0.6.0
 webcolors==25.10.0
 webencodings==0.5.1
