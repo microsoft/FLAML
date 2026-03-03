@@ -29,7 +29,7 @@ click==8.3.1
 cliff==4.13.2
 cloudpickle==3.1.2
 cmaes==0.12.0
-cmd2==3.2.2
+cmd2==3.3.0
 colorama==0.4.6
 colorlog==6.10.1
 comm==0.2.3
@@ -38,7 +38,7 @@ convertdate==2.4.1
 coverage==7.13.4
 cryptography==46.0.5
 cycler==0.12.1
-databricks-sdk==0.94.0
+databricks-sdk==0.95.0
 dataclasses==0.6
 datasets==4.6.1
 debugpy==1.8.20
@@ -49,10 +49,10 @@ distlib==0.4.0
 evaluate==0.4.6
 exceptiongroup==1.3.1
 executing==2.2.1
-fastapi==0.134.0
+fastapi==0.135.1
 fastjsonschema==2.21.2
-filelock==3.24.3
--e git+https://github.com/microsoft/FLAML@7ee8ef1c3045fe5b8a0eb1a7009ce3190a6f8955#egg=FLAML
+filelock==3.25.0
+-e git+https://github.com/microsoft/FLAML@3554eb650fe234f43ee5d452b900d24b188bd753#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -68,7 +68,7 @@ hf-xet==1.3.2
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.5.0
-identify==2.6.16
+identify==2.6.17
 idna==3.11
 importlib_metadata==8.7.1
 iniconfig==2.3.0
@@ -139,7 +139,7 @@ parso==0.8.6
 patsy==1.0.2
 pillow==12.1.1
 platformdirs==4.9.2
-plotly==6.5.2
+plotly==6.6.0
 pluggy==1.6.0
 pre_commit==4.5.1
 prettytable==3.17.0
@@ -195,7 +195,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
 soupsieve==2.8.3
-SQLAlchemy==2.0.47
+SQLAlchemy==2.0.48
 sqlparse==0.5.5
 stack-data==0.6.3
 starlette==0.52.1
@@ -234,5 +234,5 @@ workalendar==17.0.0
 xgboost==1.7.6
 xmltodict==1.0.4
 xxhash==3.6.0
-yarl==1.22.0
+yarl==1.23.0
 zipp==3.23.0
