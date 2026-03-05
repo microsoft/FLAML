@@ -1,5 +1,5 @@
 absl-py==2.4.0
-accelerate==1.12.0
+accelerate==1.13.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
@@ -27,7 +27,7 @@ click==8.3.1
 cliff==4.13.2
 cloudpickle==3.1.2
 cmaes==0.12.0
-cmd2==3.3.0
+cmd2==3.4.0
 colorama==0.4.6
 colorlog==6.10.1
 comm==0.2.3
@@ -36,7 +36,7 @@ convertdate==2.4.1
 coverage==7.13.4
 cryptography==46.0.5
 cycler==0.12.1
-databricks-sdk==0.95.0
+databricks-sdk==0.96.0
 dataclasses==0.6
 datasets==4.6.1
 debugpy==1.8.20
@@ -49,7 +49,7 @@ executing==2.2.1
 fastapi==0.135.1
 fastjsonschema==2.21.2
 filelock==3.25.0
--e git+https://github.com/microsoft/FLAML@4555aec74ba8d883dd5a50f70972efe059dbd438#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@8abf1ede6492610b8fd1cb2fbf4615456d356ba1#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -125,9 +125,9 @@ notebook==7.5.4
 notebook_shim==0.2.4
 numpy==1.26.4
 openml==0.15.1
-opentelemetry-api==1.39.1
-opentelemetry-sdk==1.39.1
-opentelemetry-semantic-conventions==0.60b1
+opentelemetry-api==1.40.0
+opentelemetry-sdk==1.40.0
+opentelemetry-semantic-conventions==0.61b0
 optuna==2.8.0
 overrides==7.7.0
 packaging==24.2
@@ -167,7 +167,7 @@ python-discovery==1.1.0
 python-json-logger==4.0.0
 pytorch-forecasting==1.6.1
 pytorch-lightning==2.6.1
-pytz==2025.2
+pytz==2026.1.post1
 pywinpty==3.0.3
 PyYAML==6.0.3
 pyzmq==27.1.0
@@ -212,9 +212,8 @@ torchvision==0.25.0
 tornado==6.5.4
 tqdm==4.67.3
 traitlets==5.14.3
-transformers==5.2.0
+transformers==5.3.0
 typer==0.24.1
-typer-slim==0.24.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
