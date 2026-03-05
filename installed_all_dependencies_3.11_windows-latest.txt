@@ -13,7 +13,6 @@ arrow==1.4.0
 asttokens==3.0.1
 async-lru==2.2.0
 attrs==25.4.0
-autopage==0.6.0
 babel==2.18.0
 beautifulsoup4==4.14.3
 bleach==6.3.0
@@ -24,10 +23,7 @@ cffi==2.0.0
 cfgv==3.5.0
 charset-normalizer==3.4.4
 click==8.3.1
-cliff==4.13.2
 cloudpickle==3.1.2
-cmaes==0.12.0
-cmd2==3.4.0
 colorama==0.4.6
 colorlog==6.10.1
 comm==0.2.3
@@ -49,7 +45,7 @@ executing==2.2.1
 fastapi==0.135.1
 fastjsonschema==2.21.2
 filelock==3.25.0
--e git+https://github.com/microsoft/FLAML@8abf1ede6492610b8fd1cb2fbf4615456d356ba1#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@97f72b0723c8ab09f0ceedc51df37f7f9384f3e1#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -128,7 +124,7 @@ openml==0.15.1
 opentelemetry-api==1.40.0
 opentelemetry-sdk==1.40.0
 opentelemetry-semantic-conventions==0.61b0
-optuna==2.8.0
+optuna==3.6.1
 overrides==7.7.0
 packaging==24.2
 pandas==2.3.3
@@ -140,7 +136,6 @@ platformdirs==4.9.2
 plotly==6.6.0
 pluggy==1.6.0
 pre_commit==4.5.1
-prettytable==3.17.0
 prometheus_client==0.24.1
 prompt_toolkit==3.0.52
 propcache==0.4.1
@@ -158,8 +153,6 @@ Pygments==2.19.2
 pyluach==2.3.0
 PyMeeus==0.5.12
 pyparsing==3.3.2
-pyperclip==1.11.0
-pyreadline3==3.5.4
 pytest==9.0.2
 pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
@@ -179,7 +172,6 @@ rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
 rgf-python==3.12.0
 rich==14.3.3
-rich-argparse==1.7.2
 rouge_score==0.1.2
 rpds-py==0.30.0
 rsa==4.9.1
@@ -198,7 +190,6 @@ sqlparse==0.5.5
 stack-data==0.6.3
 starlette==0.52.1
 statsmodels==0.14.6
-stevedore==5.7.0
 sympy==1.14.0
 tensorboardX==2.6.4
 terminado==0.18.1
