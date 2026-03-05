@@ -323,7 +323,7 @@ def test_no_optuna():
     subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "optuna"])
     import flaml.tune.searcher.suggestion
 
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna==2.8.0"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna>=2.8.0,<=3.6.1"])
 
 
 def test_unresolved_search_space(caplog):
