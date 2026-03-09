@@ -49,7 +49,7 @@ executing==2.2.1
 fastapi==0.135.1
 fastjsonschema==2.21.2
 filelock==3.25.0
--e git+https://github.com/microsoft/FLAML@5b6d75c4a4cf86e0d01401077548b8e9f8567891#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@94df302cf9552a2c5e9fb5eae609b54497ee2825#egg=FLAML
 fonttools==4.61.1
 fqdn==1.5.1
 frozenlist==1.8.0
