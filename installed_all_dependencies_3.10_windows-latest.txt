@@ -33,7 +33,7 @@ convertdate==2.4.1
 coverage==7.13.4
 cryptography==46.0.5
 cycler==0.12.1
-databricks-sdk==0.97.0
+databricks-sdk==0.99.0
 dataclasses==0.6
 datasets==4.7.0
 debugpy==1.8.20
@@ -46,20 +46,20 @@ exceptiongroup==1.3.1
 executing==2.2.1
 fastapi==0.135.1
 fastjsonschema==2.21.2
-filelock==3.25.1
--e git+https://github.com/microsoft/FLAML@fa6254d19a9b4bce0daabd83f92c19ec6f7419b9#egg=FLAML
+filelock==3.25.2
+-e git+https://github.com/microsoft/FLAML@22f6a99fd51c2e5d2397ce0018121f7f96f8b16c#egg=FLAML
 fonttools==4.62.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.2.0
 gitdb==4.0.12
 GitPython==3.1.46
-google-auth==2.49.0
+google-auth==2.49.1
 graphviz==0.21
 greenlet==3.3.2
 h11==0.16.0
 hcrystalball==0.1.12
-hf-xet==1.3.2
+hf-xet==1.4.1
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.6.0
@@ -87,7 +87,7 @@ jupyter_client==8.8.0
 jupyter_core==5.9.1
 jupyter_server==2.17.0
 jupyter_server_terminals==0.5.4
-jupyterlab==4.5.5
+jupyterlab==4.5.6
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.28.0
 jupyterlab_widgets==3.0.16
@@ -118,7 +118,7 @@ nest-asyncio==1.6.0
 networkx==3.4.2
 nltk==3.9.3
 nodeenv==1.10.0
-notebook==7.5.4
+notebook==7.5.5
 notebook_shim==0.2.4
 numpy==1.26.4
 openml==0.15.1
@@ -175,7 +175,6 @@ rgf-python==3.12.0
 rich==14.3.3
 rouge_score==0.1.2
 rpds-py==0.30.0
-rsa==4.9.1
 safetensors==0.7.0
 scikit-base==0.13.1
 scikit-learn==1.7.2
