@@ -1,8 +1,8 @@
 catboost==1.2.10
 coverage==7.13.4
 dataclasses==0.6
-datasets==4.7.0
-dill==0.4.0
+datasets==4.8.2
+dill==0.4.1
 evaluate==0.4.6
 hcrystalball==0.1.12
 ipykernel==7.2.0
@@ -39,4 +39,4 @@ torchvision==0.25.0
 transformers==5.3.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: c06a07a04bfaaa8178f4eec4904e9e9474305434
+Current commit hash: 04152c14f811f8fc60492a0a2b5c49ae280543ab
