@@ -31,7 +31,7 @@ comm==0.2.3
 contourpy==1.3.2
 convertdate==2.4.1
 coverage==7.13.5
-cryptography==46.0.5
+cryptography==46.0.6
 cycler==0.12.1
 databricks-sdk==0.102.0
 dataclasses==0.6
@@ -47,7 +47,7 @@ executing==2.2.1
 fastapi==0.135.2
 fastjsonschema==2.21.2
 filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@53464681336bb004688dd4fae7298a8b55dd3083#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@377eb59d81b5b9134249f405f55529f9c55c21cb#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -62,7 +62,7 @@ hcrystalball==0.1.12
 hf-xet==1.4.2
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.7.2
+huggingface_hub==1.8.0
 identify==2.6.18
 idna==3.11
 importlib_metadata==8.7.1
@@ -157,7 +157,7 @@ pyparsing==3.3.2
 pytest==9.0.2
 pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
-python-discovery==1.2.0
+python-discovery==1.2.1
 python-json-logger==4.0.0
 pytorch-forecasting==1.6.1
 pytorch-lightning==2.6.1
@@ -167,7 +167,7 @@ PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
 regex==2026.2.28
-requests==2.32.5
+requests==2.33.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
@@ -197,14 +197,14 @@ thop==0.1.1.post2209072238
 threadpoolctl==3.6.0
 tinycss2==1.4.0
 tokenizers==0.22.2
-tomli==2.4.0
+tomli==2.4.1
 torch==2.11.0
 torchmetrics==1.9.0
 torchvision==0.26.0
 tornado==6.5.5
 tqdm==4.67.3
 traitlets==5.14.3
-transformers==5.3.0
+transformers==5.4.0
 typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
