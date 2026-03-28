@@ -244,6 +244,41 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
+def test_multioutput_train_size():
+    """Test multioutput_train_size parameter for manual validation set specification."""
+    from sklearn.multioutput import MultiOutputRegressor
+
+    # create multi-output regression data
+    X, y = make_regression(n_samples=100, n_features=10, n_targets=3, random_state=42)
+
+    # Concatenate what would be training and validation data
+    # Simulate having 70 samples for training and 30 for validation
+    train_size = 70
+
+    # train the model using multioutput_train_size
+    model = MultiOutputRegressor(
+        AutoML(task="regression", time_budget=1, eval_method="holdout", multioutput_train_size=train_size)
+    )
+    model.fit(X, y)
+
+    # predict on a subset
+    predictions = model.predict(X[:10])
+
+    # Verify predictions have correct shape
+    assert predictions.shape == (10, 3), f"Expected shape (10, 3), got {predictions.shape}"
+    print(f"Predictions shape: {predictions.shape}")
+    print(f"Sample predictions:\n{predictions[:3]}")
+
+    # Test with float train_size (proportion)
+    model2 = MultiOutputRegressor(
+        AutoML(task="regression", time_budget=1, eval_method="holdout", multioutput_train_size=0.7)
+    )
+    model2.fit(X, y)
+    predictions2 = model2.predict(X[:10])
+    assert predictions2.shape == (10, 3), f"Expected shape (10, 3), got {predictions2.shape}"
+    print("Model with float train_size also works correctly")
+
+
 @pytest.mark.parametrize(
     "estimator",
     [
