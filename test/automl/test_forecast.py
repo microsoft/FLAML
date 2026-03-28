@@ -724,6 +724,124 @@ def test_log_training_metric_ts_models():
             assert automl.best_estimator == estimator
 
 
+def test_prettify_prediction_auto_timestamps_data_types():
+    """Test auto-timestamp generation with different input data types.
+
+    Before this PR fix, calling prettify_prediction() with test_data=None raised:
+    - ValueError for np.ndarray: "Can't enrich np.ndarray as self.test_data is None"
+    - NotImplementedError for pd.Series/DataFrame: "Need a non-None test_data for this to work"
+
+    This test verifies the fix works for np.ndarray, pd.Series, and pd.DataFrame inputs.
+    """
+    from flaml.automl.time_series import TimeSeriesDataset
+
+    # Create training data with daily frequency
+    n = 30
+    train_df = pd.DataFrame(
+        {
+            "date": pd.date_range(start="2023-01-01", periods=n, freq="D"),
+            "value": np.random.randn(n),
+        }
+    )
+    tsds = TimeSeriesDataset(train_df, time_col="date", target_names="value")
+    assert len(tsds.test_data) == 0
+
+    pred_steps = 5
+    expected_start = pd.date_range(start=train_df["date"].max(), periods=2, freq="D")[1]
+
+    # Test np.ndarray
+    result = tsds.prettify_prediction(np.random.randn(pred_steps))
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == pred_steps
+    assert result["date"].iloc[0] == expected_start
+
+    # Test pd.Series
+    result = tsds.prettify_prediction(pd.Series(np.random.randn(pred_steps)))
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == pred_steps
+    assert result["date"].iloc[0] == expected_start
+
+    # Test pd.DataFrame
+    result = tsds.prettify_prediction(pd.DataFrame({"value": np.random.randn(pred_steps)}))
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == pred_steps
+    assert result["date"].iloc[0] == expected_start
+
+
+def test_prettify_prediction_auto_timestamps_frequencies():
+    """Test auto-timestamp generation with different frequencies.
+
+    Before this PR fix, this would raise NotImplementedError when test_data is None.
+    Tests daily and monthly frequencies with np.ndarray input.
+    """
+    from flaml.automl.time_series import TimeSeriesDataset
+
+    pred_steps = 6
+
+    # Test daily frequency
+    train_df_daily = pd.DataFrame(
+        {
+            "date": pd.date_range(start="2023-01-01", periods=30, freq="D"),
+            "value": np.random.randn(30),
+        }
+    )
+    tsds_daily = TimeSeriesDataset(train_df_daily, time_col="date", target_names="value")
+    result = tsds_daily.prettify_prediction(np.random.randn(pred_steps))
+    expected_dates = pd.date_range(start=train_df_daily["date"].max(), periods=pred_steps + 1, freq="D")[1:]
+    pd.testing.assert_index_equal(pd.DatetimeIndex(result["date"]), expected_dates, check_names=False)
+
+    # Test monthly frequency
+    train_df_monthly = pd.DataFrame(
+        {
+            "date": pd.date_range(start="2022-01-01", periods=24, freq="MS"),
+            "value": np.random.randn(24),
+        }
+    )
+    tsds_monthly = TimeSeriesDataset(train_df_monthly, time_col="date", target_names="value")
+    result = tsds_monthly.prettify_prediction(np.random.randn(pred_steps))
+    expected_dates = pd.date_range(start=train_df_monthly["date"].max(), periods=pred_steps + 1, freq="MS")[1:]
+    pd.testing.assert_index_equal(pd.DatetimeIndex(result["date"]), expected_dates, check_names=False)
+
+
+def test_auto_timestamps_e2e(budget=3):
+    """E2E test: train a model and predict without explicit test_data timestamps.
+
+    This showcases the improvement from this PR - users can now make predictions
+    without providing explicit test data timestamps.
+    """
+    try:
+        import statsmodels  # noqa: F401
+    except ImportError:
+        print("statsmodels not installed, skipping E2E test")
+        return
+
+    # Create training data
+    n = 100
+    train_df = pd.DataFrame(
+        {
+            "ds": pd.date_range(start="2020-01-01", periods=n, freq="D"),
+            "y": np.sin(np.linspace(0, 10, n)) + np.random.randn(n) * 0.1,
+        }
+    )
+
+    # Train model
+    automl = AutoML()
+    automl.fit(
+        dataframe=train_df,
+        label="y",
+        period=10,
+        task="ts_forecast",
+        time_budget=budget,
+        estimator_list=["arima"],
+    )
+
+    # Predict using steps (no explicit test_data) - this is the key improvement
+    y_pred = automl.predict(10)
+    assert y_pred is not None
+    assert len(y_pred) == 10
+    print("E2E test passed: model trained and predicted without explicit test_data!")
+
+
 if __name__ == "__main__":
     # test_forecast_automl(60)
     # test_multivariate_forecast_num(5)
