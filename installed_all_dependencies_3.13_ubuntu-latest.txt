@@ -1,7 +1,7 @@
 absl-py==2.4.0
 accelerate==1.13.0
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.3
+aiohttp==3.13.4
 aiosignal==1.4.0
 alembic==1.18.4
 annotated-doc==0.0.4
@@ -48,7 +48,7 @@ executing==2.2.1
 fastapi==0.135.2
 fastjsonschema==2.21.2
 filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@409388380b67595d84230f6eb482f98182b9a7a0#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@c5686b4239d9574e360e9eabf208a531d1cebb47#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -71,7 +71,7 @@ importlib_metadata==8.7.1
 importlib_resources==6.5.2
 iniconfig==2.3.0
 ipykernel==7.2.0
-ipython==9.11.0
+ipython==9.12.0
 ipython_pygments_lexers==1.1.1
 ipywidgets==8.1.8
 isoduration==20.11.0
@@ -79,7 +79,7 @@ jedi==0.19.2
 Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
-json5==0.13.0
+json5==0.14.0
 jsonpointer==3.1.1
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
@@ -189,7 +189,7 @@ pytz==2026.1.post1
 PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
-regex==2026.2.28
+regex==2026.3.32
 requests==2.33.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
