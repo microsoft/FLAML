@@ -48,7 +48,7 @@ executing==2.2.1
 fastapi==0.135.2
 fastjsonschema==2.21.2
 filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@c3812d1ec1fb99fe2f891364755e6fc03657fbcc#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@db2e282eef74e6ad6f2859e7b67176271ebe8dae#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -174,7 +174,7 @@ pycparser==3.0
 pycryptodome==3.23.0
 pydantic==2.12.5
 pydantic_core==2.41.5
-Pygments==2.19.2
+Pygments==2.20.0
 pyluach==2.3.0
 PyMeeus==0.5.12
 pyparsing==3.3.2
@@ -183,7 +183,7 @@ pytest==9.0.2
 pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
 python-discovery==1.2.1
-python-json-logger==4.0.0
+python-json-logger==4.1.0
 pytorch-forecasting==1.6.1
 pytorch-lightning==2.6.1
 pytz==2026.1.post1
@@ -191,7 +191,7 @@ PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
 regex==2026.3.32
-requests==2.33.0
+requests==2.33.1
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
