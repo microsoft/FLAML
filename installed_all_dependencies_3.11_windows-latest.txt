@@ -1,7 +1,7 @@
 absl-py==2.4.0
 accelerate==1.13.0
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.4
+aiohttp==3.13.5
 aiosignal==1.4.0
 alembic==1.18.4
 annotated-doc==0.0.4
@@ -45,7 +45,7 @@ executing==2.2.1
 fastapi==0.135.2
 fastjsonschema==2.21.2
 filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@5bf9e7b695e14ace07f67356e6fcbeed4b92e5db#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@2bc085368cdaaa8431c4d7dfdbc85cafdafadd06#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -57,7 +57,7 @@ graphviz==0.21
 greenlet==3.3.2
 h11==0.16.0
 hcrystalball==0.1.12
-hf-xet==1.4.2
+hf-xet==1.4.3
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.8.0
