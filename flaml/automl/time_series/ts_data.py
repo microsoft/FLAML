@@ -273,7 +273,7 @@ def enrich_dataframe(
 
     new_cols = []
     for col in df.columns:
-        if is_datetime64_any_dtype(df[col]):
+        if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(df[col]):
             extras = monthly_fourier_features(df[col], fourier_degree)
             extras.columns = [f"{col}_{c}" for c in extras.columns]
             extras.index = df.index
@@ -404,7 +404,7 @@ class DataTransformerTS:
                 continue
 
             # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
-            if is_datetime64_any_dtype(X[column]):
+            if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
                 self.datetime_columns.append(column)
                 continue
 
