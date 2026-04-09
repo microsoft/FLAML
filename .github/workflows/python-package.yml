@@ -64,6 +64,10 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
+      - name: On Ubuntu python 3.12, pin pandas 2 for backward compat testing
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        run: |
+          pip install "pandas>=2.0,<3"
       - name: On Ubuntu python 3.11, install pyspark 3.5.1
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         run: |
