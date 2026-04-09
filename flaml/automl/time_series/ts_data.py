@@ -25,6 +25,7 @@ except ImportError:
     pd.DataFrame = None
     pd.Series = None
     DataFrame = Series = None
+    is_datetime64_any_dtype = None
 
 
 # dataclass will remove empty default value even with field(default_factory=lambda: [])
