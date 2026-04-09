@@ -209,8 +209,8 @@ def load_multi_dataset():
     df["timeStamp"] = pd.to_datetime(df["timeStamp"])
     df = df.set_index("timeStamp")
     df = df.resample("D").mean()
-    df["temp"] = df["temp"].fillna(method="ffill")
-    df["precip"] = df["precip"].fillna(method="ffill")
+    df["temp"] = df["temp"].ffill()
+    df["precip"] = df["precip"].ffill()
     df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
     df = df.reset_index()
 

@@ -17,6 +17,11 @@ from flaml.automl.spark import DataFrame, F, Series, T, pd, ps, psDataFrame, psS
 from flaml.automl.training_log import training_log_reader
 
 try:
+    from pandas.api.types import is_datetime64_any_dtype
+except ImportError:
+    is_datetime64_any_dtype = None
+
+try:
     from scipy.sparse import issparse, vstack
 except ImportError:
     pass
@@ -302,7 +307,7 @@ class DataTransformer:
                     y = y.rename(TS_VALUE_COL)
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
-                if X[column].dtype.name in ("object", "category", "string"):
+                if X[column].dtype.name in ("object", "category", "string", "str"):
                     if X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum():
                         X.drop(columns=column, inplace=True)
                         drop = True
@@ -318,7 +323,7 @@ class DataTransformer:
                     X.drop(columns=column, inplace=True)
                     drop = True
                 else:  # datetime or numeric
-                    if X[column].dtype.name == "datetime64[ns]":
+                    if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
                         tmp_dt = X[column].dt
                         new_columns_dict = {
                             f"year_{column}": tmp_dt.year,
@@ -347,9 +352,11 @@ class DataTransformer:
                 X[cat_columns] = X[cat_columns].astype("category")
             if num_columns:
                 X_num = X[num_columns]
-                if np.issubdtype(X_num.columns.dtype, np.integer) and (
-                    drop or min(X_num.columns) != 0 or max(X_num.columns) != X_num.shape[1] - 1
-                ):
+                try:
+                    is_int_cols = np.issubdtype(X_num.columns.dtype, np.integer)
+                except TypeError:
+                    is_int_cols = False
+                if is_int_cols and (drop or min(X_num.columns) != 0 or max(X_num.columns) != X_num.shape[1] - 1):
                     X_num.columns = range(X_num.shape[1])
                     drop = True
                 else:
@@ -435,7 +442,7 @@ class DataTransformer:
             if self._task.is_ts_forecast():
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
-                if X[column].dtype.name == "object":
+                if X[column].dtype.name in ("object", "string", "str"):
                     X[column] = X[column].fillna("__NAN__")
                 elif X[column].dtype.name == "category":
                     current_categories = X[column].cat.categories

@@ -272,7 +272,7 @@ def enrich_dataframe(
 
     new_cols = []
     for col in df.columns:
-        if df[col].dtype.name == "datetime64[ns]":
+        if is_datetime64_any_dtype(df[col]):
             extras = monthly_fourier_features(df[col], fourier_degree)
             extras.columns = [f"{col}_{c}" for c in extras.columns]
             extras.index = df.index
@@ -408,7 +408,7 @@ class DataTransformerTS:
                 continue
 
             # sklearn/utils/validation.py needs int/float values
-            if X[column].dtype.name in ("object", "category", "string"):
+            if X[column].dtype.name in ("object", "category", "string", "str"):
                 if (
                     # drop columns where all values are the same
                     X[column].nunique() == 1
