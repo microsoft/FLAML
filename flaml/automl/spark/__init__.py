@@ -32,7 +32,7 @@ else:
         from pyspark.pandas import DataFrame as psDataFrame
         from pyspark.pandas import Series as psSeries
         from pyspark.pandas import set_option
-    except Exception:
+    except ImportError:
 
         class psDataFrame:
             pass
