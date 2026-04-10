@@ -5,12 +5,8 @@ import os
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
     import pyspark
-    import pyspark.pandas as ps
     import pyspark.sql.functions as F
     import pyspark.sql.types as T
-    from pyspark.pandas import DataFrame as psDataFrame
-    from pyspark.pandas import Series as psSeries
-    from pyspark.pandas import set_option
     from pyspark.sql import DataFrame as sparkDataFrame
     from pyspark.sql import SparkSession
     from pyspark.util import VersionUtils
@@ -29,6 +25,20 @@ except ImportError:
 else:
     ERROR = None
     _spark_major_minor_version = VersionUtils.majorMinorVersion(pyspark.__version__)
+    # pyspark.pandas may fail with newer pandas versions (e.g., pandas 3.0)
+    # but core pyspark functionality should still work
+    try:
+        import pyspark.pandas as ps
+        from pyspark.pandas import DataFrame as psDataFrame
+        from pyspark.pandas import Series as psSeries
+        from pyspark.pandas import set_option
+    except Exception:
+
+        class psDataFrame:
+            pass
+
+        ps = psSeries = psDataFrame
+        set_option = None
 
 try:
     import pandas as pd
