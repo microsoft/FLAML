@@ -47,6 +47,7 @@ setuptools.setup(
         ],
         "spark": [
             "pyspark>=3.2.0",
+            "pandas<3",
             "joblibspark>=0.5.0",
             "joblib<=1.3.2",
         ],
