@@ -163,7 +163,7 @@ def test_numpy_large():
 
     from flaml import AutoML
 
-    X_train = pd.date_range("2017-01-01", periods=70000, freq="T")
+    X_train = pd.date_range("2017-01-01", periods=70000, freq="min")
     y_train = pd.DataFrame(np.random.randint(6500, 7500, 70000))
     automl = AutoML()
     automl.fit(
@@ -187,8 +187,8 @@ def load_multi_dataset():
     df["timeStamp"] = pd.to_datetime(df["timeStamp"])
     df = df.set_index("timeStamp")
     df = df.resample("D").mean()
-    df["temp"] = df["temp"].fillna(method="ffill")
-    df["precip"] = df["precip"].fillna(method="ffill")
+    df["temp"] = df["temp"].ffill()
+    df["precip"] = df["precip"].ffill()
     df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
     df = df.reset_index()
 

@@ -167,6 +167,7 @@ class GenericTask(Task):
                 assert X[column].dtype.name in (
                     "object",
                     "string",
+                    "str",
                 ), "If the task is an NLP task, X can only contain text columns"
                 for _, each_cell in X[column].items():
                     if each_cell is not None:

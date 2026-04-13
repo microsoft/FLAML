@@ -58,7 +58,8 @@ def to_pandas_on_spark(
     print(pss)
     ```
     """
-    set_option("compute.default_index_type", default_index_type)
+    if set_option is not None:
+        set_option("compute.default_index_type", default_index_type)
     try:
         orig_ps_conf = ps.get_option("compute.fail_on_ansi_mode")
     except Exception:
@@ -68,7 +69,14 @@ def to_pandas_on_spark(
 
     try:
         if isinstance(df, (DataFrame, Series)):
-            return ps.from_pandas(df)
+            if set_option is not None:
+                return ps.from_pandas(df)
+            else:
+                raise ImportError(
+                    "pyspark.pandas is not available (likely incompatible with installed pandas version). "
+                    "Cannot convert pandas DataFrame/Series to pandas-on-Spark. "
+                    "Consider downgrading pandas or upgrading pyspark."
+                )
         elif isinstance(df, sparkDataFrame):
             if _spark_major_minor_version[0] == 3 and _spark_major_minor_version[1] < 3:
                 return df.to_pandas_on_spark(index_col=index_col)

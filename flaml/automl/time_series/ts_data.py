@@ -25,6 +25,7 @@ except ImportError:
     pd.DataFrame = None
     pd.Series = None
     DataFrame = Series = None
+    is_datetime64_any_dtype = None
 
 
 # dataclass will remove empty default value even with field(default_factory=lambda: [])
@@ -272,7 +273,7 @@ def enrich_dataframe(
 
     new_cols = []
     for col in df.columns:
-        if df[col].dtype.name == "datetime64[ns]":
+        if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(df[col]):
             extras = monthly_fourier_features(df[col], fourier_degree)
             extras.columns = [f"{col}_{c}" for c in extras.columns]
             extras.index = df.index
@@ -403,12 +404,12 @@ class DataTransformerTS:
                 continue
 
             # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
-            if is_datetime64_any_dtype(X[column]):
+            if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
                 self.datetime_columns.append(column)
                 continue
 
             # sklearn/utils/validation.py needs int/float values
-            if X[column].dtype.name in ("object", "category", "string"):
+            if X[column].dtype.name in ("object", "category", "string", "str"):
                 if (
                     # drop columns where all values are the same
                     X[column].nunique() == 1

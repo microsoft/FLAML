@@ -6,7 +6,7 @@ from flaml import AutoML
 
 
 def test_max_iter_1():
-    date_rng = pd.date_range(start="2024-01-01", periods=100, freq="H")
+    date_rng = pd.date_range(start="2024-01-01", periods=100, freq="h")
     X = pd.DataFrame({"ds": date_rng})
     y_train_24h = np.random.rand(len(X)) * 100
 
