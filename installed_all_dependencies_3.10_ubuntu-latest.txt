@@ -50,7 +50,7 @@ executing==2.2.1
 fastapi==0.135.3
 fastjsonschema==2.21.2
 filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@e8b25dc4f549ec2a40a591d0da56c7c6a04d1f2f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@ed6a75e87ecaad249e2e9a742cbbe59874a8c295#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -70,7 +70,7 @@ huggingface_hub==1.10.1
 identify==2.6.18
 idna==3.11
 importlib_metadata==8.7.1
-importlib_resources==6.5.2
+importlib_resources==7.1.0
 iniconfig==2.3.0
 ipykernel==7.2.0
 ipython==8.39.0
@@ -194,7 +194,7 @@ rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
 rgf-python==3.12.0
-rich==14.3.4
+rich==15.0.0
 rouge_score==0.1.2
 rpds-py==0.30.0
 safetensors==0.7.0
