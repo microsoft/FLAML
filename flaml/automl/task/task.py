@@ -253,6 +253,7 @@ class Task(ABC):
         self,
         estimator_list: Union[List[str], str] = "auto",
         is_spark_dataframe: bool = False,
+        is_multi_target: bool = False,
     ) -> List[str]:
         """Return the list of default estimators registered for this task type.
 
@@ -262,6 +263,7 @@ class Task(ABC):
         Args:
             estimator_list: Either 'auto' or a list of estimator names to be validated.
             is_spark_dataframe: True if the data is a spark dataframe.
+            is_multi_target: True if the task involves multi-target regression.
 
         Returns:
             A list of valid estimator names for this task type.
