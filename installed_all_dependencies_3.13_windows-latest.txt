@@ -44,8 +44,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.135.3
 fastjsonschema==2.21.2
-filelock==3.25.2
--e git+https://github.com/microsoft/FLAML@3347edba60cfe6aad976fcc14d2cacef63014674#egg=FLAML
+filelock==3.28.0
+-e git+https://github.com/microsoft/FLAML@a8ff1dcb71ba6748deb799cbf859618208542943#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -60,7 +60,7 @@ hcrystalball==0.1.12
 hf-xet==1.4.3
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.10.1
+huggingface_hub==1.10.2
 identify==2.6.18
 idna==3.11
 importlib_metadata==8.7.1
@@ -97,7 +97,7 @@ lightgbm==4.6.0
 lightning==2.6.1
 lightning-utilities==0.15.3
 lunardate==0.2.2
-Mako==1.3.10
+Mako==1.3.11
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 matplotlib==3.10.8
@@ -146,8 +146,8 @@ pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 pycryptodome==3.23.0
-pydantic==2.12.5
-pydantic_core==2.41.5
+pydantic==2.13.0
+pydantic_core==2.46.0
 Pygments==2.20.0
 pyluach==2.3.0
 PyMeeus==0.5.12
@@ -173,7 +173,7 @@ rich==15.0.0
 rouge_score==0.1.2
 rpds-py==0.30.0
 safetensors==0.7.0
-scikit-base==0.13.1
+scikit-base==0.13.2
 scikit-learn==1.8.0
 scipy==1.17.1
 Send2Trash==2.1.0
@@ -201,7 +201,7 @@ torchvision==0.26.0
 tornado==6.5.5
 tqdm==4.67.3
 traitlets==5.14.3
-transformers==5.5.3
+transformers==5.5.4
 typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
@@ -209,7 +209,7 @@ tzdata==2026.1
 uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.44.0
-virtualenv==21.2.1
+virtualenv==21.2.4
 wcwidth==0.6.0
 webcolors==25.10.0
 webencodings==0.5.1
@@ -221,4 +221,4 @@ xgboost==3.2.0
 xmltodict==1.0.4
 xxhash==3.6.0
 yarl==1.23.0
-zipp==3.23.0
+zipp==3.23.1
