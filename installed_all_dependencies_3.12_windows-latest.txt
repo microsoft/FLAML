@@ -43,10 +43,10 @@ dill==0.4.1
 distlib==0.4.0
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.135.3
+fastapi==0.136.0
 fastjsonschema==2.21.2
 filelock==3.28.0
--e git+https://github.com/microsoft/FLAML@eacddb5c101859b1d11ee50b49f8c6a06a499655#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@d39911ddb7ed24de598da27b3f7db75ec075b115#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -61,8 +61,8 @@ hcrystalball==0.1.12
 hf-xet==1.4.3
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.10.2
-identify==2.6.18
+huggingface_hub==1.11.0
+identify==2.6.19
 idna==3.11
 importlib_metadata==8.7.1
 iniconfig==2.3.0
@@ -133,7 +133,7 @@ parso==0.8.6
 patsy==1.0.2
 pillow==12.2.0
 pipx==1.11.1
-platformdirs==4.9.4
+platformdirs==4.9.6
 plotly==6.7.0
 pluggy==1.6.0
 pre_commit==4.5.1
@@ -148,8 +148,8 @@ pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 pycryptodome==3.23.0
-pydantic==2.13.0
-pydantic_core==2.46.0
+pydantic==2.13.2
+pydantic_core==2.46.2
 Pygments==2.20.0
 pyluach==2.3.0
 PyMeeus==0.5.12
