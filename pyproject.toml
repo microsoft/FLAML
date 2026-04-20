@@ -1,3 +1,16 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FLAML"
+dynamic = ["version", "description", "readme", "dependencies", "optional-dependencies", "classifiers"]
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+
+[tool.setuptools.dynamic]
+version = { attr = "flaml.version.__version__" }
+
 [metadata]
 license_file = "LICENSE"
 description-file = "README.md"
