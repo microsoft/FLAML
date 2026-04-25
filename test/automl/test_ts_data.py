@@ -20,6 +20,7 @@ def test_prettify_prediction_generates_timestamps_without_test_data():
         np.array([5.0, 6.0]),
     ):
         prediction = dataset.prettify_prediction(y_pred)
+        assert isinstance(prediction, pd.DataFrame)
         pd.testing.assert_series_equal(prediction["ds"], pd.Series(expected_times, name="ds"), check_index=False)
         assert prediction["y"].tolist() == [5.0, 6.0]
 
@@ -38,3 +39,4 @@ def test_prettify_prediction_generates_monthly_timestamps_without_test_data():
     pd.testing.assert_series_equal(
         prediction["ds"], pd.Series(pd.date_range("2020-05-01", periods=2, freq="MS"), name="ds")
     )
+    assert prediction["y"].tolist() == [5.0, 6.0]
