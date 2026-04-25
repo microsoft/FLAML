@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from flaml.automl.time_series.ts_data import TimeSeriesDataset
+from flaml.automl.time_series.ts_data import TimeSeriesDataset, create_forward_frame
 
 
 def test_prettify_prediction_generates_timestamps_without_test_data():
@@ -42,3 +42,21 @@ def test_prettify_prediction_generates_monthly_timestamps_without_test_data():
         check_index=False,
     )
     assert prediction["y"].tolist() == [5.0, 6.0]
+
+
+def test_create_forward_frame_uses_next_frequency_offset():
+    quarter_end_freq = "QE-DEC"
+    try:
+        pd.tseries.frequencies.to_offset(quarter_end_freq)
+    except ValueError:
+        quarter_end_freq = "Q-DEC"
+
+    weekly_frame = create_forward_frame("W-SUN", 2, pd.Timestamp("2020-01-05"), "ds")
+    quarterly_frame = create_forward_frame(quarter_end_freq, 2, pd.Timestamp("2020-03-31"), "ds")
+
+    pd.testing.assert_series_equal(
+        weekly_frame["ds"], pd.Series(pd.date_range("2020-01-12", periods=2, freq="W-SUN"), name="ds")
+    )
+    pd.testing.assert_series_equal(
+        quarterly_frame["ds"], pd.Series(pd.date_range("2020-06-30", periods=2, freq=quarter_end_freq), name="ds")
+    )

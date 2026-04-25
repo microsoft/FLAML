@@ -500,10 +500,10 @@ class DataTransformerTS:
 def create_forward_frame(
     frequency: str,
     steps: int,
-    end_date: datetime.datetime,
+    last_timestamp: datetime.datetime,
     time_col: str,
 ):
-    start_date = end_date + pd.tseries.frequencies.to_offset(frequency)
+    start_date = last_timestamp + pd.tseries.frequencies.to_offset(frequency)
     times = pd.date_range(
         start=start_date,
         periods=steps,
