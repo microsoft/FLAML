@@ -504,9 +504,9 @@ def create_forward_frame(
     time_col: str,
 ):
     if frequency is None:
-        raise ValueError("frequency must be a valid pandas offset alias.")
+        raise ValueError(f"frequency must be a valid pandas offset alias, got {frequency!r}")
     if last_timestamp is None or pd.isna(last_timestamp):
-        raise ValueError("last_timestamp must be a valid timestamp.")
+        raise ValueError(f"last_timestamp must be a valid timestamp, got {last_timestamp!r}")
     try:
         offset = pd.tseries.frequencies.to_offset(frequency)
     except ValueError as e:
