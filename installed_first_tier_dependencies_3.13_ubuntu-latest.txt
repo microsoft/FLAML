@@ -36,7 +36,7 @@ tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.11.0
 torchvision==0.26.0
-transformers==5.6.0
+transformers==5.6.2
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: 87deb14cac09bf26136a38337d247489ee0d75f9
+Current commit hash: 9e537a5b4fbd99ac656bfeb39f034251897cf913
