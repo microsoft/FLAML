@@ -503,7 +503,15 @@ def create_forward_frame(
     last_timestamp: datetime.datetime,
     time_col: str,
 ):
-    start_date = last_timestamp + pd.tseries.frequencies.to_offset(frequency)
+    if frequency is None:
+        raise ValueError("frequency must be a valid pandas offset alias.")
+    if last_timestamp is None or pd.isna(last_timestamp):
+        raise ValueError("last_timestamp must be a valid timestamp.")
+    try:
+        offset = pd.tseries.frequencies.to_offset(frequency)
+    except ValueError as e:
+        raise ValueError(f"Invalid frequency {frequency!r}; expected a pandas offset alias.") from e
+    start_date = last_timestamp + offset
     times = pd.date_range(
         start=start_date,
         periods=steps,

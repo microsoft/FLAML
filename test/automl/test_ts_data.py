@@ -45,6 +45,7 @@ def test_prettify_prediction_generates_monthly_timestamps_without_test_data():
 
 
 def test_create_forward_frame_uses_next_frequency_offset():
+    # Pandas 3 uses QE-DEC while older supported versions use Q-DEC.
     quarter_end_freq = "QE-DEC"
     try:
         pd.tseries.frequencies.to_offset(quarter_end_freq)
