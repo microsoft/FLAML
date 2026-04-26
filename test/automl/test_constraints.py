@@ -59,7 +59,8 @@ def test_metric_constraints():
         metric_constraints=automl.metric_constraints,
         num_samples=5,
     )
-    print(analysis.trials[-1])
+    if analysis.trials:
+        print(analysis.trials[-1])
 
 
 def custom_metric(
