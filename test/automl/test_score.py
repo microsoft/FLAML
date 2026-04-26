@@ -1,3 +1,5 @@
+from urllib.error import URLError
+
 import pandas as pd
 from sklearn.datasets import fetch_california_housing, fetch_openml
 
@@ -181,7 +183,7 @@ class TestScore:
         try:
             X, y = fetch_openml(name=dataset, return_X_y=True)
             y = y.cat.codes
-        except (ArffException, ValueError):
+        except (ArffException, ValueError, URLError):
             from sklearn.datasets import load_wine
 
             X, y = load_wine(return_X_y=True)

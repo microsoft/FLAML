@@ -1,4 +1,5 @@
 import unittest
+from urllib.error import URLError
 
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
@@ -45,7 +46,7 @@ def test_simple(method=None):
 
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
-    except (ArffException, ValueError):
+    except (ArffException, ValueError, URLError):
         from sklearn.datasets import load_wine
 
         X, y = load_wine(return_X_y=True)

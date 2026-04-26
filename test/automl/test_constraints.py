@@ -116,7 +116,7 @@ def test_metric_constraints_custom():
 
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
-    except (ArffException, ValueError):
+    except (ArffException, ValueError, URLError):
         from sklearn.datasets import load_wine
 
         X, y = load_wine(return_X_y=True)
@@ -156,7 +156,8 @@ def test_metric_constraints_custom():
         metric_constraints=automl.metric_constraints,
         num_samples=5,
     )
-    print(analysis.trials[-1])
+    if analysis.trials:
+        print(analysis.trials[-1])
 
 
 if __name__ == "__main__":
