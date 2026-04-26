@@ -29,9 +29,9 @@ def _test(split_type):
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
     except (ArffException, ValueError, URLError):
-        from sklearn.datasets import load_wine
+        from sklearn.datasets import make_classification
 
-        X, y = load_wine(return_X_y=True)
+        X, y = make_classification(n_samples=1000, n_features=20, n_informative=10, random_state=42)
     if split_type != "time":
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
     else:
@@ -58,9 +58,9 @@ def test_groups_for_classification_task():
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
     except (ArffException, ValueError, URLError):
-        from sklearn.datasets import load_wine
+        from sklearn.datasets import make_classification
 
-        X, y = load_wine(return_X_y=True)
+        X, y = make_classification(n_samples=1000, n_features=20, n_informative=10, random_state=42)
 
     automl = AutoML()
     automl_settings = {
@@ -196,9 +196,9 @@ def test_rank():
         X, y = fetch_openml(name=dataset, return_X_y=True)
         y = y.cat.codes
     except (ArffException, ValueError, URLError):
-        from sklearn.datasets import load_wine
+        from sklearn.datasets import make_classification
 
-        X, y = load_wine(return_X_y=True)
+        X, y = make_classification(n_samples=1000, n_features=20, n_informative=10, random_state=42)
     import numpy as np
 
     automl = AutoML()
@@ -233,9 +233,9 @@ def test_object():
     try:
         X, y = fetch_openml(name=dataset, return_X_y=True)
     except (ArffException, ValueError, URLError):
-        from sklearn.datasets import load_wine
+        from sklearn.datasets import make_classification
 
-        X, y = load_wine(return_X_y=True)
+        X, y = make_classification(n_samples=1000, n_features=20, n_informative=10, random_state=42)
 
     import numpy as np
 
