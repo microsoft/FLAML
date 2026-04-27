@@ -50,7 +50,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@e911a9d03828b8e9e017b763f18cd52ec1de2437#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@8249b38a0190eba04d04bc013d6ba89cc3ed46e0#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -229,7 +229,7 @@ tqdm==4.67.3
 traitlets==5.14.3
 transformers==5.6.2
 triton==3.6.0
-typer==0.24.2
+typer==0.25.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
@@ -245,6 +245,6 @@ widgetsnbextension==4.0.15
 workalendar==17.0.0
 xgboost==1.7.6
 xmltodict==1.0.4
-xxhash==3.6.0
+xxhash==3.7.0
 yarl==1.23.0
 zipp==3.23.1
