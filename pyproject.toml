@@ -68,7 +68,6 @@ test = [
     "openml",
     "statsmodels>=0.12.2",
     "psutil",
-    "dataclasses",
     "transformers[torch]",
     "datasets",
     "evaluate",
