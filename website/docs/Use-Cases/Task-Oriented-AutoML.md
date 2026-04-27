@@ -392,6 +392,51 @@ custom_hp = {
 }
 ```
 
+You can also use `custom_hp` to pass fixed constructor arguments to an estimator. For example, to optimize a
+LightGBM quantile regression model for the 0.75 quantile, use the regression task, restrict the estimator list to
+`lgbm`, set LightGBM's `objective` and `alpha`, and provide a custom metric that FLAML can minimize:
+
+```python
+from flaml import AutoML
+from sklearn.metrics import mean_pinball_loss
+
+alpha = 0.75
+
+
+def quantile_loss(
+    X_val,
+    y_val,
+    estimator,
+    labels,
+    X_train,
+    y_train,
+    weight_val=None,
+    weight_train=None,
+    *args,
+    **kwargs,
+):
+    pred = estimator.predict(X_val)
+    loss = mean_pinball_loss(y_val, pred, alpha=alpha, sample_weight=weight_val)
+    return loss, {"quantile_loss": loss}
+
+
+automl = AutoML()
+automl.fit(
+    X_train=X_train,
+    y_train=y_train,
+    task="regression",
+    metric=quantile_loss,
+    estimator_list=["lgbm"],
+    time_budget=30,
+    custom_hp={
+        "lgbm": {
+            "objective": {"domain": "quantile"},
+            "alpha": {"domain": alpha},
+        }
+    },
+)
+```
+
 ### Constraint
 
 There are several types of constraints you can impose.

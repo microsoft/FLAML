@@ -1,6 +1,6 @@
-[metadata]
-license_file = "LICENSE"
-description-file = "README.md"
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta:__legacy__"
 
 [tool.pytest.ini_options]
 addopts = '-m "not conda"'
