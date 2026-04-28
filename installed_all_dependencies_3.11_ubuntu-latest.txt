@@ -32,11 +32,11 @@ convertdate==2.4.1
 coverage==7.13.5
 cryptography==47.0.0
 cuda-bindings==13.2.0
-cuda-pathfinder==1.5.3
+cuda-pathfinder==1.5.4
 cuda-toolkit==13.0.2
 cycler==0.12.1
 databricks-sdk==0.105.0
-datasets==4.8.4
+datasets==4.8.5
 debugpy==1.8.20
 decorator==5.2.1
 defusedxml==0.7.1
@@ -47,7 +47,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@72ef981c345f7ffec690e7767c65dbadae1ca451#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@5ce8023d8fcfd4fbfcdd548ad385201569d3b638#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -236,7 +236,7 @@ tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.46.0
-virtualenv==21.2.4
+virtualenv==21.3.0
 wcwidth==0.6.0
 webcolors==25.10.0
 webencodings==0.5.1
