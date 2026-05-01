@@ -35,7 +35,7 @@ cuda-bindings==13.2.0
 cuda-pathfinder==1.5.4
 cuda-toolkit==13.0.2
 cycler==0.12.1
-databricks-sdk==0.105.0
+databricks-sdk==0.106.0
 datasets==4.8.5
 debugpy==1.8.20
 decorator==5.2.1
@@ -47,14 +47,14 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@eef708be4e169cce6a2525d0aa6afb103b9d9a1f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@b2d04469f7ce28a56e347aff68be55109da3d840#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.2.0
 gitdb==4.0.12
 GitPython==3.1.49
-google-auth==2.49.2
+google-auth==2.50.0
 graphviz==0.21
 greenlet==3.5.0
 h11==0.16.0
@@ -63,7 +63,7 @@ hf-xet==1.4.3
 holidays==0.95
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.12.0
+huggingface_hub==1.13.0
 identify==2.6.19
 idna==3.13
 importlib_metadata==8.7.1
@@ -90,7 +90,7 @@ jupyter_client==8.8.0
 jupyter_core==5.9.1
 jupyter_server==2.17.0
 jupyter_server_terminals==0.5.4
-jupyterlab==4.5.6
+jupyterlab==4.5.7
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.28.0
 jupyterlab_widgets==3.0.16
@@ -121,7 +121,7 @@ nest-asyncio==1.6.0
 networkx==3.6.1
 nltk==3.9.4
 nodeenv==1.10.0
-notebook==7.5.5
+notebook==7.5.6
 notebook_shim==0.2.4
 numpy==1.26.4
 nvidia-cublas==13.1.0.3
@@ -229,7 +229,7 @@ tqdm==4.67.3
 traitlets==5.14.3
 transformers==5.7.0
 triton==3.6.0
-typer==0.25.0
+typer==0.25.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
