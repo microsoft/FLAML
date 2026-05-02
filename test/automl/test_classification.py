@@ -435,6 +435,7 @@ class TestClassification(unittest.TestCase):
         # "lrl1",
         "lrl2",
         "rf",
+        "sgd",
         "svc",
         "xgboost",
         "xgb_limitdepth",
@@ -498,6 +499,9 @@ def test_reproducibility_of_classification_models(estimator: str):
         "lrl2",
         "svc",
         "rf",
+        # "sgd" omitted: SGDEstimator wraps the sklearn model with a Normalizer
+        # preprocessing step that this test's helper does not replicate, so the
+        # bare underlying model cannot match the FLAML wrapper's CV result.
         "xgboost",
         "xgb_limitdepth",
     ],
