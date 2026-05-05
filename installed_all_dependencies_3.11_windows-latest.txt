@@ -30,7 +30,7 @@ comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.1
 coverage==7.13.5
-cryptography==47.0.0
+cryptography==48.0.0
 cycler==0.12.1
 databricks-sdk==0.106.0
 datasets==4.8.5
@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@37adb87e9f306222c0e7366340aa0ef49518a1fb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@8c4434dbef84710be6abdc6ad577ef778d23dcf1#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -83,7 +83,7 @@ jupyter-events==0.12.1
 jupyter-lsp==2.3.1
 jupyter_client==8.8.0
 jupyter_core==5.9.1
-jupyter_server==2.17.0
+jupyter_server==2.18.0
 jupyter_server_terminals==0.5.4
 jupyterlab==4.5.7
 jupyterlab_pygments==0.3.0
@@ -103,7 +103,7 @@ matplotlib==3.10.9
 matplotlib-inline==0.2.1
 mdurl==0.1.2
 minio==7.2.20
-mistune==3.2.0
+mistune==3.2.1
 mlflow-skinny==2.22.1
 mpmath==1.3.0
 multidict==6.7.1
@@ -208,7 +208,7 @@ tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.6.3
 uvicorn==0.46.0
-virtualenv==21.3.0
+virtualenv==21.3.1
 wcwidth==0.7.0
 webcolors==25.10.0
 webencodings==0.5.1
