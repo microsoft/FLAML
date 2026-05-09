@@ -1,0 +1,50 @@
+# pipeline: FLAML-Internal
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+
+variables:
+- group: flaml-internal
+- name: LinuxContainerImage
+  value: mcr.microsoft.com/onebranch/azurelinux/build:3.0
+- name: WindowsContainerImage
+  value: onebranch.azurecr.io/windows/ltsc2022/vse2022:latest
+- name: CONDA_PATH
+  value: /usr/lib/miniforge3
+- name: ComponentDetection.Timeout
+  value: 3600
+
+parameters:
+- name: publishToArtifactFeed
+  displayName: Upload conda files to ADO Artifact Feed
+  type: boolean
+  default: false
+
+resources:
+  repositories:
+  - repository: onebranchTemplates
+    type: git
+    name: OneBranch.Pipelines/GovernedTemplates
+    ref: refs/heads/main
+
+extends:
+  template: v2/OneBranch.Official.CrossPlat.yml@onebranchTemplates
+  parameters:
+    featureFlags:
+      EnableCDPxPAT: false
+      networkisolation:
+        policy: Permissive,Maven
+      LinuxHostVersion:
+        Network: KS4
+      WindowsHostVersion:
+        Version: 2022
+        Network: KS4
+    globalSdl: # https://aka.ms/obpipelines/sdl
+      tsa:
+        enabled: false
+    stages:
+    - template: build.yml@self
+      parameters:
+        publishToArtifactFeed: ${{ parameters.publishToArtifactFeed }}

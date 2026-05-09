@@ -48,7 +48,7 @@ else:
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:1.1.0,"
+                    "com.microsoft.azure:synapseml_2.12:1.0.14,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
                     f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
@@ -290,8 +290,8 @@ class TestExtraModel(unittest.TestCase):
         # TODO: remove the estimator assignment once SynapseML supports spark 4+.
         from flaml.automl.spark.utils import _spark_major_minor_version
 
-        estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
-        _test_spark_models(estimator_list, "classification")
+        estimator = "rf_spark" if _spark_major_minor_version[0] >= 4 else None
+        _test_spark_models(estimator, "classification")
 
     def test_svc(self):
         _test_regular_models("svc", "classification")
@@ -322,7 +322,7 @@ class TestExtraModel(unittest.TestCase):
     def test_avg(self):
         _test_forecast("avg")
 
-    @unittest.skipIf(skip_spark or not _pl_installed, reason="Skip on Mac or Windows or no pytorch_lightning.")
+    @unittest.skipIf(not _pl_installed, reason="pytorch_lightning is not installed. Skip tcn test.")
     def test_tcn(self):
         _test_forecast("tcn")
 

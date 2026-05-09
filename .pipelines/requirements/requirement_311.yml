@@ -1,0 +1,57 @@
+channels:
+  - pytorch
+  # - conda-forge
+  - defaults
+dependencies:
+  - conda=24.1.2
+  - ipython=8.20.0          # Productive Interactive Computing
+  - ipywidgets=8.1.1
+  - jupyter_server=2.12.3
+  - pip=23.3.2
+  - python=3.11
+  - virtualenv=20.25.0
+
+  - lightgbm=4.3.0
+  - xgboost=1.7.6=cpu_*
+  - scipy=1.13.0
+  - pandas=2.1.4
+  - scikit-learn=1.4.1.post1
+  - pytest=8.2.0
+  - coverage=7.5.0
+  - pre-commit=3.7.0
+  - pytorch=2.2.1=*_cpu_*
+  - torchvision=0.17.1=*_cpu
+  - catboost=1.2.5
+  - optuna=2.8.0
+  - openml=0.12.2
+  - statsmodels=0.14.1
+  - psutil==5.8.0
+  - dataclasses=0.8
+  - transformers[torch]=4.41.1 # >4.36.2 or <4.36 https://github.com/huggingface/transformers/pull/28122
+  - datasets=2.19.0
+  - nltk=3.8.1
+  - hcrystalball=0.1.12
+  - seqeval=1.2.2
+  - pytorch-forecasting=0.10.2
+  - accelerate==0.30.1
+  - prophet=1.1.5
+  - mlflow-skinny=2.11.3
+  - joblib==1.2.0
+  - nbconvert=7.16.3
+  - nbformat=5.10.4
+  - numpy=1.23.5
+  - ipykernel=6.29.3
+  - pytorch-lightning=2.2.2  # test_forecast_panel
+  - tensorboardX=2.6  # test_forecast_panel
+  - requests=2.31.0  # https://github.com/docker/docker-py/issues/3113
+  - packaging=23.2
+  - pydantic=2.7.1
+  - sympy=1.12
+  - libxcrypt=4.4.36
+  - pip:
+    - thop==0.1.1-2209072238
+    - rgf-python==3.12.0
+    - rouge-score==0.1.2
+    - pyspark==3.5.1
+    - joblibspark==0.5.2
+    - wolframalpha==5.0.0

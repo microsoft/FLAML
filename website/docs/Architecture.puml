@@ -1,0 +1,83 @@
+@startuml
+scale 1600 width
+skinparam handwritten true
+skinparam titleFontSize 32
+skinparam PackageFontSize 24
+skinparam ArrowFontSize 24
+skinparam NodeFontSize 24
+skinparam FrameFontSize 24
+skinparam ComponentFontSize 24
+skinparam ActorFontSize 24
+
+title AutoML and Hyperparameter Tuning Architecture
+
+
+cloud {
+    [ML Workload] as mlworkload
+}
+
+storage "Azure Blob Storage" as blob {
+    [flaml wheel]
+}
+
+cloud {
+    [kusto]
+}
+
+component "Notebook Session" as nb {
+    package "FLAML" {
+        node "tune" {
+            frame "searcher" {
+                [blendsearch]
+                [cfo]
+            }
+            frame "run" {
+                [sequential]
+                [parallel]
+            }
+        }
+
+        node "automl" {
+            frame "model" {
+                [SynapseML]
+                [LightGBM]
+                [SKlearn]
+            }
+            frame "data" {
+                [Pandas.DataFrame]
+                [Numpy.ndarray]
+                [PySpark.pandas.DataFrame]
+            }
+        }
+
+        node "logger" {
+            [log to kusto] as log
+            [package usage telemetry] as telemetry
+        }
+    }
+
+    automl -[hidden]--> tune
+    tune -[hidden]--> logger
+
+    telemetry --> mlworkload: log package usage
+    log --> kusto: log function calls (not availabel for PrPr)
+}
+
+package "mlflow-plugin" as mlflow {
+    [autolog]
+    [log_metric]
+    [log_param]
+    [log_model]
+}
+
+automl --> mlflow: create experiments\nlog models/metrics/params
+tune --> mlflow: create experiments\nlog models/metrics/params
+
+mlflow --> mlworkload: create experiments\nlog models/\nmetrics/params
+
+actor User as user
+
+user --> nb: run AutoML/Tuning in notebook
+nb --> blob: pip install flaml from public blob
+
+@enduml

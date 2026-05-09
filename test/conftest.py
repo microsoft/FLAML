@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Union
 
 import numpy as np
@@ -11,6 +12,10 @@ except ImportError:  # pragma: no cover
     CatBoostClassifier = None
     CatBoostRegressor = None
     Pool = None
+
+
+def pytest_configure(config):
+    os.environ["FLAML_FEATURIZATION"] = os.environ.get("FLAML_FEATURIZATION", "auto")
 
 
 def _is_catboost_model_type(model_type: type) -> bool:

@@ -33,7 +33,12 @@ from sklearn.pipeline import Pipeline
 
 from flaml.automl.logger import logger
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.fabric.logger import init_kusto_logger
 from flaml.version import __version__
+
+from .lowcode import AUTOML_DISPLAY_CONFIGURATIONS
+
+kusto_logger = init_kusto_logger("flaml.mlflow")
 
 SEARCH_MAX_RESULTS = 5000  # Each train should not have more than 5000 trials
 IS_RENAME_CHILD_RUN = os.environ.get("FLAML_IS_RENAME_CHILD_RUN", "false").lower() == "true"
@@ -101,6 +106,7 @@ def time_it(func_or_code=None):
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
+            kusto_logger.info(f"Execution of {func.__name__} took {end_time - start_time:.4f} seconds")
             logger.debug(f"Execution of {func.__name__} took {end_time - start_time:.4f} seconds")
             return result
 
@@ -165,9 +171,13 @@ def infer_signature(X_train=None, y_train=None, dataframe=None, label=None):
             y_train = None
         try:
             signature = mlflow.models.infer_signature(X_train, y_train)
+            kusto_logger.info(f"Succeeded to infer signature from X_train {type(X_train)} and y_train {type(y_train)}")
             return signature
         except (TypeError, MlflowException, Exception) as e:
             logger.debug(
+                f"Failed to infer signature from X_train {type(X_train)} and y_train {type(y_train)}, error: {e}"
+            )
+            kusto_logger.info(
                 f"Failed to infer signature from X_train {type(X_train)} and y_train {type(y_train)}, error: {e}"
             )
     else:
@@ -179,9 +189,13 @@ def infer_signature(X_train=None, y_train=None, dataframe=None, label=None):
                 y = None
             try:
                 signature = mlflow.models.infer_signature(X, y)
+                kusto_logger.info(f"Succeeded to infer signature from dataframe {type(dataframe)} and label {label}")
                 return signature
             except (TypeError, MlflowException, Exception) as e:
                 logger.debug(
+                    f"Failed to infer signature from dataframe {type(dataframe)} and label {label}, error: {e}"
+                )
+                kusto_logger.info(
                     f"Failed to infer signature from dataframe {type(dataframe)} and label {label}, error: {e}"
                 )
 
@@ -457,12 +471,12 @@ class MLflowIntegration:
             "metrics": metrics,
             "params": params,
             "tags": {
-                "flaml.best_run": False,
-                "flaml.iteration_number": self.child_counter,
-                "flaml.version": __version__,
-                "flaml.meric": metric_name,
-                "flaml.run_source": "flaml-tune",
-                "flaml.log_type": self.log_type,
+                "synapseml.flaml.best_run": False,
+                "synapseml.flaml.iteration_number": self.child_counter,
+                "synapseml.flaml.version": __version__,
+                "synapseml.flaml.meric": metric_name,
+                "synapseml.flaml.run_source": "flaml-tune",
+                "synapseml.flaml.log_type": self.log_type,
             },
             "submetrics": {
                 "values": [],
@@ -500,7 +514,7 @@ class MLflowIntegration:
             best_mlflow_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             analysis.best_run_id = best_mlflow_run_id
             analysis.best_run_name = best_mlflow_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
             if not self.has_summary:
                 self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id)
@@ -525,6 +539,7 @@ class MLflowIntegration:
                 f"Error: Should log_model {estimator} to run_id {run_id}, but logged to run_id {run.info.run_id}"
             )
             logger.error(ret_message)
+            kusto_logger.error(ret_message)
         else:
             logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
@@ -571,6 +586,7 @@ class MLflowIntegration:
                 return True
             except Exception as e:
                 logger.debug(f"Failed to pickle and log {artifact_name}, error: {e}")
+                kusto_logger.warning(f"Failed to pickle and log {artifact_name}, error: {e}")
                 return False
 
     def _log_pipeline(self, pipeline, flavor_name, pipeline_name, signature, run_id, estimator=None):
@@ -588,6 +604,7 @@ class MLflowIntegration:
         elif run and run.info.run_id != run_id:
             ret_message = f"Error: Should _log_pipeline {flavor_name}:{pipeline_name}:{estimator} model to run_id {run_id}, but logged to run_id {run.info.run_id}"
             logger.error(ret_message)
+            kusto_logger.error(ret_message)
         else:
             logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
@@ -622,6 +639,12 @@ class MLflowIntegration:
         #     automl.feature_transformer, "feature_transformer", "feature_transformer.pkl", run_id
         # )
         # self._pickle_and_log_artifact(automl.label_transformer, "label_transformer", "label_transformer.pkl", run_id)
+        # # Test test_mlflow 1 and 4 will get error: TypeError: cannot pickle '_io.TextIOWrapper' object
+        # ret = self._pickle_and_log_artifact(automl, "automl", "automl.pkl", run_id)
+        # if ret:
+        #     kusto_logger.info("Succeeded to pickle and log automl instance.")
+        # else:
+        #     self._pickle_and_log_artifact(None, "automl", "automl.pkl", run_id)
         if estimator.endswith("_spark"):
             # spark pipeline is not supported yet
             return
@@ -634,12 +657,16 @@ class MLflowIntegration:
             pipeline.stages.append(model)
         elif not estimator.endswith("_spark"):
             steps = [("feature_transformer", feature_transformer)]
+            if model.autofe is not None:
+                steps.append(("autofe", model.autofe))
             steps.append(("estimator", model))
             pipeline = Pipeline(steps)
         else:
             stages = []
             if feature_transformer is not None:
                 stages.append(feature_transformer)
+            if model.autofe is not None:
+                stages.append(model.autofe)
             stages.append(model)
             pipeline = SparkPipelineModel(stages=stages)
         if isinstance(pipeline, SparkPipelineModel):
@@ -654,6 +681,7 @@ class MLflowIntegration:
     @time_it
     def record_state(self, automl, search_state, estimator, is_log_model=True):
         _st = time.time()
+        kusto_logger.info(f"start logging no {automl._track_iter} automl state {estimator} at timestamp {_st}")
         automl_metric_name = (
             automl._state.metric if isinstance(automl._state.metric, str) else automl._state.error_metric
         )
@@ -670,6 +698,12 @@ class MLflowIntegration:
             config = search_state.config
 
         self.automl_user_configurations = safe_json_dumps(automl._automl_user_configurations)
+        self.automl_display_configurations = safe_json_dumps(
+            {
+                k: automl._automl_user_configurations[k] if k in automl._automl_user_configurations else None
+                for k in AUTOML_DISPLAY_CONFIGURATIONS
+            }
+        )
 
         info = {
             "metrics": {
@@ -681,17 +715,18 @@ class MLflowIntegration:
                 automl_metric_name: automl_metric_value,
             },
             "tags": {
-                "flaml.best_run": False,
-                "flaml.estimator_name": estimator,
-                "flaml.estimator_class": search_state.learner_class.__name__,
-                "flaml.iteration_number": automl._track_iter,
-                "flaml.version": __version__,
-                "flaml.learner": estimator,
-                "flaml.sample_size": search_state.sample_size,
-                "flaml.meric": automl_metric_name,
-                "flaml.run_source": "flaml-automl",
-                "flaml.log_type": self.log_type,
-                "flaml.automl_user_configurations": self.automl_user_configurations,
+                "synapseml.flaml.best_run": False,
+                "synapseml.flaml.estimator_name": estimator,
+                "synapseml.flaml.estimator_class": search_state.learner_class.__name__,
+                "synapseml.flaml.iteration_number": automl._track_iter,
+                "synapseml.flaml.version": __version__,
+                "synapseml.flaml.learner": estimator,
+                "synapseml.flaml.sample_size": search_state.sample_size,
+                "synapseml.flaml.meric": automl_metric_name,
+                "synapseml.flaml.run_source": "flaml-automl",
+                "synapseml.flaml.log_type": self.log_type,
+                "synapseml.flaml.automl_user_configurations": self.automl_user_configurations,
+                "synapseml.flaml.automl_display_configurations": self.automl_display_configurations,
             },
             "params": {
                 "sample_size": search_state.sample_size,
@@ -722,6 +757,7 @@ class MLflowIntegration:
             wait(self.futures_log_model)
             _t2 = time.time() - _t1
             logger.debug(f"wait futures_log_model in record_state took {_t2} seconds")
+            kusto_logger.info(f"wait futures_log_model in record_state took {_t2} seconds")
             with mlflow.start_run(nested=True, run_name=run_name) as child_run:
                 future = executor.submit(lambda: self._log_info_to_run(info, child_run.info.run_id, log_params=True))
                 self.futures[future] = f"iter_{automl._track_iter}_log_info_to_run"
@@ -751,6 +787,9 @@ class MLflowIntegration:
                         self.futures_log_model[future] = f"record_state-pickle_and_log_automl_artifacts_{estimator}"
                 self.manual_run_ids.append(child_run.info.run_id)
             self.child_counter += 1
+        kusto_logger.info(
+            f"end logging no {automl._track_iter} automl state {estimator}, cost {time.time() - _st} seconds"
+        )
         return f"Successfully record_state iteration {automl._track_iter}"
 
     @time_it
@@ -791,7 +830,7 @@ class MLflowIntegration:
             best_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             automl.best_run_id = best_mlflow_run_id
             automl.best_run_name = best_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
             self.best_run_id = best_mlflow_run_id
             if self.parent_run_id is not None:
                 conf = automl._config_history[automl._best_iteration][1].copy()
@@ -812,6 +851,7 @@ class MLflowIntegration:
                     wait(self.futures_log_model)
                     _t2 = time.time() - _t1
                     logger.debug(f"wait futures_log_model in log_automl took {_t2} seconds")
+                    kusto_logger.info(f"wait futures_log_model in log_automl took {_t2} seconds")
                     if (
                         automl._trained_estimator is not None
                         and not self.has_model
@@ -851,6 +891,11 @@ class MLflowIntegration:
             run_id=run_id,
             text=self.automl_user_configurations,
             artifact_file="automl_configurations/automl_user_configurations.json",
+        )
+        self.mlflow_client.log_text(
+            run_id=run_id,
+            text=self.automl_display_configurations,
+            artifact_file="automl_configurations/automl_display_configurations.json",
         )
         return f"Successfully _log_automl_configurations to run_id {run_id}"
 
@@ -959,7 +1004,7 @@ class MLflowIntegration:
                                 "mlflow.runName",
                                 f"{self.parent_run_name}_child_{self.child_counter}",
                             )
-                        self.mlflow_client.set_tag(child_run_id, "flaml.child_counter", self.child_counter)
+                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.child_counter", self.child_counter)
 
                     # Merge autolog child run and corresponding FLAML trial info (if available).
                     # In nested scenarios (e.g., Tune -> AutoML -> MLflow autolog), MLflow can create
@@ -988,7 +1033,7 @@ class MLflowIntegration:
                         )
 
                     if flaml_info is not None and self.child_counter == best_iteration:
-                        self.mlflow_client.set_tag(child_run_id, "flaml.best_run", True)
+                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.best_run", True)
                         if result is not None:
                             if child_run is None:
                                 child_run = self.mlflow_client.get_run(child_run_id)

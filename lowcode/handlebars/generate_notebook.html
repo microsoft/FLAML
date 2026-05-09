@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Jupyter Notebook</title>
+  <script src="https://cdn.jsdelivr.net/npm/handlebars/dist/handlebars.min.js"></script>
+</head>
+<body>
+  <script>
+    // const ARG_DICT = {
+    //   numeric: ['integer', 'float', 'double'],
+    //   string: ['string', 'categorical'],
+    //   bool: ['boolean'],
+    // };
+
+    // function extractColumns(columns, filterCondition, columnType) {
+    //     const result = columns
+    //         .filter(column => filterCondition.includes(column[columnType]))
+    //         .map(column => `'${column.name}'`);
+    //     return result.length > 0 ? `[${result.join(', ')}]` : null;
+    // }
+    function mapTypesToPandasAndSpark(type, condition) {
+      const pandasTypes = {
+        'datetime': 'datetime64[ns]',
+        'category': 'category',
+        'sparse': 'Sparse',
+        'period': 'period',
+        'boolean': 'bool',
+        'intervals': 'interval',
+        'integer': 'int',
+        'float': 'float',
+        'string': 'str'
+      };
+
+      const sparkTypes = {
+        'datetime': 'TimestampType',
+        'category': 'StringType', // No direct equivalent in Spark, using StringType as a general purpose type
+        'sparse': 'VectorType', // For sparse vectors in Spark MLlib
+        'period': 'StringType', // No direct equivalent in Spark, using StringType as a general purpose type
+        'boolean': 'BooleanType',
+        'intervals': 'StringType', // No direct equivalent in Spark, using StringType as a general purpose type
+        'integer': 'IntegerType',
+        'float': 'FloatType',
+        'string': 'StringType'
+      };
+      console.log('Type:', type, 'Condition:', condition);
+      if (condition === 'trainMultiple') {
+        return pandasTypes[type] || 'Unknown';
+      } else if (condition === 'trainOne') {
+        return sparkTypes[type] || 'Unknown';
+      } else {
+        return 'Invalid condition';
+      }
+    }
+    // Register a custom helper
+    Handlebars.registerHelper({
+      and() {
+          return Array.prototype.every.call(arguments, Boolean);
+      },
+      or() {
+          return Array.prototype.slice.call(arguments, 0, -1).some(Boolean);
+      },
+      equal(a, b) {
+          return a == b;
+      },
+      have(a, b) {
+          return a.includes(b);
+      },
+      subtract(a, b, options) {
+        // Ensure the result is rounded to the desired precision
+        const precision = options.hash.precision || 2; // Default precision is 2 if not specified
+        const result = (a - b).toFixed(precision);
+        return parseFloat(result); // Convert back to number to avoid trailing zero issues
+      },
+      customInpute(imputationMethod, modelType) {
+        let result;
+        if (imputationMethod === 'Mean') {result = "mean";}
+        else if (imputationMethod === 'Median') {result = "median";}
+        else if (imputationMethod === 'Most Frequent') {
+          if (modelType === "trainOne") {
+            result = "mode";
+          } else {
+            result = "most_frequent";
+          }
+        }
+        return result;
+      },
+      extractCols(columns, condition, imputation) {
+        const ARG_DICT = {
+            numeric: ['integer', 'float', 'double'],
+            string: ['string', 'category'],
+            bool: ['boolean'],
+            other: ['period', 'sparse', 'intervals']
+            // Add 'timestamp' if needed
+        };
+
+        const filteredColumns = columns.filter(column => {
+            const isConditionMet = condition === "any" || ARG_DICT[condition]?.includes(column.type);
+            const isImputationMet = imputation === 'all' ? column.imputationMethod !== "Auto" : column.imputationMethod === imputation;
+            console.log('Column:', column.name, 'Condition:', isConditionMet, 'Imputation:', isImputationMet, 'Imputation Method:', column.imputationMethod, imputation, condition);
+            return isConditionMet && isImputationMet;
+        });
+
+        const columnNames = filteredColumns.map(column => `'${column.name}'`);
+
+        return columnNames.length > 0 ? `[${columnNames.join(', ')}]` : null;
+      },
+      extractColTypes(columns, condition, imputation, option) {
+        const ARG_DICT = {
+            numeric: ['integer', 'float', 'double'],
+            string: ['string', 'category'],
+            bool: ['boolean'],
+            other: ['period', 'sparse', 'intervals']
+            // Add 'timestamp' if needed
+        };
+
+        const filteredColumns = columns.filter(column => {
+            const isConditionMet = condition === "any" || ARG_DICT[condition]?.includes(column.type);
+            const isImputationMet = imputation === 'all' ? column.imputationMethod !== "Auto" : column.imputationMethod === imputation;
+            console.log('Column:', column.name, 'Condition:', isConditionMet, 'Imputation:', isImputationMet, 'Imputation Method:', column.imputationMethod, imputation, condition);
+            return isConditionMet && isImputationMet;
+        });
+
+        const columnTypes = filteredColumns.map(column => [`['${column.name}', '${mapTypesToPandasAndSpark(column.type, option)}']`]);
+
+        return columnTypes.length > 0 ? columnTypes.join(', ') : null;
+      },
+      extractType(columns, option) {
+          const extractedColumns = columns
+              .filter(column => column.valueType !== 'Auto')
+              .map(column => [`['${column.name}', '${mapTypesToPandasAndSpark(column.valueType, option)}']`]);
+
+          // Debugging output
+          console.log('Extracted Columns:', extractedColumns);
+
+          return extractedColumns.length === 0 ? null : extractedColumns;
+      }
+    });
+
+    // function extractCols(columns, condition, imputation) {
+    //     console.log('Condition:', condition, 'Imputation:', imputation);
+    //     const result = columns
+    //         .filter(column => {
+    //             console.log('Column Type:', column.type, 'Column ImputationMethod:', column.imputationMethod);
+    //             return ARG_DICT[condition].includes(column.type) && (imputation === 'all' || column.imputationMethod === imputation);
+    //         })
+    //         .map(column => `'${column.name}'`);
+    //     return result.length > 0 ? `[${result.join(', ')}]` : null;
+    // }
+    // function getNestedValue(obj, path) {
+    //   const keys = path.split('.');
+    //   let result = obj;
+
+    //   for (let key of keys) {
+    //     if (result && result.hasOwnProperty(key)) {
+    //       result = result[key];
+    //     } else {
+    //       return null;
+    //     }
+    //   }
+    //   return result;
+    // }
+
+
+    // // Function to ensure only one true value in a list
+    // function ensureSingleTrue(context, keys) {
+    //   keys.forEach(key => {
+    //     if (!context.hasOwnProperty(key)) {
+    //         context[key] = false;
+    //     }
+    //   });
+    // }
+
+    // 使用 fetch API 读取模板文件内容
+    Promise.all([
+      fetch('mock_data/autoMLMock-pandas-partiallyfeaturized.json').then(response => response.json()),
+      fetch('notebookTemplate.hbs').then(response => response.text())
+    ])
+      .then(([data, notebookTemplate]) => {
+        // 编译模板
+        const template = Handlebars.compile(notebookTemplate);
+
+        // 渲染数据
+        const defaults = {
+          additionalSettings: {
+            split_test: true,
+            train_ratio: 0.8,
+            // data_split: {
+            //   split_type: "Train-Test",
+            //   train_val_ratio: 0.8,
+            // },
+            // estimator_list: ["lgbm"],
+            data_split: {
+              split_type: "K-Fold",
+              fold_num: 3,
+            },
+            max_run_per_trial: 10,
+            save_path: "save_data",
+            log_file_name: "flaml_experiment.log",
+            data_type: "csv"
+          }
+        };
+
+        let runtimeInfo = "spark34py310";
+        let context = {
+          ...data,
+          ...defaults,
+          runtimeInfo,
+        };
+        console.log(context);
+
+        // for (let i = 0; i < ARG_LIST.length; i++) {
+        //   ensureSingleTrue(context, ARG_LIST[i]);
+        // }
+        // const extractedColumns = extractCols(context.trainData.mappingColumns, "string", "Auto");
+        // console.log('Extracted Columns:', extractedColumns);
+
+        const notebookContent = template(context);
+
+        // 创建并下载 .ipynb 文件
+        function download(content, fileName, contentType) {
+          const a = document.createElement('a');
+          const file = new Blob([content], {type: contentType});
+          a.href = URL.createObjectURL(file);
+          a.download = fileName;
+          a.click();
+        }
+
+        download(notebookContent, 'example.ipynb', 'application/json');
+      })
+      .catch(error => console.error('Error fetching the template:', error));
+  </script>
+</body>
+</html>

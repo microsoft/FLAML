@@ -1,0 +1,86 @@
+[
+    {
+        "dataset": "1203_BNG_pwLinear",
+        "task": "regression",
+        "metric": "r2",
+        "size": "xl"
+    },
+    {
+        "dataset": "1193_BNG_lowbwt",
+        "task": "regression",
+        "metric": "r2",
+        "size": "l"
+    },
+    {
+        "dataset": "537_houses",
+        "task": "regression",
+        "metric": "r2",
+        "size": "l"
+    },
+    {
+        "dataset": "294_satellite_image",
+        "task": "regression",
+        "metric": "r2",
+        "size": "l"
+    },
+    {
+        "dataset": "598_fri_c0_1000_25",
+        "task": "regression",
+        "metric": "r2",
+        "size": "m"
+    },
+    {
+        "dataset": "627_fri_c2_500_10",
+        "task": "regression",
+        "metric": "r2",
+        "size": "m"
+    },
+    {
+        "dataset": "1089_USCrime",
+        "task": "regression",
+        "metric": "r2",
+        "size": "s"
+    },
+    {
+        "dataset": "sleep",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "xl"
+    },
+    {
+        "dataset": "fars",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "adult",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "satimage",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "yeast",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "m"
+    },
+    {
+        "dataset": "horse_colic",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "m"
+    },
+    {
+        "dataset": "analcatdata_fraud",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "s"
+    }
+]

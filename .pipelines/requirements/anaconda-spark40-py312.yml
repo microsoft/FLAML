@@ -1,0 +1,117 @@
+#
+# Python environment for Spark 4.0 and Python 3.12
+#
+
+name: Fabric2Python312CPU
+channels:
+  - microsoft
+  - services
+  - defaults
+
+dependencies:
+  # ============================================================================
+  # Core
+  # ============================================================================
+  - python=3.12.11             # Python programming language
+  - pip=24.2                   # Package installer for Python
+  - virtualenv=20.28.0         # Tool to create isolated Python environments
+  - ipython=9.7.0              # Productive Interactive Computing
+  - ipykernel=6.31.0           # IPython kernel for Jupyter
+  - ipywidgets=8.1.7           # Interactive widgets for Jupyter
+  - jupyter_server=2.16.0      # Server for Jupyter notebooks
+
+  # ============================================================================
+  # Utilities - Data Processing & Parsing
+  # ============================================================================
+  - beautifulsoup4=4.13.5      # HTML/XML screen-scraping library
+  - lxml=5.3.0                 # XML and HTML processing
+  - openpyxl=3.1.5             # Read/write Excel 2010+ xlsx/xlsm files
+  - markdown=3.8               # Python implementation of Markdown
+  - ruamel.yaml=0.18.16        # YAML 1.2 loader/dumper
+  - liac-arff=2.5.0            # Read and write ARFF files
+  - regex=2025.9.1             # Alternative regex module with extended features
+
+  # ============================================================================
+  # Utilities - Network & File System
+  # ============================================================================
+  - requests=2.32.5            # HTTP library for humans
+
+  # ============================================================================
+  # Utilities - Miscellaneous
+  # ============================================================================
+  - docker-py=7.1.0            # Docker API client library
+  - geopy=2.4.1                # Python Geocoding Toolbox
+  - imageio=2.37.2             # Read and write image data
+  - pandasql=0.7.3             # SQL querying for pandas DataFrames
+  - prettytable=3.3.0          # Pretty-print tabular data
+  - pythonnet=3.0.5            # .NET integration for Python
+  - tqdm=4.67.1                # Progress bars for Python
+  - pyodbc=5.3.0               # ODBC database API module
+
+  # ============================================================================
+  # Code Quality & Type Checking
+  # ============================================================================
+  - mypy=1.17.1                # Static type checker for Python
+
+  # ============================================================================
+  # Azure - Cloud Storage & Services
+  # ============================================================================
+  - azure-storage-file-datalake=12.14.0    # ADLS Gen2 support
+  - azure-core=1.36.0                      # Azure Core Client Library
+
+  # ============================================================================
+  # Data Science & Analytics - Core
+  # ============================================================================
+  - numpy=1.26.4               # Numerical computing with arrays
+  - pandas=2.3.3               # High-performance data analysis structures
+  - pyarrow=21.0.0             # Python libraries for Apache Arrow
+
+  # ============================================================================
+  # Data Science & Analytics - Visualization
+  # ============================================================================
+  - matplotlib=3.10.6          # Publication quality plotting library
+  - seaborn=0.13.2             # Statistical data visualization (matplotlib-based)
+  - plotly=6.3.0               # Interactive plotting library
+  - python-graphviz=0.20.1     # Python interface for Graphviz graph visualization
+
+  # ============================================================================
+  # Data Science & Analytics - Machine Learning
+  # ============================================================================
+  - scikit-learn=1.5.2         # Machine learning and data mining algorithms
+  - lightgbm=4.5.0             # Gradient boosting framework
+  - xgboost=2.1.1              # Scalable gradient boosting
+  - mlflow-skinny=2.18.0       # MLOps platform - lightweight version
+
+  # ============================================================================
+  # Python Packages (pip)
+  # ============================================================================
+  - pip:
+    # PySpark
+    - pyspark==4.0.0.5.5.20250918.2              # Apache Spark
+
+    # Azure & Cloud
+    - adlfs==2025.8.0                            # Azure Data Lake filesystem
+
+    # Data & Notebooks
+    - pyperclip==1.11.0                          # Clipboard interface
+    - powerbiclient==3.1.1                       # Microsoft Power BI REST API client
+
+    # Logging
+    - fluent-logger==0.10.0                      # Structured logger for Fluentd
+
+    # Fabric & Synapse - Data Science
+    # - fabric-analytics-sdk==0.0.2              # Fabric Analytics SDK
+    # - fabric-analytics-notebook-plugin==0.0.2  # Fabric Analytics Notebook Plugin
+    # - semantic-link-sempy==0.12.2              # Semantic Link Sempy core library
+    # - flaml[synapse]                           # Fast and lightweight AutoML system
+    # - synapseml                                # OpenSource Repo for PySpark AI functions
+    # - synapseml-internal                       # AI functions implementation
+    # - synapseml-mlflow==1.0.34                 # SynapseML MLflow integration
+    # - synapseml-utils==1.1.8                   # Common utilities library for DS
+
+    # Data Wrangler
+    # - prose.pandas2pyspark                     # Translate pandas code to PySpark
+    # - prose.suggestions                        # Generate operation suggestions
+
+    # Kqlmagic
+    # - KqlmagicCustom==0.1.115+fabric.post26      # Kusto Query Language for Jupyter notebooks

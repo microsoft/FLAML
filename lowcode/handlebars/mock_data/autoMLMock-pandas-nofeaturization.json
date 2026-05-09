@@ -1,0 +1,117 @@
+{
+    "lakehouseInfo": {
+        "lakehouseId": "c813e077-0050-4d6d-a670-b8a1c9466e71",
+        "lakehouseName": "ruoyu_lakehouse_automl",
+        "state": "init"
+    },
+    "tableInfo": {
+        "tableInfo": {
+            "name": "publicholidays",
+            "fullAbfsPath": "",
+            "type": "MANAGED",
+            "format": "",
+            "isDeltaTable": true,
+            "relativePath": "Tables/dbo/publicholidays"
+        },
+        "columns": [
+            {
+                "name": "countryOrRegion",
+                "type": "string",
+                "nullable": true
+            },
+            {
+                "name": "holidayName",
+                "type": "string",
+                "nullable": true
+            },
+            {
+                "name": "normalizeHolidayName",
+                "type": "string",
+                "nullable": true
+            },
+            {
+                "name": "isPaidTimeOff",
+                "type": "boolean",
+                "nullable": true
+            },
+            {
+                "name": "countryRegionCode",
+                "type": "string",
+                "nullable": true
+            },
+            {
+                "name": "date",
+                "type": "timestamp",
+                "nullable": true
+            }
+        ],
+        "schemaName": "dbo"
+    },
+    "trainData": {
+        "predictColumn": "countryOrRegion",
+        "enableFeaturization": true,
+        "mappingColumns": [
+            {
+                "name": "countryOrRegion",
+                "type": "string",
+                "nullable": true,
+                "valueType": "integer",
+                "imputationMethod": "Auto"
+            },
+            {
+                "name": "holidayName",
+                "type": "string",
+                "nullable": true,
+                "valueType": "Auto",
+                "imputationMethod": "Auto"
+            },
+            {
+                "name": "normalizeHolidayName",
+                "type": "integer",
+                "nullable": true,
+                "valueType": "string",
+                "imputationMethod": "Auto"
+            },
+            {
+                "name": "isPaidTimeOff",
+                "type": "boolean",
+                "nullable": true,
+                "valueType": "float",
+                "imputationMethod": "Auto"
+            },
+            {
+                "name": "countryRegionCode",
+                "type": "integer",
+                "nullable": true,
+                "valueType": "integer",
+                "imputationMethod": "Auto"
+            },
+            {
+                "name": "date",
+                "type": "timestamp",
+                "nullable": true,
+                "valueType": "Auto",
+                "imputationMethod": "Auto"
+            }
+        ]
+    },
+    "mlModel": {
+        "task": "Regression",
+        "mode": "Custom",
+        "duration": "2",
+        "metric": "R square",
+        "endEarly": true
+    },
+    "finalDetails": {
+        "parallelizationMethod": "trainMultiple",
+        "notebookName": "notebook_name_test",
+        "experimentName": "experiment-signature",
+        "modelName": "model_name_test",
+        "model": {
+            "modelSelection": "",
+            "modelInput": "model_name_test",
+            "modelType": "CreateNew"
+        }
+    },
+    "step": 5
+}

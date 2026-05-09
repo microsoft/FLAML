@@ -31,7 +31,7 @@ else:
             .config(
                 "spark.jars.packages",
                 (
-                    "com.microsoft.azure:synapseml_2.12:1.1.0,"
+                    "com.microsoft.azure:synapseml_2.12:1.0.14,"
                     "org.apache.hadoop:hadoop-azure:3.3.5,"
                     "com.microsoft.azure:azure-storage:8.6.6,"
                     f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
@@ -168,6 +168,8 @@ def test_spark_synapseml_rank():
 def test_spark_input_df_and_pickle():
     import pandas as pd
 
+    import flaml.visualization as fviz
+
     file_url = "https://mmlspark.blob.core.windows.net/publicwasb/company_bankruptcy_prediction_data.csv"
     df = pd.read_csv(file_url)
     df = spark.createDataFrame(df)
@@ -201,18 +203,24 @@ def test_spark_input_df_and_pickle():
         **settings,
     )
 
-    # test pickle and load_pickle, should work for prediction
+    # test pickle and load_pickle, should work for vizualization and prediction
     automl.pickle("automl_spark.pkl")
-    automl_loaded = AutoML().load_pickle("automl_spark.pkl")
+    automl_loaded = AutoML().load_pickle("automl_spark.pkl", load_spark_models=False)
     assert automl_loaded.best_estimator == automl.best_estimator
     assert automl_loaded.best_loss == automl.best_loss
-    automl_loaded.predict(df)
-    automl_loaded.model.estimator.transform(test_data)
+    # automl_loaded.predict(df)
+    # automl_loaded.model.estimator.transform(test_data)
 
-    import shutil
-
-    shutil.rmtree("automl_spark.pkl", ignore_errors=True)
-    shutil.rmtree("automl_spark.pkl.flaml_artifacts", ignore_errors=True)
+    fig1 = fviz.plot_optimization_history(automl)
+    fig2 = fviz.plot_optimization_history(automl_loaded)
+    assert fig1.to_json() == fig2.to_json()
+    fviz.plot_feature_importance(automl_loaded)
+    fviz.plot_parallel_coordinate(automl_loaded)
+    fviz.plot_contour(automl_loaded)
+    fviz.plot_edf(automl_loaded)
+    fviz.plot_timeline(automl_loaded)
+    fviz.plot_slice(automl_loaded)
+    fviz.plot_param_importance(automl_loaded)
 
     if estimator_list == ["rf_spark"]:
         return

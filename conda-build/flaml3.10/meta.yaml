@@ -1,0 +1,84 @@
+{% set version_match = load_file_regex(
+  load_file="flaml/version.py",
+  from_recipe_dir=False,
+  regex_pattern='^__version__ = "(.+)"') %}
+{% set version = version_match[1] %}
+
+package:
+  name: "flaml"
+  version: {{ version }}
+
+source:
+  path: ../../.
+
+build:
+  number: 0
+  # noarch: python
+  script: "{{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv"
+
+requirements:
+  build:
+    - scikit-learn ==1.3.0
+    - pip <=25.2
+  host:
+    - python
+    - pip <=25.2
+    - setuptools ==69.5.1
+    - wheel ==0.43.0
+    - numpy >=1.17.0,<=1.24.3
+    - scikit-learn ==1.3.0
+  run:
+    - python
+    - numpy >=1.17.0,<=1.24.3
+    - lightgbm >=2.3.1
+    - xgboost >=0.90,<2.0.0
+    - scipy >=1.4.1
+    - pandas >=1.1.4
+    - scikit-learn ==1.3.0
+    - pyspark >=3.2.0
+    # # - joblibspark ==0.5.2  # pip
+    - catboost >=0.26,<1.2 # [py<311]
+    # optuna required: >=3.1.0 for pytorch-forecasting=1.0.0
+    - optuna >=2.8.0,<=3.6.1
+    - transformers[torch]==4.26
+    - holidays
+    - plotly >=5.16.1
+    - pyarrow >=11.0.0
+    - statsmodels >=0.12.2
+    # # - nni  # pip & conflict with conda deps
+    - datasets
+    - nltk
+    # # - rouge_score  # pip
+    - seqeval
+    - packaging
+    - mlflow-skinny >=2.6.0
+    - joblib <=1.3.2  # 1.4.0 breaks joblibspark
+  run_constrained:
+    - pytorch-forecasting >=0.9.0
+    - prophet >=1.0.1
+    - hcrystalball ==0.1.10
+    - pytorch-lightning >=1.9.0
+
+test:
+  requires:
+    - pytest
+  source_files:
+    # list all conda related test files here
+    # note: keep the conda related tests directly in the test folder, so that bundling to tar.gz includes them
+    # or just extend the test_conda_distribution.py file with more tests (and make sure to mark it as conda)
+    - test/test_conda_distribution.py
+  commands:
+    - pytest -m conda
+
+about:
+  home: "https://github.com/microsoft/FLAML"
+  license: MIT
+  license_family: MIT
+  license_file:
+  summary: "A fast library for automated machine learning and tuning"
+  doc_url:
+  dev_url:
+
+extra:
+  recipe-maintainers:
+    - lijiang1

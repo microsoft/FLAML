@@ -1,0 +1,94 @@
+steps:
+  # - bash: |
+  #     tdnf repolist -y --refresh
+  #     tdnf install -y msopenjdk-11-mariner.x86_64
+  #     rpm -ql msopenjdk-11-mariner.x86_64
+  #   displayName: "Install Jdk 11"
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        wget -O setup.sh https://github.com/conda-forge/miniforge/releases/download/24.3.0-0/Miniforge3-Linux-x86_64.sh
+    condition: contains(variables['python.version'], '3.10')
+    displayName: 'Download Miniconda for python 3.10'
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        wget -O setup.sh https://github.com/conda-forge/miniforge/releases/download/24.3.0-0/Miniforge3-Linux-x86_64.sh
+    condition: contains(variables['python.version'], '3.11')
+    displayName: 'Download Miniconda for python 3.11'
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        wget -O setup.sh https://github.com/conda-forge/miniforge/releases/download/25.9.1-0/Miniforge3-Linux-x86_64.sh
+    condition: contains(variables['python.version'], '3.12')
+    displayName: 'Download Miniconda for python 3.12'
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        wget -O setup.sh https://github.com/conda-forge/miniforge/releases/download/25.11.0-0/Miniforge3-Linux-x86_64.sh
+    condition: contains(variables['python.version'], '3.13')
+    displayName: 'Download Miniconda for python 3.13'
+
+  - script: |
+        sudo mkdir -p $(CONDA_PATH)
+        sudo chown -R $(USER):$(USER) $(CONDA_PATH)
+        sh ./setup.sh -b -up $(CONDA_PATH)
+        rm -f ./setup.sh
+    displayName: Install Miniconda
+
+  - script: |
+      echo '##vso[task.prependpath]$(CONDA_PATH)/bin'
+    displayName: 'Add conda to PATH'
+
+  - script: |
+      # conda update --all -y
+      conda init bash
+      conda --version
+    displayName: 'Check conda version'
+
+  - script: |
+      set -euo pipefail
+      conda create --yes --quiet --offline -n pytest
+      cat .pipelines/.condarc | conda run --no-capture-output --name pytest conda config --env --stdin
+    displayName: 'Create Conda environment'
+
+  - task: CondaAuthenticate@0
+    displayName: Authenticate Conda with Azure Artifacts
+
+  - script: |
+      source activate pytest
+      conda install python==$(python.version) -y -q
+      python --version
+    displayName: 'Install Python $(python.version)'
+
+  - script: |
+      source activate pytest
+      python --version
+      python_version=$(python --version 2>&1 | awk '{print $2}')
+      major_version=$(echo $python_version | awk -F. '{print $1"."$2}')
+
+      # Check if the Python version matches the expected version
+      if [ "$major_version" != "$(python.version)" ]; then
+          echo "ERROR: Python version $(python.version) is required but found $major_version"
+          exit 1
+      fi
+    displayName: 'Check Python Version'
+
+  - task: PipAuthenticate@1
+    displayName: 'Pip Authenticate'
+    inputs:
+      artifactFeeds: 'A365/Synapse-Conda, A365/SynapseMaven'
+
+  - script: |
+      source activate pytest
+      pip config set global.index-url https://pkgs.dev.azure.com/msdata/A365/_packaging/Synapse-Conda/pypi/simple/
+      pip install --upgrade pip wheel==0.45.1 "setuptools<82"
+    displayName: 'Upgrade pip'

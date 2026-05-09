@@ -21,10 +21,14 @@ data_list = [
     "get_toy_data_binclassification",
     "get_toy_data_multiclassclassification",
 ]
+# transformers>=4.37.0 will not ignore the torch.Size([1]) weights which result in error for binary
+# calssification checkpoint which only output one node with linearlayer.bias.shape = torch.Size([1])
+# So the models here are changed to binary classfication with two dimension output torch.Size([2]) or
+# multiclassification for correctly ignore the classification head for finetune.
 model_path_list = [
-    "textattack/bert-base-uncased-STS-B",
+    "textattack/bert-base-uncased-WNLI",
     "textattack/bert-base-uncased-SST-2",
-    "textattack/bert-base-uncased-MNLI",
+    "textattack/bert-base-uncased-QNLI",
 ]
 
 if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
@@ -109,4 +113,8 @@ def _test_switch_classificationhead(each_data, each_model_path):
 
 
 if __name__ == "__main__":
-    _test_switch_classificationhead(data_list[0], model_path_list[0])
+    # test_switch_1_2()
+    # test_switch_1_3()
+    test_switch_2_1()
+    test_switch_2_2()
+    test_switch_2_3()

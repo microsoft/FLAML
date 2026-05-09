@@ -131,6 +131,8 @@ class TestRegression(unittest.TestCase):
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **settings)
 
     def test_parallel_and_pickle(self, hpo_method=None):
+        import flaml.visualization as fviz
+
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 10,
@@ -153,17 +155,23 @@ class TestRegression(unittest.TestCase):
         except ImportError:
             return
 
-        # test pickle and load_pickle, should work for prediction
+        # test pickle and load_pickle, should work for vizualization and prediction
         automl_experiment.pickle("automl_xgboost_spark.pkl")
         automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
         assert automl_loaded.best_estimator == automl_experiment.best_estimator
         assert automl_loaded.best_loss == automl_experiment.best_loss
         automl_loaded.predict(X_train)
 
-        import shutil
-
-        shutil.rmtree("automl_xgboost_spark.pkl", ignore_errors=True)
-        shutil.rmtree("automl_xgboost_spark.pkl.flaml_artifacts", ignore_errors=True)
+        fig1 = fviz.plot_optimization_history(automl_experiment)
+        fig2 = fviz.plot_optimization_history(automl_loaded)
+        assert fig1.to_json() == fig2.to_json()
+        fviz.plot_feature_importance(automl_loaded)
+        fviz.plot_parallel_coordinate(automl_loaded)
+        fviz.plot_contour(automl_loaded)
+        fviz.plot_edf(automl_loaded)
+        fviz.plot_timeline(automl_loaded)
+        fviz.plot_slice(automl_loaded)
+        fviz.plot_param_importance(automl_loaded)
 
     def test_sparse_matrix_regression_holdout(self):
         X_train = scipy.sparse.random(8, 100)
@@ -279,6 +287,7 @@ def test_reproducibility_of_regression_models(estimator: str):
         "keep_search_state": True,
         "skip_transform": True,
         "retrain_full": True,
+        "featurization": "off",
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -325,6 +334,7 @@ def test_reproducibility_of_catboost_regression_model():
         "keep_search_state": True,
         "skip_transform": True,
         "retrain_full": True,
+        "featurization": "off",
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -434,6 +444,7 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
         "metric": "r2",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
         "retrain_full": False,
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
