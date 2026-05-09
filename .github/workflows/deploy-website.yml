@@ -3,16 +3,8 @@ name: docs
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'flaml/*'
-      - 'website/*'
-      - '.github/workflows/deploy-website.yml'
   push:
     branches: [main]
-    paths:
-      - 'flaml/*'
-      - 'website/*'
-      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
   merge_group:
     types: [checks_requested]
@@ -21,8 +13,24 @@ permissions:
   contents: write
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'flaml/**'
+              - 'website/**'
+              - '.github/workflows/deploy-website.yml'
+
   checks:
-    if: github.event_name != 'push'
+    needs: changes
+    if: github.event_name != 'push' && (needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,7 +66,8 @@ jobs:
           npm run build
           fi
   gh-release:
-    if: github.event_name != 'pull_request'
+    needs: changes
+    if: github.event_name != 'pull_request' && (needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     defaults:
       run:
