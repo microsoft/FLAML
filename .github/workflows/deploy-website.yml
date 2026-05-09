@@ -10,7 +10,7 @@ on:
     types: [checks_requested]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
@@ -70,8 +70,6 @@ jobs:
     needs: changes
     if: github.event_name != 'pull_request' && (needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     defaults:
       run:
         working-directory: website
