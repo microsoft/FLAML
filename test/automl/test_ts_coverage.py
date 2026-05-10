@@ -182,21 +182,29 @@ class TestTimeSeriesDataset:
         result = ds.prettify_prediction(pred)
         assert ds.time_col in result.columns
 
-    def test_prettify_no_test_ndarray_raises(self):
+    def test_prettify_no_test_ndarray_generates_forward_timestamps(self):
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
         df, targets = _make_daily_df(30)
         ds = TimeSeriesDataset(df, "date", targets[0])
-        with pytest.raises(ValueError, match="Can't enrich"):
-            ds.prettify_prediction(np.array([1, 2, 3]))
+        # OSS PR #1536 changed prettify_prediction to auto-generate timestamps
+        # via create_forward_frame instead of raising when test_data is None.
+        result = ds.prettify_prediction(np.array([1, 2, 3]))
+        assert isinstance(result, pd.DataFrame)
+        assert ds.time_col in result.columns
+        assert len(result) == 3
 
-    def test_prettify_no_test_series_raises(self):
+    def test_prettify_no_test_series_generates_forward_timestamps(self):
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
         df, targets = _make_daily_df(30)
         ds = TimeSeriesDataset(df, "date", targets[0])
-        with pytest.raises(NotImplementedError):
-            ds.prettify_prediction(pd.Series([1, 2, 3]))
+        # OSS PR #1536 changed prettify_prediction to auto-generate timestamps
+        # via create_forward_frame instead of raising when test_data is None.
+        result = ds.prettify_prediction(pd.Series([1, 2, 3]))
+        assert isinstance(result, pd.DataFrame)
+        assert ds.time_col in result.columns
+        assert len(result) == 3
 
     def test_merge_prediction_with_target(self):
         ds = _make_ts_dataset(60, test_len=10)

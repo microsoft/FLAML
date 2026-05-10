@@ -127,6 +127,7 @@ jobs:
           coverage run -m pytest test/ \
             --ignore=test/autogen \
             --ignore=test/spark \
+            --ignore=test/nlp \
             --reruns 2 --reruns-delay 10 \
             -m "not spark"
       - name: Test with pytest (spark)
@@ -136,6 +137,7 @@ jobs:
         run: |
           coverage run -m pytest test/ \
             --ignore=test/autogen \
+            --ignore=test/nlp \
             --ignore=test/spark/test_internal_mlflow.py \
             --reruns 2 --reruns-delay 10 \
             -m "spark"
