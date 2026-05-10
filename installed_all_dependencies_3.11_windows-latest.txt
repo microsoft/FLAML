@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@461d3e3787fcde94c9f3ec99b8eaa456dc7423eb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@21fd83a089830bb3f8dfb48d191b7da9a2847721#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -163,7 +163,7 @@ pywinpty==3.0.3
 PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
-regex==2026.4.4
+regex==2026.5.9
 requests==2.33.1
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
