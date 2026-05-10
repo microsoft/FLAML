@@ -426,6 +426,7 @@ class TestClassification(unittest.TestCase):
         # "lrl1",
         "lrl2",
         "rf",
+        "sgd",
         "svc",
         "xgboost",
         "xgb_limitdepth",

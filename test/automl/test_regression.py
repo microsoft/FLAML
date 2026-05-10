@@ -262,6 +262,7 @@ def test_multioutput():
         "kneighbor",
         "lgbm",
         "rf",
+        "sgd",
         "xgboost",
         "xgb_limitdepth",
     ],

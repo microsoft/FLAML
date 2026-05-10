@@ -2450,6 +2450,9 @@ class SGDEstimator(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         if self._task.is_classification():
             self.estimator_class = SGDClassifier
         elif self._task.is_regression():
