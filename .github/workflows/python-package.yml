@@ -77,6 +77,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
         run: |
           pip install "pandas>=2.0,<3"
+      # scikit-learn 1.8 changed `check_is_fitted` to use estimator tags more
+      # strictly, which breaks FLAML's autofe Pipeline (test/fabric/test_autofe.py
+      # NotFittedError). The internal Azure DevOps pipeline pins scikit-learn=1.5.2
+      # via conda; mirror that intent by capping below 1.8 here.
+      - name: Pin scikit-learn<1.8 (FLAML autofe Pipeline relies on pre-1.8 fit semantics)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          pip install "scikit-learn>=1.3,<1.8"
       - name: On Ubuntu python 3.11, install pyspark 3.5.1
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         run: |
