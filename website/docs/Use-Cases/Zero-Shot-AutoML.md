@@ -52,9 +52,12 @@ Yes. You can use `suggest_hyperparams()` to find the suggested configuration. Fo
 from flaml.default import LGBMRegressor
 
 estimator = LGBMRegressor()
-hyperparams, estimator_name, X_transformed, y_transformed = (
-    estimator.suggest_hyperparams(X_train, y_train)
-)
+(
+    hyperparams,
+    estimator_name,
+    X_transformed,
+    y_transformed,
+) = estimator.suggest_hyperparams(X_train, y_train)
 print(hyperparams)
 ```
 
