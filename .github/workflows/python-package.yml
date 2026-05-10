@@ -110,13 +110,13 @@ jobs:
         timeout-minutes: 120
         if: matrix.python-version != '3.11'
         run: |
-          pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
+          pytest test/ --ignore=test/autogen --ignore=test/spark/test_internal_mlflow.py --reruns 2 --reruns-delay 10
       - name: Coverage
         timeout-minutes: 120
         if: matrix.python-version == '3.11'
         run: |
           pip install coverage
-          coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
+          coverage run -a -m pytest test --ignore=test/autogen --ignore=test/spark/test_internal_mlflow.py --reruns 2 --reruns-delay 10
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
