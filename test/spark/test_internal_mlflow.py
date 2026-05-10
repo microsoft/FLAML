@@ -8,7 +8,6 @@ import warnings
 import mlflow
 import pyspark
 import pytest
-from packaging.version import Version
 from pyspark.ml.evaluation import RegressionEvaluator
 from pyspark.ml.feature import VectorAssembler
 from sklearn.datasets import fetch_california_housing, load_diabetes
@@ -287,35 +286,9 @@ def test_exit_pyspark_autolog():
 
 
 def _init_spark_for_main():
-    import pyspark
+    from test.spark._init_spark import setup_spark_for_tests
 
-    spark = (
-        pyspark.sql.SparkSession.builder.appName("MyApp")
-        .master("local[2]")
-        .config(
-            "spark.jars.packages",
-            (
-                "com.microsoft.azure:synapseml_2.12:1.0.14,"
-                "org.apache.hadoop:hadoop-azure:3.3.5,"
-                "com.microsoft.azure:azure-storage:8.6.6,"
-                f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
-                if Version(mlflow.__version__) >= Version("2.9.0")
-                else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
-            ),
-        )
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .config("spark.sql.debug.maxToStringFields", "100")
-        .config("spark.driver.extraJavaOptions", "-Xss1m")
-        .config("spark.executor.extraJavaOptions", "-Xss1m")
-        .getOrCreate()
-    )
-    spark.sparkContext._conf.set(
-        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
-        "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
-    )
-
-    spark, ansi_conf, adjusted = disable_spark_ansi_mode()
-    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
+    setup_spark_for_tests("MyApp")
 
 
 if __name__ == "__main__":
