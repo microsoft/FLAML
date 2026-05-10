@@ -41,6 +41,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        test-type: [notspark, spark]
+        exclude:
+          # OSS CI does not install pyspark on Windows runners.
+          - os: windows-latest
+            test-type: spark
+          # OSS CI does not install pyspark on Python 3.10.
+          - python-version: "3.10"
+            test-type: spark
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -64,6 +72,7 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
+          pip install coverage
       - name: On Ubuntu with pyspark, pin pandas<3 (pyspark doesn't support pandas 3.0 yet)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
         run: |
@@ -106,26 +115,59 @@ jobs:
       - name: Clear pip cache
         run: |
           pip cache purge
-      - name: Test with pytest
+      # Tests are split into a "notspark" variant (everything except Spark
+      # tests, with `-m "not spark"`) and a "spark" variant (only Spark
+      # tests, with `-m "spark"`), mirroring the internal Azure DevOps
+      # pipeline at .pipelines/build.yml in the internal fork.
+      - name: Test with pytest (notspark)
+        if: matrix.test-type == 'notspark'
         timeout-minutes: 120
-        if: matrix.python-version != '3.11'
+        shell: bash
         run: |
-          pytest test/ --ignore=test/autogen --ignore=test/spark/test_internal_mlflow.py --reruns 2 --reruns-delay 10
-      - name: Coverage
+          coverage run -m pytest test/ \
+            --ignore=test/autogen \
+            --ignore=test/spark \
+            --reruns 2 --reruns-delay 10 \
+            -m "not spark"
+      - name: Test with pytest (spark)
+        if: matrix.test-type == 'spark'
         timeout-minutes: 120
-        if: matrix.python-version == '3.11'
+        shell: bash
         run: |
-          pip install coverage
-          coverage run -a -m pytest test --ignore=test/autogen --ignore=test/spark/test_internal_mlflow.py --reruns 2 --reruns-delay 10
-          coverage xml
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v3
+          coverage run -m pytest test/ \
+            --ignore=test/autogen \
+            --ignore=test/spark/test_internal_mlflow.py \
+            --reruns 2 --reruns-delay 10 \
+            -m "spark"
+      # .coveragerc enables `parallel = true`, so each subprocess writes its
+      # own .coverage.<host>.<pid>.<rand> shard. Combine them into a single
+      # per-job .coverage file so one artifact = one job's coverage.
+      - name: Combine per-job coverage data
+        if: always() && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -e
+          shopt -s nullglob
+          shards=( .coverage .coverage.* )
+          if [ ${#shards[@]} -eq 0 ]; then
+            echo "No coverage shards produced; skipping combine."
+            exit 0
+          fi
+          coverage combine || true
+          ls -la .coverage* || true
+      - name: Upload coverage data artifact
+        if: always() && matrix.os == 'ubuntu-latest' && hashFiles('.coverage') != ''
+        uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.xml
-          flags: unittests
+          name: coverage-data-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.test-type }}
+          path: .coverage
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 1
       - name: Save dependencies
-        if: github.ref == 'refs/heads/main'
+        # Run for a single matrix entry on push to main to avoid concurrent
+        # writes to the unit-tests-installed-dependencies branch.
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11' && matrix.test-type == 'notspark'
         shell: bash
         run: |
           git config --global user.name 'github-actions[bot]'
@@ -139,7 +181,54 @@ jobs:
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_*dependencies*.txt
-          mv coverage.xml ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
+          coverage xml -o ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
           git push origin "$BRANCH" --force
+
+  # Combine coverage data files from every test-matrix job into a single
+  # XML report and upload it to Codecov as one merged result. Coverage is
+  # only collected on Linux runners (see the build job) to avoid path
+  # mismatches between Linux and Windows in the combined data file.
+  coverage:
+    name: Combine coverage and upload to Codecov
+    if: always()
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install coverage
+        run: pip install coverage
+      - name: Download all coverage data artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage_artifacts
+          pattern: coverage-data-*
+      - name: Combine coverage data and produce XML
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p combined
+          i=0
+          for f in coverage_artifacts/*/.coverage; do
+            i=$((i + 1))
+            cp "$f" "combined/.coverage.$i"
+          done
+          if [ "$i" -eq 0 ]; then
+            echo "No coverage data files were uploaded by build jobs."
+            exit 0
+          fi
+          echo "Combining $i coverage data files..."
+          coverage combine combined/.coverage.*
+          coverage xml -i -o coverage.xml
+          coverage report -m || true
+      - name: Upload combined coverage to Codecov
+        if: hashFiles('coverage.xml') != ''
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
