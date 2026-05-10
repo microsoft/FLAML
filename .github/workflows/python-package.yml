@@ -73,8 +73,14 @@ jobs:
           python -c "import flaml"
           pip install -e .[test]
           pip install coverage
-      - name: On Ubuntu with pyspark, pin pandas<3 (pyspark doesn't support pandas 3.0 yet)
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
+      # pandas 3.0 removed Series.view and tightened dtype validation, which
+      # breaks several FLAML tests (test_data_coverage TestAddTimeIdxCol,
+      # test_ts_coverage TestDataTransformerTS / TestSimpleForecaster). pyspark
+      # also doesn't yet support pandas 3.0. The internal Azure DevOps pipeline
+      # pins pandas via conda; mirror that intent here. py3.10 is excluded
+      # because its older transitive deps already constrain pandas<3.
+      - name: Pin pandas<3 (compat with pyspark and FLAML time-series tests)
+        if: matrix.python-version != '3.10'
         run: |
           pip install "pandas>=2.0,<3"
       # scikit-learn 1.8 changed `check_is_fitted` to use estimator tags more
@@ -82,7 +88,6 @@ jobs:
       # NotFittedError). The internal Azure DevOps pipeline pins scikit-learn=1.5.2
       # via conda; mirror that intent by capping below 1.8 here.
       - name: Pin scikit-learn<1.8 (FLAML autofe Pipeline relies on pre-1.8 fit semantics)
-        if: matrix.os == 'ubuntu-latest'
         run: |
           pip install "scikit-learn>=1.3,<1.8"
       - name: On Ubuntu python 3.11, install pyspark 3.5.1
