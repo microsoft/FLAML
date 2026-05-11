@@ -1,0 +1,73 @@
+## Codecov configuration for microsoft/FLAML.
+##
+## Schema reference: https://docs.codecov.com/docs/codecovyml-reference
+##
+## NOTE: For PR comments to actually appear, the Codecov GitHub App must be
+## installed on this repo by an org admin:
+##     https://github.com/apps/codecov
+## Coverage uploads alone (via codecov/codecov-action) do not post comments.
+
+codecov:
+  ## Wait for the test matrix to upload all coverage reports before
+  ## evaluating status checks / posting the PR comment. The Build workflow
+  ## aggregates per-job .coverage shards into a single coverage.xml and
+  ## uploads exactly one Codecov report (see
+  ## .github/workflows/python-package.yml). Set notify.after_n_builds: 1 so
+  ## Codecov posts as soon as that one report arrives.
+  notify:
+    after_n_builds: 1
+    wait_for_ci: true
+  require_ci_to_pass: false
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...95"
+
+  status:
+    project:
+      default:
+        ## Allow PRs to drop project coverage by up to 1% before marking
+        ## the Codecov status check as failing. Tighten over time.
+        target: auto
+        threshold: 1%
+        informational: false
+        if_ci_failed: error
+    patch:
+      default:
+        ## New / modified lines should be at least 70% covered. Set
+        ## informational:true so the patch coverage doesn't block PRs while
+        ## the team gets used to the metric -- flip to false later.
+        target: 70%
+        threshold: 5%
+        informational: true
+        if_ci_failed: error
+
+## PR comment format -- mirrors the layout users expect from Codecov
+## comments on other public Python projects (e.g. the example referenced in
+## https://github.com/thinkall/featcopilot/pull/8#issuecomment-4387035775).
+comment:
+  layout: "header, diff, flags, components, files, footer"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+  show_carryforward_flags: true
+
+## Flags configuration -- the Build workflow uploads a single flag
+## "unittests" containing combined coverage from every matrix entry on
+## ubuntu-latest. (Coverage is only collected on Linux runners.)
+flags:
+  unittests:
+    paths:
+      - flaml/
+    carryforward: false
+
+## Files / paths to ignore from coverage analysis.
+ignore:
+  - "test/**/*"
+  - "notebook/**/*"
+  - "website/**/*"
+  - "setup.py"
+  - "flaml/version.py"
+  - "flaml/autogen/**/*"   # legacy code, moved to microsoft/autogen
