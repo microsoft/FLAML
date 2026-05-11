@@ -237,7 +237,7 @@ jobs:
           coverage report -m || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           # Use GitHub OIDC for tokenless uploads on this public repo.
           # Without this, Codecov rejects uploads with
@@ -251,5 +251,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests
+          name: flaml-combined-coverage
           fail_ci_if_error: false
           verbose: true
