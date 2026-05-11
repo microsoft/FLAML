@@ -255,8 +255,9 @@ def add_time_idx_col(X):
         # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
         # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
         # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
+        # NOTE: pandas 3 removed Series.view; cast datetime to int64 nanoseconds.
+        timestamps = unique_dates.astype("int64")
+        freq = int(timestamps.diff().mode().iloc[0])
         X["time_idx"] = timestamps - timestamps.min() / freq
         X["time_idx"] = X["time_idx"].astype("int")
     return X
@@ -394,6 +395,12 @@ class DataTransformer:
             self.label_transformer = None
         self._task = task
         return X, y
+
+    def __sklearn_is_fitted__(self):
+        """sklearn 1.8 hook used by `check_is_fitted` (e.g. when this
+        transformer is wrapped in a Pipeline). `_task` is the canonical
+        attribute set by `fit_transform`."""
+        return hasattr(self, "_task")
 
     def transform(self, X: Union[DataFrame, np.array]):
         """Process data using fit transformer.

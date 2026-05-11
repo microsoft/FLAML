@@ -470,7 +470,14 @@ class DataTransformerTS:
             else:
                 raise ValueError("y must be either a pd.Series or a pd.DataFrame at this stage")
             y_tr = self.label_transformer.transform(ycol)
-            y.iloc[:] = y_tr.reshape(y.shape)
+            # pandas 3 forbids in-place assignment of a numeric ndarray into a
+            # string-dtype column (`y.iloc[:] = y_tr` raises TypeError). Build a
+            # new container of the appropriate dtype instead.
+            if isinstance(y, pd.DataFrame):
+                y = y.copy()
+                y[y.columns[0]] = y_tr.reshape(-1)
+            else:
+                y = pd.Series(y_tr.reshape(-1), index=y.index, name=y.name)
 
         X.drop(columns=self.drop_columns, inplace=True)
 

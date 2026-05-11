@@ -333,6 +333,10 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
         """Fit the featurization pipeline."""
         _st = time.time()
         kusto_logger.info(f"Start featurization pipeline fitting at timestamp {_st}")
+        # Mark fitted up front so that early-return paths (no transformers
+        # configured) still satisfy sklearn 1.8's stricter `check_is_fitted`
+        # when this estimator is wrapped in a Pipeline.
+        self._is_fitted = True
         detail_config = []
         transformers = []
         column_transformers = []
@@ -454,6 +458,14 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
     def show_transformations(self):
         """Print the featurization pipeline."""
         pprint(self.detail_config)
+
+    def __sklearn_is_fitted__(self):
+        """sklearn 1.8 hook used by `check_is_fitted` (e.g. when this estimator
+        is the last step of a Pipeline). Prefer the explicit flag set by
+        `fit()` so that no-op fits (no transformers configured) still register
+        as fitted. Falls back to `pipeline is not None` for objects produced
+        by older code paths."""
+        return getattr(self, "_is_fitted", False) or self.pipeline is not None
 
 
 class CardinalitySelector(SelectorMixin, SKLearnBaseEstimator):

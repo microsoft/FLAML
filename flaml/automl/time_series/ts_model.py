@@ -714,7 +714,10 @@ class SeasonalNaive(SimpleForecaster):
         if isinstance(X, int):
             forecasts = []
             for i in range(X):
-                forecast = self._model.forecast(steps=self.season)[0]
+                # `.iloc[0]` is needed because in pandas 3 plain `[0]` performs
+                # label-based lookup on Series with non-integer index (statsmodels
+                # forecasts use a positional/RangeIndex that may be reset).
+                forecast = self._model.forecast(steps=self.season).iloc[0]
                 forecasts.append(forecast)
             return pd.Series(forecasts)
         else:
