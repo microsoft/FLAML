@@ -234,7 +234,14 @@ jobs:
           coverage report -m || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          file: ./coverage.xml
+          # codecov-action v5 uses GitHub OIDC for tokenless uploads on public
+          # repos -- this avoids the 429 rate limits the v3 uploader hit.
+          # CODECOV_TOKEN (if defined as a repo secret) is picked up
+          # automatically and gives even higher quota.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
           flags: unittests
+          fail_ci_if_error: false
+          verbose: true
