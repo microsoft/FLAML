@@ -28,6 +28,9 @@ on:
 
 permissions:
   contents: write
+  # id-token: write is required by codecov/codecov-action@v5 with use_oidc:true
+  # to obtain a GitHub OIDC token for tokenless authenticated uploads.
+  id-token: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -236,10 +239,15 @@ jobs:
         if: hashFiles('coverage.xml') != ''
         uses: codecov/codecov-action@v5
         with:
-          # codecov-action v5 uses GitHub OIDC for tokenless uploads on public
-          # repos -- this avoids the 429 rate limits the v3 uploader hit.
-          # CODECOV_TOKEN (if defined as a repo secret) is picked up
-          # automatically and gives even higher quota.
+          # Use GitHub OIDC for tokenless uploads on this public repo.
+          # Without this, Codecov rejects uploads with
+          # "Token required because branch is protected" since the PR
+          # source branch lives in microsoft/FLAML itself (which has
+          # branch protection on the default branch, and Codecov
+          # extends that policy to the whole repo for tokenless POSTs).
+          # CODECOV_TOKEN is honored if a repo admin sets it as a
+          # secret -- it's optional but gives even higher quotas.
+          use_oidc: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests
