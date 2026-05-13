@@ -2032,6 +2032,9 @@ class LRL1Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         assert self._task.is_classification(), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
