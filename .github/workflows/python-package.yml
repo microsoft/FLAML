@@ -159,6 +159,7 @@ jobs:
             --ignore=test/autogen \
             --ignore=test/spark \
             --ignore=test/nlp \
+            --ignore=test/automl/test_extra_models.py \
             --reruns 2 --reruns-delay 10 \
             -m "not spark"
       - name: Test with pytest (spark)

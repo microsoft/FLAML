@@ -48,27 +48,40 @@ def _mock_active_run_none_then_mock(run_id="r1"):
 # ---------------------------------------------------------------------------
 class TestSparkPipelineModelFallback:
     def test_fallback_class_defined_when_pyspark_missing(self):
-        """When pyspark is not installed the stub SparkPipelineModel is used."""
-        import importlib
+        """When pyspark is not installed the stub SparkPipelineModel is used.
+
+        Run the import in a fresh subprocess so we don't pollute the global
+        module state of the parent test process. Using importlib.reload here
+        previously caused class-identity mismatches in unrelated AutoML tests
+        when they ran later in the same worker (e.g. under pytest-xdist),
+        because joblib/pickle would look up
+        flaml.fabric.mlflow.MLflowIntegration and find the post-reload class
+        object, while existing AutoML instances still referenced the
+        pre-reload one.
+        """
+        import subprocess
         import sys
+        import textwrap
 
-        saved = sys.modules.get("pyspark.ml", None)
-        sys.modules["pyspark.ml"] = None  # force ImportError
-        mod = None
-        try:
-            # Re-import to trigger except branch
+        script = textwrap.dedent(
+            """
+            import sys
+            sys.modules['pyspark.ml'] = None  # force ImportError on `from pyspark.ml import ...`
             import flaml.fabric.mlflow as mod
-
-            importlib.reload(mod)
-            # The stub class should exist and be instantiable-ish
-            assert mod.SparkPipelineModel is not None
-        finally:
-            if saved is None:
-                sys.modules.pop("pyspark.ml", None)
-            else:
-                sys.modules["pyspark.ml"] = saved
-            if mod is not None:
-                importlib.reload(mod)
+            assert mod.SparkPipelineModel is not None, "stub SparkPipelineModel not defined"
+            print("OK")
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed (rc={result.returncode}):\n" f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+        assert "OK" in result.stdout
 
 
 # ---------------------------------------------------------------------------
