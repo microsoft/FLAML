@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -231,7 +232,10 @@ jobs:
           echo "Combining $i coverage data files..."
           coverage combine combined/.coverage.*
           coverage xml -i -o coverage.xml
-          coverage report -m || true
+          # Capture the text-format coverage report for
+          # MishaKav/pytest-coverage-comment (requires plain `coverage report`
+          # output, not the XML).
+          coverage report -m | tee pytest-coverage.txt || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
         uses: codecov/codecov-action@v6
@@ -247,3 +251,21 @@ jobs:
           name: flaml-combined-coverage
           fail_ci_if_error: false
           verbose: true
+      # Post a coverage comment directly on the PR via GITHUB_TOKEN.
+      # Codecov's own codecov-commenter is currently silent on this
+      # repo (uploads still go to the Codecov dashboard above for trend
+      # tracking, but the in-PR comment uses this action instead).
+      - name: Post coverage comment to PR
+        if: hashFiles('pytest-coverage.txt') != '' && github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          title: Coverage Report
+          badge-title: coverage
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
+          remove-link-from-badge: false
+          unique-id-for-comment: pytest-coverage-comment
