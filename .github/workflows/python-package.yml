@@ -266,10 +266,8 @@ jobs:
           echo "Combining $i coverage data files..."
           coverage combine combined/.coverage.*
           coverage xml -i -o coverage.xml
-          # Capture the text-format coverage report for
-          # MishaKav/pytest-coverage-comment (requires plain `coverage report`
-          # output, not the XML).
-          coverage report -m | tee pytest-coverage.txt || true
+          # Print a textual summary into the job log for quick debugging.
+          coverage report -m || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
         uses: codecov/codecov-action@v6
@@ -289,16 +287,23 @@ jobs:
       # Codecov's own codecov-commenter is currently silent on this
       # repo (uploads still go to the Codecov dashboard above for trend
       # tracking, but the in-PR comment uses this action instead).
+      # We feed it the cobertura coverage.xml directly via
+      # `pytest-xml-coverage-path` -- our `coverage report -m` text
+      # output (which we tee'd into pytest-coverage.txt) is missing
+      # the pytest test-session summary line that MishaKav parses for
+      # "passed"/"failed"/"skipped" counts, so the action would
+      # otherwise refuse the file with "bad format or wrong data".
       - name: Post coverage comment to PR
-        if: hashFiles('pytest-coverage.txt') != '' && github.event_name == 'pull_request'
+        if: hashFiles('coverage.xml') != '' && github.event_name == 'pull_request'
         uses: MishaKav/pytest-coverage-comment@main
         with:
-          pytest-coverage-path: ./pytest-coverage.txt
+          pytest-xml-coverage-path: ./coverage.xml
           title: Coverage Report
           badge-title: coverage
           hide-badge: false
           hide-report: false
           create-new-comment: false
+          unique-id-for-comment: pytest-coverage-comment
           hide-comment: false
           report-only-changed-files: false
           remove-link-from-badge: false
