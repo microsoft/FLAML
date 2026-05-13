@@ -33,7 +33,7 @@ convertdate==2.4.1
 coverage==7.14.0
 cryptography==48.0.0
 cycler==0.12.1
-databricks-sdk==0.106.0
+databricks-sdk==0.108.0
 datasets==4.8.5
 debugpy==1.8.20
 decorator==5.2.1
@@ -45,7 +45,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@c9009009f42de2c42f061099377b77f3f2e9af2b#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@5b938236f9f439da88c194cf777bd953ad1a1f24#egg=FLAML
 fonttools==4.62.1
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -62,7 +62,7 @@ httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.14.0
 identify==2.6.19
-idna==3.14
+idna==3.15
 importlib_metadata==8.7.1
 iniconfig==2.3.0
 ipykernel==7.2.0
@@ -126,7 +126,7 @@ opentelemetry-sdk==1.41.1
 opentelemetry-semantic-conventions==0.62b1
 optuna==3.6.1
 packaging==24.2
-pandas==3.0.2
+pandas==3.0.3
 pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.2
@@ -156,7 +156,7 @@ pyparsing==3.3.2
 pytest==9.0.3
 pytest-rerunfailures==16.1
 python-dateutil==2.9.0.post0
-python-discovery==1.3.0
+python-discovery==1.3.1
 python-json-logger==4.1.0
 pytorch-forecasting==1.7.0
 pytorch-lightning==2.6.1
@@ -165,7 +165,7 @@ PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
 regex==2026.5.9
-requests==2.33.1
+requests==2.34.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
@@ -211,7 +211,7 @@ uri-template==1.3.0
 urllib3==2.7.0
 userpath==1.9.2
 uvicorn==0.46.0
-virtualenv==21.3.1
+virtualenv==21.3.2
 wcwidth==0.7.0
 webcolors==25.10.0
 webencodings==0.5.1

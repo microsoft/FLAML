@@ -17,13 +17,13 @@ numpy==1.26.4
 openml==0.15.1
 optuna==3.6.1
 packaging==24.2
-pandas==3.0.2
+pandas==3.0.3
 psutil==7.2.2
 pytest-rerunfailures==16.1
 pytest==9.0.3
 pytorch-forecasting==1.7.0
 pytorch-lightning==2.6.1
-requests==2.33.1
+requests==2.34.0
 rgf-python==3.12.0
 rouge_score==0.1.2
 scikit-learn==1.8.0
@@ -37,4 +37,4 @@ torchvision==0.26.0
 transformers==5.8.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: c9009009f42de2c42f061099377b77f3f2e9af2b
+Current commit hash: 5b938236f9f439da88c194cf777bd953ad1a1f24
