@@ -74,6 +74,18 @@ jobs:
           python -c "import flaml"
           pip install -e .[test]
           pip install coverage
+      # When pytest-xdist spawns worker subprocesses, they don't inherit
+      # `coverage run`'s instrumentation. The canonical fix is a .pth file
+      # in site-packages that calls coverage.process_startup() on every
+      # interpreter start, gated by the COVERAGE_PROCESS_START env var
+      # (set per test step below). See https://coverage.readthedocs.io/
+      # en/latest/subprocess.html.
+      - name: Enable coverage in subprocesses (for pytest-xdist workers)
+        shell: bash
+        run: |
+          SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          echo "import coverage; coverage.process_startup()" > "$SITE_PACKAGES/coverage_subprocess.pth"
+          echo "Wrote $SITE_PACKAGES/coverage_subprocess.pth"
       # pyspark doesn't yet support pandas 3.0, so cap pandas where pyspark
       # is installed (only Ubuntu in this matrix). The py3.10 carve-out is
       # kept because pyspark 3.5.x already pulls in pandas<3 transitively
@@ -128,8 +140,22 @@ jobs:
         if: matrix.test-type == 'notspark'
         timeout-minutes: 120
         shell: bash
+        env:
+          # Tells the coverage_subprocess.pth file (created above) to
+          # auto-start coverage in pytest-xdist worker processes using
+          # this config. Without this, subprocess test code wouldn't
+          # be measured.
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
         run: |
+          # -n 2 --dist=loadfile parallelizes tests across 2 worker
+          # procs (GitHub-hosted runners have 4 vCPU; 2 workers leaves
+          # ~2 cores per worker for lightgbm/xgboost/sklearn internal
+          # threading, avoiding CPU oversubscription that hurts wall
+          # time more than it helps). loadfile keeps tests from the
+          # same file together so module-level fixtures aren't
+          # re-imported per test.
           coverage run -m pytest test/ \
+            -n 2 --dist=loadfile \
             --ignore=test/autogen \
             --ignore=test/spark \
             --ignore=test/nlp \
@@ -139,7 +165,14 @@ jobs:
         if: matrix.test-type == 'spark'
         timeout-minutes: 120
         shell: bash
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
         run: |
+          # Spark tests are kept serial: SynapseML's SparkSession is a
+          # single global JVM instance and the Spark workers themselves
+          # already parallelize, so pytest-level parallelism would
+          # contend on the same JVM and hurt rather than help. They
+          # already run in ~20 min.
           coverage run -m pytest test/ \
             --ignore=test/autogen \
             --ignore=test/nlp \

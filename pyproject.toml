@@ -58,6 +58,7 @@ test = [
     "thop",
     "pytest>=6.1.1",
     "pytest-rerunfailures>=13.0",
+    "pytest-xdist>=3.0.0",
     "coverage>=5.3",
     "pre-commit",
     "torch",
