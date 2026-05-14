@@ -19,11 +19,11 @@ optuna==3.6.1
 packaging==24.2
 pandas==3.0.3
 psutil==7.2.2
-pytest-rerunfailures==16.1
+pytest-rerunfailures==16.2
 pytest==9.0.3
 pytorch-forecasting==1.7.0
 pytorch-lightning==2.6.1
-requests==2.34.0
+requests==2.34.1
 rgf-python==3.12.0
 rouge_score==0.1.2
 scikit-learn==1.8.0
@@ -32,9 +32,9 @@ seqeval==1.2.2
 statsmodels==0.14.6
 tensorboardX==2.6.5
 thop==0.1.1-2209072238
-torch==2.11.0
-torchvision==0.26.0
-transformers==5.8.0
+torch==2.12.0
+torchvision==0.27.0
+transformers==5.8.1
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: bcc0fa46286dc1fd86a471be643df762c487d7b5
+Current commit hash: db71b866c9da554c7051192b43f9132795757b34
