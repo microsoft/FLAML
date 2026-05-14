@@ -1970,8 +1970,6 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
         if not self._task.is_classification() and "criterion" in params:
             params.pop("criterion")
-        if "random_state" not in params:
-            params["random_state"] = 12032022
         return params
 
     def __init__(
@@ -1981,6 +1979,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     ):
         super().__init__(task, **params)
         self.params["verbose"] = 0
+        random_seed = self.params.pop("random_seed", params.get("random_seed", 12032022))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
 
         if self._task.is_classification():
             self.estimator_class = RandomForestClassifier
