@@ -1874,6 +1874,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **config)
         del self.params["verbose"]
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         import xgboost as xgb
 
         if "rank" == task:
