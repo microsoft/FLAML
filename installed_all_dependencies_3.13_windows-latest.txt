@@ -32,10 +32,10 @@ convertdate==2.4.1
 coverage==7.14.0
 cryptography==48.0.0
 cycler==0.12.1
-databricks-sdk==0.108.0
+databricks-sdk==0.109.0
 datasets==4.8.5
 debugpy==1.8.20
-decorator==5.2.1
+decorator==5.3.1
 defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.0
@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.136.1
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@70c55291813593e28d8e4ddf9b5d0609036cbabb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@4c6657bf2129687f94e22147d6527a86bad67412#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -118,7 +118,7 @@ nltk==3.9.4
 nodeenv==1.10.0
 notebook==7.5.6
 notebook_shim==0.2.4
-numpy==2.4.5
+numpy==2.4.6
 openml==0.15.1
 opentelemetry-api==1.41.1
 opentelemetry-sdk==1.41.1
@@ -220,4 +220,4 @@ xgboost==3.2.0
 xmltodict==1.0.4
 xxhash==3.7.0
 yarl==1.23.0
-zipp==3.23.1
+zipp==4.1.0
