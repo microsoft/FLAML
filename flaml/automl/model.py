@@ -1779,6 +1779,9 @@ class XGBoostEstimator(SKLearnEstimator):
     ):
         super().__init__(task, **config)
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         import xgboost as xgb
