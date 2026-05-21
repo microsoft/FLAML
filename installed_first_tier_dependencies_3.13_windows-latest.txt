@@ -22,7 +22,7 @@ psutil==7.2.2
 pytest-rerunfailures==16.2
 pytest==9.0.3
 pytorch-forecasting==1.7.0
-pytorch-lightning==2.6.1
+pytorch-lightning==2.6.4
 requests==2.34.2
 rgf-python==3.12.0
 rouge_score==0.1.2
@@ -34,7 +34,7 @@ tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.12.0
 torchvision==0.27.0
-transformers==5.8.1
+transformers==5.9.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: 7473a06b4fc13c9d538d5d0109fe9303a99f34e8
+Current commit hash: 0c5ccda29695e1663b6037256b1948e0848d70e6
