@@ -376,6 +376,190 @@ def test_auto_convert_dtypes_spark():
     assert spark_dtypes["string_col"] == "string"
 
 
+def test_auto_convert_dtypes_skip_columns():
+    """Both pandas and spark variants must leave ``skip_columns`` untouched."""
+    import pandas as pd
+
+    # Pandas
+    pdf = pd.DataFrame(
+        {
+            "id": [str(i) for i in range(10)],  # would normally be int
+            "raw": ["A", "B", "NULL", "C", "A"] * 2,  # NA-token preserved
+            "lab": ["X", "Y", "Z", "X", "Y"] * 2,  # still inferred
+        }
+    )
+    p_out, p_schema = auto_convert_dtypes_pandas(pdf, skip_columns=["id", "raw"])
+    assert p_schema["id"] == str(pdf["id"].dtype)
+    assert p_out["id"].tolist() == pdf["id"].tolist()
+    assert p_schema["raw"] == str(pdf["raw"].dtype)
+    assert p_out["raw"].tolist() == pdf["raw"].tolist()
+    assert p_schema["lab"] == "category"
+
+    # Spark
+    sdf = spark.createDataFrame(pdf)
+    s_out, s_schema = auto_convert_dtypes_spark(sdf, skip_columns=["id", "raw"])
+    s_dtypes = dict(s_out.dtypes)
+    assert s_dtypes["id"] == "string"  # untouched
+    assert s_dtypes["raw"] == "string"  # untouched, NA-token preserved
+    # "raw" values are not normalized when skipped.
+    raw_vals = [r[0] for r in s_out.select("raw").collect()]
+    assert "NULL" in raw_vals
+
+
+def test_auto_convert_dtypes_boolean_to_int_pandas():
+    """Pandas: a boolean column is cast to ``Int64`` (nullable int).
+
+    True→1, False→0, NA→pd.NA. This keeps the column numeric so a
+    downstream sklearn ``ColumnTransformer`` that also handles string-typed
+    categoricals does not trip on the ``is_bool_dtype`` early-conversion
+    path.
+    """
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            "flag_ext": pd.array(
+                [True, False, True, False, True, False, True, False, True, pd.NA],
+                dtype="boolean",
+            ),
+            "flag_np": [True, False, True, False, True, False, True, False, True, False],
+        }
+    )
+    out, schema = auto_convert_dtypes_pandas(df)
+    assert schema["flag_ext"] == "int"
+    assert schema["flag_np"] == "int"
+    assert isinstance(out["flag_ext"].dtype, pd.Int64Dtype)
+    assert isinstance(out["flag_np"].dtype, pd.Int64Dtype)
+    # NA round-trips, values map cleanly.
+    assert out["flag_ext"].iloc[0] == 1 and out["flag_ext"].iloc[1] == 0
+    assert pd.isna(out["flag_ext"].iloc[-1])
+
+
+def test_auto_convert_dtypes_boolean_to_int_spark():
+    """Spark: a ``BooleanType`` column is cast to ``IntegerType`` (1/0/null)."""
+    import pandas as pd
+    from pyspark.sql.types import BooleanType, StructField, StructType
+
+    schema_in = StructType([StructField("flag", BooleanType(), nullable=True)])
+    rows = [(True,), (False,), (True,), (None,), (False,)] * 4
+    sdf = spark.createDataFrame(rows, schema=schema_in)
+
+    out, sch = auto_convert_dtypes_spark(sdf)
+    assert sch["flag"] == "int"
+    assert dict(out.dtypes)["flag"] == "int"
+
+    # Value mapping preserved (True→1, False→0, null→null).
+    vals = [r[0] for r in out.select("flag").collect()]
+    assert vals.count(1) == 8
+    assert vals.count(0) == 8
+    assert vals.count(None) == 4
+
+
+def test_auto_convert_dtypes_spark_non_numeric_string_no_throw():
+    """Non-numeric string columns must not raise under Spark ANSI mode.
+
+    Regression test for a ``NumberFormatException`` / ``DateTimeException``
+    that surfaced when ``auto_convert_dtypes_spark`` called ``cast("double")``
+    or ``to_timestamp`` against a high-cardinality string column (e.g.
+    customer ids like ``CUST_006255``) while Spark ANSI mode was enabled
+    (default in Spark 4.x). The fix routes both numeric and timestamp casts
+    through ``try_cast`` so unparseable values become NULL instead of raising.
+    """
+    import pandas as pd
+
+    # Mix a numeric-looking int column with a free-text id column whose values
+    # cannot be parsed as numbers OR as timestamps. Without ``try_cast`` the
+    # numeric-probe AND the timestamp-probe would raise under ANSI mode.
+    pdf = pd.DataFrame(
+        {
+            "cust_id": [f"CUST_{i:06d}" for i in range(120)],
+            "amount": [str(i) for i in range(120)],
+        }
+    )
+    sdf = spark.createDataFrame(pdf)
+
+    out, sch = auto_convert_dtypes_spark(sdf)
+
+    # cust_id is high-cardinality non-numeric → keep as string (not int/double)
+    assert sch["cust_id"] == "string"
+    assert dict(out.dtypes)["cust_id"] == "string"
+    # amount is purely numeric strings → int
+    assert sch["amount"] == "int"
+    assert dict(out.dtypes)["amount"] == "int"
+    # Forcing materialization must not raise.
+    assert out.count() == 120
+
+
+def test_auto_convert_dtypes_spark_outlier_survives_inference():
+    """Apply-phase ``try_cast`` must NULL-out non-numeric outliers, not raise.
+
+    The inference samples a fraction of the data. If the sample happens to
+    contain only numeric values but the full data has a stray non-numeric
+    string, the apply-phase cast must not raise under ANSI mode.
+    """
+    import pandas as pd
+
+    # 99 numeric strings plus one outlier that cannot be cast to a number.
+    pdf = pd.DataFrame({"val": [str(i) for i in range(99)] + ["not_a_number"]})
+    sdf = spark.createDataFrame(pdf)
+
+    out, sch = auto_convert_dtypes_spark(sdf)
+
+    # The column is overwhelmingly numeric, so we should infer int.
+    assert sch["val"] == "int"
+    assert dict(out.dtypes)["val"] == "int"
+
+    # The outlier must materialize as NULL (try_cast behavior) instead of
+    # crashing the .collect() call.
+    vals = [r[0] for r in out.select("val").collect()]
+    assert vals.count(None) == 1
+    assert sum(v is not None for v in vals) == 99
+
+
+@pytest.mark.parametrize("ansi_enabled", ["true", "false"])
+def test_auto_convert_dtypes_spark_works_in_both_ansi_modes(ansi_enabled):
+    """``auto_convert_dtypes_spark`` must succeed with ANSI on AND off.
+
+    Spark 3.x defaults ANSI to off (lenient cast → NULL); Spark 4.x defaults
+    it to on (strict cast → exception). The ``try_cast`` calls used by
+    ``auto_convert_dtypes_spark`` return NULL for unparseable values in both
+    modes, so behavior must be identical regardless of the runtime setting.
+    """
+    import pandas as pd
+
+    original = spark.conf.get("spark.sql.ansi.enabled", "false")
+    try:
+        spark.conf.set("spark.sql.ansi.enabled", ansi_enabled)
+
+        pdf = pd.DataFrame(
+            {
+                # Non-numeric, non-timestamp free-text → would trip strict cast.
+                "cust_id": [f"CUST_{i:06d}" for i in range(120)],
+                # Purely numeric string → int.
+                "age": [str(20 + i % 40) for i in range(120)],
+                # Mostly-numeric with a stray outlier → int + NULL for outlier.
+                "score": [str(i) for i in range(119)] + ["bad"],
+            }
+        )
+        sdf = spark.createDataFrame(pdf)
+
+        out, sch = auto_convert_dtypes_spark(sdf)
+
+        # Inferred schema is invariant to ANSI mode.
+        assert sch["cust_id"] == "string"
+        assert sch["age"] == "int"
+        assert sch["score"] == "int"
+
+        # Materialization must succeed (no exception thrown).
+        assert out.count() == 120
+
+        # Outlier in ``score`` must become NULL (try_cast semantics).
+        score_vals = [r[0] for r in out.select("score").collect()]
+        assert score_vals.count(None) == 1
+    finally:
+        spark.conf.set("spark.sql.ansi.enabled", original)
+
+
 if __name__ == "__main__":
     # test_spark_synapseml_classification()
     # test_spark_synapseml_regression()

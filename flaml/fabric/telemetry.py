@@ -2,6 +2,7 @@ import logging
 import sys
 
 from flaml.automl.logger import logger_formatter
+from flaml.fabric import is_fabric_runtime
 from flaml.version import __version__
 
 try:
@@ -19,7 +20,7 @@ if not logger.handlers:
 
 
 def log_telemetry(activity_name: str = ""):
-    if report_usage_telemetry:
+    if is_fabric_runtime() and report_usage_telemetry:
         report_usage_telemetry(
             "PyLibraryImport",
             activity_name,

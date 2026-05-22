@@ -329,13 +329,26 @@ class Prophet(TimeSeriesEstimator):
 
 
 class StatsModelsEstimator(TimeSeriesEstimator):
+    def _target_name(self) -> str:
+        # ``self.target_names`` is set either as a string (e.g., ARIMA.fit
+        # at line 447) or as a list (the TimeSeriesEstimator default), so
+        # indexing with ``[0]`` on a string would yield only the first
+        # character of the column name. Normalize via type check.
+        names = self.target_names
+        if isinstance(names, str):
+            return names
+        return names[0]
+
     def predict(self, X, **kwargs) -> pd.Series:
-        X = self.enrich(X)
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
-        if isinstance(X, int):
-            return self._model.forecast(steps=X)
+        if isinstance(X, int) and not self.regressors:
+            forecast = self._model.forecast(steps=X)
+            forecast.name = self._target_name()
+            return forecast
+
+        X = self.enrich(X)
 
         if isinstance(X, TimeSeriesDataset):
             data = X
@@ -351,20 +364,30 @@ class StatsModelsEstimator(TimeSeriesEstimator):
 
         if isinstance(X, DataFrame):
             if X.shape[0] == 0:
-                return pd.Series([], name=self.target_names[0], dtype=float)
-            start = X[self.time_col].iloc[0]
-            end = X[self.time_col].iloc[-1]
-            if len(self.regressors):
-                exog = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
-            else:
-                forecast = self._model.predict(start=start, end=end, **kwargs)
+                return pd.Series([], name=self._target_name(), dtype=float)
+            steps = X.shape[0]
+            try:
+                start = X[self.time_col].iloc[0]
+                end = X[self.time_col].iloc[-1]
+                if len(self.regressors):
+                    exog = self._preprocess(X[self.regressors])
+                    forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
+                else:
+                    forecast = self._model.predict(start=start, end=end, **kwargs)
+            except KeyError:
+                # Date-based lookup fails for irregular time series (e.g. business days
+                # with holidays removed); fall back to step-based forecasting.
+                if len(self.regressors):
+                    exog = self._preprocess(X[self.regressors])
+                    forecast = self._model.get_forecast(steps=steps, exog=exog.values).predicted_mean
+                else:
+                    forecast = self._model.forecast(steps=steps)
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"
                 " or an int number of periods for predict()."
             )
-        forecast.name = self.target_names[0]
+        forecast.name = self._target_name()
         return forecast
 
 

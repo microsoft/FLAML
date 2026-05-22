@@ -18,6 +18,37 @@ def pytest_configure(config):
     os.environ["FLAML_FEATURIZATION"] = os.environ.get("FLAML_FEATURIZATION", "auto")
 
 
+@pytest.fixture(autouse=True)
+def _end_mlflow_runs_between_tests():
+    """Ensure no MLflow run leaks between tests.
+
+    A leaked active run causes ``MLflowIntegration.__init__`` (in
+    ``flaml/fabric/mlflow.py``) to adopt that run's id as
+    ``parent_run_id``, which then triggers
+    ``MlflowException: Changing param values is not allowed`` when a
+    later test logs ``n_estimators`` (or any other already-logged param)
+    to that same parent run. Cleaning up both before and after each test
+    keeps cross-test state from leaking in either direction.
+    """
+    try:
+        import mlflow
+    except Exception:
+        yield
+        return
+
+    try:
+        while mlflow.active_run() is not None:
+            mlflow.end_run()
+    except Exception:
+        pass
+    yield
+    try:
+        while mlflow.active_run() is not None:
+            mlflow.end_run()
+    except Exception:
+        pass
+
+
 def _is_catboost_model_type(model_type: type) -> bool:
     if CatBoostClassifier is not None and CatBoostRegressor is not None:
         return model_type is CatBoostClassifier or model_type is CatBoostRegressor

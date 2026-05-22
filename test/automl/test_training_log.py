@@ -62,7 +62,8 @@ class TestTrainingLog(unittest.TestCase):
                 assert (
                     str(model.estimator) == str(automl.model.estimator)
                     or estimator == "xgboost"
-                    and str(model.estimator.get_dump()) == str(automl.model.estimator.get_dump())
+                    and str(model.estimator.get_booster().get_dump())
+                    == str(automl.model.estimator.get_booster().get_dump())
                     or estimator == "catboost"
                     and str(model.estimator.get_all_params()) == str(automl.model.estimator.get_all_params())
                 )

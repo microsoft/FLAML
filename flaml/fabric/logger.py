@@ -1,9 +1,14 @@
 import re
 
+from flaml.fabric import is_fabric_runtime
+
 try:
     from synapse.ml.pymds import get_mds_logger
     from synapse.ml.pymds.handler import default_scrubbers
     from synapse.ml.pymds.scrubbers.scrubber import IScrub
+
+    if not is_fabric_runtime():
+        raise ImportError("Not running in Fabric runtime")
 except ImportError:
     no_synapse = True
 else:

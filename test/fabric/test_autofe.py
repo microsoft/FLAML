@@ -41,7 +41,7 @@ def test_numpy_autofe():
     X, y = datasets.load_diabetes(return_X_y=True, as_frame=False)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
     automl = AutoML()
-    automl.fit(X_train=X_train, y_train=y_train, max_iter=5, featurization="auto", task="classification")
+    automl.fit(X_train=X_train, y_train=y_train, max_iter=5, featurization="auto", task="regression")
     automl.predict(X_test)
     transformer = automl.feature_transformer
     transformer.transform(X_test)

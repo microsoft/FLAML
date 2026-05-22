@@ -296,7 +296,7 @@ class TestMLflowIntegrationInit:
                     get_artifact=MagicMock(return_value=MagicMock(displayName="nb"))
                 ),
             },
-        ):
+        ), patch("flaml.fabric.mlflow.is_fabric_runtime", return_value=True):
             with mlflow.start_run():
                 integration = MLflowIntegration()
                 assert integration._on_internal is True
@@ -940,6 +940,70 @@ class TestRetrain:
             with patch.object(mlflow, "start_run"):
                 integration.retrain(mock_train, {"lr": 0.1})
         mock_train.assert_called_once_with({"lr": 0.1})
+
+
+# ---------------------------------------------------------------------------
+# resume_mlflow shutdown safety (defensive ``globals().get("mlflow")`` lookup)
+# ---------------------------------------------------------------------------
+class TestResumeMlflowShutdownSafety:
+    """Regression guards for the 'NoneType has no attribute autolog' crash.
+
+    During Python interpreter shutdown the module-level ``mlflow`` reference
+    inside ``flaml/fabric/mlflow.py`` may be cleared to ``None`` by the
+    garbage collector before ``MLflowIntegration.__del__`` runs.
+    ``resume_mlflow`` reads the reference via ``globals().get("mlflow")``
+    and short-circuits when it is missing or does not expose ``autolog``,
+    so the destructor never propagates a shutdown-time exception regardless
+    of whether ``mlflow`` is still bound, has been set to ``None``, or no
+    longer exposes ``autolog``.
+    """
+
+    def test_resume_mlflow_noop_when_no_resume_params(self):
+        from flaml.fabric.mlflow import MLflowIntegration
+
+        with mlflow.start_run():
+            integration = MLflowIntegration()
+        integration.resume_params = {}
+
+        with patch("flaml.fabric.mlflow.mlflow", None):
+            integration.resume_mlflow()  # must not raise
+
+    def test_resume_mlflow_handles_mlflow_set_to_none(self):
+        from flaml.fabric.mlflow import MLflowIntegration
+
+        with mlflow.start_run():
+            integration = MLflowIntegration()
+        integration.resume_params = {"disable": False, "silent": True}
+
+        with patch("flaml.fabric.mlflow.mlflow", None):
+            integration.resume_mlflow()  # must not raise
+
+    def test_resume_mlflow_handles_mlflow_missing_autolog(self):
+        """A non-None mlflow without an ``autolog`` attribute is treated like None."""
+        from flaml.fabric.mlflow import MLflowIntegration
+
+        with mlflow.start_run():
+            integration = MLflowIntegration()
+        integration.resume_params = {"disable": False}
+
+        # A bare ``object()`` has no ``autolog`` attribute, so ``hasattr``
+        # returns ``False`` and ``resume_mlflow`` must short-circuit
+        # instead of attempting ``object().autolog(...)``.
+        with patch("flaml.fabric.mlflow.mlflow", object()):
+            integration.resume_mlflow()  # must not raise
+
+    def test_resume_mlflow_calls_autolog_normally(self):
+        """The happy path still calls ``mlflow.autolog`` with ``resume_params``."""
+        from flaml.fabric.mlflow import MLflowIntegration
+
+        with mlflow.start_run():
+            integration = MLflowIntegration()
+        integration.resume_params = {"disable": False, "silent": True}
+
+        fake = MagicMock()
+        with patch("flaml.fabric.mlflow.mlflow", fake):
+            integration.resume_mlflow()
+        fake.autolog.assert_called_once_with(disable=False, silent=True)
 
 
 # ---------------------------------------------------------------------------

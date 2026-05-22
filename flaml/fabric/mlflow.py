@@ -33,6 +33,7 @@ from sklearn.pipeline import Pipeline
 
 from flaml.automl.logger import logger
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.fabric import is_fabric_runtime
 from flaml.fabric.logger import init_kusto_logger
 from flaml.version import __version__
 
@@ -317,6 +318,9 @@ class MLflowIntegration:
     def __init__(self, experiment_type="automl", mlflow_exp_name=None, extra_tag=None):
         try:
             from synapse.ml.mlflow import get_mlflow_env_config
+
+            if not is_fabric_runtime():
+                raise ModuleNotFoundError("Not in fabric runtime")
 
             self.driver_mlflow_env_config = get_mlflow_env_config()
             self._on_internal = True
@@ -884,7 +888,21 @@ class MLflowIntegration:
 
     def resume_mlflow(self):
         if len(self.resume_params) > 0:
-            mlflow.autolog(**self.resume_params)
+            # During interpreter shutdown the module-level ``mlflow`` binding
+            # may be cleared by Python's garbage collector — either reset to
+            # ``None`` or deleted outright (which would raise ``NameError``
+            # on a bare name lookup). Read via ``globals().get("mlflow")``
+            # so this method is safe whether the global is still bound to
+            # the module, has been set to ``None``, or has been removed
+            # entirely; this matters because ``__del__`` calls this method
+            # and ``__del__`` runs at unpredictable points including
+            # interpreter teardown. Other (non-shutdown) failures still
+            # propagate to the caller — ``__del__`` already wraps this
+            # method, so destructor exception suppression is preserved.
+            _mlflow = globals().get("mlflow")
+            if _mlflow is None or not hasattr(_mlflow, "autolog"):
+                return
+            _mlflow.autolog(**self.resume_params)
 
     def _log_automl_configurations(self, run_id):
         self.mlflow_client.log_text(
