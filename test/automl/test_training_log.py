@@ -29,6 +29,12 @@ class TestTrainingLog(unittest.TestCase):
                 # "ensemble": True,
                 "keep_search_state": True,
                 "estimator_list": estimator_list,
+                # Disable autofe so the two fits below produce identical models
+                # regardless of the FLAML_FEATURIZATION env var (set to "auto"
+                # in test/conftest.py). With "auto", featurization is re-run on
+                # the second fit and can pick a slightly different transformation,
+                # making the booster-equivalence assertion below flaky.
+                "featurization": "off",
             }
             X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
@@ -56,6 +62,7 @@ class TestTrainingLog(unittest.TestCase):
                     n_jobs=1,
                     starting_points={estimator: config},
                     use_ray=use_ray,
+                    featurization="off",
                 )
                 print(automl.best_config)
                 # then the fitted model should be equivalent to model
