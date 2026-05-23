@@ -26,8 +26,14 @@ def pytest_configure(config):
         import tempfile
 
         worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        # IMPORTANT: do NOT pre-create this directory. ``FileStore.__init__``
+        # only bootstraps the default ``Experiment(id="0")`` (which several
+        # tests in ``test/fabric/test_mlflow_coverage.py`` implicitly rely on
+        # via ``mlflow.start_run()``) when the root directory does not yet
+        # exist. Pre-creating the dir would leave the store without a
+        # Default experiment, breaking those tests with
+        # ``MlflowException: Could not find experiment with ID 0``.
         tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{worker_id}_{os.getpid()}")
-        os.makedirs(tracking_dir, exist_ok=True)
         # ``file:`` URIs need POSIX-style forward slashes even on Windows;
         # ``Path.as_uri()`` handles the platform-specific prefix correctly.
         from pathlib import Path
