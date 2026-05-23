@@ -22,10 +22,23 @@ def pytest_configure(config):
     # file. Concurrent writers can leave the file half-written, which then
     # surfaces as ``yaml.parser.ParserError: while parsing a block mapping``
     # in every subsequent test that talks to MLflow on the same worker.
-    if "MLFLOW_TRACKING_URI" not in os.environ:
+    #
+    # ``pytest_configure`` runs in the main pytest process AND in every
+    # xdist worker. The main process runs first and exports
+    # ``MLFLOW_TRACKING_URI``; workers then inherit that value. Without
+    # the override below, all workers would share the main process's
+    # tracking dir and race on writes. We therefore force-override the
+    # URI in xdist workers when the inherited value is one we previously
+    # set ourselves (path contains ``flaml_mlruns_``); a URI set
+    # externally by the user is left untouched.
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    existing_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
+    inherited_from_main = bool(worker_id) and "flaml_mlruns_" in existing_uri
+    if not existing_uri or inherited_from_main:
         import tempfile
+        from pathlib import Path
 
-        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        tag = worker_id or "main"
         # IMPORTANT: do NOT pre-create this directory. ``FileStore.__init__``
         # only bootstraps the default ``Experiment(id="0")`` (which several
         # tests in ``test/fabric/test_mlflow_coverage.py`` implicitly rely on
@@ -33,11 +46,9 @@ def pytest_configure(config):
         # exist. Pre-creating the dir would leave the store without a
         # Default experiment, breaking those tests with
         # ``MlflowException: Could not find experiment with ID 0``.
-        tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{worker_id}_{os.getpid()}")
+        tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{tag}_{os.getpid()}")
         # ``file:`` URIs need POSIX-style forward slashes even on Windows;
         # ``Path.as_uri()`` handles the platform-specific prefix correctly.
-        from pathlib import Path
-
         os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
 
 
