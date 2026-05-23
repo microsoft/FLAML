@@ -138,7 +138,12 @@ jobs:
       # pipeline at .pipelines/build.yml in the internal fork.
       - name: Test with pytest (notspark)
         if: matrix.test-type == 'notspark'
-        timeout-minutes: 120
+        # Python 3.10 uses older pinned deps (xgboost<2, etc.) that run
+        # the AutoML/forecast suite roughly 2x slower than 3.11+. Even
+        # with xdist -n 2, 3.10 wall time on ubuntu/windows lands at
+        # ~120-125 min; 180 gives headroom for occasional flake reruns.
+        # 3.11/3.12/3.13 typically finish in 60-100 min on this step.
+        timeout-minutes: 180
         shell: bash
         env:
           # Tells the coverage_subprocess.pth file (created above) to
