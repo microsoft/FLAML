@@ -1779,6 +1779,9 @@ class XGBoostEstimator(SKLearnEstimator):
     ):
         super().__init__(task, **config)
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         import xgboost as xgb
@@ -1874,6 +1877,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **config)
         del self.params["verbose"]
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         import xgboost as xgb
 
         if "rank" == task:
@@ -2062,6 +2068,9 @@ class LRL2Classifier(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         assert self._task.is_classification(), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
