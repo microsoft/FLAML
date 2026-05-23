@@ -51,6 +51,55 @@ def pytest_configure(config):
         # ``Path.as_uri()`` handles the platform-specific prefix correctly.
         os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
 
+    _patch_mlflow_file_store_for_corrupt_yaml()
+
+
+def _patch_mlflow_file_store_for_corrupt_yaml():
+    """Make mlflow's ``FileStore`` tolerant of corrupt ``meta.yaml`` files.
+
+    FLAML's ``tune.run`` / ``AutoML.fit`` can drive parallel trials
+    (``n_concurrent_trials > 1``, ``use_ray=True``, ``use_spark=True``)
+    that issue concurrent writes to mlflow's file-backed store. Without
+    atomic file writes, a reader can observe a half-written
+    ``meta.yaml`` and raise ``yaml.parser.ParserError``. That parse
+    error then poisons every subsequent ``search_runs()`` call against
+    the same experiment because ``FileStore._list_run_infos`` walks
+    every run directory.
+
+    Patch ``_read_yaml`` so that, after a brief retry, parse errors are
+    translated into ``MissingConfigException`` which
+    ``_list_run_infos`` already catches and skips. This contains the
+    blast radius of a single bad write to the affected run instead of
+    failing every later FLAML+MLflow test on the worker.
+    """
+    try:
+        import time
+
+        import yaml
+        from mlflow.exceptions import MissingConfigException
+        from mlflow.store.tracking.file_store import FileStore
+    except Exception:
+        return
+
+    if getattr(FileStore, "_flaml_corrupt_yaml_patch", False):
+        return
+
+    original_read_yaml = FileStore._read_yaml
+
+    @staticmethod
+    def _safe_read_yaml(root, file_name, retries=2):
+        last_error = None
+        for attempt in range(retries + 1):
+            try:
+                return original_read_yaml(root, file_name, retries=retries)
+            except yaml.YAMLError as exc:
+                last_error = exc
+                time.sleep(0.1 * (attempt + 1))
+        raise MissingConfigException(f"Skipping unparsable {file_name} in {root}: {last_error}")
+
+    FileStore._read_yaml = _safe_read_yaml
+    FileStore._flaml_corrupt_yaml_patch = True
+
 
 @pytest.fixture(autouse=True)
 def _end_mlflow_runs_between_tests():
