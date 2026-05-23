@@ -54,7 +54,10 @@ def test_business_day_no_holidays():
     dates = pd.bdate_range("2024-01-01", "2024-06-30")
     df = pd.DataFrame({"ds": dates, "y": np.arange(len(dates), dtype=float)})
     ts = TimeSeriesDataset(df, time_col="ds", target_names="y")
-    assert ts.frequency in ("B", "D")
+    # ``"24h"`` is what ``pd.infer_freq`` returns on some pandas/OS combos
+    # (notably pandas 3.x on Windows) for the same daily cadence that yields
+    # ``"D"`` elsewhere. Accept all three forms of "daily-ish".
+    assert ts.frequency in ("B", "D", "24h")
 
 
 def test_business_day_with_holidays():
@@ -63,7 +66,8 @@ def test_business_day_with_holidays():
     df = _make_stock_data(holidays=US_HOLIDAYS_2024)
     ts = TimeSeriesDataset(df, time_col="ds", target_names="price")
     assert ts.frequency is not None
-    assert ts.frequency in ("D", "B")
+    # See ``test_business_day_no_holidays`` for why ``"24h"`` is accepted.
+    assert ts.frequency in ("D", "B", "24h")
 
 
 def test_stock_data_multivariate():

@@ -17,6 +17,23 @@ except ImportError:  # pragma: no cover
 def pytest_configure(config):
     os.environ["FLAML_FEATURIZATION"] = os.environ.get("FLAML_FEATURIZATION", "auto")
 
+    # Isolate MLflow tracking per xdist worker (and per process) so that
+    # parallel workers don't race on writes to the same ``mlruns/<exp>/<run>/meta.yaml``
+    # file. Concurrent writers can leave the file half-written, which then
+    # surfaces as ``yaml.parser.ParserError: while parsing a block mapping``
+    # in every subsequent test that talks to MLflow on the same worker.
+    if "MLFLOW_TRACKING_URI" not in os.environ:
+        import tempfile
+
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{worker_id}_{os.getpid()}")
+        os.makedirs(tracking_dir, exist_ok=True)
+        # ``file:`` URIs need POSIX-style forward slashes even on Windows;
+        # ``Path.as_uri()`` handles the platform-specific prefix correctly.
+        from pathlib import Path
+
+        os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
+
 
 @pytest.fixture(autouse=True)
 def _end_mlflow_runs_between_tests():

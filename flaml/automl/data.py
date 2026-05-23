@@ -1343,6 +1343,22 @@ _TIMEDELTA_LIKE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Cheap "does this string smell like a date?" pre-check used before handing a
+# column to ``pd.to_datetime``. A genuine date or datetime string almost
+# always contains AT LEAST one of:
+#   * a 4-digit run (a year, e.g. "2024" in "2024-01-15" or "01/15/2024"),
+#   * a colon (a time component, e.g. "14:30:00"), or
+#   * a 3+ letter alphabetic run (a month or weekday name, e.g. "Jan", "Sun").
+# Strings like ``"1-2"``, ``"31-40"``, ``"60+"``, ``"S+"`` and other range or
+# bucket labels match NONE of these and historically tripped permissive
+# ``pd.to_datetime`` parsing on some platforms (e.g. Windows + pandas 3.x
+# parses ``"5-6"`` as ``0005-06-01``), causing categorical columns to be
+# silently coerced to ``datetime64``. The guard is intentionally
+# conservative: we only skip the datetime branch when EVERY non-null value
+# fails the smell test, so any column with even one date-shaped entry still
+# gets a chance to be classified as a timestamp.
+_DATETIME_LIKE_HINT = re.compile(r"\d{4}|:|[A-Za-z]{3,}")
+
 
 def auto_convert_dtypes_pandas(
     df: DataFrame,
@@ -2007,7 +2023,17 @@ def auto_convert_dtypes_pandas(
         # they did before.
         datetime_full = None
         try:
-            datetime_inf = pd.to_datetime(inf_cleaned, errors="coerce")
+            # Pre-filter: if the sample contains zero date-shaped strings,
+            # don't even ask pandas to parse it. This guards against
+            # ``pd.to_datetime`` being overly permissive on some platforms
+            # (notably Windows + pandas 3.x, which parses ``"5-6"`` as
+            # ``0005-06-01``) and mis-classifying categorical labels like
+            # ``"1-2"`` or ``"60+"`` as timestamps.
+            str_sample = inf_cleaned.dropna().astype(str)
+            if not str_sample.empty and not str_sample.str.contains(_DATETIME_LIKE_HINT, regex=True).any():
+                datetime_inf = None
+            else:
+                datetime_inf = pd.to_datetime(inf_cleaned, errors="coerce")
         except (TypeError, ValueError):
             datetime_inf = None
 
@@ -2022,7 +2048,18 @@ def auto_convert_dtypes_pandas(
                 datetime_full = None
         elif sampled and n_full_nonnull > 0:
             try:
-                datetime_full = pd.to_datetime(full_cleaned, errors="coerce")
+                # Same pre-filter as the inference-sample path: if the full
+                # column has no date-shaped strings, skip ``pd.to_datetime``
+                # entirely to avoid mis-classifying range/bucket labels as
+                # timestamps on platforms with permissive parsing.
+                full_str_sample = full_cleaned.dropna().astype(str)
+                if (
+                    not full_str_sample.empty
+                    and not full_str_sample.str.contains(_DATETIME_LIKE_HINT, regex=True).any()
+                ):
+                    datetime_full = None
+                else:
+                    datetime_full = pd.to_datetime(full_cleaned, errors="coerce")
             except (TypeError, ValueError):
                 datetime_full = None
 
