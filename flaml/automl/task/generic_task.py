@@ -880,6 +880,7 @@ class GenericTask(Task):
                         y_train_all = np.concatenate([y_train_all, y_train_all[:n][rare_index]])
                     count += rare_count
                 logger.info(f"class {label} augmented from {rare_count} to {count}")
+        state.sample_weight_all = sample_weight_full
         SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
         if is_spark_dataframe:
             # no need to shuffle pyspark dataframe
@@ -952,7 +953,7 @@ class GenericTask(Task):
                     ) = self._split_pyspark(state, X_train_all, y_train_all, split_ratio)
                 else:
                     X_train, X_val, y_train, y_val = self._split_pyspark(state, X_train_all, y_train_all, split_ratio)
-            if split_type == "group":
+            elif split_type == "group":
                 gss = GroupShuffleSplit(n_splits=1, test_size=split_ratio, random_state=RANDOM_SEED)
                 for train_idx, val_idx in gss.split(X_train_all, y_train_all, state.groups_all):
                     if data_is_df:

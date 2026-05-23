@@ -52,6 +52,28 @@ def test_time():
     _test(split_type="time")
 
 
+def test_time_split_with_sample_weight():
+    """Regression for #887 and #1553: split_type='time' + sample_weight + holdout."""
+    from sklearn.datasets import make_classification
+
+    X, y = make_classification(n_samples=200, n_features=10, n_informative=5, random_state=42)
+    sample_weight = np.ones(len(y))
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        sample_weight=sample_weight,
+        split_type="time",
+        retrain_full=True,
+        eval_method="holdout",
+        task="classification",
+        time_budget=-1,
+        max_iter=2,
+        estimator_list=["lgbm"],
+    )
+    assert automl.model is not None
+
+
 def test_groups_for_classification_task():
     from sklearn.externals._arff import ArffException
 
