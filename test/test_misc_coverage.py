@@ -46,6 +46,27 @@ class TestFlamlInit:
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30)
         assert "OK" in result.stdout, result.stderr
 
+    def test_import_flaml_does_not_start_spark(self):
+        """Regression test for PR 2103088: ``import flaml`` must not start a Spark JVM.
+
+        Module-level ``disable_spark_ansi_mode()`` previously called
+        ``pyspark.pandas.get_option(...)`` which triggers
+        ``SparkSession.builder.getOrCreate()``. That side effect blew up
+        ``import flaml`` past 30s on busy CI and caused worker memory pressure.
+        """
+        code = (
+            "import sys; "
+            "import flaml; "
+            "active = None\n"
+            "if 'pyspark' in sys.modules:\n"
+            "    from pyspark import SparkContext\n"
+            "    active = SparkContext._active_spark_context\n"
+            "assert active is None, f'import flaml started Spark: {active!r}'\n"
+            "print('OK')"
+        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+        assert "OK" in result.stdout, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+
 
 # ---------------------------------------------------------------------------
 # 2. flaml/ml.py – deprecated shim

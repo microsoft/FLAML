@@ -13,3 +13,4 @@ omit =
   */flaml/tune/scheduler/online_scheduler.py
   */flaml/tune/searcher/online_searcher.py
   */flaml/tune/searcher/cfo_cat.py
+  */flaml/automl/nlp/*
