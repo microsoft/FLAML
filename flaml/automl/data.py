@@ -246,7 +246,7 @@ def concat(X1, X2):
         return np.concatenate([X1, X2])
 
 
-def _nat_aware_int_series(values: pd.Series, index: pd.Index) -> pd.Series:
+def _nat_aware_int_series(values: "pd.Series", index: "pd.Index") -> "pd.Series":
     """Build a nullable ``Int64`` Series from int-coercible values aligned to
     ``index``; rows whose ``values`` slot is missing become ``pd.NA``.
 
