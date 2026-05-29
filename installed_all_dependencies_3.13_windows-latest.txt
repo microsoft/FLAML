@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.136.3
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@480b26d62a4b32d06d1b848c808b676be3b0a531#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@54f8839ec5d6f389df887997919eae29f70eb44c#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -59,9 +59,9 @@ hcrystalball==0.1.12
 hf-xet==1.5.0
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.16.4
+huggingface_hub==1.17.0
 identify==2.6.19
-idna==3.16
+idna==3.17
 importlib_metadata==8.9.0
 iniconfig==2.3.0
 ipykernel==7.2.0
