@@ -2034,7 +2034,11 @@ class LRL1Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
-        params["penalty"] = params.get("penalty", "l1")
+        if SKLEARN_VERSION >= "1.8":
+            params["l1_ratio"] = params.get("l1_ratio", 1.0)
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l1")
         return params
 
     def __init__(self, task="binary", **config):
@@ -2063,7 +2067,10 @@ class LRL2Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
-        params["penalty"] = params.get("penalty", "l2")
+        if SKLEARN_VERSION >= "1.8":
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l2")
         return params
 
     def __init__(self, task="binary", **config):
