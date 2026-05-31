@@ -46,7 +46,7 @@ executing==2.2.1
 fastapi==0.136.3
 fastjsonschema==2.21.2
 filelock==3.29.0
--e git+https://github.com/microsoft/FLAML@11993a2a69e23cf58a11abd1219eeddaefef1ce8#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@54b9d517a4b04a3779c04407949aeb41118fb754#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -84,7 +84,7 @@ jupyter-events==0.12.1
 jupyter-lsp==2.3.1
 jupyter_client==8.8.0
 jupyter_core==5.9.1
-jupyter_server==2.18.2
+jupyter_server==2.19.0
 jupyter_server_terminals==0.5.4
 jupyterlab==4.5.7
 jupyterlab_pygments==0.3.0
@@ -187,7 +187,7 @@ soupsieve==2.8.4
 SQLAlchemy==2.0.50
 sqlparse==0.5.5
 stack-data==0.6.3
-starlette==1.2.0
+starlette==1.2.1
 statsmodels==0.14.6
 sympy==1.14.0
 tensorboardX==2.6.5
