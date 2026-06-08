@@ -346,8 +346,10 @@ def test_unresolved_search_space(caplog):
 
 
 def test_flow2_reach_mixed_type_incumbents():
-    """Regression test for #903: FLOW2.reach() must return False instead of raising
-    TypeError when conditional choice parameters lead to mixed-type incumbents."""
+    """Regression test for #903.
+
+    FLOW2.reach() must return False instead of raising TypeError when conditional choice parameters lead to mixed-type incumbents.
+    """
     from flaml.tune.searcher.flow2 import FLOW2
 
     f1 = FLOW2.__new__(FLOW2)
