@@ -890,6 +890,14 @@ class AutoML(BaseEstimator):
 
             # Apply task-level preprocessing to new data
             X_test_preprocessed = automl.preprocess(X_test)
+
+            # Required when calling a single ensemble component directly, since
+            # `automl.model.estimators_[i]` was fitted on already-preprocessed
+            # data and cannot consume raw input (see issue #1136):
+            automl_ensemble = AutoML()
+            automl_ensemble.fit(X_train, y_train, task="classification", ensemble=True)
+            X_test_preprocessed = automl_ensemble.preprocess(X_test)
+            component_pred = automl_ensemble.model.estimators_[0].predict(X_test_preprocessed)
             ```
         """
         if not hasattr(self, "_state") or self._state is None:
