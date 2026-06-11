@@ -345,5 +345,27 @@ def test_unresolved_search_space(caplog):
     ), "BlendSearch should not produce warning about unresolved search space"
 
 
+def test_flow2_reach_mixed_type_incumbents():
+    """Regression test for #903.
+
+    FLOW2.reach() must return False instead of raising TypeError when conditional choice parameters lead to mixed-type incumbents.
+    """
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    f1 = FLOW2.__new__(FLOW2)
+    f1.best_config = {"x": 1.0}
+    f1.incumbent = {"x": 1.0}
+    f1._resource = None
+    f1._unordered_cat_hp = {}
+    f1._tunable_keys = ["x"]
+    f1.step = 0.5
+
+    f2 = FLOW2.__new__(FLOW2)
+    f2.best_config = {"x": "None"}
+    f2.incumbent = {"x": "None"}
+
+    assert f1.reach(f2) is False
+
+
 if __name__ == "__main__":
     test_unresolved_search_space(None)
