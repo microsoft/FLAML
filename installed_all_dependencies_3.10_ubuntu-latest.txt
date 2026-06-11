@@ -31,12 +31,12 @@ comm==0.2.3
 contourpy==1.3.2
 convertdate==2.4.1
 coverage==7.14.1
-cryptography==48.0.0
+cryptography==48.0.1
 cuda-bindings==13.3.1
 cuda-pathfinder==1.5.5
 cuda-toolkit==13.0.2
 cycler==0.12.1
-databricks-sdk==0.115.0
+databricks-sdk==0.116.0
 datasets==5.0.0
 debugpy==1.8.21
 decorator==5.3.1
@@ -48,8 +48,8 @@ exceptiongroup==1.3.1
 executing==2.2.1
 fastapi==0.136.3
 fastjsonschema==2.21.2
-filelock==3.29.1
--e git+https://github.com/microsoft/FLAML@4f785e7dff638dfdf5ac893440bb9d54ab78e6d3#egg=FLAML
+filelock==3.29.3
+-e git+https://github.com/microsoft/FLAML@4e777edb6b2b0ba28b3b4b3a1c4095755d45fcb6#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -71,7 +71,7 @@ idna==3.18
 importlib_metadata==8.9.0
 importlib_resources==7.1.0
 iniconfig==2.3.0
-ipykernel==7.2.0
+ipykernel==7.3.0
 ipython==8.39.0
 ipywidgets==8.1.8
 isoduration==20.11.0
@@ -87,7 +87,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_client==8.9.0
+jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.19.0
 jupyter_server_terminals==0.5.4
@@ -118,7 +118,7 @@ narwhals==2.22.1
 nbclient==0.11.0
 nbconvert==7.17.1
 nbformat==5.10.4
-nest-asyncio==1.6.0
+nest-asyncio2==1.7.2
 networkx==3.4.2
 nltk==3.9.4
 nodeenv==1.10.0
@@ -196,7 +196,7 @@ rgf-python==3.12.0
 rich==15.0.0
 rouge_score==0.1.2
 rpds-py==0.30.0
-safetensors==0.7.0
+safetensors==0.8.0
 scikit-base==0.13.2
 scikit-learn==1.7.2
 scipy==1.15.3
@@ -224,9 +224,9 @@ torch==2.12.0
 torchmetrics==1.9.0
 torchvision==0.27.0
 tornado==6.5.7
-tqdm==4.68.1
+tqdm==4.68.2
 traitlets==5.15.1
-transformers==5.10.2
+transformers==5.11.0
 triton==3.7.0
 typer==0.25.1
 typing-inspection==0.4.2
