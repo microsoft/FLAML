@@ -4,7 +4,7 @@ datasets==5.0.0
 dill==0.4.1
 evaluate==0.4.6
 hcrystalball==0.1.12
-ipykernel==7.2.0
+ipykernel==7.3.0
 joblib==1.3.2
 joblibspark==0.6.0
 jupyter==1.1.1
@@ -35,7 +35,7 @@ tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.12.0
 torchvision==0.27.0
-transformers==5.10.2
+transformers==5.11.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: ddbcd84c31c5513507c5277ecbb266b4a964360b
+Current commit hash: 9a5e4a802ec7d8aa2953ee553e3cf907a32714c5
