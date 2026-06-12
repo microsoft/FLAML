@@ -244,6 +244,68 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
+def test_ensemble_component_predict_via_public_preprocess():
+    """Regression coverage for #1136 — ensemble component models trained on data with
+    categorical features cannot consume raw input; consumers must apply the public
+    `automl.preprocess(X)` method (added in #1497) before delegating to a single
+    component picked out of `automl.model.estimators_`."""
+    import pandas as pd
+
+    rng = np.random.RandomState(42)
+    n = 400
+    df = pd.DataFrame(
+        {
+            "age": rng.randint(20, 70, n),
+            "income": rng.normal(50000, 15000, n),
+            "gender": rng.choice(["M", "F"], n),
+            "education": rng.choice(["HS", "BS", "MS", "PhD"], n),
+        }
+    )
+    y_true = (
+        0.02 * df["age"]
+        + 0.00001 * df["income"]
+        + (df["gender"] == "M").astype(int) * 0.5
+        + df["education"].map({"HS": 0, "BS": 0.3, "MS": 0.6, "PhD": 1.0}).values
+        + rng.normal(0, 0.1, n)
+    )
+
+    automl = AutoML()
+    automl.fit(
+        df,
+        y_true,
+        task="regression",
+        ensemble=True,
+        n_jobs=1,
+        time_budget=-1,
+        max_iter=12,
+        estimator_list=["lgbm", "xgboost", "rf"],
+        verbose=0,
+    )
+
+    components = getattr(automl.model, "estimators_", None)
+    if components is None:
+        pytest.skip("ensemble did not build with this configuration")
+
+    # Public predict on the top-level AutoML continues to work (sanity check).
+    top_pred = automl.predict(df)
+    assert len(top_pred) == n
+
+    # Component models cannot consume raw input — this is the original #1136 failure.
+    raised = 0
+    for est in components:
+        try:
+            est.predict(df)
+        except Exception:
+            raised += 1
+    assert raised >= 1, "expected at least one component to fail on raw categorical input"
+
+    # The public `preprocess(X)` API (added in #1497) is the supported workaround.
+    df_preprocessed = automl.preprocess(df)
+    for est in components:
+        pred = est.predict(df_preprocessed)
+        assert len(pred) == n
+
+
 @pytest.mark.parametrize(
     "estimator",
     [
