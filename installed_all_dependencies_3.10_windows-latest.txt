@@ -1,5 +1,5 @@
 absl-py==2.4.0
-accelerate==1.13.0
+accelerate==1.14.0
 aiohappyeyeballs==2.6.2
 aiohttp==3.14.1
 aiosignal==1.4.0
@@ -33,7 +33,7 @@ convertdate==2.4.1
 coverage==7.14.1
 cryptography==48.0.1
 cycler==0.12.1
-databricks-sdk==0.116.0
+databricks-sdk==0.117.0
 datasets==5.0.0
 debugpy==1.8.21
 decorator==5.3.1
@@ -46,7 +46,7 @@ executing==2.2.1
 fastapi==0.136.3
 fastjsonschema==2.21.2
 filelock==3.29.3
--e git+https://github.com/microsoft/FLAML@7dbb699d78900e8bc24e0a5b747964624b041f38#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@b5884ea3ab011c698570532c6a8fa64ef6d743ce#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -61,7 +61,7 @@ hcrystalball==0.1.12
 hf-xet==1.5.1
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.18.0
+huggingface_hub==1.19.0
 identify==2.6.19
 idna==3.18
 importlib_metadata==8.9.0
@@ -156,7 +156,7 @@ pyparsing==3.3.2
 pytest==9.0.3
 pytest-rerunfailures==16.3
 python-dateutil==2.9.0.post0
-python-discovery==1.4.0
+python-discovery==1.4.2
 python-json-logger==4.1.0
 pytorch-forecasting==1.7.0
 pytorch-lightning==2.6.5
@@ -187,7 +187,7 @@ soupsieve==2.8.4
 SQLAlchemy==2.0.50
 sqlparse==0.5.5
 stack-data==0.6.3
-starlette==1.2.1
+starlette==1.3.0
 statsmodels==0.14.6
 sympy==1.14.0
 tensorboardX==2.6.5
@@ -211,7 +211,7 @@ tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.7.0
 uvicorn==0.49.0
-virtualenv==21.4.2
+virtualenv==21.4.3
 wcwidth==0.8.1
 webcolors==25.10.0
 webencodings==0.5.1
