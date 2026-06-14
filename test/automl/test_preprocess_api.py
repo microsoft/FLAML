@@ -232,5 +232,65 @@ class TestPreprocessAPI(unittest.TestCase):
         self.assertEqual(X_preprocessed.shape, X_test.shape)
 
 
+class TestCategoricalEncodingStability(unittest.TestCase):
+    """Regression coverage for #1101 — DataTransformer must produce the same
+    integer code for the same categorical value regardless of which values
+    happen to be present in the predict-time DataFrame."""
+
+    def _fit_simple(self):
+        from flaml.automl.data import DataTransformer
+        from flaml.automl.task.factory import task_factory
+
+        rng = np.random.RandomState(0)
+        n = 100
+        fit_df = pd.DataFrame({"a": rng.randn(n), "gender": rng.choice(["M", "F"], n)})
+        fit_y = pd.Series(rng.randn(n))
+
+        transformer = DataTransformer()
+        task = task_factory("regression", fit_df, fit_y)
+        X_fit, _ = transformer.fit_transform(fit_df.copy(), fit_y, task)
+        return transformer, X_fit
+
+    def test_codes_stable_when_predict_uses_only_a_subset(self):
+        transformer, X_fit = self._fit_simple()
+        fit_code_for_M = int(X_fit["gender"].cat.codes[X_fit["gender"] == "M"].iloc[0])
+
+        # Predict-time DataFrame contains only "M" rows.
+        predict_df = pd.DataFrame({"a": np.zeros(20), "gender": ["M"] * 20})
+        X_pred = transformer.transform(predict_df.copy())
+        pred_code_for_M = int(X_pred["gender"].cat.codes[X_pred["gender"] == "M"].iloc[0])
+
+        self.assertEqual(
+            fit_code_for_M,
+            pred_code_for_M,
+            "categorical code for 'M' drifted between fit and predict — see #1101",
+        )
+
+    def test_unseen_categories_emit_warning_and_map_to_sentinel(self):
+        import warnings
+
+        transformer, _ = self._fit_simple()
+        predict_df = pd.DataFrame({"a": np.zeros(5), "gender": ["M", "F", "X", "M", "Y"]})
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            X_pred = transformer.transform(predict_df.copy())
+
+        unseen_warnings = [
+            w for w in caught if issubclass(w.category, UserWarning) and "unseen at fit time" in str(w.message)
+        ]
+        self.assertEqual(len(unseen_warnings), 1)
+        message = str(unseen_warnings[0].message)
+        self.assertIn("gender", message)
+        self.assertIn("X", message)
+        self.assertIn("Y", message)
+
+        # Unseen "X" and "Y" rows must be encoded as the "__NAN__" sentinel slot
+        # and seen "F" / "M" codes must still match fit-time codes.
+        nan_code = list(X_pred["gender"].cat.categories).index("__NAN__")
+        unseen_rows = X_pred["gender"].cat.codes[predict_df["gender"].isin(["X", "Y"]).values]
+        self.assertTrue((unseen_rows == nan_code).all())
+
+
 if __name__ == "__main__":
     unittest.main()
