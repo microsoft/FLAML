@@ -44,10 +44,10 @@ dill==0.4.1
 distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.136.3
+fastapi==0.137.0
 fastjsonschema==2.21.2
-filelock==3.29.3
--e git+https://github.com/microsoft/FLAML@270fb3942bd4bf47cb56339b23ebb4b6ec7a4f36#egg=FLAML
+filelock==3.29.4
+-e git+https://github.com/microsoft/FLAML@b43e051db94aeebc533c434d18095762661e4d6d#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -177,7 +177,7 @@ pyluach==2.3.0
 PyMeeus==0.5.12
 pyparsing==3.3.2
 pyspark==4.1.0
-pytest==9.0.3
+pytest==9.1.0
 pytest-rerunfailures==16.3
 python-dateutil==2.9.0.post0
 python-discovery==1.4.2
@@ -236,7 +236,7 @@ tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.7.0
 uvicorn==0.49.0
-virtualenv==21.4.3
+virtualenv==21.5.0
 wcwidth==0.8.1
 webcolors==25.10.0
 webencodings==0.5.1
