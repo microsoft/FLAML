@@ -1,5 +1,5 @@
 catboost==1.2.10
-coverage==7.14.1
+coverage==7.14.2
 datasets==5.0.0
 dill==0.4.1
 evaluate==0.4.6
@@ -20,7 +20,7 @@ packaging==24.2
 pandas==3.0.3
 psutil==7.2.2
 pytest-rerunfailures==16.3
-pytest==9.1.0
+pytest==9.1.1
 pytorch-forecasting==1.7.0
 pytorch-lightning==2.6.5
 requests==2.34.2
@@ -37,4 +37,4 @@ torchvision==0.27.1
 transformers==5.12.1
 xgboost==3.3.0
 xgboost==3.3.0
-Current commit hash: 2a66c51045bbdf48dbb17a5eba64f48f670114d7
+Current commit hash: b837cc6341e8063c5f312f8691d3c2e5211e4447
