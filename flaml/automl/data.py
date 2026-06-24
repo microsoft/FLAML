@@ -7,6 +7,7 @@ import os
 import random
 import re
 import uuid
+import warnings
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Union
@@ -350,6 +351,17 @@ class DataTransformer:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
+                # Pin the per-column category list seen at fit time so
+                # `transform()` produces the same integer codes for the same
+                # values regardless of what is passed at predict time (see
+                # issue #1101). "__NAN__" is reserved as the sentinel slot
+                # used for values unseen at fit time.
+                self._cat_categories = {}
+                for col in cat_columns:
+                    cats = list(X[col].cat.categories)
+                    if "__NAN__" not in cats:
+                        cats.append("__NAN__")
+                    self._cat_categories[col] = cats
             if num_columns:
                 X_num = X[num_columns]
                 try:
@@ -450,6 +462,30 @@ class DataTransformer:
                         X[column] = X[column].cat.add_categories("__NAN__").fillna("__NAN__")
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
+                # Pin codes to the categories seen at fit time so they do not
+                # drift when the predict-time column has a different value
+                # distribution than the fit-time column (see issue #1101).
+                # Older pickles without `_cat_categories` fall back to
+                # whatever `astype("category")` inferred above.
+                saved_cats_map = getattr(self, "_cat_categories", None)
+                if saved_cats_map:
+                    for column in cat_columns:
+                        saved_cats = saved_cats_map.get(column)
+                        if saved_cats is None:
+                            continue
+                        current = X[column].astype(object)
+                        unseen_mask = ~current.isin(saved_cats) & current.notna()
+                        if unseen_mask.any():
+                            samples = sorted({str(v) for v in current[unseen_mask].unique()})[:5]
+                            warnings.warn(
+                                f"Column '{column}' contains values unseen at fit time "
+                                f"(e.g. {samples}); these rows will be encoded as '__NAN__' "
+                                "and predictions may be unreliable.",
+                                UserWarning,
+                                stacklevel=2,
+                            )
+                            current = current.where(~unseen_mask, "__NAN__")
+                        X[column] = pd.Categorical(current, categories=saved_cats)
             if num_columns:
                 X_num = X[num_columns].fillna(np.nan)
                 if self._drop:
