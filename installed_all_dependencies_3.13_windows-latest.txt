@@ -6,7 +6,7 @@ aiosignal==1.4.0
 alembic==1.18.4
 annotated-doc==0.0.4
 annotated-types==0.7.0
-anyio==4.14.0
+anyio==4.14.1
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 arrow==1.4.0
@@ -22,7 +22,7 @@ certifi==2026.6.17
 cffi==2.0.0
 cfgv==3.5.0
 charset-normalizer==3.4.7
-click==8.4.1
+click==8.4.2
 cloudpickle==3.1.2
 colorama==0.4.6
 colorlog==6.10.1
@@ -32,7 +32,7 @@ convertdate==2.4.1
 coverage==7.14.3
 cryptography==49.0.0
 cycler==0.12.1
-databricks-sdk==0.118.0
+databricks-sdk==0.119.0
 datasets==5.0.0
 debugpy==1.8.21
 decorator==5.3.1
@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.138.0
 fastjsonschema==2.21.2
 filelock==3.29.4
--e git+https://github.com/microsoft/FLAML@7c8122d507a5d9e3232806804721713f3d02dd7f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@30e2539f92da789d089b277b92244cbd07b52d2a#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -121,9 +121,9 @@ notebook==7.6.0
 notebook_shim==0.2.4
 numpy==2.5.0
 openml==0.15.1
-opentelemetry-api==1.42.1
-opentelemetry-sdk==1.42.1
-opentelemetry-semantic-conventions==0.63b1
+opentelemetry-api==1.43.0
+opentelemetry-sdk==1.43.0
+opentelemetry-semantic-conventions==0.64b0
 optuna==3.6.1
 packaging==24.2
 pandas==3.0.3
@@ -157,7 +157,7 @@ pytest-rerunfailures==16.3
 python-dateutil==2.9.0.post0
 python-discovery==1.4.2
 python-json-logger==4.1.0
-pytorch-forecasting==1.7.0
+pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
 pywinpty==3.0.5
 PyYAML==6.0.3
@@ -173,7 +173,7 @@ rich==15.0.0
 rouge_score==0.1.2
 rpds-py==2026.5.1
 safetensors==0.8.0
-scikit-base==0.13.2
+scikit-base==1.0.2
 scikit-learn==1.8.0
 scipy==1.18.0
 Send2Trash==2.1.0
@@ -219,6 +219,6 @@ widgetsnbextension==4.0.15
 workalendar==17.0.0
 xgboost==3.3.0
 xmltodict==1.0.4
-xxhash==3.7.0
+xxhash==3.7.1
 yarl==1.24.2
 zipp==4.1.0
