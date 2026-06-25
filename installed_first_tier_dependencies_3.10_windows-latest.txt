@@ -21,7 +21,7 @@ pandas==2.3.3
 psutil==7.2.2
 pytest-rerunfailures==16.3
 pytest==9.1.1
-pytorch-forecasting==1.7.0
+pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
 requests==2.34.2
 rgf-python==3.12.0
@@ -37,4 +37,4 @@ torchvision==0.27.1
 transformers==5.12.1
 xgboost==1.7.6
 xgboost==1.7.6
-Current commit hash: 3f06700852b3665d4414f8f313f8aec7d589c8cb
+Current commit hash: 0d4f5511364d53af1a255fd004f94e2daf7017e9
