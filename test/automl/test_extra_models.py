@@ -4,6 +4,7 @@ import sys
 import unittest
 import warnings
 from collections import defaultdict
+from unittest import mock
 
 import mlflow
 import numpy as np
@@ -206,15 +207,43 @@ def load_multi_dataset():
         "https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv"
     )
     # preprocessing data
-    df["timeStamp"] = pd.to_datetime(df["timeStamp"])
-    df = df.set_index("timeStamp")
-    df = df.resample("D").mean()
+    df["timeStamp"] = pd.to_datetime(df["timeStamp"]).dt.floor("D")
+    df = df.groupby("timeStamp", as_index=False).mean(numeric_only=True)
     df["temp"] = df["temp"].ffill()
     df["precip"] = df["precip"].ffill()
     df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
-    df = df.reset_index()
 
     return df
+
+
+def test_load_multi_dataset_aggregates_without_resample():
+    sample_df = pd.DataFrame(
+        {
+            "timeStamp": [
+                "2024-01-01 01:00:00",
+                "2024-01-01 10:00:00",
+                "2024-01-02 12:00:00",
+                "2024-01-03 12:00:00",
+                "2024-01-04 12:00:00",
+            ],
+            "demand": [10.0, 30.0, 20.0, np.nan, np.nan],
+            "temp": [1.0, 3.0, np.nan, 5.0, 7.0],
+            "precip": [0.0, 2.0, 4.0, np.nan, 8.0],
+        }
+    )
+
+    with mock.patch("pandas.read_csv", return_value=sample_df):
+        df = load_multi_dataset()
+
+    expected = pd.DataFrame(
+        {
+            "timeStamp": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "demand": [20.0, 20.0],
+            "temp": [2.0, 2.0],
+            "precip": [1.0, 4.0],
+        }
+    )
+    pd.testing.assert_frame_equal(df.reset_index(drop=True), expected)
 
 
 def _test_forecast(estimator_list, budget=10):
