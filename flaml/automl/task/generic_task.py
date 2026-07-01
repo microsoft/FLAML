@@ -1301,6 +1301,8 @@ class GenericTask(Task):
                     )
             return estimator_list
         if self.is_anomaly_detection():
+            if is_spark_dataframe:
+                raise ValueError("anomaly_detection does not support Spark dataframes yet. Use numpy/pandas data.")
             estimator_list = ["isolation_forest"]
         elif self.is_rank():
             estimator_list = ["lgbm", "xgboost", "xgb_limitdepth", "lgbm_spark"]

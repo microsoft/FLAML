@@ -1499,7 +1499,7 @@ class IsolationForestEstimator(SKLearnEstimator):
         return {
             "n_estimators": {
                 "domain": tune.lograndint(lower=4, upper=upper),
-                "init_value": 100,
+                "init_value": min(100, upper - 1),
                 "low_cost_init_value": 4,
             },
             "max_features": {
@@ -1551,6 +1551,7 @@ class IsolationForestEstimator(SKLearnEstimator):
     def decision_function(self, X):
         X = self._preprocess(X)
         return self._model.decision_function(X)
+
     
 class LGBMEstimator(BaseEstimator):
     """The class for tuning LGBM, using sklearn API."""
