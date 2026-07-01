@@ -42,10 +42,10 @@ dill==0.4.1
 distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.138.1
+fastapi==0.138.2
 fastjsonschema==2.21.2
 filelock==3.29.4
--e git+https://github.com/microsoft/FLAML@4bde2a961676f8e2eaf4271c905b747591bee2f1#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@5cfd9d0479a322291aecd0238839a7ba51a9d70c#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -87,7 +87,7 @@ jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.20.0
 jupyter_server_terminals==0.5.4
-jupyterlab==4.6.0
+jupyterlab==4.6.1
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.28.0
 jupyterlab_widgets==3.0.16
@@ -165,7 +165,7 @@ pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
-regex==2026.5.9
+regex==2026.6.28
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
@@ -173,7 +173,7 @@ rfc3987-syntax==1.1.0
 rgf-python==3.12.0
 rich==15.0.0
 rouge_score==0.1.2
-rpds-py==2026.5.1
+rpds-py==2026.6.3
 safetensors==0.8.0
 scikit-base==1.0.2
 scikit-learn==1.8.0
@@ -213,7 +213,7 @@ urllib3==2.7.0
 userpath==1.9.2
 uvicorn==0.49.0
 virtualenv==21.5.1
-wcwidth==0.8.1
+wcwidth==0.8.2
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
@@ -222,6 +222,6 @@ widgetsnbextension==4.0.15
 workalendar==17.0.0
 xgboost==3.3.0
 xmltodict==1.0.4
-xxhash==3.7.1
+xxhash==3.8.0
 yarl==1.24.2
 zipp==4.1.0
