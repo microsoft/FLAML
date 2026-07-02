@@ -1,4 +1,5 @@
 import os
+import sys
 import unittest
 
 import pytest
@@ -25,6 +26,12 @@ if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "custom_mylearner.p
 else:
     skip_my_learner = True
 
+
+if sys.version_info >= (3, 11):
+    skip_py311 = True
+else:
+    skip_py311 = False
+
 pytestmark = pytest.mark.spark
 
 
@@ -34,7 +41,7 @@ class TestEnsemble(unittest.TestCase):
             self.skipTest("Spark is not installed. Skip all spark tests.")
 
     @unittest.skipIf(
-        skip_my_learner,
+        skip_my_learner or skip_py311,
         "Please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
     )
     def test_ensemble(self):

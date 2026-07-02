@@ -1,4 +1,5 @@
 import unittest
+from urllib.error import URLError
 
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
@@ -27,10 +28,17 @@ class XGBoost2D(XGBoostSklearnEstimator):
 
 
 def _test_simple(method=None, size_ratio=1.0):
+    from sklearn.externals._arff import ArffException
+
     automl = AutoML()
     automl.add_learner(learner_name="XGBoost2D", learner_class=XGBoost2D)
 
-    X, y = fetch_openml(name=dataset, return_X_y=True)
+    try:
+        X, y = fetch_openml(name=dataset, return_X_y=True)
+    except (ArffException, ValueError, URLError):
+        from sklearn.datasets import load_wine
+
+        X, y = load_wine(return_X_y=True)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     final_size = int(len(y_train) * size_ratio)

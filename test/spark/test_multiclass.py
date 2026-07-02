@@ -168,6 +168,7 @@ class TestMultiClass(unittest.TestCase):
             "model_history": True,
             "n_concurrent_trials": 2,
             "use_spark": True,
+            "featurization": "off",  # for this test will use raw estimator to predict
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl_experiment_micro.fit(X_train=X_train, y_train=y_train, metric="micro_f1", **automl_settings)

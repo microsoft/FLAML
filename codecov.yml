@@ -1,0 +1,30 @@
+## Codecov configuration for microsoft/FLAML.
+##
+## Schema reference: https://docs.codecov.com/docs/codecovyml-reference
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...95"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: 70%
+        informational: true
+
+comment:
+  layout: "header, diff, flags, components, files, footer"
+  require_changes: false
+
+ignore:
+  - "test/**/*"
+  - "notebook/**/*"
+  - "website/**/*"
+  - "setup.py"
+  - "flaml/version.py"
+  - "flaml/autogen/**/*"

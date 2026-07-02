@@ -1,23 +1,17 @@
-import atexit
 import os
 import sys
 import unittest
-import warnings
 from collections import defaultdict
 
-import mlflow
 import numpy as np
 import pandas as pd
 import pytest
 import scipy
-from packaging.version import Version
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
 from sklearn.model_selection import train_test_split
 
 from flaml import AutoML
 from flaml.automl.ml import sklearn_metric_loss_score
-from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
-from flaml.tune.spark.utils import check_spark
 
 try:
     import pytorch_lightning
@@ -30,50 +24,21 @@ pytestmark = pytest.mark.spark
 
 leaderboard = defaultdict(dict)
 
-warnings.simplefilter(action="ignore")
 if sys.platform == "darwin" or "nt" in os.name:
     # skip this test if the platform is not linux
     skip_spark = True
 else:
     try:
-        import pyspark
+        from test.spark._init_spark import setup_spark_for_tests
+
         from pyspark.ml.evaluation import MulticlassClassificationEvaluator, RegressionEvaluator
         from pyspark.ml.feature import VectorAssembler
 
         from flaml.automl.spark.utils import to_pandas_on_spark
 
-        spark = (
-            pyspark.sql.SparkSession.builder.appName("MyApp")
-            .master("local[2]")
-            .config(
-                "spark.jars.packages",
-                (
-                    "com.microsoft.azure:synapseml_2.12:1.1.0,"
-                    "org.apache.hadoop:hadoop-azure:3.3.5,"
-                    "com.microsoft.azure:azure-storage:8.6.6,"
-                    f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
-                    if Version(mlflow.__version__) >= Version("2.9.0")
-                    else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
-                ),
-            )
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-            .config("spark.sql.debug.maxToStringFields", "100")
-            .config("spark.driver.extraJavaOptions", "-Xss1m")
-            .config("spark.executor.extraJavaOptions", "-Xss1m")
-            .getOrCreate()
-        )
-        spark.sparkContext._conf.set(
-            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
-            "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
-        )
-        # spark.sparkContext.setLogLevel("ERROR")
-        spark_available, _ = check_spark()
-        skip_spark = not spark_available
+        spark, skip_spark = setup_spark_for_tests("MyApp")
     except ImportError:
         skip_spark = True
-
-spark, ansi_conf, adjusted = disable_spark_ansi_mode()
-atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
 
 
 def _test_regular_models(estimator_list, task):
@@ -290,8 +255,8 @@ class TestExtraModel(unittest.TestCase):
         # TODO: remove the estimator assignment once SynapseML supports spark 4+.
         from flaml.automl.spark.utils import _spark_major_minor_version
 
-        estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
-        _test_spark_models(estimator_list, "classification")
+        estimator = "rf_spark" if _spark_major_minor_version[0] >= 4 else None
+        _test_spark_models(estimator, "classification")
 
     def test_svc(self):
         _test_regular_models("svc", "classification")
@@ -322,7 +287,7 @@ class TestExtraModel(unittest.TestCase):
     def test_avg(self):
         _test_forecast("avg")
 
-    @unittest.skipIf(skip_spark or not _pl_installed, reason="Skip on Mac or Windows or no pytorch_lightning.")
+    @unittest.skipIf(not _pl_installed, reason="pytorch_lightning is not installed. Skip tcn test.")
     def test_tcn(self):
         _test_forecast("tcn")
 
