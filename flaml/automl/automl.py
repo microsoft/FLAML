@@ -1845,6 +1845,7 @@ class AutoML(BaseEstimator):
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
+        resampler=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -2163,6 +2164,14 @@ class AutoML(BaseEstimator):
         }
         ```
 
+            resampler: object, default=None | An imbalanced-learn-compatible resampler
+                (any object exposing `fit_resample(X, y) -> (X, y)`, such as
+                `imblearn.over_sampling.SMOTE`). When set, the resampler is cloned and
+                applied to each cross-validation fold's training partition before the
+                estimator is fitted — validation partitions are left at the raw class
+                distribution. Not compatible with `sample_weight` (resampling breaks the
+                1-to-1 row alignment with weights); passing both raises `ValueError`. Off
+                by default. See issue #1200 for the design discussion and benchmarks.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
@@ -2336,6 +2345,19 @@ class AutoML(BaseEstimator):
             self._state.resources_per_trial = {"cpu": n_jobs} if n_jobs > 0 else {"cpu": 1}
         self._state.free_mem_ratio = self._settings.get("free_mem_ratio") if free_mem_ratio is None else free_mem_ratio
         self._state.task = task
+        if resampler is not None:
+            if "sample_weight" in fit_kwargs:
+                raise ValueError(
+                    "Cannot combine 'resampler' with 'sample_weight' — resampling breaks "
+                    "the 1-to-1 row alignment with sample weights. Use either resampling "
+                    "or sample weighting, not both."
+                )
+            if not hasattr(resampler, "fit_resample"):
+                raise TypeError(
+                    "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
+                    "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
+                )
+            task._resampler = resampler
         self._state.log_training_metric = log_training_metric
 
         self._state.fit_kwargs = fit_kwargs
