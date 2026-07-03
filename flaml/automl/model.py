@@ -1490,6 +1490,7 @@ class SKLearnEstimator(BaseEstimator):
             X = X.to_numpy()
         return X
 
+
 class IsolationForestEstimator(SKLearnEstimator):
     """The class for tuning IsolationForest for anomaly detection."""
 
@@ -1552,7 +1553,7 @@ class IsolationForestEstimator(SKLearnEstimator):
         X = self._preprocess(X)
         return self._model.decision_function(X)
 
-    
+
 class LGBMEstimator(BaseEstimator):
     """The class for tuning LGBM, using sklearn API."""
 

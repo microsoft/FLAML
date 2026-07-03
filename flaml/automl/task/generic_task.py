@@ -50,6 +50,7 @@ class GenericTask(Task):
                 CatBoostEstimator,
                 ElasticNetEstimator,
                 ExtraTreesEstimator,
+                IsolationForestEstimator,
                 KNeighborsEstimator,
                 LassoLarsEstimator,
                 LGBMEstimator,
@@ -70,7 +71,6 @@ class GenericTask(Task):
                 TransformersEstimatorModelSelection,
                 XGBoostLimitDepthEstimator,
                 XGBoostSklearnEstimator,
-                IsolationForestEstimator,
             )
 
             self._estimators = {
