@@ -184,13 +184,11 @@ def load_multi_dataset():
         "https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv"
     )
     # preprocessing data
-    df["timeStamp"] = pd.to_datetime(df["timeStamp"])
-    df = df.set_index("timeStamp")
-    df = df.resample("D").mean()
+    df["timeStamp"] = pd.to_datetime(df["timeStamp"]).dt.floor("D")
+    df = df.groupby("timeStamp", as_index=False).mean(numeric_only=True)
     df["temp"] = df["temp"].ffill()
     df["precip"] = df["precip"].ffill()
     df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
-    df = df.reset_index()
 
     return df
 
