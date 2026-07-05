@@ -1,4 +1,4 @@
-absl-py==2.4.0
+absl-py==2.5.0
 accelerate==1.14.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.1
@@ -44,7 +44,7 @@ executing==2.2.1
 fastapi==0.139.0
 fastjsonschema==2.21.2
 filelock==3.29.5
--e git+https://github.com/microsoft/FLAML@dd64235400292c4d3323f094e94a0f42b5976102#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@86505eacb8d399f5fce1118569aeb9653c93476d#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -59,7 +59,7 @@ hcrystalball==0.1.12
 hf-xet==1.5.1
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.21.0
+huggingface_hub==1.22.0
 identify==2.6.19
 idna==3.18
 importlib_metadata==8.9.0
@@ -156,7 +156,7 @@ pyparsing==3.3.2
 pytest==9.1.1
 pytest-rerunfailures==16.4
 python-dateutil==2.9.0.post0
-python-discovery==1.4.2
+python-discovery==1.4.3
 python-json-logger==4.1.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
@@ -201,14 +201,14 @@ torchvision==0.27.1
 tornado==6.5.7
 tqdm==4.68.3
 traitlets==5.15.1
-transformers==5.12.1
-typer==0.25.1
+transformers==5.13.0
+typer==0.26.8
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.7.0
-uvicorn==0.49.0
+uvicorn==0.50.0
 virtualenv==21.5.1
 wcwidth==0.8.2
 webcolors==25.10.0
