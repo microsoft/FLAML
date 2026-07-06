@@ -1091,6 +1091,10 @@ class GenericTask(Task):
             ), "GroupKFold requires groups to be provided."
             return split_type
 
+        elif self.is_anomaly_detection():
+            assert split_type in ["auto", "uniform", "time", "group"]
+            return split_type if split_type != "auto" else "uniform"
+
         elif self.is_classification():
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
             return split_type if split_type != "auto" else groups is None and "stratified" or "group"
