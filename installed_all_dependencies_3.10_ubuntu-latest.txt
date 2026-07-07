@@ -20,9 +20,9 @@ bleach==6.4.0
 cachetools==5.5.2
 catboost==1.2.10
 certifi==2026.6.17
-cffi==2.0.0
+cffi==2.1.0
 cfgv==3.5.0
-charset-normalizer==3.4.7
+charset-normalizer==3.4.8
 click==8.4.2
 cloudpickle==3.1.2
 cmdstanpy==1.3.0
@@ -48,8 +48,8 @@ exceptiongroup==1.3.1
 executing==2.2.1
 fastapi==0.139.0
 fastjsonschema==2.21.2
-filelock==3.29.5
--e git+https://github.com/microsoft/FLAML@0fb8fc0e069a4270db37bf112f6e5ccc37640cdc#egg=FLAML
+filelock==3.29.6
+-e git+https://github.com/microsoft/FLAML@b1d8366f24c6f7553ce0450465699be064850f8a#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -62,7 +62,7 @@ greenlet==3.5.3
 h11==0.16.0
 hcrystalball==0.1.12
 hf-xet==1.5.1
-holidays==0.99
+holidays==0.100
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.22.0
@@ -235,8 +235,8 @@ typing_extensions==4.16.0
 tzdata==2026.2
 uri-template==1.3.0
 urllib3==2.7.0
-uvicorn==0.50.0
-virtualenv==21.5.1
+uvicorn==0.50.2
+virtualenv==21.6.0
 wcwidth==0.8.2
 webcolors==25.10.0
 webencodings==0.5.1
@@ -245,6 +245,6 @@ widgetsnbextension==4.0.15
 workalendar==17.0.0
 xgboost==1.7.6
 xmltodict==1.0.4
-xxhash==3.8.0
+xxhash==3.8.1
 yarl==1.24.2
 zipp==4.1.0
