@@ -1,5 +1,5 @@
 catboost==1.2.10
-coverage==7.15.0
+coverage==7.15.1
 datasets==5.0.0
 dill==0.4.1
 evaluate==0.4.6
@@ -34,7 +34,7 @@ tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.13.0
 torchvision==0.28.0
-transformers==5.13.0
+transformers==5.13.1
 xgboost==1.7.6
 xgboost==1.7.6
-Current commit hash: e1b9f98d027ab3d516a5229b4a0d72e2a91a1c1f
+Current commit hash: 9beca6f9589485c8cb29d7bf62721d744c928155
