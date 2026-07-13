@@ -6,11 +6,11 @@ aiosignal==1.4.0
 alembic==1.18.5
 annotated-doc==0.0.4
 annotated-types==0.7.0
-anyio==4.14.1
+anyio==4.14.2
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 arrow==1.4.0
-asttokens==3.0.1
+asttokens==3.0.2
 async-lru==2.3.0
 attrs==26.1.0
 babel==2.18.0
@@ -29,7 +29,7 @@ colorlog==6.10.1
 comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.1
-coverage==7.15.0
+coverage==7.15.1
 cryptography==49.0.0
 cycler==0.12.1
 databricks-sdk==0.120.0
@@ -44,13 +44,13 @@ executing==2.2.1
 fastapi==0.139.0
 fastjsonschema==2.21.2
 filelock==3.29.7
--e git+https://github.com/microsoft/FLAML@981e81071fb1a814d63a0207c53697740442ffde#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@d1801a30ddfa48d92ca84896aec35689b47af04a#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.4.0
 gitdb==4.0.12
-GitPython==3.1.50
+GitPython==3.1.51
 google-auth==2.55.2
 graphviz==0.21
 greenlet==3.5.3
@@ -81,7 +81,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_builder==1.0.2
+jupyter_builder==1.1.0
 jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.20.0
@@ -201,7 +201,7 @@ torchvision==0.28.0
 tornado==6.5.7
 tqdm==4.68.4
 traitlets==5.15.1
-transformers==5.13.0
+transformers==5.13.1
 typer==0.26.8
 typing-inspection==0.4.2
 typing_extensions==4.16.0
