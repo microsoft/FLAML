@@ -30,7 +30,7 @@ colorlog==6.10.1
 comm==0.2.3
 contourpy==1.3.2
 convertdate==2.4.1
-coverage==7.15.1
+coverage==7.15.2
 cryptography==49.0.0
 cycler==0.12.1
 databricks-sdk==0.120.0
@@ -45,14 +45,14 @@ exceptiongroup==1.3.1
 executing==2.2.1
 fastapi==0.139.0
 fastjsonschema==2.21.2
-filelock==3.29.7
--e git+https://github.com/microsoft/FLAML@3991476ce13238e80e3305abc2f8c84c6dddb88e#egg=FLAML
+filelock==3.30.0
+-e git+https://github.com/microsoft/FLAML@177d0d0bd831540b1afee51d91ccdc706542f5ae#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.4.0
 gitdb==4.0.12
-GitPython==3.1.51
+GitPython==3.1.52
 google-auth==2.56.0
 graphviz==0.21
 greenlet==3.5.3
@@ -204,8 +204,8 @@ torchvision==0.28.0
 tornado==6.5.7
 tqdm==4.68.4
 traitlets==5.15.1
-transformers==5.13.1
-typer==0.26.8
+transformers==5.14.0
+typer==0.27.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.3
