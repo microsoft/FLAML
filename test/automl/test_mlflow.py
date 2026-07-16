@@ -8,6 +8,7 @@ import pytest
 from pandas import DataFrame
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+from sklearn.utils.validation import check_is_fitted
 
 from flaml import AutoML
 
@@ -33,9 +34,9 @@ def test_autologged_model_round_trip(tmp_path):
             )
 
         loaded = mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
+        check_is_fitted(loaded)
         assert np.array_equal(automl.predict(X_test), loaded.predict(X_test))
     finally:
-        mlflow.end_run()
         mlflow.set_tracking_uri(original_tracking_uri)
         mlflow.tracking.fluent._active_experiment_id = original_experiment_id
         if original_experiment_id_env is None:
