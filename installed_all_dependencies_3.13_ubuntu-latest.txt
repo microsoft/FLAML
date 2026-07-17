@@ -29,7 +29,7 @@ colorlog==6.10.1
 comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.1
-coverage==7.15.1
+coverage==7.15.2
 cryptography==49.0.0
 cuda-bindings==13.3.1
 cuda-pathfinder==1.5.6
@@ -44,22 +44,22 @@ dill==0.4.1
 distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.139.0
+fastapi==0.139.2
 fastjsonschema==2.21.2
-filelock==3.29.7
--e git+https://github.com/microsoft/FLAML@3756cc1cb6e48a9dfb1bbc589c1055c7f67e0318#egg=FLAML
+filelock==3.30.2
+-e git+https://github.com/microsoft/FLAML@c3178f4c938453667ef41d1445c4a88b646a2f36#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.4.0
 gitdb==4.0.12
-GitPython==3.1.51
+GitPython==3.1.52
 google-auth==2.56.0
 graphviz==0.21
 greenlet==3.5.3
 h11==0.16.0
 hcrystalball==0.1.12
-hf-xet==1.5.1
+hf-xet==1.5.2
 holidays==0.100
 httpcore==1.0.9
 httpx==0.28.1
@@ -142,9 +142,9 @@ nvidia-nvjitlink==13.3.33
 nvidia-nvshmem-cu13==3.4.5
 nvidia-nvtx==13.0.85
 openml==0.15.1
-opentelemetry-api==1.43.0
-opentelemetry-sdk==1.43.0
-opentelemetry-semantic-conventions==0.64b0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-semantic-conventions==0.65b0
 optuna==3.6.1
 packaging==24.2
 pandas==2.3.3
@@ -228,9 +228,9 @@ torchvision==0.28.0
 tornado==6.5.7
 tqdm==4.68.4
 traitlets==5.15.1
-transformers==5.13.1
+transformers==5.14.1
 triton==3.7.1
-typer==0.26.8
+typer==0.27.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.3
