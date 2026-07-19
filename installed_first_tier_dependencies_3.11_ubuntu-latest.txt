@@ -8,7 +8,7 @@ ipykernel==7.3.0
 joblib==1.3.2
 joblibspark==0.6.0
 jupyter==1.1.1
-lightgbm==4.6.0
+lightgbm==4.7.0
 mlflow-skinny==2.22.1
 nbconvert==7.17.1
 nbformat==5.10.4
@@ -35,7 +35,7 @@ tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.13.0
 torchvision==0.28.0
-transformers==5.14.0
+transformers==5.14.1
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: eb4d9639020cca6aabe4d8fa7336fc554883b0ec
+Current commit hash: edf7117ca2c688b79a703978b212ac32bc8c5d09
