@@ -1,25 +1,58 @@
 """Tests for the `resampler=` kwarg on `AutoML.fit` (issue #1200).
 
-Covers:
-  - The kwarg is respected: passing a resampler changes the model chosen by the
-    search compared to the same fit with `resampler=None` on a severely
-    imbalanced dataset. This is a proxy assertion that the fold-level training
-    data is actually being resampled inside `get_val_loss`.
-  - The validation partition is left at the raw class distribution: the model
-    trained inside the cross-validation loop is still scored against the
-    original (imbalanced) validation folds.
-  - Passing both `resampler` and `sample_weight` raises `ValueError`.
-  - Passing a resampler that doesn't expose `fit_resample` raises `TypeError`.
-  - `resampler=None` (the default) is a no-op — model output is unchanged
-    relative to omitting the kwarg entirely.
+Core tests use a local stub resampler (no imbalanced-learn dependency) so they
+always run in CI; one end-to-end SMOTE integration test runs only where
+imbalanced-learn is installed.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.base import BaseEstimator
 from sklearn.datasets import make_classification
 
 from flaml import AutoML
+
+
+class DuplicateMinorityResampler(BaseEstimator):
+    """Deterministic stand-in for an imblearn sampler: duplicates minority rows
+    until classes are balanced. Class-level counters record every invocation so
+    tests can assert the per-fold hook fired (counters survive sklearn.base.clone,
+    which creates fresh instances)."""
+
+    n_calls = 0
+    seen_input_sizes = []
+    seen_output_sizes = []
+
+    def fit_resample(self, X, y):
+        type(self).n_calls += 1
+        y_arr = np.asarray(y)
+        type(self).seen_input_sizes.append(len(y_arr))
+        values, counts = np.unique(y_arr, return_counts=True)
+        majority_count = counts.max()
+        extra_X, extra_y = [], []
+        for v, c in zip(values, counts):
+            if c < majority_count:
+                idx = np.where(y_arr == v)[0]
+                take = np.resize(idx, majority_count - c)
+                extra_X.append(X.iloc[take] if hasattr(X, "iloc") else X[take])
+                extra_y.append(y_arr[take])
+        if extra_X:
+            if hasattr(X, "iloc"):
+                X_out = pd.concat([X] + extra_X, ignore_index=True)
+            else:
+                X_out = np.concatenate([X] + extra_X)
+            y_out = np.concatenate([y_arr] + extra_y)
+        else:
+            X_out, y_out = X, y_arr
+        type(self).seen_output_sizes.append(len(y_out))
+        return X_out, y_out
+
+    @classmethod
+    def reset_counters(cls):
+        cls.n_calls = 0
+        cls.seen_input_sizes = []
+        cls.seen_output_sizes = []
 
 
 def _imbalanced_dataset(seed: int = 0):
@@ -35,85 +68,77 @@ def _imbalanced_dataset(seed: int = 0):
     return pd.DataFrame(X, columns=[f"f{i}" for i in range(X.shape[1])]), pd.Series(y, name="target")
 
 
-def _fit_settings():
-    return {
+def _fit_settings(**overrides):
+    settings = {
         "task": "classification",
         "metric": "f1",
         "estimator_list": ["lgbm"],
         "eval_method": "cv",
         "n_splits": 3,
-        "max_iter": 6,
+        "max_iter": 2,
         "time_budget": -1,
         "verbose": 0,
         "n_jobs": 1,
+        "retrain_full": False,
     }
+    settings.update(overrides)
+    return settings
 
 
-def test_resampler_changes_chosen_config():
-    """Passing a resampler should influence the search — the chosen best_config
-    on an imbalanced dataset with SMOTE will differ from the same fit without.
-
-    This is a proxy for verifying the per-fold hook actually fires; if the
-    hook were a no-op, both fits would land on the same best_config since
-    everything else about the search is deterministic (same seed, same
-    estimator, same data).
-    """
-    imblearn = pytest.importorskip("imblearn.over_sampling")
-    SMOTE = imblearn.SMOTE
-
+def test_resampler_hook_fires_per_fold_and_balances_train():
+    """The per-fold hook must run once per (trial, fold) and grow the training
+    partition — asserted directly on the stub's counters, independent of which
+    config the search happens to pick."""
+    DuplicateMinorityResampler.reset_counters()
     X, y = _imbalanced_dataset(seed=0)
 
-    baseline = AutoML()
-    baseline.fit(X_train=X, y_train=y, seed=42, **_fit_settings())
+    automl = AutoML()
+    automl.fit(X_train=X, y_train=y, resampler=DuplicateMinorityResampler(), seed=42, **_fit_settings())
 
-    resampled = AutoML()
-    resampled.fit(
-        X_train=X,
-        y_train=y,
-        resampler=SMOTE(random_state=42, k_neighbors=3),
-        seed=42,
-        **_fit_settings(),
-    )
-
-    assert baseline.best_config != resampled.best_config, (
-        "resampler=SMOTE(...) did not change the chosen best_config vs baseline; "
-        "the per-fold resampling hook may not be firing"
-    )
+    n_splits, max_iter = 3, 2
+    assert (
+        DuplicateMinorityResampler.n_calls == n_splits * max_iter
+    ), f"expected {n_splits * max_iter} per-fold resample calls, got {DuplicateMinorityResampler.n_calls}"
+    for size_in, size_out in zip(
+        DuplicateMinorityResampler.seen_input_sizes, DuplicateMinorityResampler.seen_output_sizes
+    ):
+        assert size_out > size_in, "resampled training fold did not grow"
 
 
 def test_resampler_leaves_validation_untouched():
-    """Sanity check: the CV validation partitions must retain the raw class
-    distribution. If SMOTE were leaking into the validation folds, the search
-    would perceive an artificially balanced eval set and the val_loss reported
-    by the resampled fit would be systematically better than what the same
-    model achieves on the raw distribution.
-
-    We approximate this by asserting the final CV val_loss for the resampled
-    fit is not negative (it is 1 - f1, which is bounded in [0, 1] on a raw
-    imbalanced validation set with a non-trivial model).
-    """
-    imblearn = pytest.importorskip("imblearn.over_sampling")
-    SMOTE = imblearn.SMOTE
-
+    """Validation folds must keep the raw class distribution. Asserted from
+    inside the evaluation loop via a custom metric that inspects y_val."""
+    DuplicateMinorityResampler.reset_counters()
     X, y = _imbalanced_dataset(seed=1)
-    resampled = AutoML()
-    resampled.fit(
+    raw_pos_rate = float(np.mean(y))
+    observed_val_rates = []
+
+    def custom_metric(X_val, y_val, estimator, labels, X_train, y_train, *args, **kwargs):
+        observed_val_rates.append(float(np.mean(y_val)))
+        from sklearn.metrics import f1_score
+
+        y_pred = estimator.predict(X_val)
+        loss = 1 - f1_score(y_val, y_pred, zero_division=0)
+        return loss, {"val_loss": loss}
+
+    automl = AutoML()
+    automl.fit(
         X_train=X,
         y_train=y,
-        resampler=SMOTE(random_state=1, k_neighbors=3),
+        resampler=DuplicateMinorityResampler(),
         seed=1,
-        **_fit_settings(),
+        **_fit_settings(metric=custom_metric),
     )
-    assert 0.0 <= resampled.best_loss <= 1.0, (
-        f"best_loss ({resampled.best_loss}) outside expected [0, 1] range for 1-f1 on a "
-        "raw imbalanced validation fold — validation may have been resampled"
-    )
+
+    assert observed_val_rates, "custom metric was never invoked"
+    for rate in observed_val_rates:
+        assert rate < 2 * raw_pos_rate, (
+            f"validation fold positive rate {rate:.3f} is far above the raw rate "
+            f"{raw_pos_rate:.3f} — validation data may have been resampled"
+        )
 
 
 def test_resampler_with_sample_weight_raises():
-    imblearn = pytest.importorskip("imblearn.over_sampling")
-    SMOTE = imblearn.SMOTE
-
     X, y = _imbalanced_dataset(seed=2)
     sample_weight = np.where(y == 1, 5.0, 1.0)
 
@@ -122,15 +147,30 @@ def test_resampler_with_sample_weight_raises():
         automl.fit(
             X_train=X,
             y_train=y,
-            resampler=SMOTE(random_state=2),
+            resampler=DuplicateMinorityResampler(),
             sample_weight=sample_weight,
             **_fit_settings(),
         )
 
 
+def test_resampler_with_sample_weight_by_estimator_raises():
+    """sample_weight supplied per-estimator via fit_kwargs_by_estimator must be
+    rejected just like the top-level kwarg."""
+    X, y = _imbalanced_dataset(seed=2)
+    sample_weight = np.where(y == 1, 5.0, 1.0)
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="Cannot combine 'resampler' with 'sample_weight'"):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            resampler=DuplicateMinorityResampler(),
+            fit_kwargs_by_estimator={"lgbm": {"sample_weight": sample_weight}},
+            **_fit_settings(),
+        )
+
+
 def test_resampler_without_fit_resample_raises():
-    """A resampler that doesn't expose the imblearn `fit_resample` protocol
-    should be rejected up-front at fit() time, not silently on the first fold."""
     X, y = _imbalanced_dataset(seed=3)
 
     class NotAResampler:
@@ -138,12 +178,27 @@ def test_resampler_without_fit_resample_raises():
 
     automl = AutoML()
     with pytest.raises(TypeError, match="fit_resample"):
-        automl.fit(
-            X_train=X,
-            y_train=y,
-            resampler=NotAResampler(),
-            **_fit_settings(),
-        )
+        automl.fit(X_train=X, y_train=y, resampler=NotAResampler(), **_fit_settings())
+
+
+def test_resampler_not_cloneable_raises():
+    """An object with fit_resample but broken get_params fails at fit() entry
+    with a clear message, not mid-fold."""
+    X, y = _imbalanced_dataset(seed=3)
+
+    class UncloneableResampler:
+        def __init__(self, ratio):
+            self.ratio = ratio
+
+        def fit_resample(self, X, y):
+            return X, y
+
+        def get_params(self, deep=True):
+            return {}  # drops `ratio` — sklearn.clone raises on param mismatch
+
+    automl = AutoML()
+    with pytest.raises(TypeError, match="cloneable"):
+        automl.fit(X_train=X, y_train=y, resampler=UncloneableResampler(0.5), **_fit_settings())
 
 
 def test_resampler_none_is_default_and_noop():
@@ -151,11 +206,50 @@ def test_resampler_none_is_default_and_noop():
     X, y = _imbalanced_dataset(seed=4)
 
     a = AutoML()
-    a.fit(X_train=X, y_train=y, seed=7, **_fit_settings())
+    a.fit(X_train=X, y_train=y, seed=7, **_fit_settings(retrain_full=True))
 
     b = AutoML()
-    b.fit(X_train=X, y_train=y, resampler=None, seed=7, **_fit_settings())
+    b.fit(X_train=X, y_train=y, resampler=None, seed=7, **_fit_settings(retrain_full=True))
 
     assert a.best_config == b.best_config
     assert a.best_estimator == b.best_estimator
     assert np.array_equal(a.predict(X), b.predict(X))
+
+
+def test_resampler_does_not_leak_across_fits():
+    """A fit without a resampler after a fit with one must not silently reuse
+    the earlier resampler (stale task state)."""
+    DuplicateMinorityResampler.reset_counters()
+    X, y = _imbalanced_dataset(seed=5)
+
+    automl = AutoML()
+    automl.fit(X_train=X, y_train=y, resampler=DuplicateMinorityResampler(), seed=7, **_fit_settings())
+    calls_after_first = DuplicateMinorityResampler.n_calls
+    assert calls_after_first > 0
+
+    automl2 = AutoML()
+    automl2.fit(X_train=X, y_train=y, seed=7, **_fit_settings())
+    assert (
+        DuplicateMinorityResampler.n_calls == calls_after_first
+    ), "resampler from a previous fit leaked into a fit that did not request one"
+
+
+def test_resampler_smote_integration():
+    """End-to-end smoke test with a real imblearn SMOTE object; runs only where
+    imbalanced-learn is installed."""
+    imblearn = pytest.importorskip("imblearn.over_sampling")
+    SMOTE = imblearn.SMOTE
+
+    X, y = _imbalanced_dataset(seed=0)
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        resampler=SMOTE(random_state=42, k_neighbors=3),
+        seed=42,
+        **_fit_settings(retrain_full=True),
+    )
+    assert automl.model is not None
+    assert 0.0 <= automl.best_loss <= 1.0
+    pred = automl.predict(X)
+    assert len(pred) == len(y)
