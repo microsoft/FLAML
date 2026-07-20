@@ -354,12 +354,12 @@ class DataTransformer:
                 # Fit an OrdinalEncoder as the source of truth for the per-column
                 # allowed category list — see issue #1564. This replaces the
                 # ad-hoc `_cat_categories` dict from #1561 with sklearn's
-                # standard implementation. Unknown values and missing values
-                # both encode to -1 internally; `transform()` uses that to
-                # detect drift and remap those rows to the "__NAN__" sentinel
-                # category, preserving the pandas categorical dtype that the
-                # downstream estimator wrappers (LGBM / CatBoost / sklearn)
-                # key off of.
+                # standard implementation. `transform()` reads the pinned lists
+                # from `encoder.categories_` (membership check; the encoder's
+                # own transform is not called) and remaps values outside the
+                # fit-time list to the "__NAN__" sentinel category, preserving
+                # the pandas categorical dtype that the downstream estimator
+                # wrappers (LGBM / CatBoost / sklearn) key off of.
                 from sklearn.preprocessing import OrdinalEncoder
 
                 self._ordinal_encoder = OrdinalEncoder(
@@ -481,11 +481,10 @@ class DataTransformer:
                 encoder = getattr(self, "_ordinal_encoder", None)
                 saved_cats_map = getattr(self, "_cat_categories", None)
                 if encoder is not None:
-                    encoder_columns = list(encoder.feature_names_in_)
+                    encoder_col_idx = {name: i for i, name in enumerate(encoder.feature_names_in_)}
                     for column in cat_columns:
-                        try:
-                            col_idx = encoder_columns.index(column)
-                        except ValueError:
+                        col_idx = encoder_col_idx.get(column)
+                        if col_idx is None:
                             continue
                         known_cats = list(encoder.categories_[col_idx])
                         # Include "__NAN__" as the sentinel slot even if the
