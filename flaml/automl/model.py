@@ -19,7 +19,13 @@ from typing import Callable, List, Union
 import numpy as np
 import sklearn
 from sklearn.dummy import DummyClassifier, DummyRegressor
-from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
+    IsolationForest,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import ElasticNet, LassoLars, LogisticRegression, SGDClassifier, SGDRegressor
 from sklearn.preprocessing import Normalizer
@@ -1486,6 +1492,69 @@ class SKLearnEstimator(BaseEstimator):
                     X[col] = X[col].astype("category").cat.codes
             X = X.to_numpy()
         return X
+
+
+class IsolationForestEstimator(SKLearnEstimator):
+    """The class for tuning IsolationForest for anomaly detection."""
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        upper = max(5, min(32768, int(data_size[0])))
+        return {
+            "n_estimators": {
+                "domain": tune.lograndint(lower=4, upper=upper),
+                "init_value": min(100, upper - 1),
+                "low_cost_init_value": 4,
+            },
+            "max_features": {
+                "domain": tune.uniform(lower=0.5, upper=1.0),
+                "init_value": 1.0,
+            },
+            "bootstrap": {
+                "domain": tune.choice([False, True]),
+                "init_value": False,
+            },
+        }
+
+    @classmethod
+    def size(cls, config):
+        return config.get("n_estimators", 100)
+
+    @classmethod
+    def cost_relative2lgbm(cls):
+        return 1.0
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        params["contamination"] = params.get("contamination", "auto")
+        params["max_samples"] = params.get("max_samples", "auto")
+        params.pop("n_jobs", None)
+        return params
+
+    def __init__(self, task="anomaly_detection", **config):
+        super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
+        self.estimator_class = IsolationForest
+
+    def fit(self, X_train, y_train=None, budget=None, free_mem_ratio=0, **kwargs):
+        kwargs.pop("is_retrain", None)
+        return super().fit(
+            X_train,
+            None,
+            budget=budget,
+            free_mem_ratio=free_mem_ratio,
+            **kwargs,
+        )
+
+    def score_samples(self, X):
+        X = self._preprocess(X)
+        return self._model.score_samples(X)
+
+    def decision_function(self, X):
+        X = self._preprocess(X)
+        return self._model.decision_function(X)
 
 
 class LGBMEstimator(BaseEstimator):
