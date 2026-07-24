@@ -1,0 +1,74 @@
+[
+    {
+        "dataset": "4544_GeographicalOriginalofMusic",
+        "task": "regression",
+        "metric": "r2",
+        "size": "xl"
+    },
+    {
+        "dataset": "195_auto_price",
+        "task": "regression",
+        "metric": "r2",
+        "size": "l"
+    },
+    {
+        "dataset": "695_chatfield_4",
+        "task": "regression",
+        "metric": "r2",
+        "size": "m"
+    },
+    {
+        "dataset": "218_house_8L",
+        "task": "regression",
+        "metric": "r2",
+        "size": "m"
+    },
+    {
+        "dataset": "519_vinnie",
+        "task": "regression",
+        "metric": "r2",
+        "size": "s"
+    },
+    {
+        "dataset": "movement_libras",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "xl"
+    },
+    {
+        "dataset": "mfeat_fourier",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "molecular_biology_promoters",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "waveform_40",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "l"
+    },
+    {
+        "dataset": "german",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "m"
+    },
+    {
+        "dataset": "cleve",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "m"
+    },
+    {
+        "dataset": "prnn_synth",
+        "task": "classification",
+        "metric": "accuracy",
+        "size": "s"
+    }
+]

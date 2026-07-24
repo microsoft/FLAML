@@ -51,8 +51,20 @@ logger = logging.getLogger(__name__)
 
 
 def disable_spark_ansi_mode():
-    """Disable Spark ANSI mode if it is enabled."""
+    """Disable Spark ANSI mode on the currently active Spark session.
+
+    This function does NOT create a Spark session. Callers must create or
+    activate one first (e.g. via ``SparkSession.builder.getOrCreate()``).
+    When no active session exists, it returns a no-op tuple so that callers
+    importing this module do not pay the cost of starting a Spark JVM.
+    """
     spark = SparkSession.getActiveSession() if hasattr(SparkSession, "getActiveSession") else None
+    if spark is None:
+        # Without an active Spark session, reading pandas-on-Spark options
+        # (``ps.get_option``) would call ``default_session()`` and start a
+        # Spark JVM as an import-time side effect. Skip and return a no-op.
+        return None, [None, None], False
+
     adjusted = False
     try:
         ps_conf = ps.get_option("compute.fail_on_ansi_mode")
@@ -60,22 +72,21 @@ def disable_spark_ansi_mode():
         ps_conf = None
     ansi_conf = [None, ps_conf]  # ansi_conf and ps_conf original values
     # Spark may store the config as string 'true'/'false' (or boolean in some contexts)
-    if spark is not None:
-        ansi_conf[0] = spark.conf.get("spark.sql.ansi.enabled")
-        ansi_enabled = (
-            (isinstance(ansi_conf[0], str) and ansi_conf[0].lower() == "true")
-            or (isinstance(ansi_conf[0], bool) and ansi_conf[0] is True)
-            or ansi_conf[0] is None
-        )
-        try:
-            if ansi_enabled:
-                logger.debug("Adjusting spark.sql.ansi.enabled to false")
-                spark.conf.set("spark.sql.ansi.enabled", "false")
-                adjusted = True
-        except Exception:
-            # If reading/setting options fail for some reason, keep going and let
-            # pandas-on-Spark raise a meaningful error later.
-            logger.exception("Failed to set spark.sql.ansi.enabled")
+    ansi_conf[0] = spark.conf.get("spark.sql.ansi.enabled")
+    ansi_enabled = (
+        (isinstance(ansi_conf[0], str) and ansi_conf[0].lower() == "true")
+        or (isinstance(ansi_conf[0], bool) and ansi_conf[0] is True)
+        or ansi_conf[0] is None
+    )
+    try:
+        if ansi_enabled:
+            logger.debug("Adjusting spark.sql.ansi.enabled to false")
+            spark.conf.set("spark.sql.ansi.enabled", "false")
+            adjusted = True
+    except Exception:
+        # If reading/setting options fail for some reason, keep going and let
+        # pandas-on-Spark raise a meaningful error later.
+        logger.exception("Failed to set spark.sql.ansi.enabled")
 
     if ansi_conf[1]:
         logger.debug("Adjusting pandas-on-Spark compute.fail_on_ansi_mode to False")
