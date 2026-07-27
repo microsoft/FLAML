@@ -42,15 +42,15 @@ distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
 fastapi==0.140.0
-fastjsonschema==2.21.2
+fastjsonschema==2.22.0
 filelock==3.32.0
--e git+https://github.com/microsoft/FLAML@037b9d964702f2da9013eb086acc2ceda15285b6#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@4c6042065354397eedc6275b5126f6ca9e4bc99e#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.4.0
 gitdb==4.0.12
-GitPython==3.1.55
+GitPython==3.1.57
 google-auth==2.56.2
 graphviz==0.21
 greenlet==3.5.4
@@ -137,7 +137,7 @@ plotly==6.9.0
 pluggy==1.6.0
 pre_commit==4.6.1
 prometheus_client==0.26.0
-prompt_toolkit==3.0.52
+prompt_toolkit==3.0.53
 propcache==0.5.2
 protobuf==6.33.6
 psutil==7.2.2
