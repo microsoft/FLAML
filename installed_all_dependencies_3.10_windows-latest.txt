@@ -4,7 +4,7 @@ aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0
 alembic==1.18.5
-annotated-doc==0.0.4
+annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
 argon2-cffi==25.1.0
@@ -34,7 +34,7 @@ coverage==7.15.2
 cryptography==49.0.0
 cycler==0.12.1
 databricks-sdk==0.122.0
-datasets==5.0.0
+datasets==5.0.1
 debugpy==1.8.21
 decorator==5.3.1
 defusedxml==0.7.1
@@ -43,14 +43,14 @@ distlib==0.4.3
 evaluate==0.4.6
 exceptiongroup==1.3.1
 executing==2.2.1
-fastapi==0.140.0
-fastjsonschema==2.22.0
+fastapi==0.140.13
+fastjsonschema==2.22.1
 filelock==3.32.0
--e git+https://github.com/microsoft/FLAML@e3abe483ad0d3a60d481d3a6252f72afb2e6f08c#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@1c34102a5aa93fdfb5581a3a92db0f853f7b1767#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
-fsspec==2026.4.0
+fsspec==2026.6.0
 gitdb==4.0.12
 GitPython==3.1.57
 google-auth==2.56.2
@@ -61,7 +61,7 @@ hcrystalball==0.1.12
 hf-xet==1.5.2
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.24.0
+huggingface_hub==1.25.1
 identify==2.6.19
 idna==3.18
 importlib_metadata==8.9.0
@@ -202,7 +202,7 @@ torch==2.13.0
 torchmetrics==1.9.0
 torchvision==0.28.0
 tornado==6.5.7
-tqdm==4.69.1
+tqdm==4.70.0
 traitlets==5.15.1
 transformers==5.14.1
 typer==0.27.0
