@@ -32,7 +32,7 @@ convertdate==2.4.1
 coverage==7.15.2
 cryptography==49.0.0
 cycler==0.12.1
-databricks-sdk==0.122.0
+databricks-sdk==0.123.0
 datasets==5.0.1
 debugpy==1.8.21
 decorator==5.3.1
@@ -41,10 +41,10 @@ dill==0.4.1
 distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
-fastapi==0.140.13
+fastapi==0.141.1
 fastjsonschema==2.22.1
-filelock==3.32.0
--e git+https://github.com/microsoft/FLAML@8ca672ec834038bd4592ec1a3a240dd106bff0a8#egg=FLAML
+filelock==3.32.2
+-e git+https://github.com/microsoft/FLAML@3c849bcf6648aaf5cf41316076e165dcb6195f62#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -59,7 +59,7 @@ hcrystalball==0.1.12
 hf-xet==1.5.2
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.25.1
+huggingface_hub==1.26.0
 identify==2.6.19
 idna==3.18
 importlib_metadata==8.9.0
@@ -81,7 +81,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_builder==1.1.1
+jupyter_builder==1.2.0
 jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.20.0
@@ -208,8 +208,8 @@ typing_extensions==4.16.0
 tzdata==2026.3
 uri-template==1.3.0
 urllib3==2.7.0
-uvicorn==0.51.0
-virtualenv==21.7.0
+uvicorn==0.52.0
+virtualenv==21.7.1
 wcwidth==0.8.2
 webcolors==25.10.0
 webencodings==0.5.1
