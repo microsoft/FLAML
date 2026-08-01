@@ -30,12 +30,11 @@ comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.1
 coverage==7.15.2
-cryptography==49.0.0
+cryptography==50.0.0
 cycler==0.12.1
 databricks-sdk==0.123.0
 datasets==5.0.1
 debugpy==1.8.21
-decorator==5.3.1
 defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.3
@@ -44,7 +43,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.1
 filelock==3.32.2
--e git+https://github.com/microsoft/FLAML@2f4dfb5e594e2cd8696d77f67fbaceef6a7c4f5d#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@d0432e101eb8665cc4bad18ef9686389b52682ba#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -65,7 +64,7 @@ idna==3.18
 importlib_metadata==8.9.0
 iniconfig==2.3.0
 ipykernel==7.3.0
-ipython==9.15.0
+ipython==9.16.0
 ipython_pygments_lexers==1.1.1
 ipywidgets==8.1.8
 isoduration==20.11.0
@@ -81,7 +80,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_builder==1.2.0
+jupyter_builder==1.2.1
 jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.20.0
@@ -155,7 +154,7 @@ pyparsing==3.3.2
 pytest==9.1.1
 pytest-rerunfailures==16.4
 python-dateutil==2.9.0.post0
-python-discovery==1.5.0
+python-discovery==1.5.1
 python-json-logger==4.1.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
@@ -200,7 +199,7 @@ torchmetrics==1.9.0
 torchvision==0.28.0
 tornado==6.5.7
 tqdm==4.70.0
-traitlets==5.15.1
+traitlets==5.16.0
 transformers==5.14.1
 typer==0.27.0
 typing-inspection==0.4.2
