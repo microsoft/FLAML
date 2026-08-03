@@ -42,7 +42,6 @@ try:
             return x
 
     # __net_end__
-
 except ImportError:
     print("skip test_pytorch because torchvision cannot be imported.")
 

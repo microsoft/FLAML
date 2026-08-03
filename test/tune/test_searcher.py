@@ -316,14 +316,34 @@ def test_searchers():
     assert len(analysis.trials) == 5
 
 
-def test_no_optuna():
-    import subprocess
+def test_no_optuna(monkeypatch):
+    import importlib
     import sys
 
-    subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "optuna"])
-    import flaml.tune.searcher.suggestion
+    # Simulate optuna being unavailable without mutating the global
+    # conda env (the old ``pip uninstall`` approach raced with other
+    # workers under xdist parallelism: a parallel test emitting an
+    # optuna warning would crash the xdist controller while optuna
+    # was uninstalled).  Set ``sys.modules['optuna'] = None`` so
+    # ``import optuna`` raises ``ImportError`` for the duration of
+    # this test, then reload the FLAML module under test.
+    for mod in [m for m in sys.modules if m == "optuna" or m.startswith("optuna.")]:
+        monkeypatch.delitem(sys.modules, mod, raising=False)
+    monkeypatch.setitem(sys.modules, "optuna", None)
 
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "optuna>=2.8.0,<=3.6.1"])
+    import flaml.tune.searcher.suggestion as _sug
+
+    try:
+        importlib.reload(_sug)
+    finally:
+        # Reloading ``suggestion`` with ``optuna`` patched out leaves its
+        # module-level ``ot`` binding set to ``None``.  ``monkeypatch.undo()``
+        # restores ``sys.modules`` but does NOT re-evaluate ``_sug``'s globals,
+        # so without an explicit reload-back every subsequent test on the same
+        # xdist worker that uses BlendSearch / OptunaSearch trips
+        # ``assert ot is not None, "Optuna must be installed!"``.
+        monkeypatch.undo()
+        importlib.reload(_sug)
 
 
 def test_unresolved_search_space(caplog):

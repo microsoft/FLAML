@@ -1,0 +1,163 @@
+{
+    "1203_BNG_pwLinear": {
+        "score": 0.619620088115318,
+        "num_iters": 309,
+        "metric": "r2",
+        "best@": 168.0,
+        "t": 1687107619.6571379
+    },
+    "1193_BNG_lowbwt": {
+        "score": 0.6175953194297905,
+        "num_iters": 731,
+        "metric": "r2",
+        "best@": 124.0,
+        "t": 1687111215.271985
+    },
+    "537_houses": {
+        "score": 0.8375195889226483,
+        "num_iters": 325,
+        "metric": "r2",
+        "best@": 61.0,
+        "t": 1687145841.6692975
+    },
+    "598_fri_c0_1000_25": {
+        "score": 0.9163775091912543,
+        "num_iters": 795,
+        "metric": "r2",
+        "best@": 140.0,
+        "t": 1687149624.9704313
+    },
+    "627_fri_c2_500_10": {
+        "score": 0.9205131956531065,
+        "num_iters": 903,
+        "metric": "r2",
+        "best@": 147.0,
+        "t": 1687155567.706606
+    },
+    "sleep": {
+        "score": 0.7730860747063489,
+        "num_iters": 372,
+        "metric": "accuracy",
+        "best@": 73.0,
+        "t": 1687160774.0789251
+    },
+    "fars": {
+        "score": 0.7973219237778306,
+        "num_iters": 532,
+        "metric": "accuracy",
+        "best@": 50.0,
+        "t": 1687166984.7642703
+    },
+    "adult": {
+        "score": 0.8731471623945622,
+        "num_iters": 654,
+        "metric": "accuracy",
+        "best@": 101.0,
+        "t": 1687170482.6342294
+    },
+    "satimage": {
+        "score": 0.9266625233064015,
+        "num_iters": 561,
+        "metric": "accuracy",
+        "best@": 99.0,
+        "t": 1687172784.8018832
+    },
+    "yeast": {
+        "score": 0.5837837837837838,
+        "num_iters": 772,
+        "metric": "accuracy",
+        "best@": 123.0,
+        "t": 1687177263.2019987
+    },
+    "horse_colic": {
+        "score": 0.8043478260869565,
+        "num_iters": 992,
+        "metric": "accuracy",
+        "best@": 26.0,
+        "t": 1687181822.7141292
+    },
+    "4544_GeographicalOriginalofMusic": {
+        "score": 0.7503905318702759,
+        "num_iters": 756,
+        "metric": "r2",
+        "best@": 109.0,
+        "t": 1687184137.8473835
+    },
+    "195_auto_price": {
+        "score": 0.8657968076190095,
+        "num_iters": 817,
+        "metric": "r2",
+        "best@": 55.0,
+        "t": 1687190879.8299785
+    },
+    "695_chatfield_4": {
+        "score": 0.818449381326096,
+        "num_iters": 762,
+        "metric": "r2",
+        "best@": 107.0,
+        "t": 1687195781.2293606
+    },
+    "218_house_8L": {
+        "score": 0.6979419639346862,
+        "num_iters": 513,
+        "metric": "r2",
+        "best@": 79.0,
+        "t": 1687233115.1543977
+    },
+    "519_vinnie": {
+        "score": 0.7176180845300231,
+        "num_iters": 851,
+        "metric": "r2",
+        "best@": 144.0,
+        "t": 1687238819.1221533
+    },
+    "movement_libras": {
+        "score": 0.7555555555555555,
+        "num_iters": 772,
+        "metric": "accuracy",
+        "best@": 83.0,
+        "t": 1687241166.913852
+    },
+    "mfeat_fourier": {
+        "score": 0.842,
+        "num_iters": 662,
+        "metric": "accuracy",
+        "best@": 51.0,
+        "t": 1687243861.714146
+    },
+    "molecular_biology_promoters": {
+        "score": 0.7777777777777778,
+        "num_iters": 732,
+        "metric": "accuracy",
+        "best@": 7.0,
+        "t": 1687248337.0668147
+    },
+    "waveform_40": {
+        "score": 0.8664,
+        "num_iters": 672,
+        "metric": "accuracy",
+        "best@": 7.0,
+        "t": 1687255309.06473
+    },
+    "german": {
+        "score": 0.708,
+        "num_iters": 786,
+        "metric": "accuracy",
+        "best@": 139.0,
+        "t": 1687323795.112575
+    },
+    "cleve": {
+        "score": 0.7763157894736842,
+        "num_iters": 0,
+        "metric": "accuracy",
+        "best@": 12.0,
+        "t": 1687332372.1085086
+    },
+    "prnn_synth": {
+        "score": 0.8095238095238095,
+        "num_iters": 783,
+        "metric": "accuracy",
+        "best@": 13.0,
+        "t": 1687759077.8376708
+    }
+}

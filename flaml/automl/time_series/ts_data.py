@@ -58,7 +58,44 @@ class TimeSeriesDataset:
         assert isinstance(self.target_names, list)
         assert len(self.target_names)
 
-        self.frequency = pd.infer_freq(train_data[time_col].unique())
+        # ``sorted(...)`` on a Python list raises ``TypeError`` for
+        # non-orderable mixed types (e.g., strings + datetimes, tz-aware +
+        # tz-naive). Use pandas' Series sort, which handles ``NaT`` and
+        # datetime dtypes more robustly and bubbles the same error only for
+        # genuinely unsortable inputs.
+        sorted_times = train_data[time_col].drop_duplicates().sort_values(ignore_index=True)
+        try:
+            self.frequency = pd.infer_freq(sorted_times)
+        except (ValueError, TypeError):
+            # ``pd.infer_freq`` raises ``ValueError`` when fewer than 3 dates
+            # are provided and ``TypeError`` when the input isn't
+            # datetime-like; either case should fall through to the
+            # delta-mode fallback below.
+            self.frequency = None
+        if self.frequency is None and len(sorted_times) >= 2 and pd.api.types.is_datetime64_any_dtype(sorted_times):
+            # Fallback: infer from the most common time delta (e.g., business day data with holidays).
+            # Gated on a datetime-like ``sorted_times`` so we don't recurse
+            # into ``.diff()`` for non-datetime input — that would raise its
+            # own ``TypeError`` and defeat the point of catching the
+            # ``pd.infer_freq`` ``TypeError`` above.
+            deltas = sorted_times.diff().dropna()
+            # ``deltas`` (and therefore ``deltas.mode()``) can still be empty
+            # — e.g., ``time_col`` contains ``NaT`` values so consecutive
+            # diffs are ``NaT`` and ``dropna()`` removes everything. Skip
+            # the fallback gracefully so the assertion below produces the
+            # intended error message instead of an opaque ``IndexError``.
+            if not deltas.empty:
+                # Pick the smallest tied mode value so the inferred
+                # frequency is deterministic across pandas versions (which
+                # don't guarantee a stable order for ``Series.mode()`` on
+                # ties).
+                mode_values = deltas.mode().sort_values()
+                if not mode_values.empty:
+                    mode_delta = mode_values.iloc[0]
+                    try:
+                        self.frequency = pd.tseries.frequencies.to_offset(mode_delta).freqstr
+                    except (ValueError, TypeError):
+                        pass
         assert self.frequency is not None, "Only time series of regular frequency are currently supported."
 
         float_cols = list(train_data.select_dtypes(include=["floating"]).columns)
@@ -470,7 +507,14 @@ class DataTransformerTS:
             else:
                 raise ValueError("y must be either a pd.Series or a pd.DataFrame at this stage")
             y_tr = self.label_transformer.transform(ycol)
-            y.iloc[:] = y_tr.reshape(y.shape)
+            # pandas 3 forbids in-place assignment of a numeric ndarray into a
+            # string-dtype column (`y.iloc[:] = y_tr` raises TypeError). Build a
+            # new container of the appropriate dtype instead.
+            if isinstance(y, pd.DataFrame):
+                y = y.copy()
+                y[y.columns[0]] = y_tr.reshape(-1)
+            else:
+                y = pd.Series(y_tr.reshape(-1), index=y.index, name=y.name)
 
         X.drop(columns=self.drop_columns, inplace=True)
 

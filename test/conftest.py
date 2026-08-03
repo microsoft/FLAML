@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Union
 
 import numpy as np
@@ -11,6 +12,124 @@ except ImportError:  # pragma: no cover
     CatBoostClassifier = None
     CatBoostRegressor = None
     Pool = None
+
+
+def pytest_configure(config):
+    os.environ["FLAML_FEATURIZATION"] = os.environ.get("FLAML_FEATURIZATION", "auto")
+
+    # Isolate MLflow tracking per xdist worker (and per process) so that
+    # parallel workers don't race on writes to the same ``mlruns/<exp>/<run>/meta.yaml``
+    # file. Concurrent writers can leave the file half-written, which then
+    # surfaces as ``yaml.parser.ParserError: while parsing a block mapping``
+    # in every subsequent test that talks to MLflow on the same worker.
+    #
+    # ``pytest_configure`` runs in the main pytest process AND in every
+    # xdist worker. The main process runs first and exports
+    # ``MLFLOW_TRACKING_URI``; workers then inherit that value. Without
+    # the override below, all workers would share the main process's
+    # tracking dir and race on writes. We therefore force-override the
+    # URI in xdist workers when the inherited value is one we previously
+    # set ourselves (path contains ``flaml_mlruns_``); a URI set
+    # externally by the user is left untouched.
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    existing_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
+    inherited_from_main = bool(worker_id) and "flaml_mlruns_" in existing_uri
+    if not existing_uri or inherited_from_main:
+        import tempfile
+        from pathlib import Path
+
+        tag = worker_id or "main"
+        # IMPORTANT: do NOT pre-create this directory. ``FileStore.__init__``
+        # only bootstraps the default ``Experiment(id="0")`` (which several
+        # tests in ``test/fabric/test_mlflow_coverage.py`` implicitly rely on
+        # via ``mlflow.start_run()``) when the root directory does not yet
+        # exist. Pre-creating the dir would leave the store without a
+        # Default experiment, breaking those tests with
+        # ``MlflowException: Could not find experiment with ID 0``.
+        tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{tag}_{os.getpid()}")
+        # ``file:`` URIs need POSIX-style forward slashes even on Windows;
+        # ``Path.as_uri()`` handles the platform-specific prefix correctly.
+        os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
+
+    _patch_mlflow_file_store_for_corrupt_yaml()
+
+
+def _patch_mlflow_file_store_for_corrupt_yaml():
+    """Make mlflow's ``FileStore`` tolerant of corrupt ``meta.yaml`` files.
+
+    FLAML's ``tune.run`` / ``AutoML.fit`` can drive parallel trials
+    (``n_concurrent_trials > 1``, ``use_ray=True``, ``use_spark=True``)
+    that issue concurrent writes to mlflow's file-backed store. Without
+    atomic file writes, a reader can observe a half-written
+    ``meta.yaml`` and raise ``yaml.parser.ParserError``. That parse
+    error then poisons every subsequent ``search_runs()`` call against
+    the same experiment because ``FileStore._list_run_infos`` walks
+    every run directory.
+
+    Patch ``_read_yaml`` so that, after a brief retry, parse errors are
+    translated into ``MissingConfigException`` which
+    ``_list_run_infos`` already catches and skips. This contains the
+    blast radius of a single bad write to the affected run instead of
+    failing every later FLAML+MLflow test on the worker.
+    """
+    try:
+        import time
+
+        import yaml
+        from mlflow.exceptions import MissingConfigException
+        from mlflow.store.tracking.file_store import FileStore
+    except Exception:
+        return
+
+    if getattr(FileStore, "_flaml_corrupt_yaml_patch", False):
+        return
+
+    original_read_yaml = FileStore._read_yaml
+
+    @staticmethod
+    def _safe_read_yaml(root, file_name, retries=2):
+        last_error = None
+        for attempt in range(retries + 1):
+            try:
+                return original_read_yaml(root, file_name, retries=retries)
+            except yaml.YAMLError as exc:
+                last_error = exc
+                time.sleep(0.1 * (attempt + 1))
+        raise MissingConfigException(f"Skipping unparsable {file_name} in {root}: {last_error}")
+
+    FileStore._read_yaml = _safe_read_yaml
+    FileStore._flaml_corrupt_yaml_patch = True
+
+
+@pytest.fixture(autouse=True)
+def _end_mlflow_runs_between_tests():
+    """Ensure no MLflow run leaks between tests.
+
+    A leaked active run causes ``MLflowIntegration.__init__`` (in
+    ``flaml/fabric/mlflow.py``) to adopt that run's id as
+    ``parent_run_id``, which then triggers
+    ``MlflowException: Changing param values is not allowed`` when a
+    later test logs ``n_estimators`` (or any other already-logged param)
+    to that same parent run. Cleaning up both before and after each test
+    keeps cross-test state from leaking in either direction.
+    """
+    try:
+        import mlflow
+    except Exception:
+        yield
+        return
+
+    try:
+        while mlflow.active_run() is not None:
+            mlflow.end_run()
+    except Exception:
+        pass
+    yield
+    try:
+        while mlflow.active_run() is not None:
+            mlflow.end_run()
+    except Exception:
+        pass
 
 
 def _is_catboost_model_type(model_type: type) -> bool:

@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -41,6 +42,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        test-type: [notspark, spark]
+        exclude:
+          # OSS CI does not install pyspark on Windows runners.
+          - os: windows-latest
+            test-type: spark
+          # OSS CI does not install pyspark on Python 3.10.
+          - python-version: "3.10"
+            test-type: spark
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -64,6 +73,23 @@ jobs:
           pip install -e .
           python -c "import flaml"
           pip install -e .[test]
+          pip install coverage
+      # When pytest-xdist spawns worker subprocesses, they don't inherit
+      # `coverage run`'s instrumentation. The canonical fix is a .pth file
+      # in site-packages that calls coverage.process_startup() on every
+      # interpreter start, gated by the COVERAGE_PROCESS_START env var
+      # (set per test step below). See https://coverage.readthedocs.io/
+      # en/latest/subprocess.html.
+      - name: Enable coverage in subprocesses (for pytest-xdist workers)
+        shell: bash
+        run: |
+          SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          echo "import coverage; coverage.process_startup()" > "$SITE_PACKAGES/coverage_subprocess.pth"
+          echo "Wrote $SITE_PACKAGES/coverage_subprocess.pth"
+      # pyspark doesn't yet support pandas 3.0, so cap pandas where pyspark
+      # is installed (only Ubuntu in this matrix). The py3.10 carve-out is
+      # kept because pyspark 3.5.x already pulls in pandas<3 transitively
+      # there, so an explicit pin is unnecessary.
       - name: On Ubuntu with pyspark, pin pandas<3 (pyspark doesn't support pandas 3.0 yet)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
         run: |
@@ -106,26 +132,88 @@ jobs:
       - name: Clear pip cache
         run: |
           pip cache purge
-      - name: Test with pytest
-        timeout-minutes: 120
-        if: matrix.python-version != '3.11'
+      # Tests are split into a "notspark" variant (everything except Spark
+      # tests, with `-m "not spark"`) and a "spark" variant (only Spark
+      # tests, with `-m "spark"`), mirroring the internal Azure DevOps
+      # pipeline at .pipelines/build.yml in the internal fork.
+      - name: Test with pytest (notspark)
+        if: matrix.test-type == 'notspark'
+        # Python 3.10 uses older pinned deps (xgboost<2, etc.) that run
+        # the AutoML/forecast suite roughly 2x slower than 3.11+. Even
+        # with xdist -n 2, 3.10 wall time on ubuntu/windows lands at
+        # ~120-125 min; 180 gives headroom for occasional flake reruns.
+        # 3.11/3.12/3.13 typically finish in 60-100 min on this step.
+        timeout-minutes: 180
+        shell: bash
+        env:
+          # Tells the coverage_subprocess.pth file (created above) to
+          # auto-start coverage in pytest-xdist worker processes using
+          # this config. Without this, subprocess test code wouldn't
+          # be measured.
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
         run: |
-          pytest test/ --ignore=test/autogen --reruns 2 --reruns-delay 10
-      - name: Coverage
+          # -n 2 --dist=loadfile parallelizes tests across 2 worker
+          # procs (GitHub-hosted runners have 4 vCPU; 2 workers leaves
+          # ~2 cores per worker for lightgbm/xgboost/sklearn internal
+          # threading, avoiding CPU oversubscription that hurts wall
+          # time more than it helps). loadfile keeps tests from the
+          # same file together so module-level fixtures aren't
+          # re-imported per test.
+          coverage run -m pytest test/ \
+            -n 2 --dist=loadfile \
+            --ignore=test/autogen \
+            --ignore=test/spark \
+            --ignore=test/nlp \
+            --ignore=test/automl/test_extra_models.py \
+            --reruns 2 --reruns-delay 10 \
+            -m "not spark"
+      - name: Test with pytest (spark)
+        if: matrix.test-type == 'spark'
         timeout-minutes: 120
-        if: matrix.python-version == '3.11'
+        shell: bash
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
         run: |
-          pip install coverage
-          coverage run -a -m pytest test --ignore=test/autogen --reruns 2 --reruns-delay 10
-          coverage xml
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v3
+          # Spark tests are kept serial: SynapseML's SparkSession is a
+          # single global JVM instance and the Spark workers themselves
+          # already parallelize, so pytest-level parallelism would
+          # contend on the same JVM and hurt rather than help. They
+          # already run in ~20 min.
+          coverage run -m pytest test/ \
+            --ignore=test/autogen \
+            --ignore=test/nlp \
+            --ignore=test/spark/test_internal_mlflow.py \
+            --reruns 2 --reruns-delay 10 \
+            -m "spark"
+      # .coveragerc enables `parallel = true`, so each subprocess writes its
+      # own .coverage.<host>.<pid>.<rand> shard. Combine them into a single
+      # per-job .coverage file so one artifact = one job's coverage.
+      - name: Combine per-job coverage data
+        if: always() && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -e
+          shopt -s nullglob
+          shards=( .coverage .coverage.* )
+          if [ ${#shards[@]} -eq 0 ]; then
+            echo "No coverage shards produced; skipping combine."
+            exit 0
+          fi
+          coverage combine || true
+          ls -la .coverage* || true
+      - name: Upload coverage data artifact
+        if: always() && matrix.os == 'ubuntu-latest' && hashFiles('.coverage') != ''
+        uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.xml
-          flags: unittests
+          name: coverage-data-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.test-type }}
+          path: .coverage
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 1
       - name: Save dependencies
-        if: github.ref == 'refs/heads/main'
+        # Run for a single matrix entry on push to main to avoid concurrent
+        # writes to the unit-tests-installed-dependencies branch.
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11' && matrix.test-type == 'notspark'
         shell: bash
         run: |
           git config --global user.name 'github-actions[bot]'
@@ -139,7 +227,85 @@ jobs:
           pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
           git add installed_*dependencies*.txt
-          mv coverage.xml ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
+          coverage xml -o ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
           git push origin "$BRANCH" --force
+
+  # Combine coverage data files from every test-matrix job into a single
+  # XML report and upload it to Codecov as one merged result. Coverage is
+  # only collected on Linux runners (see the build job) to avoid path
+  # mismatches between Linux and Windows in the combined data file.
+  coverage:
+    name: Combine coverage and upload to Codecov
+    if: always()
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install coverage
+        run: pip install coverage
+      - name: Download all coverage data artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage_artifacts
+          pattern: coverage-data-*
+      - name: Combine coverage data and produce XML
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p combined
+          i=0
+          for f in coverage_artifacts/*/.coverage; do
+            i=$((i + 1))
+            cp "$f" "combined/.coverage.$i"
+          done
+          if [ "$i" -eq 0 ]; then
+            echo "No coverage data files were uploaded by build jobs."
+            exit 0
+          fi
+          echo "Combining $i coverage data files..."
+          coverage combine combined/.coverage.*
+          coverage xml -i -o coverage.xml
+          # Print a textual summary into the job log for quick debugging.
+          coverage report -m || true
+      - name: Upload combined coverage to Codecov
+        if: hashFiles('coverage.xml') != ''
+        uses: codecov/codecov-action@v6
+        with:
+          # Use the repository upload token from Codecov's settings page
+          # (added as the CODECOV_TOKEN repo secret). This is what reliably
+          # triggers the codecov-commenter PR comment -- OIDC tokenless
+          # uploads alone (without an explicit repo-scoped token) appear
+          # to bypass the comment notification path for this repo.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: flaml-combined-coverage
+          fail_ci_if_error: false
+          verbose: true
+      # Post a coverage comment directly on the PR via GITHUB_TOKEN.
+      # Codecov's own codecov-commenter is currently silent on this
+      # repo (uploads still go to the Codecov dashboard above for trend
+      # tracking, but the in-PR comment uses this action instead).
+      # We feed it the cobertura coverage.xml directly via
+      # `pytest-xml-coverage-path` -- our `coverage report -m` text
+      # output (which we tee'd into pytest-coverage.txt) is missing
+      # the pytest test-session summary line that MishaKav parses for
+      # "passed"/"failed"/"skipped" counts, so the action would
+      # otherwise refuse the file with "bad format or wrong data".
+      - name: Post coverage comment to PR
+        if: hashFiles('coverage.xml') != '' && github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
+          title: Coverage Report
+          badge-title: coverage
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          unique-id-for-comment: pytest-coverage-comment

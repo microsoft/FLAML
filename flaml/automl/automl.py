@@ -59,11 +59,28 @@ except ImportError:
     mlflow = None
 
 try:
+    from flaml.fabric.logger import init_kusto_logger
     from flaml.fabric.mlflow import MLflowIntegration, get_mlflow_log_latency, infer_signature, is_autolog_enabled
+    from flaml.fabric.telemetry import log_telemetry
 
     internal_mlflow = True
+    is_log_telemetry = True
+    kusto_logger = init_kusto_logger("flaml.automl")
 except ImportError:
     internal_mlflow = False
+    is_log_telemetry = False
+
+    class KustoLogger:
+        def info(self, *args, **kwargs):
+            pass
+
+        def warning(self, *args, **kwargs):
+            pass
+
+        def error(self, *args, **kwargs):
+            pass
+
+    kusto_logger = KustoLogger()
 
 
 try:
@@ -195,7 +212,7 @@ class AutoML(BaseEstimator):
                 - 'all': Logs all configs and models (if `model_history` is True), regardless of performance.
                 Note: Configs are always logged to MLflow if MLflow logging is enabled.
             model_history: A boolean of whether to keep the best
-                model per estimator. Make sure memory is large enough if setting to True. Default False.
+                model per estimator. Make sure memory is large enough if setting to True. Default True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
@@ -281,6 +298,11 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
+            featurization: str or dict, default="off" | Apply tunable feature engineering to the input data.
+                Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
+                Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
+                Set "off" to disable featurization.
+                Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -363,6 +385,10 @@ class AutoML(BaseEstimator):
             mlflow_logging: boolean, default=True | Whether to log the training results to mlflow. Not valid if mlflow is not installed.
 
         """
+        global is_log_telemetry
+        if is_log_telemetry and internal_mlflow:
+            log_telemetry(activity_name="flaml-automl")
+            is_log_telemetry = False
         if ERROR:
             raise ERROR
         self._track_iter = 0
@@ -371,6 +397,54 @@ class AutoML(BaseEstimator):
         self._settings = settings
         self._automl_user_configurations = settings.copy()
         self._settings.pop("automl_user_configurations", None)
+        self._setting_keys = {
+            "metric",
+            "task",
+            "n_jobs",
+            "log_file_name",
+            "estimator_list",
+            "time_budget",
+            "max_iter",
+            "sample",
+            "ensemble",
+            "eval_method",
+            "split_ratio",
+            "n_splits",
+            "log_type",
+            "model_history",
+            "log_training_metric",
+            "mem_thres",
+            "pred_time_limit",
+            "train_time_limit",
+            "verbose",
+            "retrain_full",
+            "split_type",
+            "hpo_method",
+            "starting_points",
+            "seed",
+            "n_concurrent_trials",
+            "keep_search_state",
+            "preserve_checkpoint",
+            "early_stop",
+            "force_cancel",
+            "mlflow_exp_name",
+            "featurization",
+            "append_log",
+            "auto_augment",
+            "min_sample_size",
+            "use_ray",
+            "use_spark",
+            "free_mem_ratio",
+            "metric_constraints",
+            "custom_hp",
+            "skip_transform",
+            "fit_kwargs_by_estimator",
+            "mlflow_logging",
+            "cv_score_agg_func",
+        }
+        kusto_logger.info(
+            f"AutoML entrypoint: {self._settings.pop('entrypoint', 'code-first')}"
+        )  # can be "code-first" and "low-code"
         # no budget by default
         settings["time_budget"] = settings.get("time_budget", -1)
         settings["task"] = settings.get("task", "classification")
@@ -389,7 +463,7 @@ class AutoML(BaseEstimator):
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["model_history"] = settings.get("model_history", False)
+        settings["model_history"] = settings.get("model_history", True)
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
@@ -406,6 +480,7 @@ class AutoML(BaseEstimator):
         settings["early_stop"] = settings.get("early_stop", False)
         settings["force_cancel"] = settings.get("force_cancel", False)
         settings["mlflow_exp_name"] = settings.get("mlflow_exp_name", None)
+        settings["featurization"] = settings.get("featurization", os.environ.get("FLAML_FEATURIZATION", "off"))
         settings["append_log"] = settings.get("append_log", False)
         settings["min_sample_size"] = settings.get("min_sample_size", MIN_SAMPLE_TRAIN)
         settings["use_ray"] = settings.get("use_ray", False)
@@ -731,6 +806,11 @@ class AutoML(BaseEstimator):
     def feature_transformer(self):
         """Returns AutoML Transformer"""
         data_precessor = getattr(self, "_transformer", None)
+        estimator = getattr(self, "_trained_estimator", None)
+        autofe = estimator and getattr(estimator, "autofe", None)
+        if autofe is not None:
+            pipeline = Pipeline([("precessor", data_precessor), ("autofe", autofe)])
+            return pipeline
         return data_precessor
 
     @property
@@ -783,6 +863,9 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
+        if estimator.autofe is not None:
+            X = estimator.autofe.transform(X)
+
         if self._label_transformer:
             y = self._label_transformer.transform(y)
         return estimator.score(X, y, **kwargs)
@@ -825,6 +908,9 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
+        if estimator.autofe is not None:
+            time_col = getattr(estimator, "time_col", None)
+            X = estimator.autofe.transform(X, time_col)
         y_pred = estimator.predict(X, **pred_kwargs)
 
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
@@ -852,6 +938,9 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
+        if estimator.autofe is not None:
+            time_col = getattr(estimator, "time_col", None)
+            X = estimator.autofe.transform(X, time_col)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 
@@ -1845,6 +1934,7 @@ class AutoML(BaseEstimator):
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
+        featurization=None,
         **fit_kwargs,
     ):
         """Find a model for a given task.
@@ -1949,7 +2039,7 @@ class AutoML(BaseEstimator):
                 'all' logs all the tried configs.
             model_history: A boolean of whether to keep the trained best
                 model per estimator. Make sure memory is large enough if setting to True.
-                Default value is False. If False, best_model_for_estimator would return a
+                Default value is True. If False, best_model_for_estimator would return a
                 untrained model for non-best learner.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
@@ -2045,6 +2135,11 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
+            featurization: str or dict, default="off" | Apply tunable feature engineering to the input data.
+                Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
+                Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
+                Set "off" to disable featurization.
+                Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
@@ -2197,6 +2292,12 @@ class AutoML(BaseEstimator):
                         used by TemporalFusionTransformerEstimator and TCNEstimator.
         """
 
+        kusto_logger.info("AutoML.fit() called.")
+        if not self._automl_user_configurations:
+            logger.debug("settings is passed to fit function")
+            frame = inspect.currentframe()
+            args, _, _, values = inspect.getargvalues(frame)
+            self._automl_user_configurations = {k: values[k] for k in args if k in self._setting_keys}
         self._state._start_time_flag = self._start_time_flag = time.time()
         task = task or self._settings.get("task")
         if isinstance(task, str):
@@ -2249,6 +2350,15 @@ class AutoML(BaseEstimator):
         early_stop = self._settings.get("early_stop") if early_stop is None else early_stop
         force_cancel = self._settings.get("force_cancel") if force_cancel is None else force_cancel
         mlflow_exp_name = self._settings.get("mlflow_exp_name") if mlflow_exp_name is None else mlflow_exp_name
+        featurization = self._settings.get("featurization") if featurization is None else featurization
+        if not any([isinstance(featurization, dict), featurization in ["auto", "off", "force"]]):
+            raise ValueError(
+                f"Expect featurization to be one of 'auto', 'off', 'force', or a dict, got {featurization}"
+            )
+        if ensemble:
+            # TODO: Compatible with Ensemble Model
+            # Currently, multiple featurization will come along ensemble, since each individual estimator has their own featurization pipeline
+            featurization = "off"
         # no search budget is provided?
         no_budget = time_budget < 0 and max_iter is None and not early_stop
         append_log = self._settings.get("append_log") if append_log is None else append_log
@@ -2270,14 +2380,12 @@ class AutoML(BaseEstimator):
             _ch = logging.StreamHandler(stream=sys.stdout)
             _ch.setFormatter(logger_formatter)
             logger.addHandler(_ch)
-
         if model_history:
             logger.warning(
                 "With `model_history` set to `True` by default, all intermediate models are retained in memory, "
                 "which may significantly increase memory usage and slow down training. "
                 "Consider setting `model_history=False` to optimize memory and accelerate the training process."
             )
-
         if not use_ray and not use_spark and n_concurrent_trials > 1:
             if ray_available:
                 logger.warning(
@@ -2306,6 +2414,7 @@ class AutoML(BaseEstimator):
         self._use_spark = use_spark
         self._force_cancel = force_cancel
         self._use_ray = use_ray
+        self._featurization = featurization
         # use the following condition if we have an estimation of average_trial_time and average_trial_overhead
         # self._use_ray = use_ray or n_concurrent_trials > ( average_trial_time + average_trial_overhead) / (average_trial_time)
         if self._use_ray is not False:
@@ -2356,7 +2465,7 @@ class AutoML(BaseEstimator):
         self.autolog_extra_tag = {
             "extra_tag.sid": f"flaml_{flaml_version}_{int(time.time())}_{random.randint(1001, 9999)}"
         }
-        if internal_mlflow and self._mlflow_logging and (mlflow.active_run() or is_autolog_enabled()):
+        if internal_mlflow and self._mlflow_logging:
             try:
                 self.mlflow_integration = MLflowIntegration("automl", mlflow_exp_name, extra_tag=self.autolog_extra_tag)
                 self._mlflow_exp_name = self.mlflow_integration.experiment_name
@@ -2610,6 +2719,7 @@ class AutoML(BaseEstimator):
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
                 max_iter=max_iter / len(estimator_list) if self._learner_selector == "roundrobin" else max_iter,
                 budget=self._state.time_budget,
+                featurization=featurization,
             )
         logger.info(f"List of ML learners in AutoML Run: {estimator_list}")
         self.estimator_list = estimator_list
@@ -2640,9 +2750,16 @@ class AutoML(BaseEstimator):
         else:
             self._training_log = None
             self._search()
+        kusto_logger.info(
+            f"task: {task}, Data size: {self.data_size_full}, Spark dataframe: {is_spark_dataframe}, "
+            f"min_sample_size: {self._min_sample_size}, metric: {self._state.metric}, max_iter: {max_iter}, "
+            f"Data split method: {self._split_type}, Split ratio: {self.split_ratio}, Evaluation method: {eval_method}, "
+            f"List of ML learners in AutoML Run: {estimator_list}"
+        )
         if self._best_estimator:
             logger.info("fit succeeded")
             logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
+            kusto_logger.info(f"Time taken to find the best model: {self._time_taken_best_iter}")
             if (
                 self._hpo_method in ("cfo", "bs")
                 and self._state.time_budget > 0
@@ -2674,6 +2791,7 @@ class AutoML(BaseEstimator):
         logger.setLevel(old_level)
         if self.mlflow_integration is not None:
             self.mlflow_integration.resume_mlflow()
+        kusto_logger.info("AutoML.fit() finished.")
 
     def _search_parallel(self):
         if self._use_ray is not False:
@@ -3368,6 +3486,7 @@ class AutoML(BaseEstimator):
                     state.best_config_train_time = retrain_time
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
+                        logger.info(f"Auto Feature Engineering pipeline: {self._trained_estimator.autofe}")
                         if self.best_run_id is not None:
                             logger.info(f"Best MLflow run name: {self.best_run_name}")
                             logger.info(f"Best MLflow run id: {self.best_run_id}")
@@ -3412,6 +3531,7 @@ class AutoML(BaseEstimator):
                     logger.debug(f"Result for record_state task {_task}: {result}")
                 except Exception as e:
                     logger.warning(f"Exception for record_state task {_task}: {e}")
+                    kusto_logger.warning(f"Exception for record_state task {_task}: {e}")
             for future in as_completed(self.mlflow_integration.futures_log_model):
                 _task = self.mlflow_integration.futures_log_model[future]
                 try:
@@ -3419,6 +3539,7 @@ class AutoML(BaseEstimator):
                     logger.debug(f"Result for log_model task {_task}: {result}")
                 except Exception as e:
                     logger.warning(f"Exception for log_model task {_task}: {e}")
+                    kusto_logger.warning(f"Exception for log_model task {_task}: {e}")
             t2 = time.perf_counter()
             logger.debug(f"Collecting results from tasks submitted to executors costs {t2-t1} seconds.")
         else:
@@ -3497,4 +3618,9 @@ class AutoML(BaseEstimator):
 
     @property
     def automl_pipeline(self):
-        return None
+        if self._featurization == "off":
+            return None
+        feature_transformer = self.feature_transformer
+        estimator = self.model
+        pipeline = Pipeline(steps=[("feature_transformer", feature_transformer), ("estimator", estimator)])
+        return pipeline
