@@ -3,7 +3,7 @@ accelerate==1.14.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0
-alembic==1.18.5
+alembic==1.19.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
@@ -19,7 +19,7 @@ bleach==6.4.0
 cachetools==5.5.2
 catboost==1.2.10
 certifi==2026.7.22
-cffi==2.1.0
+cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.4.9
 click==8.4.2
@@ -46,20 +46,20 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.1
 filelock==3.32.2
--e git+https://github.com/microsoft/FLAML@8468e72d1d680c4760458d54e92958fc98173578#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@fd32186bb9ab719ba96b31de028d6ff6298e384c#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
-GitPython==3.1.57
+GitPython==3.1.58
 google-auth==2.56.2
 graphviz==0.21
 greenlet==3.5.4
 h11==0.16.0
 hcrystalball==0.1.12
-hf-xet==1.5.2
-holidays==0.101
+hf-xet==1.6.0
+holidays==0.102
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.26.0
@@ -69,7 +69,7 @@ importlib_metadata==8.9.0
 importlib_resources==7.1.0
 iniconfig==2.3.0
 ipykernel==7.3.0
-ipython==9.16.0
+ipython==9.16.1
 ipython_pygments_lexers==1.1.1
 ipywidgets==8.1.8
 isoduration==20.11.0
@@ -101,7 +101,7 @@ lightgbm==4.7.0
 lightning==2.6.5
 lightning-utilities==0.15.3
 lunardate==0.3.0
-Mako==1.3.12
+Mako==1.4.0
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 matplotlib==3.11.1
@@ -135,7 +135,6 @@ nvidia-curand==10.4.0.35
 nvidia-cusolver==12.0.4.66
 nvidia-cusparse==12.6.3.3
 nvidia-cusparselt-cu13==0.8.1
-nvidia-nccl-cu12==2.30.7
 nvidia-nccl-cu13==2.29.7
 nvidia-nvjitlink==13.3.33
 nvidia-nvshmem-cu13==3.4.5
@@ -226,10 +225,10 @@ torchmetrics==1.9.0
 torchvision==0.28.0
 tornado==6.5.7
 tqdm==4.70.0
-traitlets==5.16.0
+traitlets==5.16.1
 transformers==5.14.1
 triton==3.7.1
-typer==0.27.0
+typer==0.27.1
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.3
@@ -244,7 +243,7 @@ websocket-client==1.9.0
 wheel==0.47.0
 widgetsnbextension==4.0.15
 workalendar==17.0.0
-xgboost==3.3.0
+xgboost==3.4.0
 xmltodict==1.0.4
 xxhash==3.8.1
 yarl==1.24.5
