@@ -3,7 +3,7 @@ accelerate==1.14.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0
-alembic==1.19.0
+alembic==1.19.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
@@ -29,10 +29,10 @@ colorlog==6.12.0
 comm==0.2.3
 contourpy==1.3.3
 convertdate==2.4.1
-coverage==7.15.3
+coverage==7.15.4
 cryptography==50.0.0
 cycler==0.12.1
-databricks-sdk==0.123.0
+databricks-sdk==0.125.0
 datasets==5.0.1
 debugpy==1.8.21
 defusedxml==0.7.1
@@ -43,14 +43,14 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.1
 filelock==3.32.2
--e git+https://github.com/microsoft/FLAML@9a2188b1771fae71201c539966fcbf3ce0d0d143#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@93cbb4ad798c506e57af3091c574f76ac5a022a2#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
 GitPython==3.1.58
-google-auth==2.56.2
+google-auth==2.56.3
 graphviz==0.21
 greenlet==3.5.4
 h11==0.16.0
@@ -58,7 +58,7 @@ hcrystalball==0.1.12
 hf-xet==1.6.0
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.26.0
+huggingface_hub==1.27.0
 identify==2.6.19
 idna==3.18
 importlib_metadata==8.9.0
@@ -80,7 +80,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_builder==1.2.1
+jupyter_builder==1.2.2
 jupyter_client==8.9.1
 jupyter_core==5.9.1
 jupyter_server==2.20.0
@@ -96,7 +96,7 @@ lightgbm==4.7.0
 lightning==2.6.5
 lightning-utilities==0.15.3
 lunardate==0.3.0
-Mako==1.4.0
+Mako==1.4.1
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 matplotlib==3.11.1
@@ -111,10 +111,10 @@ multiprocess==0.70.19
 narwhals==2.24.0
 nbclient==0.11.0
 nbconvert==7.17.1
-nbformat==5.10.4
+nbformat==5.11.0
 nest-asyncio2==1.7.2
 networkx==3.6.1
-nltk==3.10.1
+nltk==3.10.2
 nodeenv==1.10.0
 notebook==7.6.1
 notebook_shim==0.2.4
@@ -130,7 +130,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.2
 pillow==12.3.0
-platformdirs==4.11.0
+platformdirs==4.11.1
 plotly==6.9.0
 pluggy==1.6.0
 pre_commit==4.6.1
@@ -181,11 +181,11 @@ setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
-soupsieve==2.9.1
+soupsieve==2.9.2
 SQLAlchemy==2.0.51
 sqlparse==0.5.5
 stack-data==0.6.3
-starlette==1.3.1
+starlette==1.6.0
 statsmodels==0.14.6
 sympy==1.14.0
 tensorboardX==2.6.5
@@ -197,7 +197,7 @@ tokenizers==0.22.2
 torch==2.13.0
 torchmetrics==1.9.0
 torchvision==0.28.0
-tornado==6.5.7
+tornado==6.5.8
 tqdm==4.70.0
 traitlets==5.16.1
 transformers==5.14.1
@@ -208,7 +208,7 @@ tzdata==2026.3
 uri-template==1.3.0
 urllib3==2.7.0
 uvicorn==0.52.1
-virtualenv==21.7.1
+virtualenv==21.7.3
 wcwidth==0.8.2
 webcolors==25.10.0
 webencodings==0.5.1
