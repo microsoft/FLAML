@@ -25,9 +25,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     environment: openai
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install packages and dependencies
@@ -73,7 +73,7 @@ jobs:
           coverage xml
           cat "$(pwd)/test/autogen/executed_openai_notebook_output.txt"
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457 # v3.1.6
         with:
           file: ./coverage.xml
           flags: unittests
