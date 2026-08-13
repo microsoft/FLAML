@@ -531,7 +531,7 @@ settings = {
 }
 
 # train the model
-automl.fit(dataframe=multi_train_df, **settings, period=time_horizon)
+automl.fit(dataframe=multi_train_df, **settings, period=multi_time_horizon)
 
 # predictions
 print(automl.predict(multi_X_test))
