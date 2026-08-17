@@ -21,7 +21,7 @@ catboost==1.2.10
 certifi==2026.7.22
 cffi==2.1.1
 cfgv==3.5.0
-charset-normalizer==3.5.0
+charset-normalizer==3.5.1
 click==8.4.2
 cloudpickle==3.1.2
 colorama==0.4.6
@@ -32,7 +32,7 @@ convertdate==2.4.1
 coverage==7.15.4
 cryptography==50.0.0
 cycler==0.12.1
-databricks-sdk==0.128.0
+databricks-sdk==0.130.0
 datasets==5.0.1
 debugpy==1.8.21
 defusedxml==0.7.1
@@ -41,9 +41,9 @@ distlib==0.4.3
 evaluate==0.4.6
 executing==2.2.1
 fastapi==0.141.1
-fastjsonschema==2.22.1
+fastjsonschema==2.22.2
 filelock==3.32.3
--e git+https://github.com/microsoft/FLAML@0d367acd3fe143b59345098a9e11557ff615deb6#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@463b4829a134cfd270abc3bfaebda5bf8311f4bd#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -156,7 +156,7 @@ pytest==9.1.1
 pytest-rerunfailures==16.5
 python-dateutil==2.9.0.post0
 python-discovery==1.5.2
-python-json-logger==4.1.0
+python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
 pywinpty==3.0.5
@@ -211,7 +211,7 @@ uvicorn==0.52.3
 virtualenv==21.7.4
 wcwidth==0.8.2
 webcolors==25.10.0
-webencodings==0.5.1
+webencodings==0.6.1
 websocket-client==1.9.0
 widgetsnbextension==4.0.15
 workalendar==17.0.0
