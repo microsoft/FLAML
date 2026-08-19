@@ -11,16 +11,16 @@ jupyter==1.1.1
 lightgbm==4.7.0
 mlflow-skinny==2.22.1
 nbconvert==7.17.1
-nbformat==5.11.0
+nbformat==5.11.1
 nltk==3.10.3
 numpy==2.5.2
 openml==0.15.1
 optuna==3.6.1
 packaging==24.2
 pandas==2.3.3
-prophet==1.3.0
+prophet==1.4.0
 psutil==7.2.2
-pytest-rerunfailures==16.5
+pytest-rerunfailures==16.6
 pytest==9.1.1
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
@@ -36,6 +36,6 @@ thop==0.1.1-2209072238
 torch==2.13.0
 torchvision==0.28.0
 transformers==5.15.0
-xgboost==3.4.0
-xgboost==3.4.0
-Current commit hash: 12629563716e5dcacdde0ff0670bb2427a991895
+xgboost==3.4.1
+xgboost==3.4.1
+Current commit hash: cd73cc7037015fa4d695517fafde72218a3d7a66
