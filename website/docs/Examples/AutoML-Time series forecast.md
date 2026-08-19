@@ -502,7 +502,7 @@ multi_df["temp_above_monthly_avg"] = multi_df.apply(
     lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1
 )
 
-del multi_df["month"]  # remove temperature column to reduce redundancy
+del multi_df["month"]  # remove month column to reduce redundancy
 
 # split data into train and test
 num_samples = multi_df.shape[0]
@@ -531,7 +531,7 @@ settings = {
 }
 
 # train the model
-automl.fit(dataframe=df, **settings, period=time_horizon)
+automl.fit(dataframe=multi_train_df, **settings, period=multi_time_horizon)
 
 # predictions
 print(automl.predict(multi_X_test))

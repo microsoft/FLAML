@@ -19,8 +19,8 @@ jobs:
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -37,14 +37,14 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 14.x
           # cache: yarn
           # cache-dependency-path: '**/yarn.lock'
       - name: setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: pydoc-markdown install
@@ -74,14 +74,14 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 14.x
           # cache: yarn
           # cache-dependency-path: '**/yarn.lock'
       - name: setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: pydoc-markdown install
@@ -104,7 +104,7 @@ jobs:
           npm run build
           fi
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Build output to publish to the `gh-pages` branch:

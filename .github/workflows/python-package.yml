@@ -42,9 +42,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: On mac, install libomp to facilitate lgbm and xgboost install
@@ -120,7 +120,7 @@ jobs:
           coverage xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           file: ./coverage.xml
           flags: unittests
