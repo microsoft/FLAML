@@ -525,6 +525,14 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
+    resampler = getattr(task, "_resampler", None)
+    if resampler is not None:
+        from sklearn.base import clone
+
+        # Clone per fold/call so each estimator fit sees the same starting
+        # random_state; the caller-provided resampler stays untouched.
+        fold_sampler = clone(resampler)
+        X_train, y_train = fold_sampler.fit_resample(X_train, y_train)
     estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,
