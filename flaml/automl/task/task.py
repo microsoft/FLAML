@@ -28,6 +28,9 @@ TS_FORECAST = (
     TS_FORECASTCLASSIFICATION,
     TS_FORECASTPANEL,
 )
+
+ANOMALY_DETECTION = "anomaly_detection"
+
 CLASSIFICATION = (
     "binary",
     "multiclass",
@@ -295,6 +298,9 @@ class Task(ABC):
 
     def is_nlg(self) -> bool:
         return self.name in NLG_TASKS
+
+    def is_anomaly_detection(self) -> bool:
+        return self.name == ANOMALY_DETECTION
 
     def is_classification(self) -> bool:
         return self.name in CLASSIFICATION

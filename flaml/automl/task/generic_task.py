@@ -50,6 +50,7 @@ class GenericTask(Task):
                 CatBoostEstimator,
                 ElasticNetEstimator,
                 ExtraTreesEstimator,
+                IsolationForestEstimator,
                 KNeighborsEstimator,
                 LassoLarsEstimator,
                 LGBMEstimator,
@@ -97,6 +98,7 @@ class GenericTask(Task):
                 "svc_spark": SparkLinearSVCEstimator,
                 "gbt_spark": SparkGBTEstimator,
                 "aft_spark": SparkAFTSurvivalRegressionEstimator,
+                "isolation_forest": IsolationForestEstimator,
             }
         return self._estimators
 
@@ -1008,7 +1010,7 @@ class GenericTask(Task):
                     if isinstance(y_train_all, (pd.Series, psSeries)):
                         y_train.name = y_val.name = y_train_all.name
 
-            elif self.is_regression():
+            elif self.is_regression() or self.is_anomaly_detection():
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
                 )
@@ -1088,6 +1090,10 @@ class GenericTask(Task):
                 not isinstance(split_type, GroupKFold) or groups is not None
             ), "GroupKFold requires groups to be provided."
             return split_type
+
+        elif self.is_anomaly_detection():
+            assert split_type in ["auto", "uniform", "time", "group"]
+            return split_type if split_type != "auto" else "uniform"
 
         elif self.is_classification():
             assert split_type in ["auto", "stratified", "uniform", "time", "group"]
@@ -1298,7 +1304,11 @@ class GenericTask(Task):
                         "estimators are removed."
                     )
             return estimator_list
-        if self.is_rank():
+        if self.is_anomaly_detection():
+            if is_spark_dataframe:
+                raise ValueError("anomaly_detection does not support Spark dataframes yet. Use numpy/pandas data.")
+            estimator_list = ["isolation_forest"]
+        elif self.is_rank():
             estimator_list = ["lgbm", "xgboost", "xgb_limitdepth", "lgbm_spark"]
         elif self.is_nlp():
             estimator_list = ["transformer"]
@@ -1364,6 +1374,8 @@ class GenericTask(Task):
             return "mape"
         elif self.is_rank():
             return "ndcg"
+        elif self.is_anomaly_detection():
+            return "ap"
         else:
             return "r2"
 
