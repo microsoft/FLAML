@@ -293,7 +293,9 @@ def sklearn_metric_loss_score(
 
 
 def get_y_pred(estimator, X, eval_metric, task: Task):
-    if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
+    if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]:
+        y_pred = -estimator.score_samples(X)
+    elif eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         if isinstance(y_pred_classes, (psSeries, psDataFrame)):
             y_pred = y_pred_classes

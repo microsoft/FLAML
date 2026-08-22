@@ -1010,7 +1010,7 @@ class GenericTask(Task):
                     if isinstance(y_train_all, (pd.Series, psSeries)):
                         y_train.name = y_val.name = y_train_all.name
 
-            elif self.is_regression():
+            elif self.is_regression() or self.is_anomaly_detection():
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
                 )

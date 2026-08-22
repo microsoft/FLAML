@@ -1528,7 +1528,6 @@ class IsolationForestEstimator(SKLearnEstimator):
         params = super().config2params(config)
         params["contamination"] = params.get("contamination", "auto")
         params["max_samples"] = params.get("max_samples", "auto")
-        params.pop("n_jobs", None)
         return params
 
     def __init__(self, task="anomaly_detection", **config):
