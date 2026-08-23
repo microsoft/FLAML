@@ -28,7 +28,7 @@ requests==2.34.2
 rgf-python==3.12.0
 rouge_score==0.1.2
 scikit-learn==1.8.0
-scipy==1.18.0
+scipy==1.18.1
 seqeval==1.2.2
 statsmodels==0.14.6
 tensorboardX==2.6.5
@@ -38,4 +38,4 @@ torchvision==0.28.0
 transformers==5.15.1
 xgboost==3.4.1
 xgboost==3.4.1
-Current commit hash: 98ab8e87c9ab7a8191b00e2dc582affd706da21b
+Current commit hash: 232b3d9348627d557f020651114805c2be48a67c
