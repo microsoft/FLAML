@@ -226,7 +226,22 @@ Compatibility notes:
 - `predict()` does not take a `sample_weight` argument — weights apply only during training. For weighted evaluation on new data, compute the metric outside FLAML (e.g., `sklearn.metrics.f1_score(y_test, automl.predict(X_test), sample_weight=test_weight)`).
 - `class_weight` is passed through to the underlying estimator unchanged if your chosen estimator accepts it (e.g., LightGBM, XGBoost sklearn API).
 
-For severe class imbalance, see also [issue #1200](https://github.com/microsoft/FLAML/issues/1200) on adding a `resampler=` integration. The current recommendation is to apply SMOTE (or your resampler of choice) upstream of `AutoML.fit`; see the imbalanced-learn documentation for the canonical pattern.
+For severe class imbalance, pass a cloneable imbalanced-learn sampler with `resampler=`:
+
+```python
+from imblearn.over_sampling import SMOTE
+
+automl = AutoML()
+automl.fit(
+    X_train,
+    y_train,
+    resampler=SMOTE(random_state=42),
+    task="classification",
+    time_budget=5,
+)
+```
+
+FLAML applies a fresh clone to each training partition and to final model training while leaving validation partitions unchanged. `resampler` cannot be combined with `sample_weight`.
 
 ## 6. Multi-output regression
 

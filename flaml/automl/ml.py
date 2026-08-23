@@ -448,11 +448,22 @@ def train_estimator(
         fit_kwargs["metric"] = eval_metric
 
     if X_train is not None:
+        X_train, y_train = _resample_training_data(X_train, y_train, task)
         train_time = estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     else:
         estimator = estimator.estimator_class(**estimator.params)
     train_time = time.time() - start_time
     return estimator, train_time
+
+
+def _resample_training_data(X_train, y_train, task):
+    resampler = getattr(task, "_resampler", None)
+    if resampler is None:
+        return X_train, y_train
+
+    from sklearn.base import clone
+
+    return clone(resampler).fit_resample(X_train, y_train)
 
 
 def norm_confusion_matrix(y_true: Union[np.array, Series], y_pred: Union[np.array, Series]):
@@ -525,14 +536,7 @@ def get_val_loss(
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
     #     fit_kwargs['y_val'] = y_val
-    resampler = getattr(task, "_resampler", None)
-    if resampler is not None:
-        from sklearn.base import clone
-
-        # Clone per fold/call so each estimator fit sees the same starting
-        # random_state; the caller-provided resampler stays untouched.
-        fold_sampler = clone(resampler)
-        X_train, y_train = fold_sampler.fit_resample(X_train, y_train)
+    X_train, y_train = _resample_training_data(X_train, y_train, task)
     estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     val_loss, metric_for_logging, pred_time, _ = _eval_estimator(
         config,

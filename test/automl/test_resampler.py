@@ -95,14 +95,54 @@ def test_resampler_hook_fires_per_fold_and_balances_train():
     automl = AutoML()
     automl.fit(X_train=X, y_train=y, resampler=DuplicateMinorityResampler(), seed=42, **_fit_settings())
 
-    n_splits, max_iter = 3, 2
+    n_splits, max_iter, final_fits = 3, 2, 1
+    expected_calls = n_splits * max_iter + final_fits
     assert (
-        DuplicateMinorityResampler.n_calls == n_splits * max_iter
-    ), f"expected {n_splits * max_iter} per-fold resample calls, got {DuplicateMinorityResampler.n_calls}"
+        DuplicateMinorityResampler.n_calls == expected_calls
+    ), f"expected {expected_calls} resample calls, got {DuplicateMinorityResampler.n_calls}"
     for size_in, size_out in zip(
         DuplicateMinorityResampler.seen_input_sizes, DuplicateMinorityResampler.seen_output_sizes
     ):
         assert size_out > size_in, "resampled training fold did not grow"
+
+
+def test_resampler_runs_on_final_fit_with_max_iter_one():
+    DuplicateMinorityResampler.reset_counters()
+    X, y = _imbalanced_dataset(seed=0)
+
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        resampler=DuplicateMinorityResampler(),
+        seed=42,
+        **_fit_settings(max_iter=1),
+    )
+
+    assert DuplicateMinorityResampler.n_calls == 1
+    assert DuplicateMinorityResampler.seen_output_sizes[0] > DuplicateMinorityResampler.seen_input_sizes[0]
+
+
+def test_resampler_runs_for_ensemble_training():
+    DuplicateMinorityResampler.reset_counters()
+    X, y = _imbalanced_dataset(seed=6)
+
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        resampler=DuplicateMinorityResampler(),
+        seed=42,
+        **_fit_settings(
+            estimator_list=["lrl1", "lrl2"],
+            eval_method="holdout",
+            max_iter=2,
+            ensemble={"n_jobs": 1},
+            learner_selector="roundrobin",
+        ),
+    )
+
+    assert len(y) in DuplicateMinorityResampler.seen_input_sizes
 
 
 def test_resampler_leaves_validation_untouched():
@@ -170,11 +210,36 @@ def test_resampler_with_sample_weight_by_estimator_raises():
         )
 
 
+def test_resampler_with_configured_sample_weight_by_estimator_raises():
+    X, y = _imbalanced_dataset(seed=2)
+    sample_weight = np.where(y == 1, 5.0, 1.0)
+
+    automl = AutoML(fit_kwargs_by_estimator={"lgbm": {"sample_weight": sample_weight}})
+    with pytest.raises(ValueError, match="Cannot combine 'resampler' with 'sample_weight'"):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            resampler=DuplicateMinorityResampler(),
+            **_fit_settings(),
+        )
+
+
 def test_resampler_without_fit_resample_raises():
     X, y = _imbalanced_dataset(seed=3)
 
     class NotAResampler:
         pass
+
+    automl = AutoML()
+    with pytest.raises(TypeError, match="fit_resample"):
+        automl.fit(X_train=X, y_train=y, resampler=NotAResampler(), **_fit_settings())
+
+
+def test_resampler_with_noncallable_fit_resample_raises():
+    X, y = _imbalanced_dataset(seed=3)
+
+    class NotAResampler(BaseEstimator):
+        fit_resample = None
 
     automl = AutoML()
     with pytest.raises(TypeError, match="fit_resample"):

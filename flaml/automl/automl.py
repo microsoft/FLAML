@@ -19,7 +19,13 @@ import numpy as np
 
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
-from flaml.automl.ml import huggingface_metric_to_mode, sklearn_metric_name_set, spark_metric_name_dict, train_estimator
+from flaml.automl.ml import (
+    _resample_training_data,
+    huggingface_metric_to_mode,
+    sklearn_metric_name_set,
+    spark_metric_name_dict,
+    train_estimator,
+)
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.state import AutoMLState, SearchState
 from flaml.automl.task.factory import task_factory
@@ -2166,13 +2172,14 @@ class AutoML(BaseEstimator):
         ```
 
             resampler: object, default=None | An imbalanced-learn-compatible resampler
-                (any object exposing `fit_resample(X, y) -> (X, y)`, such as
-                `imblearn.over_sampling.SMOTE`). When set, the resampler is cloned and
-                applied to each cross-validation fold's training partition before the
-                estimator is fitted — validation partitions are left at the raw class
-                distribution. Not compatible with `sample_weight` (resampling breaks the
-                1-to-1 row alignment with weights); passing both raises `ValueError`. Off
-                by default. See issue #1200 for the design discussion and benchmarks.
+                (such as `imblearn.over_sampling.SMOTE`) that is cloneable via
+                `sklearn.base.clone` and exposes `fit_resample(X, y) -> (X, y)`. When set,
+                the resampler is cloned and applied to each cross-validation fold's or
+                holdout's training partition and to final, retrain, and ensemble training
+                data. Validation partitions are left at the raw class distribution. Not
+                compatible with `sample_weight` (resampling breaks the 1-to-1 row alignment
+                with weights); passing both raises `ValueError`. Off by default. See issue
+                #1200 for the design discussion and benchmarks.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
@@ -2346,6 +2353,7 @@ class AutoML(BaseEstimator):
             self._state.resources_per_trial = {"cpu": n_jobs} if n_jobs > 0 else {"cpu": 1}
         self._state.free_mem_ratio = self._settings.get("free_mem_ratio") if free_mem_ratio is None else free_mem_ratio
         self._state.task = task
+        fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         if resampler is not None:
             weight_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
             if any("sample_weight" in kw for kw in weight_sources):
@@ -2354,7 +2362,7 @@ class AutoML(BaseEstimator):
                     "fit_kwargs_by_estimator) — resampling breaks the 1-to-1 row alignment "
                     "with sample weights. Use either resampling or sample weighting, not both."
                 )
-            if not hasattr(resampler, "fit_resample"):
+            if not callable(getattr(resampler, "fit_resample", None)):
                 raise TypeError(
                     "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
                     "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
@@ -2382,7 +2390,6 @@ class AutoML(BaseEstimator):
             if mlflow_logging is None
             else mlflow_logging
         )
-        fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         self._state.fit_kwargs_by_estimator = fit_kwargs_by_estimator.copy()  # shallow copy of fit_kwargs_by_estimator
         self._state.weight_val = sample_weight_val
         self._mlflow_exp_name = mlflow_exp_name
@@ -3333,6 +3340,11 @@ class AutoML(BaseEstimator):
                 sample_weight_dict = (
                     (self._sample_weight_full is not None) and {"sample_weight": self._sample_weight_full} or {}
                 )
+                X_ensemble_train, y_ensemble_train = _resample_training_data(
+                    self._X_train_all,
+                    self._y_train_all,
+                    self._state.task,
+                )
                 for e in estimators:
                     e[1].__class__.init()
                 import joblib
@@ -3340,8 +3352,8 @@ class AutoML(BaseEstimator):
                 try:
                     logger.info("Building ensemble with tuned estimators")
                     stacker.fit(
-                        self._X_train_all,
-                        self._y_train_all,
+                        X_ensemble_train,
+                        y_ensemble_train,
                         **sample_weight_dict,  # NOTE: _search is after kwargs is updated to fit_kwargs_by_estimator
                     )
                     logger.info(f"ensemble: {stacker}")
@@ -3359,8 +3371,8 @@ class AutoML(BaseEstimator):
                             passthrough=False,
                         )
                         stacker.fit(
-                            self._X_train_all,
-                            self._y_train_all,
+                            X_ensemble_train,
+                            y_ensemble_train,
                             **sample_weight_dict,  # NOTE: _search is after kwargs is updated to fit_kwargs_by_estimator
                         )
                         logger.info(f"ensemble: {stacker}")
