@@ -43,7 +43,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.3
--e git+https://github.com/microsoft/FLAML@778b4043111871b34831f45cc71a9547b79711cb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@0895e72a8d562d97c18d189f32a97106c142c64c#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
@@ -174,7 +174,7 @@ rpds-py==2026.6.3
 safetensors==0.8.0
 scikit-base==1.0.2
 scikit-learn==1.8.0
-scipy==1.18.0
+scipy==1.18.1
 Send2Trash==2.1.0
 seqeval==1.2.2
 setuptools==81.0.0
