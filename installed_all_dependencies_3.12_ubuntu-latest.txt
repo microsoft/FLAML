@@ -32,7 +32,7 @@ convertdate==2.4.1
 coverage==7.15.4
 cryptography==50.0.0
 cuda-bindings==13.3.1
-cuda-pathfinder==1.6.1
+cuda-pathfinder==1.7.0
 cuda-toolkit==13.0.3.0
 cycler==0.12.1
 databricks-sdk==0.133.0
@@ -46,14 +46,14 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.4
--e git+https://github.com/microsoft/FLAML@f09f3731cea6914dc6e3f0c24f6a00e66550f6f2#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@1d99d39c6ea670f06f0e2888ca6603bec1717c3f#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
 GitPython==3.1.59
-google-auth==2.56.3
+google-auth==2.57.0
 graphviz==0.21
 greenlet==3.5.5
 h11==0.16.0
@@ -150,7 +150,7 @@ parso==0.8.7
 patsy==1.0.2
 pexpect==4.9.0
 pillow==12.3.0
-platformdirs==4.11.3
+platformdirs==4.11.4
 plotly==6.9.0
 pluggy==1.6.0
 pre_commit==4.6.2
@@ -178,7 +178,7 @@ pyspark==4.0.1
 pytest==9.1.1
 pytest-rerunfailures==16.6
 python-dateutil==2.9.0.post0
-python-discovery==1.5.2
+python-discovery==1.5.3
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
