@@ -43,14 +43,14 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.4
--e git+https://github.com/microsoft/FLAML@b2af25eebc91bc30c1c77f6a224c6902e154df50#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@6d8ee126f433a874c55aa2971ad3a0db52570b7d#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
 GitPython==3.1.59
-google-auth==2.56.3
+google-auth==2.57.0
 graphviz==0.21
 greenlet==3.5.5
 h11==0.16.0
@@ -131,7 +131,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.2
 pillow==12.3.0
-platformdirs==4.11.3
+platformdirs==4.11.4
 plotly==6.9.0
 pluggy==1.6.0
 pre_commit==4.6.2
@@ -155,7 +155,7 @@ pyparsing==3.3.2
 pytest==9.1.1
 pytest-rerunfailures==16.6
 python-dateutil==2.9.0.post0
-python-discovery==1.5.2
+python-discovery==1.5.3
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
