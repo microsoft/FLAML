@@ -125,6 +125,61 @@ def test_group_split_with_sample_weight_alignment():
     assert automl._state.weight_val is not None
 
 
+def test_group_split_with_sample_weight_series_alignment():
+    """Same regression as above, but sample_weight is a pd.Series with a
+    non-default index, to verify the group branch slices it positionally
+    (.iloc) rather than by label."""
+    from unittest.mock import patch
+
+    from sklearn.ensemble import RandomForestClassifier
+
+    n = 200
+    rng = np.random.default_rng(7)
+    X = pd.DataFrame(
+        {"id": np.arange(n, dtype=float), "feat": rng.normal(size=n)},
+    )
+    groups = np.repeat(np.arange(20), 10)
+    y = pd.Series((groups % 2).astype(int))
+    # non-default index: label != positional order, so .loc and .iloc would disagree
+    weight_index = np.arange(n) + 500
+    sample_weight = pd.Series(1000.0 + np.arange(n, dtype=float), index=weight_index)
+
+    captured = []
+    original_fit = RandomForestClassifier.fit
+
+    def spy_fit(self, X, y, sample_weight=None, **kwargs):
+        captured.append(
+            (
+                np.asarray(X).copy(),
+                None if sample_weight is None else np.asarray(sample_weight, dtype=float).copy(),
+            )
+        )
+        return original_fit(self, X, y, sample_weight=sample_weight, **kwargs)
+
+    automl = AutoML()
+    with patch.object(RandomForestClassifier, "fit", spy_fit):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            sample_weight=sample_weight,
+            groups=groups,
+            split_type="group",
+            eval_method="holdout",
+            task="classification",
+            time_budget=-1,
+            max_iter=2,
+            estimator_list=["rf"],
+        )
+    assert automl.model is not None
+    assert captured
+    for X_fit, weight_fit in captured:
+        assert weight_fit is not None
+        # each row trains with its own weight (1000 + row id) after the split,
+        # regardless of the Series' original (non-default) index
+        np.testing.assert_array_equal(weight_fit, 1000.0 + np.asarray(X_fit)[:, 0])
+    assert automl._state.weight_val is not None
+
+
 def test_groups_for_classification_task():
     from sklearn.externals._arff import ArffException
 

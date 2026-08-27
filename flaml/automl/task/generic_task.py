@@ -967,10 +967,15 @@ class GenericTask(Task):
                     if "sample_weight" in state.fit_kwargs:
                         # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
                         weight = state.fit_kwargs["sample_weight"]
-                        if isinstance(weight, pd.Series):
+                        if weight is None:
+                            pass
+                        elif isinstance(weight, pd.Series):
                             state.fit_kwargs["sample_weight"] = weight.iloc[train_idx]
                             state.weight_val = weight.iloc[val_idx]
                         else:
+                            # train_idx/val_idx are ndarrays from GroupShuffleSplit, so a plain
+                            # list or tuple weight needs converting before it supports fancy indexing
+                            weight = np.asarray(weight)
                             state.fit_kwargs["sample_weight"] = weight[train_idx]
                             state.weight_val = weight[val_idx]
             elif self.is_classification():
