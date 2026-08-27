@@ -23,7 +23,7 @@ certifi==2026.7.22
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.1
-click==8.4.2
+click==8.5.0
 cloudpickle==3.1.2
 colorama==0.4.6
 colorlog==6.12.0
@@ -31,7 +31,7 @@ comm==0.2.3
 contourpy==1.3.2
 convertdate==2.4.1
 coverage==7.15.4
-cryptography==50.0.0
+cryptography==50.0.1
 cycler==0.12.1
 databricks-sdk==0.133.0
 datasets==5.0.1
@@ -46,13 +46,13 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.4
--e git+https://github.com/microsoft/FLAML@75018c37c0d4a582e7cbd76e8856f69b20b0fe80#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@47a3de1c3e4500587b4b6a483e064022c02f7076#egg=FLAML
 fonttools==4.63.0
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
-GitPython==3.1.59
+GitPython==3.1.60
 google-auth==2.57.0
 graphviz==0.21
 greenlet==3.5.5
@@ -134,7 +134,7 @@ parso==0.8.7
 patsy==1.0.2
 pillow==12.3.0
 platformdirs==4.11.4
-plotly==6.9.0
+plotly==7.0.0
 pluggy==1.6.0
 pre_commit==4.6.2
 prometheus_client==0.26.0
@@ -196,7 +196,7 @@ terminado==0.18.1
 thop==0.1.1.post2209072238
 threadpoolctl==3.6.0
 tinycss2==1.5.1
-tokenizers==0.22.2
+tokenizers==0.23.1
 tomli==2.4.1
 torch==2.13.0
 torchmetrics==1.9.0
@@ -204,7 +204,7 @@ torchvision==0.28.0
 tornado==6.5.8
 tqdm==4.70.0
 traitlets==5.16.1
-transformers==5.15.1
+transformers==5.16.1
 typer==0.27.1
 typing-inspection==0.4.4
 typing_extensions==4.16.0
@@ -212,7 +212,7 @@ tzdata==2026.3
 uri-template==1.3.0
 urllib3==2.7.0
 uvicorn==0.52.4
-virtualenv==21.7.4
+virtualenv==21.7.5
 wcwidth==0.8.2
 webcolors==25.10.0
 webencodings==0.6.1
