@@ -123,26 +123,21 @@ def test_resampler_runs_on_final_fit_with_max_iter_one():
     assert DuplicateMinorityResampler.seen_output_sizes[0] > DuplicateMinorityResampler.seen_input_sizes[0]
 
 
-def test_resampler_runs_for_ensemble_training():
+def test_resampler_with_ensemble_raises():
     DuplicateMinorityResampler.reset_counters()
     X, y = _imbalanced_dataset(seed=6)
 
     automl = AutoML()
-    automl.fit(
-        X_train=X,
-        y_train=y,
-        resampler=DuplicateMinorityResampler(),
-        seed=42,
-        **_fit_settings(
-            estimator_list=["lrl1", "lrl2"],
-            eval_method="holdout",
-            max_iter=2,
-            ensemble={"n_jobs": 1},
-            learner_selector="roundrobin",
-        ),
-    )
+    with pytest.raises(ValueError, match="Cannot combine 'resampler' with 'ensemble'"):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            resampler=DuplicateMinorityResampler(),
+            seed=42,
+            **_fit_settings(ensemble=True),
+        )
 
-    assert len(y) in DuplicateMinorityResampler.seen_input_sizes
+    assert DuplicateMinorityResampler.n_calls == 0
 
 
 def test_resampler_leaves_validation_untouched():

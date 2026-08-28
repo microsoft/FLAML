@@ -20,7 +20,6 @@ import numpy as np
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
 from flaml.automl.ml import (
-    _resample_training_data,
     huggingface_metric_to_mode,
     sklearn_metric_name_set,
     spark_metric_name_dict,
@@ -2174,12 +2173,13 @@ class AutoML(BaseEstimator):
             resampler: object, default=None | An imbalanced-learn-compatible resampler
                 (such as `imblearn.over_sampling.SMOTE`) that is cloneable via
                 `sklearn.base.clone` and exposes `fit_resample(X, y) -> (X, y)`. When set,
-                the resampler is cloned and applied to each cross-validation fold's or
-                holdout's training partition and to final, retrain, and ensemble training
-                data. Validation partitions are left at the raw class distribution. Not
-                compatible with `sample_weight` (resampling breaks the 1-to-1 row alignment
-                with weights); passing both raises `ValueError`. Off by default. See issue
-                #1200 for the design discussion and benchmarks.
+                the resampler is cloned and applied to each cross-validation fold's training
+                partition, the holdout training partition, and final or retrain data.
+                Validation partitions are left at the raw class distribution. Not compatible
+                with `sample_weight` (resampling breaks the 1-to-1 row alignment with weights)
+                or `ensemble` (stacking performs internal cross-validation); passing either
+                combination raises `ValueError`. Off by default. See issue #1200 for the design
+                discussion and benchmarks.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
@@ -2355,6 +2355,12 @@ class AutoML(BaseEstimator):
         self._state.task = task
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         if resampler is not None:
+            if ensemble:
+                raise ValueError(
+                    "Cannot combine 'resampler' with 'ensemble' because stacking performs "
+                    "internal cross-validation where pre-resampling can leak synthetic samples "
+                    "across folds. Disable ensemble or omit resampler."
+                )
             weight_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
             if any("sample_weight" in kw for kw in weight_sources):
                 raise ValueError(
@@ -3340,11 +3346,6 @@ class AutoML(BaseEstimator):
                 sample_weight_dict = (
                     (self._sample_weight_full is not None) and {"sample_weight": self._sample_weight_full} or {}
                 )
-                X_ensemble_train, y_ensemble_train = _resample_training_data(
-                    self._X_train_all,
-                    self._y_train_all,
-                    self._state.task,
-                )
                 for e in estimators:
                     e[1].__class__.init()
                 import joblib
@@ -3352,8 +3353,8 @@ class AutoML(BaseEstimator):
                 try:
                     logger.info("Building ensemble with tuned estimators")
                     stacker.fit(
-                        X_ensemble_train,
-                        y_ensemble_train,
+                        self._X_train_all,
+                        self._y_train_all,
                         **sample_weight_dict,  # NOTE: _search is after kwargs is updated to fit_kwargs_by_estimator
                     )
                     logger.info(f"ensemble: {stacker}")
@@ -3371,8 +3372,8 @@ class AutoML(BaseEstimator):
                             passthrough=False,
                         )
                         stacker.fit(
-                            X_ensemble_train,
-                            y_ensemble_train,
+                            self._X_train_all,
+                            self._y_train_all,
                             **sample_weight_dict,  # NOTE: _search is after kwargs is updated to fit_kwargs_by_estimator
                         )
                         logger.info(f"ensemble: {stacker}")
