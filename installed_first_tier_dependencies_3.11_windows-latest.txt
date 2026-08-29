@@ -1,5 +1,5 @@
 catboost==1.2.10
-coverage==7.15.4
+coverage==7.16.0
 datasets==5.0.1
 dill==0.4.1
 evaluate==0.4.6
@@ -29,7 +29,7 @@ rouge_score==0.1.2
 scikit-learn==1.8.0
 scipy==1.17.1
 seqeval==1.2.2
-statsmodels==0.14.6
+statsmodels==0.15.0
 tensorboardX==2.6.5
 thop==0.1.1-2209072238
 torch==2.13.0
@@ -37,4 +37,4 @@ torchvision==0.28.0
 transformers==5.16.1
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: eb79377897491efe049c6f5f9d2c596700e4f676
+Current commit hash: e07e4c9cd2a2959d99dfdf6b6c98fc297e3655cb
