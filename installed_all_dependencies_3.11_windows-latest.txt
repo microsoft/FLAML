@@ -43,7 +43,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.4
--e git+https://github.com/microsoft/FLAML@e07e4c9cd2a2959d99dfdf6b6c98fc297e3655cb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@73c330e1ad81ef0776718bd1cdcd6029d2f3dfe2#egg=FLAML
 fonttools==4.63.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -131,7 +131,7 @@ packaging==24.2
 pandas==3.0.5
 pandocfilters==1.5.1
 parso==0.8.7
-patsy==1.0.2
+patsy==1.0.3
 pillow==12.3.0
 platformdirs==4.11.5
 plotly==7.0.0
@@ -165,7 +165,7 @@ pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
-regex==2026.7.19
+regex==2026.8.31
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
@@ -214,10 +214,10 @@ virtualenv==21.7.7
 wcwidth==0.8.3
 webcolors==25.10.0
 webencodings==0.6.1
-websocket-client==1.9.0
+websocket-client==1.9.1
 widgetsnbextension==4.0.16
 workalendar==17.0.0
-wrapt==2.3.0
+wrapt==2.4.0
 xgboost==3.2.0
 xmltodict==1.0.4
 xxhash==4.0.1
