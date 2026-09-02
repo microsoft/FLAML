@@ -699,6 +699,7 @@ class SimpleForecaster(StatsModelsEstimator):
 
         model = SimpleExpSmoothing(
             train_df[[target_col]],
+            initialization_method="estimated",
         )
         with suppress_stdout_stderr():
             model = model.fit(smoothing_level=self.smoothing_level)
