@@ -591,7 +591,7 @@ discrete_test_df = df[-time_horizon:].copy()
 
 # feature engineering - create a discrete value column
 # 1 denotes above mean and 0 denotes below mean, thresholded on the
-# training period's mean (no leak into discrete_test_df)
+# training period's mean only, so no test-period sales leak into the threshold
 train_mean_sales = discrete_train_df["Sales"].mean()
 discrete_train_df["above_mean_sales"] = np.where(
     discrete_train_df["Sales"] > train_mean_sales, 1, 0
