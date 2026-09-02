@@ -1,6 +1,9 @@
+import platform
+import sys
 from urllib.error import URLError
 
 import pandas as pd
+import pytest
 from sklearn.datasets import fetch_california_housing, fetch_openml
 
 from flaml import AutoML
@@ -141,6 +144,10 @@ class TestScore:
 
         automl.pickle("automl.pkl")
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and platform.machine() == "ARM64",
+        reason="catboost is not available on win-arm64 machine",
+    )
     def test_regression(self):
         automl_experiment = AutoML()
 

@@ -1,7 +1,10 @@
+import platform
+import sys
 from urllib.error import URLError
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.datasets import fetch_openml, load_iris
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GroupKFold, KFold, train_test_split
@@ -74,6 +77,9 @@ def test_time_split_with_sample_weight():
     assert automl.model is not None
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and platform.machine() == "ARM64", reason="catboost is not available on win-arm64 machine"
+)
 def test_groups_for_classification_task():
     from sklearn.externals._arff import ArffException
 
@@ -178,6 +184,9 @@ def test_groups_with_sample_weights():
     assert automl.model is not None
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and platform.machine() == "ARM64", reason="minio is not available on win-arm64 machine"
+)
 def test_stratified_groupkfold():
     from minio.error import ServerError
     from sklearn.model_selection import StratifiedGroupKFold
