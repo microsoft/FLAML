@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import sys
 
@@ -29,6 +30,9 @@ model_path_list = [
 
 if sys.platform.startswith("darwin") and sys.version_info[0] == 3 and sys.version_info[1] == 11:
     pytest.skip("skipping Python 3.11 on MacOS", allow_module_level=True)
+
+if sys.platform == "win32" and platform.machine() == "ARM64":
+    pytest.skip("datasets not available on win-arm64 machine", allow_module_level=True)
 
 pytestmark = pytest.mark.spark  # set to spark as parallel testing raised RuntimeError
 

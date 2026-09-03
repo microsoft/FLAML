@@ -1,4 +1,5 @@
 import pickle
+import platform
 import shutil
 import sys
 
@@ -45,10 +46,15 @@ def test_xgboost():
         return
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+@pytest.mark.skipif(
+    sys.platform == "darwin" or (sys.platform == "win32" and platform.machine() == "ARM64"),
+    reason="do not run on mac os or win-arm64 machine",
+)
 def _test_hf_data():
     import requests
-    from datasets import load_dataset
+
+    if sys.platform != "win32" or platform.machine() != "ARM64":
+        from datasets import load_dataset
 
     from flaml import AutoML
 
