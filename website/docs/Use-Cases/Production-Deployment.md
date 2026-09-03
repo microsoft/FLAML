@@ -241,7 +241,7 @@ automl.fit(
 )
 ```
 
-FLAML applies a fresh clone to each training partition and to final model training while leaving validation partitions unchanged. `resampler` cannot be combined with `sample_weight` or `ensemble`.
+FLAML applies a fresh clone to each training partition and to final model training while leaving validation partitions unchanged. Automatic rare-class augmentation is disabled when `resampler` is set. `resampler` cannot be combined with `sample_weight`, `groups`, or `ensemble`, and the same sampler should be passed to `retrain_from_log()` when replaying a selected configuration.
 
 This is an opt-in convenience, not a guarantee of improved model quality. The [benchmark in #1200](https://github.com/microsoft/FLAML/issues/1200#issuecomment-4705108730) found roughly equivalent quality between per-fold plus final SMOTE and applying SMOTE once before `AutoML.fit()` on the tested datasets, with higher training cost for per-fold resampling. Pre-applied SMOTE therefore remains a valid alternative.
 

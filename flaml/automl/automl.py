@@ -290,6 +290,9 @@ class AutoML(BaseEstimator):
                 records to the input log file if it exists.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
+            resampler: object, default=None | An imbalanced-learn-compatible resampler
+                to apply to training partitions. It must be cloneable via
+                `sklearn.base.clone` and expose `fit_resample(X, y) -> (X, y)`.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
                 size when sample=True.
             use_ray: boolean or dict.
@@ -424,6 +427,7 @@ class AutoML(BaseEstimator):
         settings["custom_hp"] = settings.get("custom_hp", {})
         settings["skip_transform"] = settings.get("skip_transform", False)
         settings["mlflow_logging"] = settings.get("mlflow_logging", True)
+        settings["resampler"] = settings.get("resampler")
 
         self._estimator_type = "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         self.best_run_id = None
@@ -501,6 +505,44 @@ class AutoML(BaseEstimator):
                 f"(e.g., metric=custom_metric) and not the result of calling it "
                 f"(e.g., metric=custom_metric(...))."
             )
+
+    @staticmethod
+    def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator):
+        if resampler is None:
+            return
+        if ensemble:
+            raise ValueError(
+                "Cannot combine 'resampler' with 'ensemble' because stacking performs "
+                "internal cross-validation where pre-resampling can leak synthetic samples "
+                "across folds. Disable ensemble or omit resampler."
+            )
+        metadata_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
+        if any("sample_weight" in kwargs for kwargs in metadata_sources):
+            raise ValueError(
+                "Cannot combine 'resampler' with 'sample_weight' (including via "
+                "fit_kwargs_by_estimator) — resampling breaks the 1-to-1 row alignment "
+                "with sample weights. Use either resampling or sample weighting, not both."
+            )
+        if groups is not None or any(kwargs.get("groups") is not None for kwargs in metadata_sources):
+            raise ValueError(
+                "Cannot combine 'resampler' with 'groups' because resampling breaks the "
+                "1-to-1 row alignment with group labels."
+            )
+        if not callable(getattr(resampler, "fit_resample", None)):
+            raise TypeError(
+                "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
+                "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
+            )
+        try:
+            from sklearn.base import clone
+
+            clone(resampler)
+        except Exception as e:
+            raise TypeError(
+                "'resampler' must be cloneable via sklearn.base.clone (implement "
+                "get_params/set_params, e.g. by subclassing sklearn.base.BaseEstimator); "
+                f"cloning failed with: {e}"
+            ) from e
 
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
@@ -979,6 +1021,8 @@ class AutoML(BaseEstimator):
         skip_transform=None,
         preserve_checkpoint=True,
         fit_kwargs_by_estimator=None,
+        *,
+        resampler=None,
         **fit_kwargs,
     ):
         """Retrain from log file.
@@ -1038,6 +1082,9 @@ class AutoML(BaseEstimator):
                 when `record_id >= 0`, `time_budget` will be ignored.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
+            resampler: object, default=None | An imbalanced-learn-compatible resampler
+                to apply before retraining. It must be cloneable via `sklearn.base.clone`
+                and expose `fit_resample(X, y) -> (X, y)`.
             custom_hp: dict, default=None | The custom search space specified by user
                 Each key is the estimator name, each value is a dict of the custom search space for that estimator. Notice the
                 domain of the custom search space can either be a value or a sample.Domain object.
@@ -1108,6 +1155,9 @@ class AutoML(BaseEstimator):
         n_splits = n_splits or self._settings.get("n_splits")
         split_type = split_type or self._settings.get("split_type")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        resampler = self._settings.get("resampler") if resampler is None else resampler
+        if resampler is not None:
+            auto_augment = False
         self._state.task = task
         self._estimator_type = "classifier" if task.is_classification() else "regressor"
 
@@ -1115,6 +1165,8 @@ class AutoML(BaseEstimator):
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
         self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
         self._state.fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
+        self._validate_resampler(resampler, groups, False, fit_kwargs, self._state.fit_kwargs_by_estimator)
+        task._resampler = resampler
         self.preserve_checkpoint = (
             self._settings.get("preserve_checkpoint") if preserve_checkpoint is None else preserve_checkpoint
         )
@@ -2175,11 +2227,10 @@ class AutoML(BaseEstimator):
                 `sklearn.base.clone` and exposes `fit_resample(X, y) -> (X, y)`. When set,
                 the resampler is cloned and applied to each cross-validation fold's training
                 partition, the holdout training partition, and final or retrain data.
-                Validation partitions are left at the raw class distribution. Not compatible
-                with `sample_weight` (resampling breaks the 1-to-1 row alignment with weights)
-                or `ensemble` (stacking performs internal cross-validation); passing either
-                combination raises `ValueError`. Off by default. See issue #1200 for the design
-                discussion and benchmarks.
+                Validation partitions are left at the raw class distribution, and automatic
+                rare-class augmentation is disabled. Not compatible with `sample_weight`,
+                `groups`, or `ensemble`; passing these combinations raises `ValueError`.
+                Off by default. See issue #1200 for the design discussion and benchmarks.
             **fit_kwargs: Other key word arguments to pass to fit() function of
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
@@ -2228,6 +2279,9 @@ class AutoML(BaseEstimator):
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
+        resampler = self._settings.get("resampler") if resampler is None else resampler
+        if resampler is not None:
+            auto_augment = False
         allow_label_overlap = (
             self._settings.get("allow_label_overlap") if allow_label_overlap is None else allow_label_overlap
         )
@@ -2354,35 +2408,7 @@ class AutoML(BaseEstimator):
         self._state.free_mem_ratio = self._settings.get("free_mem_ratio") if free_mem_ratio is None else free_mem_ratio
         self._state.task = task
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
-        if resampler is not None:
-            if ensemble:
-                raise ValueError(
-                    "Cannot combine 'resampler' with 'ensemble' because stacking performs "
-                    "internal cross-validation where pre-resampling can leak synthetic samples "
-                    "across folds. Disable ensemble or omit resampler."
-                )
-            weight_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
-            if any("sample_weight" in kw for kw in weight_sources):
-                raise ValueError(
-                    "Cannot combine 'resampler' with 'sample_weight' (including via "
-                    "fit_kwargs_by_estimator) — resampling breaks the 1-to-1 row alignment "
-                    "with sample weights. Use either resampling or sample weighting, not both."
-                )
-            if not callable(getattr(resampler, "fit_resample", None)):
-                raise TypeError(
-                    "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
-                    "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
-                )
-            try:
-                from sklearn.base import clone
-
-                clone(resampler)
-            except Exception as e:
-                raise TypeError(
-                    "'resampler' must be cloneable via sklearn.base.clone (implement "
-                    "get_params/set_params, e.g. by subclassing sklearn.base.BaseEstimator); "
-                    f"cloning failed with: {e}"
-                ) from e
+        self._validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator)
         task._resampler = resampler
         self._state.log_training_metric = log_training_metric
 

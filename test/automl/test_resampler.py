@@ -140,6 +140,25 @@ def test_resampler_with_ensemble_raises():
     assert DuplicateMinorityResampler.n_calls == 0
 
 
+def test_resampler_disables_auto_augment_for_rare_classes():
+    DuplicateMinorityResampler.reset_counters()
+    X = pd.DataFrame(np.random.RandomState(0).normal(size=(30, 4)))
+    y = pd.Series([0] * 27 + [1] * 3)
+
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        resampler=DuplicateMinorityResampler(),
+        auto_augment=True,
+        seed=42,
+        **_fit_settings(),
+    )
+
+    assert automl._auto_augment is False
+    assert max(DuplicateMinorityResampler.seen_input_sizes) <= len(y)
+
+
 def test_resampler_leaves_validation_untouched():
     """Validation folds must keep the raw class distribution. Asserted from
     inside the evaluation loop via a custom metric that inspects y_val."""
@@ -184,6 +203,21 @@ def test_resampler_with_sample_weight_raises():
             y_train=y,
             resampler=DuplicateMinorityResampler(),
             sample_weight=sample_weight,
+            **_fit_settings(),
+        )
+
+
+def test_resampler_with_groups_raises():
+    X, y = _imbalanced_dataset(seed=2)
+    groups = np.arange(len(y)) // 10
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="Cannot combine 'resampler' with 'groups'"):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            groups=groups,
+            resampler=DuplicateMinorityResampler(),
             **_fit_settings(),
         )
 
@@ -276,6 +310,16 @@ def test_resampler_none_is_default_and_noop():
     assert np.array_equal(a.predict(X), b.predict(X))
 
 
+def test_resampler_from_constructor_settings():
+    DuplicateMinorityResampler.reset_counters()
+    X, y = _imbalanced_dataset(seed=5)
+
+    automl = AutoML(resampler=DuplicateMinorityResampler())
+    automl.fit(X_train=X, y_train=y, seed=7, **_fit_settings(max_iter=1))
+
+    assert DuplicateMinorityResampler.n_calls == 1
+
+
 def test_resampler_does_not_leak_across_fits():
     """A fit without a resampler after a fit with one must not silently reuse
     the earlier resampler (stale task state)."""
@@ -292,6 +336,39 @@ def test_resampler_does_not_leak_across_fits():
     assert (
         DuplicateMinorityResampler.n_calls == calls_after_first
     ), "resampler from a previous fit leaked into a fit that did not request one"
+
+
+def test_retrain_from_log_with_resampler(tmp_path):
+    DuplicateMinorityResampler.reset_counters()
+    X, y = _imbalanced_dataset(seed=7)
+    log_file_name = str(tmp_path / "resampler.log")
+
+    automl = AutoML()
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        log_file_name=log_file_name,
+        resampler=DuplicateMinorityResampler(),
+        seed=7,
+        **_fit_settings(),
+    )
+
+    DuplicateMinorityResampler.reset_counters()
+    replay = AutoML()
+    replay.retrain_from_log(
+        log_file_name=log_file_name,
+        X_train=X,
+        y_train=y,
+        task="classification",
+        train_full=True,
+        record_id=0,
+        n_jobs=1,
+        resampler=DuplicateMinorityResampler(),
+    )
+
+    assert DuplicateMinorityResampler.n_calls == 1
+    assert DuplicateMinorityResampler.seen_input_sizes == [len(y)]
+    assert DuplicateMinorityResampler.seen_output_sizes[0] > len(y)
 
 
 def test_resampler_smote_integration():
