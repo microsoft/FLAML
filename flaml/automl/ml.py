@@ -388,7 +388,7 @@ def compute_estimator(
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
-            free_mem_ratio=0,
+            free_mem_ratio=free_mem_ratio,
         )
     else:
         val_loss, metric_for_logging, train_time, pred_time = task.evaluate_model_CV(
@@ -403,7 +403,7 @@ def compute_estimator(
             cv_score_agg_func,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
-            free_mem_ratio=0,
+            free_mem_ratio=free_mem_ratio,
         )
 
     if isinstance(estimator, TransformersEstimator):
