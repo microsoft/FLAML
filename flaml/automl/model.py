@@ -1497,8 +1497,12 @@ class SKLearnEstimator(BaseEstimator):
 class IsolationForestEstimator(SKLearnEstimator):
     """The class for tuning IsolationForest for anomaly detection."""
 
+    nrows = 256
+
     @classmethod
     def search_space(cls, data_size, task, **params):
+        cls.nrows = int(data_size[0])
+
         upper = max(5, min(32768, int(data_size[0])))
         return {
             "n_estimators": {
@@ -1518,7 +1522,15 @@ class IsolationForestEstimator(SKLearnEstimator):
 
     @classmethod
     def size(cls, config):
-        return config.get("n_estimators", 100)
+        n_estimators = int(config.get("n_estimators", 100))
+
+        # IsolationForest uses max_samples="auto" by default,
+        # corresponding to min(256, n_samples).
+        max_samples = min(256, cls.nrows)
+
+        # Approximate tree storage in bytes.
+        num_leaves = max(2, max_samples)
+        return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
 
     @classmethod
     def cost_relative2lgbm(cls):
@@ -1554,6 +1566,22 @@ class IsolationForestEstimator(SKLearnEstimator):
     def decision_function(self, X):
         X = self._preprocess(X)
         return self._model.decision_function(X)
+
+    def score(self, X_val, y_val, **kwargs):
+        """Report an anomaly-detection evaluation score."""
+        from flaml.automl.ml import metric_loss_score, normalize_anomaly_labels
+
+        metric = kwargs.pop("metric", None) or "ap"
+
+        if metric not in ["ap", "roc_auc"]:
+            raise ValueError(
+                "Built-in anomaly detection scoring supports only "
+                "'ap' and 'roc_auc'."
+            )
+
+        y_true = normalize_anomaly_labels(y_val)
+        anomaly_scores = -self.score_samples(X_val)
+        return 1.0 - metric_loss_score(metric, anomaly_scores, y_true)
 
 
 class LGBMEstimator(BaseEstimator):

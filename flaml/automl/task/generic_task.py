@@ -115,24 +115,32 @@ class GenericTask(Task):
         groups_val=None,
         groups=None,
     ):
-        if X_train_all is not None and y_train_all is not None:
+        if X_train_all is not None and (y_train_all is not None or self.is_anomaly_detection()):
             assert isinstance(X_train_all, (np.ndarray, pd.DataFrame, psDataFrame)) or issparse(X_train_all), (
                 "X_train_all must be a numpy array, a pandas dataframe, "
                 "a Scipy sparse matrix or a pyspark.pandas dataframe."
             )
-            assert isinstance(
-                y_train_all, (np.ndarray, pd.Series, psSeries)
-            ), "y_train_all must be a numpy array, a pandas series or a pyspark.pandas series."
-            assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty."
+            assert X_train_all.size != 0, "Input data must not be empty."
+
+            if y_train_all is not None:
+                assert isinstance(
+                    y_train_all, (np.ndarray, pd.Series, psSeries)
+                ), "y_train_all must be a numpy array, a pandas series or a pyspark.pandas series."
+                assert y_train_all.size != 0, "Input data must not be empty."
+
             if isinstance(X_train_all, np.ndarray) and len(X_train_all.shape) == 1:
                 X_train_all = np.reshape(X_train_all, (X_train_all.size, 1))
             if isinstance(y_train_all, np.ndarray):
                 y_train_all = y_train_all.flatten()
-            assert X_train_all.shape[0] == y_train_all.shape[0], "# rows in X_train must match length of y_train."
+            if y_train_all is not None:
+                assert X_train_all.shape[0] == y_train_all.shape[0], "# rows in X_train must match length of y_train."
+
             if isinstance(X_train_all, psDataFrame):
                 X_train_all = X_train_all.spark.cache()  # cache data to improve compute speed
-                y_train_all = y_train_all.to_frame().spark.cache()[y_train_all.name]
-                logger.debug(f"X_train_all and y_train_all cached, shape of X_train_all: {X_train_all.shape}")
+                if y_train_all is not None:
+                    y_train_all = y_train_all.to_frame().spark.cache()[y_train_all.name]
+                logger.debug(f"X_train_all cached, shape of X_train_all: {X_train_all.shape}")
+
             automl._df = isinstance(X_train_all, (pd.DataFrame, psDataFrame))
             automl._nrow, automl._ndim = X_train_all.shape
             if self.is_ts_forecast():
@@ -263,7 +271,11 @@ class GenericTask(Task):
             state.groups_val = groups_val
             state.groups = groups
 
-        automl.data_size_full = len(automl._y_train_all)
+        automl.data_size_full = (
+            len(automl._y_train_all)
+            if automl._y_train_all is not None
+            else automl._X_train_all.shape[0]
+        )
 
     @staticmethod
     def _split_pyspark(state, X_train_all, y_train_all, split_ratio, stratify=None):
@@ -848,6 +860,18 @@ class GenericTask(Task):
             X_train_all = X_train_all.tocsr()
         is_spark_dataframe = isinstance(X_train_all, (psDataFrame, psSeries))
         self.is_spark_dataframe = is_spark_dataframe
+
+        # Unsupervised anomaly detection can train directly from X without
+        # requiring synthetic labels or a supervised train/validation split.
+        if self.is_anomaly_detection() and y_train_all is None:
+            state.sample_weight_all = sample_weight_full
+            state.groups_all = state.groups
+            state.data_size = X_train_all.shape
+            state.data_size_full = X_train_all.shape[0]
+            state.X_train = state.X_train_all = X_train_all
+            state.y_train = state.y_train_all = None
+            state.kf = None
+            return
         if (
             self.is_classification()
             and auto_augment
@@ -1276,6 +1300,29 @@ class GenericTask(Task):
 
     def default_estimator_list(self, estimator_list: List[str], is_spark_dataframe: bool = False) -> List[str]:
         if "auto" != estimator_list:
+            if self.is_anomaly_detection():
+                if is_spark_dataframe:
+                    raise ValueError(
+                        "anomaly_detection does not support Spark dataframes yet. " "Use numpy/pandas data."
+                    )
+
+                unsupported_estimators = [
+                    estimator
+                    for estimator in estimator_list
+                    if estimator in self.estimators and estimator != "isolation_forest"
+                ]
+
+                if unsupported_estimators:
+                    raise ValueError(
+                        "Built-in estimators "
+                        f"{unsupported_estimators} do not support anomaly_detection. "
+                        "Use 'isolation_forest' or a compatible custom learner."
+                    )
+            elif "isolation_forest" in estimator_list:
+                raise ValueError(
+                    "Built-in estimator 'isolation_forest' only supports "
+                    "the anomaly_detection task."
+                )
             n_estimators = len(estimator_list)
             if is_spark_dataframe:
                 # For spark dataframe, only estimators ending with '_spark' are supported
