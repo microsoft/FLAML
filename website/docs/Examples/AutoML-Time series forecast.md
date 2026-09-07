@@ -2,11 +2,13 @@
 
 ### Prerequisites
 
-Install the [automl,ts_forecast] option.
+Install the [automl,forecast] option to include the panel forecasting example.
 
 ```bash
-pip install "flaml[automl,ts_forecast]"
+pip install "flaml[automl,forecast]" matplotlib "setuptools<81"
 ```
+
+`hcrystalball` imports `pkg_resources`, which requires `setuptools<81`.
 
 ### Understanding the `period` Parameter
 
@@ -472,8 +474,8 @@ multi_df = pd.read_csv(
 multi_df["timeStamp"] = pd.to_datetime(multi_df["timeStamp"])
 multi_df = multi_df.set_index("timeStamp")
 multi_df = multi_df.resample("D").mean()
-multi_df["temp"] = multi_df["temp"].fillna(method="ffill")
-multi_df["precip"] = multi_df["precip"].fillna(method="ffill")
+multi_df["temp"] = multi_df["temp"].ffill()
+multi_df["precip"] = multi_df["precip"].ffill()
 multi_df = multi_df[:-2]  # last two rows are NaN for 'demand' column so remove them
 multi_df = multi_df.reset_index()
 
@@ -582,15 +584,23 @@ from flaml import AutoML
 time_horizon = 30
 df = get_sales_data(n_dates=180, n_assortments=1, n_states=1, n_stores=1)
 df = df[["Sales", "Open", "Promo", "Promo2"]]
-
-# feature engineering - create a discrete value column
-# 1 denotes above mean and 0 denotes below mean
-df["above_mean_sales"] = np.where(df["Sales"] > df["Sales"].mean(), 1, 0)
 df.reset_index(inplace=True)
 
-# train-test split
-discrete_train_df = df[:-time_horizon]
-discrete_test_df = df[-time_horizon:]
+# train-test split first, so the label threshold below is computed from
+# the training period only
+discrete_train_df = df[:-time_horizon].copy()
+discrete_test_df = df[-time_horizon:].copy()
+
+# feature engineering - create a discrete value column
+# 1 denotes above mean and 0 denotes below mean, thresholded on the
+# training period's mean only, so no test-period sales leak into the threshold
+train_mean_sales = discrete_train_df["Sales"].mean()
+discrete_train_df["above_mean_sales"] = np.where(
+    discrete_train_df["Sales"] > train_mean_sales, 1, 0
+)
+discrete_test_df["above_mean_sales"] = np.where(
+    discrete_test_df["Sales"] > train_mean_sales, 1, 0
+)
 discrete_X_train, discrete_X_test = (
     discrete_train_df[["Date", "Open", "Promo", "Promo2"]],
     discrete_test_df[["Date", "Open", "Promo", "Promo2"]],
@@ -792,7 +802,7 @@ fit_kwargs_by_estimator = {
         ],
         "time_varying_unknown_categoricals": [],
         "time_varying_unknown_reals": [
-            "y",  # always need a 'y' column for the target column
+            "volume",  # target column
             "log_volume",
             "industry_volume",
             "soda_volume",
