@@ -4,10 +4,9 @@ import platform
 import sys
 from functools import partial
 
-if sys.platform != "win32" or platform.machine() != "ARM64":
-    import datasets
 import numpy as np
 import pytest
+pytest.importorskip("datasets")
 
 from flaml import autogen
 from flaml.autogen.code_utils import (
