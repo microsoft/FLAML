@@ -291,7 +291,8 @@ def test_groups_with_sample_weights():
 
 
 @pytest.mark.skipif(
-    sys.platform == "win32" and platform.machine() == "ARM64", reason="minio is not available on win-arm64 machine"
+    sys.platform == "win32" and platform.machine() == "ARM64",
+    reason="minio and catboost are not available on win-arm64 machine",
 )
 def test_stratified_groupkfold():
     from minio.error import ServerError
