@@ -155,6 +155,9 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             params["_estimator_type"] = self._estimator_type
         return params
 
+    def __sklearn_is_fitted__(self):
+        return self._model is not None
+
     def __sklearn_tags__(self):
         """Override sklearn tags to respect the _estimator_type attribute.
 

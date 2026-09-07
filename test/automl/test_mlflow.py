@@ -2,11 +2,33 @@ import pickle
 
 import mlflow
 import mlflow.entities
+import numpy as np
 import pytest
 from pandas import DataFrame
 from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.utils.validation import check_is_fitted
 
 from flaml import AutoML
+
+
+def test_autologged_model_round_trip():
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    automl = AutoML()
+    with mlflow.start_run() as run:
+        automl.fit(
+            X_train,
+            y_train,
+            task="classification",
+            estimator_list=["rf"],
+            max_iter=1,
+            verbose=0,
+        )
+
+    loaded = mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
+    check_is_fitted(loaded)
+    assert np.array_equal(automl.predict(X_test), loaded.predict(X_test))
 
 
 class TestMLFlowLoggingParam:
