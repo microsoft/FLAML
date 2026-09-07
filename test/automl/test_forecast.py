@@ -123,6 +123,38 @@ def test_models(budget=3):
         automl.predict(X[144:])
 
 
+def test_simple_forecaster_sets_initialization_method(monkeypatch):
+    from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+    initialization_methods = []
+
+    def simple_exp_smoothing(*args, **kwargs):
+        initialization_methods.append(kwargs.get("initialization_method"))
+        return SimpleExpSmoothing(*args, **kwargs)
+
+    monkeypatch.setattr("statsmodels.tsa.holtwinters.SimpleExpSmoothing", simple_exp_smoothing)
+
+    data = pd.DataFrame(
+        {
+            "ds": pd.date_range("2024-01-01", periods=30, freq="D"),
+            "y": np.linspace(10.0, 20.0, 30),
+        }
+    )
+    automl = AutoML()
+    automl.fit(
+        dataframe=data,
+        label="y",
+        task="ts_forecast",
+        estimator_list=["naive"],
+        period=3,
+        max_iter=1,
+        verbose=0,
+    )
+
+    assert initialization_methods
+    assert set(initialization_methods) == {"estimated"}
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))
