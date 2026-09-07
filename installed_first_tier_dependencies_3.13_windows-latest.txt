@@ -1,5 +1,5 @@
 catboost==1.2.10
-coverage==7.15.4
+coverage==7.16.0
 datasets==5.0.1
 dill==0.4.1
 evaluate==0.4.6
@@ -13,13 +13,13 @@ mlflow-skinny==2.22.1
 nbconvert==7.17.1
 nbformat==5.11.1
 nltk==3.10.3
-numpy==2.5.2
+numpy==2.5.3
 openml==0.15.1
 optuna==3.6.1
 packaging==24.2
 pandas==3.0.5
 psutil==7.2.2
-pytest-rerunfailures==16.6
+pytest-rerunfailures==16.6.1
 pytest==9.1.1
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.5
@@ -29,12 +29,12 @@ rouge_score==0.1.2
 scikit-learn==1.8.0
 scipy==1.18.1
 seqeval==1.2.2
-statsmodels==0.14.6
+statsmodels==0.15.0
 tensorboardX==2.6.5
 thop==0.1.1-2209072238
-torch==2.13.0
-torchvision==0.28.0
+torch==2.14.0
+torchvision==0.29.0
 transformers==5.16.1
 xgboost==3.4.1
 xgboost==3.4.1
-Current commit hash: 379f6ed9779b452707861586b641ae65bf5ad586
+Current commit hash: b614073983edf207d809e2e26c60cfb07590105b
