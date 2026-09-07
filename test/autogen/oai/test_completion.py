@@ -6,6 +6,7 @@ from functools import partial
 
 import numpy as np
 import pytest
+
 pytest.importorskip("datasets")
 
 from flaml import autogen
