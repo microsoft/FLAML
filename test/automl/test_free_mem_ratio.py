@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.datasets import make_classification
 
+import flaml.automl.ml as ml
 from flaml import AutoML
 from flaml.automl.task.generic_task import GenericTask
 
@@ -37,4 +38,37 @@ def test_free_mem_ratio_reaches_the_search():
         GenericTask.evaluate_model_CV = original
 
     assert received, "evaluate_model_CV was never called"
+    assert set(received) == {0.25}, f"free_mem_ratio not forwarded: {sorted(set(received))}"
+
+
+def test_free_mem_ratio_reaches_the_search_holdout():
+    """Same as above for the holdout branch of `compute_estimator`.
+
+    The two branches call different evaluation helpers, so forwarding has to
+    be covered separately for each.
+    """
+    received = []
+    original = ml.get_val_loss
+
+    def recording_get_val_loss(*args, **kwargs):
+        received.append(kwargs.get("free_mem_ratio"))
+        return original(*args, **kwargs)
+
+    ml.get_val_loss = recording_get_val_loss
+    try:
+        X, y = make_classification(n_samples=120, n_features=6, random_state=0)
+        AutoML().fit(
+            X,
+            y,
+            task="classification",
+            time_budget=3,
+            estimator_list=["lgbm"],
+            eval_method="holdout",
+            free_mem_ratio=0.25,
+            verbose=0,
+        )
+    finally:
+        ml.get_val_loss = original
+
+    assert received, "get_val_loss was never called"
     assert set(received) == {0.25}, f"free_mem_ratio not forwarded: {sorted(set(received))}"
