@@ -7,7 +7,7 @@ from functools import partial
 import numpy as np
 import pytest
 
-pytest.importorskip("datasets")
+datasets = pytest.importorskip("datasets")
 
 from flaml import autogen
 from flaml.autogen.code_utils import (
