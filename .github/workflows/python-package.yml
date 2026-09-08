@@ -11,6 +11,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - 'pyproject.toml'
       - 'setup.py'
   pull_request:
     branches: ['main']
@@ -19,6 +20,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - 'pyproject.toml'
       - 'setup.py'
   merge_group:
     types: [checks_requested]
