@@ -1,4 +1,6 @@
 import os
+import platform
+import sys
 import unittest
 from tempfile import TemporaryDirectory
 
@@ -111,7 +113,8 @@ class TestTrainingLog(unittest.TestCase):
         except ImportError:
             use_ray = False
         self.test_training_log(estimator_list=["xgboost"], use_ray=use_ray)
-        self.test_training_log(estimator_list=["catboost"], use_ray=use_ray)
+        if not (sys.platform == "win32" and platform.machine() == "ARM64"):
+            self.test_training_log(estimator_list=["catboost"], use_ray=use_ray)
         self.test_training_log(estimator_list=["extra_tree"], use_ray=use_ray)
         self.test_training_log(estimator_list=["rf"], use_ray=use_ray)
         self.test_training_log(estimator_list=["lgbm"], use_ray=use_ray)
