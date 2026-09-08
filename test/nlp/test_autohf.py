@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import sys
 
@@ -8,8 +9,8 @@ from utils import get_automl_settings, get_toy_data_seqclassification
 
 
 @pytest.mark.skipif(
-    sys.platform == "darwin" or sys.version < "3.7",
-    reason="do not run on mac os or py<3.7",
+    sys.platform == "darwin" or sys.version < "3.7" or (sys.platform == "win32" and platform.machine() == "ARM64"),
+    reason="do not run on mac os, py<3.7, or win-arm64 machine (datasets not available)",
 )
 def test_hf_data():
     from flaml import AutoML

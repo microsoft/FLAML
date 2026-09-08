@@ -1,3 +1,5 @@
+import platform
+import sys
 import unittest
 from test.conftest import evaluate_cv_folds_with_underlying_model
 
@@ -88,6 +90,10 @@ class TestRegression(unittest.TestCase):
         # In some rare case, the last config is early stopped and it's the best config. But the logged config's n_estimator is not reduced.
         assert n_iter != automl.model.estimator.get_params().get("n_estimators") or (y_pred == y_pred2).all()
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and platform.machine() == "ARM64",
+        reason="catboost is not available on win-arm64 machine",
+    )
     def test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
@@ -329,6 +335,8 @@ def test_reproducibility_of_regression_models(estimator: str):
     In this test we take the best regression model which FLAML provided us, and then retrain and test it on the
     same folds, to verify that the result is reproducible.
     """
+    if estimator == "catboost" and sys.platform == "win32" and platform.machine() == "ARM64":
+        pytest.skip("catboost is not available on win-arm64 machine")
     automl = AutoML()
     automl_settings = {
         "max_iter": 2,
@@ -368,6 +376,9 @@ def test_reproducibility_of_regression_models(estimator: str):
     assert pytest.approx(val_loss_flaml) == reproduced_val_loss
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and platform.machine() == "ARM64", reason="catboost is not available on win-arm64 machine"
+)
 def test_reproducibility_of_catboost_regression_model():
     """FLAML finds the best model for a given dataset, which it then provides to users.
 
@@ -485,6 +496,8 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
     In this test we take the best model which FLAML provided us, extract the underlying model,
      before retraining and testing it on the same folds - to verify that the result is reproducible.
     """
+    if estimator == "catboost" and sys.platform == "win32" and platform.machine() == "ARM64":
+        pytest.skip("catboost is not available on win-arm64 machine")
     automl = AutoML()
     automl_settings = {
         "max_iter": 5,

@@ -582,15 +582,23 @@ from flaml import AutoML
 time_horizon = 30
 df = get_sales_data(n_dates=180, n_assortments=1, n_states=1, n_stores=1)
 df = df[["Sales", "Open", "Promo", "Promo2"]]
-
-# feature engineering - create a discrete value column
-# 1 denotes above mean and 0 denotes below mean
-df["above_mean_sales"] = np.where(df["Sales"] > df["Sales"].mean(), 1, 0)
 df.reset_index(inplace=True)
 
-# train-test split
-discrete_train_df = df[:-time_horizon]
-discrete_test_df = df[-time_horizon:]
+# train-test split first, so the label threshold below is computed from
+# the training period only
+discrete_train_df = df[:-time_horizon].copy()
+discrete_test_df = df[-time_horizon:].copy()
+
+# feature engineering - create a discrete value column
+# 1 denotes above mean and 0 denotes below mean, thresholded on the
+# training period's mean only, so no test-period sales leak into the threshold
+train_mean_sales = discrete_train_df["Sales"].mean()
+discrete_train_df["above_mean_sales"] = np.where(
+    discrete_train_df["Sales"] > train_mean_sales, 1, 0
+)
+discrete_test_df["above_mean_sales"] = np.where(
+    discrete_test_df["Sales"] > train_mean_sales, 1, 0
+)
 discrete_X_train, discrete_X_test = (
     discrete_train_df[["Date", "Open", "Promo", "Promo2"]],
     discrete_test_df[["Date", "Open", "Promo", "Promo2"]],
