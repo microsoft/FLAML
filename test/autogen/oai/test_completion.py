@@ -3,7 +3,6 @@ import os
 import sys
 from functools import partial
 
-import datasets
 import numpy as np
 import pytest
 
@@ -15,6 +14,8 @@ from flaml.autogen.code_utils import (
     implement,
 )
 from flaml.autogen.math_utils import eval_math_responses, solve_problem
+
+datasets = pytest.importorskip("datasets")
 
 KEY_LOC = "notebook"
 OAI_CONFIG_LIST = "OAI_CONFIG_LIST"
