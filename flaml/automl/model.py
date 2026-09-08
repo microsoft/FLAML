@@ -19,7 +19,13 @@ from typing import Callable, List, Union
 import numpy as np
 import sklearn
 from sklearn.dummy import DummyClassifier, DummyRegressor
-from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
+    IsolationForest,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import ElasticNet, LassoLars, LogisticRegression, SGDClassifier, SGDRegressor
 from sklearn.preprocessing import Normalizer
@@ -1486,6 +1492,96 @@ class SKLearnEstimator(BaseEstimator):
                     X[col] = X[col].astype("category").cat.codes
             X = X.to_numpy()
         return X
+
+
+class IsolationForestEstimator(SKLearnEstimator):
+    """The class for tuning IsolationForest for anomaly detection."""
+
+    nrows = 256
+
+    @classmethod
+    def search_space(cls, data_size, task, **params):
+        cls.nrows = int(data_size[0])
+
+        upper = max(5, min(32768, int(data_size[0])))
+        return {
+            "n_estimators": {
+                "domain": tune.lograndint(lower=4, upper=upper),
+                "init_value": min(100, upper - 1),
+                "low_cost_init_value": 4,
+            },
+            "max_features": {
+                "domain": tune.uniform(lower=0.5, upper=1.0),
+                "init_value": 1.0,
+            },
+            "bootstrap": {
+                "domain": tune.choice([False, True]),
+                "init_value": False,
+            },
+        }
+
+    @classmethod
+    def size(cls, config):
+        n_estimators = int(config.get("n_estimators", 100))
+
+        # IsolationForest uses max_samples="auto" by default,
+        # corresponding to min(256, n_samples).
+        max_samples = min(256, cls.nrows)
+
+        # Approximate tree storage in bytes.
+        num_leaves = max(2, max_samples)
+        return (num_leaves * 3 + (num_leaves - 1) * 4 + 1.0) * n_estimators * 8
+
+    @classmethod
+    def cost_relative2lgbm(cls):
+        return 1.0
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        params["contamination"] = params.get("contamination", "auto")
+        params["max_samples"] = params.get("max_samples", "auto")
+        return params
+
+    def __init__(self, task="anomaly_detection", **config):
+        super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
+        self.estimator_class = IsolationForest
+
+    def fit(self, X_train, y_train=None, budget=None, free_mem_ratio=0, **kwargs):
+        kwargs.pop("is_retrain", None)
+        return super().fit(
+            X_train,
+            None,
+            budget=budget,
+            free_mem_ratio=free_mem_ratio,
+            **kwargs,
+        )
+
+    def score_samples(self, X):
+        X = self._preprocess(X)
+        return self._model.score_samples(X)
+
+    def decision_function(self, X):
+        X = self._preprocess(X)
+        return self._model.decision_function(X)
+
+    def score(self, X_val, y_val, **kwargs):
+        """Report an anomaly-detection evaluation score."""
+        from flaml.automl.ml import metric_loss_score, normalize_anomaly_labels
+
+        metric = kwargs.pop("metric", None) or "ap"
+
+        if metric not in ["ap", "roc_auc"]:
+            raise ValueError(
+                "Built-in anomaly detection scoring supports only "
+                "'ap' and 'roc_auc'."
+            )
+
+        y_true = normalize_anomaly_labels(y_val)
+        anomaly_scores = -self.score_samples(X_val)
+        return 1.0 - metric_loss_score(metric, anomaly_scores, y_true)
 
 
 class LGBMEstimator(BaseEstimator):

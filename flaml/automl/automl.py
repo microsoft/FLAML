@@ -785,6 +785,12 @@ class AutoML(BaseEstimator):
         X = self._state.task.preprocess(X, self._transformer)
         if self._label_transformer:
             y = self._label_transformer.transform(y)
+
+        if self._state.task.is_anomaly_detection() and "metric" not in kwargs:
+            metric = self._state.metric
+            if isinstance(metric, str):
+                kwargs["metric"] = metric
+
         return estimator.score(X, y, **kwargs)
 
     def predict(
@@ -854,6 +860,50 @@ class AutoML(BaseEstimator):
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
+
+    def score_samples(self, X):
+        """Compute anomaly scores for each sample.
+
+        Args:
+            X: A numpy array of featurized instances, shape n * m.
+
+        Returns:
+            A numpy array containing one score per sample.
+
+        Raises:
+            AttributeError: If no estimator has been trained or if the trained
+                estimator does not implement score_samples().
+        """
+        estimator = getattr(self, "_trained_estimator", None)
+        if estimator is None:
+            raise AttributeError("AutoML instance has not been fitted yet. Please call fit() first.")
+        if not hasattr(estimator, "score_samples"):
+            raise AttributeError("The trained estimator does not support score_samples().")
+
+        X = self._state.task.preprocess(X, self._transformer)
+        return estimator.score_samples(X)
+
+    def decision_function(self, X):
+        """Compute the decision function for each sample.
+
+        Args:
+            X: A numpy array of featurized instances, shape n * m.
+
+        Returns:
+            A numpy array containing one decision score per sample.
+
+        Raises:
+            AttributeError: If no estimator has been trained or if the trained
+                estimator does not implement decision_function().
+        """
+        estimator = getattr(self, "_trained_estimator", None)
+        if estimator is None:
+            raise AttributeError("AutoML instance has not been fitted yet. Please call fit() first.")
+        if not hasattr(estimator, "decision_function"):
+            raise AttributeError("The trained estimator does not support decision_function().")
+
+        X = self._state.task.preprocess(X, self._transformer)
+        return estimator.decision_function(X)
 
     def preprocess(
         self,
@@ -2376,6 +2426,12 @@ class AutoML(BaseEstimator):
             groups_val,
             groups,
         )
+        unlabeled_anomaly = (
+            task.is_anomaly_detection()
+            and self._y_train_all is None
+            and self._state.y_val is None
+        )
+
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
         self._seed = seed if seed is not None else 20
@@ -2391,7 +2447,10 @@ class AutoML(BaseEstimator):
             logger.info(f"Data split method: {self._split_type}")
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self._state.eval_method = eval_method
-        logger.info(f"Evaluation method: {eval_method}")
+        if unlabeled_anomaly:
+            logger.info("Evaluation method: none (label-free one-shot fit)")
+        else:
+            logger.info(f"Evaluation method: {eval_method}")
         self._state.cv_score_agg_func = cv_score_agg_func or self._settings.get("cv_score_agg_func")
 
         self._retrain_in_budget = retrain_full == "budget" and (eval_method == "holdout" and self._state.X_val is None)
@@ -2458,6 +2517,13 @@ class AutoML(BaseEstimator):
         self._validate_metric_parameter(metric, allow_auto=True)
 
         metric = task.default_metric(metric)
+
+        if task.is_anomaly_detection() and isinstance(metric, str) and metric not in ["ap", "roc_auc"]:
+            raise ValueError(
+                "Built-in metrics for anomaly_detection are limited to "
+                "'ap' and 'roc_auc', which evaluate continuous anomaly scores."
+            )
+
         self._state.metric = metric
 
         # TODO pull this to task
@@ -2494,11 +2560,38 @@ class AutoML(BaseEstimator):
                 error_metric = metric
         else:
             error_metric = "customized metric"
-        logger.info(f"Minimizing error metric: {error_metric}")
+        if unlabeled_anomaly:
+            logger.info("No evaluation metric is optimized for label-free anomaly detection.")
+        else:
+            logger.info(f"Minimizing error metric: {error_metric}")
         self._state.error_metric = error_metric
 
         is_spark_dataframe = isinstance(X_train, psDataFrame) or isinstance(dataframe, psDataFrame)
         estimator_list = task.default_estimator_list(estimator_list, is_spark_dataframe)
+
+        if unlabeled_anomaly:
+            if len(estimator_list) != 1:
+                raise ValueError(
+                    "Label-free anomaly detection requires exactly one estimator "
+                    "because model selection cannot be performed without labeled validation data."
+                )
+
+            if max_iter is not None and max_iter > 1:
+                raise ValueError(
+                    "Hyperparameter search for anomaly_detection requires labeled validation data. "
+                    "Use max_iter=1 for label-free fitting, or provide X_val and y_val."
+                )
+
+            if time_budget >= 0 and max_iter is None:
+                raise ValueError(
+                    "A positive time_budget requests hyperparameter search, which requires "
+                    "labeled validation data for anomaly_detection. Use max_iter=1 for "
+                    "label-free fitting, or provide X_val and y_val."
+                )
+
+            # Reuse FLAML's existing max_iter=1 no-search path. The learner's
+            # declared init_config is trained once without fabricating labels.
+            max_iter = 1
 
         if is_spark_dataframe and self._use_spark:
             # For spark dataframe, use_spark must be False because spark models are trained in parallel themselves
@@ -2516,7 +2609,7 @@ class AutoML(BaseEstimator):
             if sample_is_none:
                 self._sample = False
             if no_starting_points:
-                starting_points = "data"
+                starting_points = "static" if unlabeled_anomaly else "data"
             logger.warning(
                 "No search budget is provided via time_budget or max_iter."
                 " Training only one model per estimator."

@@ -292,8 +292,31 @@ def sklearn_metric_loss_score(
     return score
 
 
+def normalize_anomaly_labels(y):
+    """Normalize anomaly labels so that 1 denotes an anomaly.
+
+    Supported conventions are:
+    - {0, 1}, where 1 is the anomaly class;
+    - {-1, 1}, following IsolationForest, where -1 is the anomaly class.
+    """
+    y = np.asarray(y)
+    unique_labels = set(np.unique(y))
+
+    if -1 in unique_labels and unique_labels.issubset({-1, 1}):
+        return (y == -1).astype(int)
+    if unique_labels.issubset({0, 1}):
+        return y
+
+    raise ValueError(
+        "For anomaly detection with AP/ROC-AUC, labels must use "
+        "{0, 1} with 1=anomaly or {-1, 1} with -1=anomaly."
+    )
+
+
 def get_y_pred(estimator, X, eval_metric, task: Task):
-    if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
+    if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]:
+        y_pred = -estimator.score_samples(X)
+    elif eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
         y_pred_classes = estimator.predict_proba(X)
         if isinstance(y_pred_classes, (psSeries, psDataFrame)):
             y_pred = y_pred_classes
@@ -602,10 +625,15 @@ def _eval_estimator(
         pred_time = (time.time() - pred_start) / num_val_rows
 
         try:
+            y_val_for_metric = (
+                normalize_anomaly_labels(y_val)
+                if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]
+                else y_val
+            )
             val_loss = metric_loss_score(
                 eval_metric,
                 y_processed_predict=val_pred_y,
-                y_processed_true=y_val,
+                y_processed_true=y_val_for_metric,
                 labels=labels,
                 sample_weight=weight_val,
                 groups=groups_val,
@@ -622,10 +650,15 @@ def _eval_estimator(
             # aligned and avoid empty prediction inputs.
             X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
             train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
+            y_train_for_metric = (
+                normalize_anomaly_labels(y_train)
+                if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]
+                else y_train
+            )
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,
-                y_train,
+                y_train_for_metric,
                 labels,
                 fit_kwargs.get("sample_weight"),
                 fit_kwargs.get("groups"),
