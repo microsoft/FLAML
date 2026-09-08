@@ -10,6 +10,8 @@ pip install "flaml[automl,forecast]" matplotlib "setuptools<81"
 
 `hcrystalball` imports `pkg_resources`, which requires `setuptools<81`.
 
+The companion notebook pins FLAML to [commit `bc4bc02`](https://github.com/microsoft/FLAML/commit/bc4bc024eac44a9c5dd6f1ba6dddb6551f7f2653) and prints the installed Git commit to identify the revision used for its saved results.
+
 ### Understanding the `period` Parameter
 
 The `period` parameter (also called **horizon** in the code) specifies the **forecast horizon** - the number of future time steps the model is trained to predict. For example:
