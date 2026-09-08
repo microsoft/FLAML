@@ -46,7 +46,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.5
--e git+https://github.com/microsoft/FLAML@f302b9956be2f9768db05e364228f261d32ace02#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@83350ed3a5993a1945e78513d471dd61e5dccbec#egg=FLAML
 fonttools==4.64.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -60,7 +60,7 @@ greenlet==3.5.5
 h11==0.16.0
 hcrystalball==0.1.12
 hf-xet==1.6.0
-holidays==0.103
+holidays==0.104
 httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.30.0
