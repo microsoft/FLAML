@@ -509,7 +509,7 @@ class AutoML(BaseEstimator):
     @staticmethod
     def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator):
         if resampler is None:
-            return
+            return fit_kwargs, fit_kwargs_by_estimator
         if ensemble:
             raise ValueError(
                 "Cannot combine 'resampler' with 'ensemble' because stacking performs "
@@ -517,7 +517,7 @@ class AutoML(BaseEstimator):
                 "across folds. Disable ensemble or omit resampler."
             )
         metadata_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
-        if any("sample_weight" in kwargs for kwargs in metadata_sources):
+        if any(kwargs.get("sample_weight") is not None for kwargs in metadata_sources):
             raise ValueError(
                 "Cannot combine 'resampler' with 'sample_weight' (including via "
                 "fit_kwargs_by_estimator) — resampling breaks the 1-to-1 row alignment "
@@ -543,6 +543,13 @@ class AutoML(BaseEstimator):
                 "get_params/set_params, e.g. by subclassing sklearn.base.BaseEstimator); "
                 f"cloning failed with: {e}"
             ) from e
+        return (
+            {key: value for key, value in fit_kwargs.items() if key != "sample_weight"},
+            {
+                name: {key: value for key, value in kwargs.items() if key != "sample_weight"}
+                for name, kwargs in (fit_kwargs_by_estimator or {}).items()
+            },
+        )
 
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
@@ -1165,7 +1172,10 @@ class AutoML(BaseEstimator):
         self._state.custom_hp = custom_hp or self._settings.get("custom_hp")
         self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
         self._state.fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
-        self._validate_resampler(resampler, groups, False, fit_kwargs, self._state.fit_kwargs_by_estimator)
+        fit_kwargs, self._state.fit_kwargs_by_estimator = self._validate_resampler(
+            resampler, groups, False, fit_kwargs, self._state.fit_kwargs_by_estimator
+        )
+        self._state.fit_kwargs = fit_kwargs
         task._resampler = resampler
         self.preserve_checkpoint = (
             self._settings.get("preserve_checkpoint") if preserve_checkpoint is None else preserve_checkpoint
@@ -2228,7 +2238,9 @@ class AutoML(BaseEstimator):
                 the resampler is cloned and applied to each cross-validation fold's training
                 partition, the holdout training partition, and final or retrain data.
                 Validation partitions are left at the raw class distribution, and automatic
-                rare-class augmentation is disabled. Not compatible with `sample_weight`,
+                rare-class augmentation is disabled. Automatically generated classification
+                holdout partitions are disjoint; singleton classes raise `ValueError`.
+                Not compatible with non-null `sample_weight`,
                 `groups`, or `ensemble`; passing these combinations raises `ValueError`.
                 Off by default. See issue #1200 for the design discussion and benchmarks.
             **fit_kwargs: Other key word arguments to pass to fit() function of
@@ -2408,7 +2420,9 @@ class AutoML(BaseEstimator):
         self._state.free_mem_ratio = self._settings.get("free_mem_ratio") if free_mem_ratio is None else free_mem_ratio
         self._state.task = task
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
-        self._validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator)
+        fit_kwargs, fit_kwargs_by_estimator = self._validate_resampler(
+            resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator
+        )
         task._resampler = resampler
         self._state.log_training_metric = log_training_metric
 

@@ -364,11 +364,71 @@ def test_retrain_from_log_with_resampler(tmp_path):
         record_id=0,
         n_jobs=1,
         resampler=DuplicateMinorityResampler(),
+        sample_weight=None,
+        fit_kwargs_by_estimator={"lgbm": {"sample_weight": None}},
     )
 
     assert DuplicateMinorityResampler.n_calls == 1
     assert DuplicateMinorityResampler.seen_input_sizes == [len(y)]
     assert DuplicateMinorityResampler.seen_output_sizes[0] > len(y)
+
+
+@pytest.mark.parametrize("split_type", ["uniform", "stratified"])
+@pytest.mark.parametrize("allow_label_overlap", [True, False])
+def test_resampler_holdout_rejects_singleton(split_type, allow_label_overlap):
+    DuplicateMinorityResampler.reset_counters()
+    X = pd.DataFrame({"row_id": np.arange(100)})
+    y = pd.Series([0] * 99 + [1])
+    with pytest.raises(ValueError, match="disjoint holdout partitions"):
+        AutoML().fit(
+            X_train=X,
+            y_train=y,
+            resampler=DuplicateMinorityResampler(),
+            **_fit_settings(eval_method="holdout", split_type=split_type, allow_label_overlap=allow_label_overlap),
+        )
+    assert DuplicateMinorityResampler.n_calls == 0
+
+
+@pytest.mark.parametrize("split_type", ["uniform", "stratified"])
+def test_resampler_holdout_has_disjoint_rows(split_type):
+    X = pd.DataFrame({"row_id": np.arange(100)})
+    y = pd.Series([0] * 98 + [1] * 2)
+    observed = []
+
+    def metric(X_val, y_val, estimator, labels, X_train, y_train, *args):
+        train_ids = set(X_train["row_id"])
+        val_ids = set(X_val["row_id"])
+        assert train_ids.isdisjoint(val_ids)
+        assert train_ids | val_ids == set(X["row_id"])
+        assert set(y_train) == set(y_val) == {0, 1}
+        observed.append(len(y_val))
+        return 0.5, {}
+
+    AutoML().fit(
+        X_train=X,
+        y_train=y,
+        resampler=DuplicateMinorityResampler(),
+        **_fit_settings(eval_method="holdout", split_type=split_type, metric=metric),
+    )
+    assert observed
+
+
+@pytest.mark.parametrize("eval_method", ["cv", "holdout"])
+@pytest.mark.parametrize("source", ["top", "estimator", "constructor"])
+def test_resampler_accepts_null_weights(eval_method, source):
+    X, y = _imbalanced_dataset()
+    settings = {"fit_kwargs_by_estimator": {"lgbm": {"sample_weight": None}}}
+    automl = AutoML(**settings) if source == "constructor" else AutoML()
+    kwargs = {"sample_weight": None} if source == "top" else settings if source == "estimator" else {}
+    automl.fit(
+        X_train=X,
+        y_train=y,
+        resampler=DuplicateMinorityResampler(),
+        **_fit_settings(eval_method=eval_method),
+        **kwargs,
+    )
+    assert automl.model is not None
+    assert settings["fit_kwargs_by_estimator"]["lgbm"] == {"sample_weight": None}
 
 
 def test_resampler_smote_integration():
