@@ -458,7 +458,9 @@ class TimeSeriesTask(Task):
         pred_time /= n
         return val_loss, metric, train_time, pred_time
 
-    def default_estimator_list(self, estimator_list: List[str], is_spark_dataframe: bool) -> List[str]:
+    def default_estimator_list(
+        self, estimator_list: List[str], is_spark_dataframe: bool, is_multi_target: bool = False
+    ) -> List[str]:
         assert not is_spark_dataframe, "Spark is not yet supported for time series"
 
         # TODO: why not do this if/then in the calling function?
