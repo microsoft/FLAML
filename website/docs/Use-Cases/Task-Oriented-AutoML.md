@@ -752,10 +752,10 @@ print(automl.model)
 print(automl.model.estimator)
 """
 LGBMRegressor(colsample_bytree=0.7610534336273627,
-              learning_rate=0.41929025492645006, max_bin=255,
-              min_child_samples=4, n_estimators=45, num_leaves=4,
-              reg_alpha=0.0009765625, reg_lambda=0.009280655005879943,
-              verbose=-1)
+    learning_rate=0.41929025492645006, max_bin=255,
+    min_child_samples=4, n_estimators=45, num_leaves=4,
+    reg_alpha=0.0009765625, reg_lambda=0.009280655005879943,
+    verbose=-1)
 """
 ```
 
