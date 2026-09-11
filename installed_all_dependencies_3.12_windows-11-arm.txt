@@ -27,7 +27,7 @@ convertdate==2.4.1
 coverage==7.16.0
 cryptography==46.0.3
 cycler==0.12.1
-databricks-sdk==0.136.0
+databricks-sdk==0.137.0
 debugpy==1.8.21
 defusedxml==0.7.1
 dill==0.4.1
@@ -36,19 +36,19 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.6
--e git+https://github.com/microsoft/FLAML@bdee85259b1c0a3c6c0b19abb0edef34ceff3218#egg=FLAML
-fonttools==4.64.0
+-e git+https://github.com/microsoft/FLAML@760df3088dc86888a90748559dc4e47a6391751f#egg=FLAML
+fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
 fsspec==2026.7.0
 gitdb==4.0.12
 GitPython==3.1.62
-google-auth==2.57.1
+google-auth==2.58.0
 h11==0.16.0
 hcrystalball==0.1.12
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.30.0
+huggingface_hub==1.31.0
 identify==2.6.19
 idna==3.19
 importlib_metadata==8.9.0
@@ -119,7 +119,7 @@ prometheus_client==0.26.0
 prompt_toolkit==3.0.53
 protobuf==6.33.6
 psutil==7.2.2
-pure_eval==0.2.3
+pure_eval==0.2.4
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.0
@@ -139,7 +139,7 @@ pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
-regex==2026.9.3
+regex==2026.9.10
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
@@ -171,7 +171,7 @@ tokenizers==0.23.2
 tornado==6.5.8
 tqdm==4.70.0
 traitlets==5.16.1
-transformers==5.16.1
+transformers==5.17.0
 typer==0.27.2
 typing-inspection==0.4.4
 typing_extensions==4.16.0
@@ -187,6 +187,6 @@ websocket-client==1.9.2
 wheel==0.48.0
 widgetsnbextension==4.0.16
 workalendar==17.0.0
-wrapt==2.4.0
+wrapt==2.4.1
 xgboost==3.4.1
 zipp==4.1.0
