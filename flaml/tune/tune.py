@@ -209,7 +209,7 @@ def report(_metric=None, **kwargs):
             # calling tune.report() outside tune.run()
             return
     result = kwargs
-    if _metric:
+    if _metric is not None:
         result[DEFAULT_METRIC] = _metric
     trial = getattr(_runner, "running_trial", None)
     if not trial:
