@@ -14,6 +14,10 @@
     <br>
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="README.zh.md">简体中文</a>
+</p>
+
 :fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11+ support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
 
 :fire: Heads-up: [AutoGen](https://microsoft.github.io/autogen/) has moved to a dedicated [GitHub repository](https://github.com/microsoft/autogen). FLAML no longer includes the `autogen` module—please use AutoGen directly.
