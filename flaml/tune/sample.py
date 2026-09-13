@@ -456,14 +456,22 @@ class Quantized(Sampler):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
 
-        if self.q == 1:
+        if self.q == 1 and not isinstance(domain, Integer):
             return self.sampler.sample(domain, spec, size, random_state=random_state)
 
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q
         quantized_domain.upper = np.floor(domain.upper / self.q) * self.q
+        if isinstance(domain, Integer):
+            # The wrapped sampler draws exclusive of its own domain.upper (randint's own
+            # contract), so extend by one step to make the true upper bound reachable;
+            # the clamp below undoes the possible one-step rounding overshoot.
+            true_upper = quantized_domain.upper
+            quantized_domain.upper = true_upper + self.q
         values = self.sampler.sample(quantized_domain, spec, size, random_state=random_state)
         quantized = np.round(np.divide(values, self.q)) * self.q
+        if isinstance(domain, Integer):
+            quantized = np.minimum(quantized, true_upper)
 
         if not isinstance(quantized, np.ndarray):
             return domain.cast(quantized)
