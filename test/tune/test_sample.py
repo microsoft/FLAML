@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 
 from flaml.tune import choice
@@ -79,3 +81,52 @@ def test_randint_stays_exclusive_upper_bound():
     values = _sampled_values(randint(1, 10))
     assert 10 not in values
     assert values <= set(range(1, 10))
+
+
+def test_qrandint_returns_plain_int_scalar_and_batched():
+    # the q=1 default path used to route through float division, turning an integer
+    # domain's samples into np.float64 and losing precision above 2**53.
+    domain = qrandint(0, 6, q=1)
+    scalar = domain.sample(spec=None, random_state=np.random.RandomState(0))
+    assert type(scalar) is int
+
+    batched = domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
+    assert all(type(v) is int for v in batched)
+
+    q_domain = qrandint(0, 20, 5)
+    batched_q = q_domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
+    assert all(type(v) is int for v in batched_q)
+
+
+def test_qrandint_large_bound_keeps_integer_precision():
+    # values above 2**53 cannot round-trip through float64; a grid point must come back
+    # exactly, not off by a rounding error introduced by the sampler.
+    lower, upper, q = 0, 2**60, 2**50
+    rs = np.random.RandomState(0)
+    for _ in range(20):
+        v = qrandint(lower, upper, q).sample(spec=None, random_state=rs)
+        assert lower <= v <= upper
+        assert v % q == 0
+
+
+def test_qrandint_grid_bins_are_uniform_including_top_bin():
+    # the pre-fix implementation extended the raw draw's range by a full q and clamped
+    # the overshoot into the top bin, giving it roughly 1.4x the width of an interior
+    # bin. With 5 equal-width bins (0, 5, 10, 15, 20) over 200000 draws, every bin's
+    # count should sit close to the uniform expectation of 40000.
+    rs = np.random.RandomState(0)
+    n = 200000
+    counts = Counter(qrandint(0, 20, 5).sample(spec=None, random_state=rs) for _ in range(n))
+    assert set(counts) == {0, 5, 10, 15, 20}
+    expected = n / 5
+    for bin_value, count in counts.items():
+        assert abs(count - expected) / expected < 0.05, (bin_value, count, expected)
+
+
+def test_qlograndint_large_bound_keeps_integer_precision():
+    lower, upper, q = 1, 2**60, 2**50
+    rs = np.random.RandomState(0)
+    for _ in range(20):
+        v = qlograndint(lower, upper, q).sample(spec=None, random_state=rs)
+        assert lower <= v <= upper
+        assert v % q == 0

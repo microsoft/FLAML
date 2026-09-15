@@ -459,19 +459,29 @@ class Quantized(Sampler):
         if self.q == 1 and not isinstance(domain, Integer):
             return self.sampler.sample(domain, spec, size, random_state=random_state)
 
+        if isinstance(domain, Integer):
+            # domain.upper is documented inclusive here (qrandint/qlograndint), while every
+            # wrapped Integer sampler draws exclusive of its own domain.upper (randint's own
+            # contract). Rounding a raw draw and clamping the overshoot into the top bin
+            # gives that bin extra width, so instead draw the quantization grid point's
+            # INDEX directly: every point, top one included, is reachable through exactly
+            # one raw index, and the result is a plain int with no float division.
+            lower = int(np.ceil(domain.lower / self.q) * self.q)
+            upper = int(np.floor(domain.upper / self.q) * self.q)
+            num_points = (upper - lower) // self.q + 1
+            index_domain = copy(domain)
+            index_domain.lower = 1
+            index_domain.upper = num_points + 1
+            indices = self.sampler.sample(index_domain, spec, size, random_state=random_state)
+            if size == 1:
+                return domain.cast(lower + (indices - 1) * self.q)
+            return [domain.cast(lower + (i - 1) * self.q) for i in indices]
+
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q
         quantized_domain.upper = np.floor(domain.upper / self.q) * self.q
-        if isinstance(domain, Integer):
-            # The wrapped sampler draws exclusive of its own domain.upper (randint's own
-            # contract), so extend by one step to make the true upper bound reachable;
-            # the clamp below undoes the possible one-step rounding overshoot.
-            true_upper = quantized_domain.upper
-            quantized_domain.upper = true_upper + self.q
         values = self.sampler.sample(quantized_domain, spec, size, random_state=random_state)
         quantized = np.round(np.divide(values, self.q)) * self.q
-        if isinstance(domain, Integer):
-            quantized = np.minimum(quantized, true_upper)
 
         if not isinstance(quantized, np.ndarray):
             return domain.cast(quantized)
