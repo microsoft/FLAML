@@ -627,6 +627,8 @@ class MLflowIntegration:
                 return False
 
     def _log_pipeline(self, pipeline, flavor_name, pipeline_name, signature, run_id, estimator=None):
+        if not self._do_log_model:
+            return
         logger.debug(f"logging pipeline {flavor_name}:{pipeline_name}:{estimator}")
         ret_message = f"Successfully _log_pipeline {flavor_name}:{pipeline_name}:{estimator} to run_id {run_id}"
         optional_remove_list = (
@@ -671,6 +673,8 @@ class MLflowIntegration:
         """log automl artifacts to mlflow
         load back with `automl = mlflow.pyfunc.load_model(model_run_id_or_uri)`, then do prediction with `automl.predict(X)`
         """
+        if not self._do_log_model:
+            return
         logger.debug(f"logging automl estimator {estimator}")
         # self._pickle_and_log_artifact(
         #     automl.feature_transformer, "feature_transformer", "feature_transformer.pkl", run_id

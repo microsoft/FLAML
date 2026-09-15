@@ -68,3 +68,5 @@ enable AutoFE (`"auto"` or `"force"`) to obtain an `automl_pipeline`.
 Registration logs the current fitted
 pipeline and registers those exact artifacts, even when model history is disabled.
 AutoML restores both global and flavor-specific autologging settings after fitting.
+An autologging `log_models=False` setting suppresses automatic model and pipeline
+artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.

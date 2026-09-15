@@ -279,6 +279,31 @@ def test_registration_uses_the_current_pipeline_artifact(local_mlflow, monkeypat
     assert result is version
 
 
+@pytest.mark.parametrize("flavor", ["sklearn", "spark"])
+def test_automatic_pipeline_logging_respects_model_optout(monkeypatch, flavor):
+    module = importlib.import_module("flaml.fabric.mlflow")
+    integration = module.MLflowIntegration.__new__(module.MLflowIntegration)
+    integration._do_log_model = False
+    integration.resume_params = {}
+    no_logging = Mock(side_effect=AssertionError("model logging is disabled"))
+    monkeypatch.setattr(module.mlflow, "active_run", no_logging)
+    assert integration._log_pipeline(object(), flavor, "model", None, "parent", "rf") is None
+    no_logging.assert_not_called()
+
+
+def test_automl_artifact_logging_respects_model_optout(monkeypatch):
+    module = importlib.import_module("flaml.fabric.mlflow")
+    integration = module.MLflowIntegration.__new__(module.MLflowIntegration)
+    integration._do_log_model = False
+    integration.resume_params = {}
+    no_logging = Mock(side_effect=AssertionError("model logging is disabled"))
+    monkeypatch.setattr(integration, "_log_pipeline", no_logging)
+    automl = SimpleNamespace(feature_transformer=None)
+    model = SimpleNamespace(autofe=None)
+    assert integration.pickle_and_log_automl_artifacts(automl, model, "rf", run_id="parent") is None
+    no_logging.assert_not_called()
+
+
 def test_flavor_autolog_and_registered_pipeline_roundtrip(public_environment, tmp_path):
     pytest.importorskip("mlflow")
     code = textwrap.dedent(
@@ -296,8 +321,17 @@ def test_flavor_autolog_and_registered_pipeline_roundtrip(public_environment, tm
         before = AUTOLOGGING_INTEGRATIONS["sklearn"].copy()
         X = pd.DataFrame(np.random.RandomState(42).normal(size=(60, 3)), columns=["a", "b", "c"])
         y = (X["a"] > 0).astype(int)
-        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, featurization="force")
-        automl.fit(X, y)
+        starting_points = {"rf": {
+            "n_estimators": 4, "max_features": 0.6, "max_leaves": 4,
+            "fe.selection": "cardinality", "fe.categorical": "ordinal", "fe.extraction": "LDA",
+        }}
+        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0,
+                       featurization="force", starting_points=starting_points)
+        with mlflow.start_run() as parent:
+            automl.fit(X, y)
+            client = mlflow.tracking.MlflowClient()
+            for run_id in [parent.info.run_id, *automl.mlflow_integration.manual_run_ids]:
+                assert all(artifact.path != "model" for artifact in client.list_artifacts(run_id))
         assert AUTOLOGGING_INTEGRATIONS["sklearn"] == before
         assert "mlflow" not in AUTOLOGGING_INTEGRATIONS
         assert not automl._state.model_history
@@ -308,7 +342,7 @@ def test_flavor_autolog_and_registered_pipeline_roundtrip(public_environment, tm
             np.testing.assert_array_equal(restored.predict(X), automl.automl_pipeline.predict(X))
         mlflow.sklearn.autolog(disable=True)
         plain = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0,
-                       mlflow_logging=False, featurization="force")
+                       mlflow_logging=False, featurization="force", starting_points=starting_points)
         plain.fit(X, y)
         assert not hasattr(plain, "pipeline_signature")
         with mlflow.start_run():
