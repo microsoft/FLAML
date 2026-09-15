@@ -85,17 +85,22 @@ def test_randint_stays_exclusive_upper_bound():
 
 def test_qrandint_returns_plain_int_scalar_and_batched():
     # the q=1 default path used to route through float division, turning an integer
-    # domain's samples into np.float64 and losing precision above 2**53.
+    # domain's samples into np.float64 and losing precision above 2**53. A batched draw
+    # historically came back as an integer ndarray (not a Python list of ints), so check
+    # the container and dtype, not just each element's Python-level type.
     domain = qrandint(0, 6, q=1)
     scalar = domain.sample(spec=None, random_state=np.random.RandomState(0))
     assert type(scalar) is int
 
     batched = domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
-    assert all(type(v) is int for v in batched)
+    assert isinstance(batched, np.ndarray)
+    assert np.issubdtype(batched.dtype, np.integer)
 
     q_domain = qrandint(0, 20, 5)
     batched_q = q_domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
-    assert all(type(v) is int for v in batched_q)
+    assert isinstance(batched_q, np.ndarray)
+    assert np.issubdtype(batched_q.dtype, np.integer)
+    assert all(v % 5 == 0 for v in batched_q)
 
 
 def test_qrandint_large_bound_keeps_integer_precision():
@@ -107,6 +112,22 @@ def test_qrandint_large_bound_keeps_integer_precision():
         v = qrandint(lower, upper, q).sample(spec=None, random_state=rs)
         assert lower <= v <= upper
         assert v % q == 0
+
+
+def test_qrandint_large_nonzero_lower_bound_batched():
+    # a nonzero lower bound above 2**53 used to reach `domain.lower / self.q` as a float
+    # division, which can drop precision and land a scalar sample below the requested
+    # lower bound, or overflow a narrower int dtype (e.g. int32 on Windows) once the batch
+    # path multiplies the sampled index back up by q.
+    lower, upper, q = 2**55, 2**55 + 2**50 * 8, 2**50
+    rs = np.random.RandomState(0)
+    batched = qrandint(lower, upper, q).sample(spec=None, size=50, random_state=rs)
+    assert isinstance(batched, np.ndarray)
+    assert np.issubdtype(batched.dtype, np.integer)
+    for v in batched:
+        v = int(v)
+        assert lower <= v <= upper, v
+        assert (v - lower) % q == 0, v
 
 
 def test_qrandint_grid_bins_are_uniform_including_top_bin():
@@ -130,3 +151,21 @@ def test_qlograndint_large_bound_keeps_integer_precision():
         v = qlograndint(lower, upper, q).sample(spec=None, random_state=rs)
         assert lower <= v <= upper
         assert v % q == 0
+
+
+def test_qlograndint_stays_log_uniform_when_lower_much_greater_than_q():
+    # qlograndint(1000, 1010, 1) must sample log-uniformly over the actual grid
+    # {1000, 1001, ..., 1010}, not over an index rebased to start at 1: LogUniform is
+    # scale-invariant under multiplication (X ~ LogUniform(a, b) => qX ~ LogUniform(qa,
+    # qb)) but not under an arbitrary additive shift. The pre-fix rebase-to-1
+    # implementation instead sampled log-uniformly over the unrelated index range
+    # {1..11}, which for this domain has an expected value around 1003.4 instead of the
+    # analytic LogUniform(1000, 1010) mean below; the gap (~1.6) is over 200 standard
+    # errors of the mean at this sample size, so this is not a flaky comparison.
+    lower, upper, q = 1000, 1010, 1
+    rs = np.random.RandomState(0)
+    n = 200000
+    samples = [qlograndint(lower, upper, q).sample(spec=None, random_state=rs) for _ in range(n)]
+    empirical_mean = sum(samples) / n
+    analytic_mean = (upper - lower) / np.log(upper / lower)
+    assert abs(empirical_mean - analytic_mean) < 0.1, (empirical_mean, analytic_mean)

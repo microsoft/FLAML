@@ -462,20 +462,26 @@ class Quantized(Sampler):
         if isinstance(domain, Integer):
             # domain.upper is documented inclusive here (qrandint/qlograndint), while every
             # wrapped Integer sampler draws exclusive of its own domain.upper (randint's own
-            # contract). Rounding a raw draw and clamping the overshoot into the top bin
-            # gives that bin extra width, so instead draw the quantization grid point's
-            # INDEX directly: every point, top one included, is reachable through exactly
-            # one raw index, and the result is a plain int with no float division.
-            lower = int(np.ceil(domain.lower / self.q) * self.q)
-            upper = int(np.floor(domain.upper / self.q) * self.q)
-            num_points = (upper - lower) // self.q + 1
+            # contract). Sample the grid point's own index (value // q), not an index
+            # rebased to start at 1: LogUniform is scale-invariant under multiplication
+            # (X ~ LogUniform(a, b) implies qX ~ LogUniform(qa, qb)) but not under an
+            # arbitrary additive shift, so rebasing to 1 turned qlograndint's draw into a
+            # shifted, differently-shaped distribution whenever lower > q. Every point, top
+            # one included, is still reachable through exactly one index. Integer
+            # arithmetic throughout (no `/`) avoids the float-division precision loss that
+            # bit scalar and batched sampling above 2**53.
+            q = int(self.q)
+            lower_idx = -(-int(domain.lower) // q)  # ceiling division
+            upper_idx = int(domain.upper) // q  # floor division
             index_domain = copy(domain)
-            index_domain.lower = 1
-            index_domain.upper = num_points + 1
+            index_domain.lower = lower_idx
+            index_domain.upper = upper_idx + 1
             indices = self.sampler.sample(index_domain, spec, size, random_state=random_state)
             if size == 1:
-                return domain.cast(lower + (indices - 1) * self.q)
-            return [domain.cast(lower + (i - 1) * self.q) for i in indices]
+                return domain.cast(int(indices) * q)
+            # Historically size > 1 returned an integer ndarray; keep that container and
+            # dtype instead of a Python list of per-element domain.cast() calls.
+            return np.asarray(indices, dtype=np.int64) * q
 
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q
