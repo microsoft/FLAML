@@ -366,39 +366,7 @@ def compute_estimator(
 
     autofe = None
     if Featurization is not None and fe_params:
-        import pandas as pd
-
         autofe = Featurization(params=fe_params, task=task)
-
-        if y_val is None:
-            all_y = y_train
-        elif isinstance(y_train, pd.Series):
-            all_y = pd.concat([y_train, y_val])
-        elif isinstance(y_train, np.ndarray):
-            all_y = np.concatenate([y_train, y_val])
-        else:
-            raise ValueError(
-                f"Not supported type for y_train: {type(y_train)}, Currently supported types are: pandas.Series, numpy.ndarray"
-            )
-
-        if X_val is None:
-            all_X = X_train
-        elif isinstance(X_train, pd.DataFrame):
-            dtypes = X_train.dtypes
-            all_X = pd.concat([X_train, X_val])
-            all_X = all_X.astype(dtypes)
-        elif isinstance(X_train, np.ndarray):
-            all_X = np.concatenate([X_train, X_val])
-        elif isinstance(X_train, TimeSeriesDataset):
-            all_X = X_val
-        else:
-            raise ValueError(
-                f"Not supported type for X_train: {type(X_train)}, Currently supported types are: pandas.DataFrame, numpy.ndarray"
-            )
-
-        autofe.fit(all_X, all_y)
-        X_train = autofe.transform(X_train)
-        X_val = autofe.transform(X_val)
 
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
@@ -431,7 +399,7 @@ def compute_estimator(
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
-            free_mem_ratio=0,
+            free_mem_ratio=free_mem_ratio,
         )
     else:
         val_loss, metric_for_logging, train_time, pred_time = task.evaluate_model_CV(
@@ -446,7 +414,7 @@ def compute_estimator(
             cv_score_agg_func,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
-            free_mem_ratio=0,
+            free_mem_ratio=free_mem_ratio,
         )
 
     if isinstance(estimator, TransformersEstimator):
@@ -571,6 +539,11 @@ def get_val_loss(
     free_mem_ratio=0,
 ):
     start = time.time()
+    autofe = getattr(estimator, "autofe", None)
+    if autofe is not None:
+        # This runs separately for each CV fold as well as for a holdout split.
+        X_train = autofe.fit_transform(X_train, y_train)
+        X_val = autofe.transform(X_val)
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val

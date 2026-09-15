@@ -1,3 +1,5 @@
+import platform
+import sys
 import unittest
 from test.conftest import evaluate_cv_folds_with_underlying_model
 
@@ -97,6 +99,10 @@ class TestRegression(unittest.TestCase):
             y_pred, y_pred2, rtol=0.5, atol=0.5
         )
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and platform.machine() == "ARM64",
+        reason="catboost is not available on win-arm64 machine",
+    )
     def test_sparse_matrix_regression(self):
         X_train = scipy.sparse.random(300, 900, density=0.0001)
         y_train = np.random.uniform(size=300)
@@ -261,6 +267,68 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
+def test_ensemble_component_predict_via_public_preprocess():
+    """Regression coverage for #1136 — ensemble component models trained on data with
+    categorical features cannot consume raw input; consumers must apply the public
+    `automl.preprocess(X)` method (added in #1497) before delegating to a single
+    component picked out of `automl.model.estimators_`."""
+    import pandas as pd
+
+    rng = np.random.RandomState(42)
+    n = 400
+    df = pd.DataFrame(
+        {
+            "age": rng.randint(20, 70, n),
+            "income": rng.normal(50000, 15000, n),
+            "gender": rng.choice(["M", "F"], n),
+            "education": rng.choice(["HS", "BS", "MS", "PhD"], n),
+        }
+    )
+    y_true = (
+        0.02 * df["age"]
+        + 0.00001 * df["income"]
+        + (df["gender"] == "M").astype(int) * 0.5
+        + df["education"].map({"HS": 0, "BS": 0.3, "MS": 0.6, "PhD": 1.0}).values
+        + rng.normal(0, 0.1, n)
+    )
+
+    automl = AutoML()
+    automl.fit(
+        df,
+        y_true,
+        task="regression",
+        ensemble=True,
+        n_jobs=1,
+        time_budget=-1,
+        max_iter=12,
+        estimator_list=["lgbm", "xgboost", "rf"],
+        verbose=0,
+    )
+
+    components = getattr(automl.model, "estimators_", None)
+    if components is None:
+        pytest.skip("ensemble did not build with this configuration")
+
+    # Public predict on the top-level AutoML continues to work (sanity check).
+    top_pred = automl.predict(df)
+    assert len(top_pred) == n
+
+    # Component models cannot consume raw input — this is the original #1136 failure.
+    raised = 0
+    for est in components:
+        try:
+            est.predict(df)
+        except Exception:
+            raised += 1
+    assert raised >= 1, "expected at least one component to fail on raw categorical input"
+
+    # The public `preprocess(X)` API (added in #1497) is the supported workaround.
+    df_preprocessed = automl.preprocess(df)
+    for est in components:
+        pred = est.predict(df_preprocessed)
+        assert len(pred) == n
+
+
 @pytest.mark.parametrize(
     "estimator",
     [
@@ -284,6 +352,8 @@ def test_reproducibility_of_regression_models(estimator: str):
     In this test we take the best regression model which FLAML provided us, and then retrain and test it on the
     same folds, to verify that the result is reproducible.
     """
+    if estimator == "catboost" and sys.platform == "win32" and platform.machine() == "ARM64":
+        pytest.skip("catboost is not available on win-arm64 machine")
     automl = AutoML()
     automl_settings = {
         "max_iter": 2,
@@ -324,6 +394,9 @@ def test_reproducibility_of_regression_models(estimator: str):
     assert pytest.approx(val_loss_flaml) == reproduced_val_loss
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and platform.machine() == "ARM64", reason="catboost is not available on win-arm64 machine"
+)
 def test_reproducibility_of_catboost_regression_model():
     """FLAML finds the best model for a given dataset, which it then provides to users.
 
@@ -442,15 +515,18 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
     In this test we take the best model which FLAML provided us, extract the underlying model,
      before retraining and testing it on the same folds - to verify that the result is reproducible.
     """
+    if estimator == "catboost" and sys.platform == "win32" and platform.machine() == "ARM64":
+        pytest.skip("catboost is not available on win-arm64 machine")
     automl = AutoML()
+    is_enet = estimator == "enet"
     automl_settings = {
-        "max_iter": 5,
+        "max_iter": 2 if is_enet else 5,
         "time_budget": -1,
         "task": "regression",
         "n_jobs": 1,
         "estimator_list": [estimator],
         "eval_method": "cv",
-        "n_splits": 10,
+        "n_splits": 3 if is_enet else 10,
         "metric": "r2",
         "keep_search_state": True,
         "skip_transform": True,

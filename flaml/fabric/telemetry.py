@@ -5,10 +5,14 @@ from flaml.automl.logger import logger_formatter
 from flaml.fabric import is_fabric_runtime
 from flaml.version import __version__
 
-try:
-    from synapse.ml.fabric.telemetry_utils import report_usage_telemetry
-except ImportError:
-    report_usage_telemetry = None
+report_usage_telemetry = None
+if is_fabric_runtime():
+    try:
+        from synapse.ml.fabric.telemetry_utils import report_usage_telemetry
+    except ModuleNotFoundError as exc:
+        if exc.name is not None and exc.name.split(".")[0] != "synapse":
+            raise
+        logging.getLogger(__name__).debug("Fabric telemetry is unavailable: %s", exc)
 
 
 logger = logging.getLogger(__name__)
@@ -27,5 +31,4 @@ def log_telemetry(activity_name: str = ""):
             attributes={"version": __version__, "ImportType": "EXPLICIT_IMPORTED_BY_USER"},
         )
     else:
-        # For unit test and robustness
-        logger.info(f"log_telemetry: {activity_name}")
+        logger.debug("Fabric telemetry unavailable for %s", activity_name)

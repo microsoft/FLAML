@@ -1,3 +1,4 @@
+import platform
 import sys
 
 import pytest
@@ -13,7 +14,10 @@ except ImportError:
 
 
 @pytest.mark.skipif(
-    sys.platform == "darwin" or not _transformers_installed, reason="do not run on mac os or transformers not installed"
+    sys.platform == "darwin"
+    or not _transformers_installed
+    or (sys.platform == "win32" and platform.machine() == "ARM64"),
+    reason="do not run on mac os, transformers not installed, or win-arm64 machine (datasets not available)",
 )
 def test_custom_hp_nlp():
     from test.nlp.utils import get_automl_settings, get_toy_data_seqclassification

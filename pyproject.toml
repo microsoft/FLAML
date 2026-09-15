@@ -46,8 +46,8 @@ spark = [
     "joblib<=1.3.2",
 ]
 test = [
-    "numpy>=1.17,<2.0.0; python_version<'3.13'",
-    "numpy>=1.17; python_version>='3.13'",
+    "numpy>=1.17,<2.0.0; python_version<'3.13' and (sys_platform!='win32' or platform_machine!='ARM64')",
+    "numpy>=1.17; python_version>='3.13' or (sys_platform=='win32' and platform_machine=='ARM64')",
     "jupyter",
     "lightgbm>=2.3.1",
     "xgboost>=0.90,<2.0.0; python_version<'3.11'",
@@ -55,35 +55,39 @@ test = [
     "scipy>=1.4.1",
     "pandas>=1.1.4",
     "scikit-learn>=1.2.0",
-    "thop",
+    "thop; sys_platform!='win32' or platform_machine!='ARM64'",
     "pytest>=6.1.1",
     "pytest-rerunfailures>=13.0",
     "pytest-xdist>=3.0.0",
+    "pytest-asyncio; sys_platform=='win32' and platform_machine=='ARM64'",
     "coverage>=5.3",
     "pre-commit",
-    "torch",
-    "torchvision",
-    "catboost>=0.26",
+    "torch; sys_platform!='win32' or platform_machine!='ARM64'",
+    "torchvision; sys_platform!='win32' or platform_machine!='ARM64'",
+    "catboost>=0.26; sys_platform!='win32' or platform_machine!='ARM64'",
     "rgf-python",
     "optuna>=2.8.0,<=3.6.1",
-    "openml",
+    "openml; sys_platform!='win32' or platform_machine!='ARM64'",
     "statsmodels>=0.12.2",
     "psutil",
-    "transformers[torch]",
-    "datasets",
-    "evaluate",
+    "plotly>=5.16.1",
+    "transformers[torch]; sys_platform!='win32' or platform_machine!='ARM64'",
+    "transformers; sys_platform=='win32' and platform_machine=='ARM64'",
+    "datasets; sys_platform!='win32' or platform_machine!='ARM64'",
+    "evaluate; sys_platform!='win32' or platform_machine!='ARM64'",
     "nltk!=3.8.2",
     "rouge_score",
     "hcrystalball",
     "seqeval",
-    "pytorch-forecasting",
+    "pytorch-forecasting; sys_platform!='win32' or platform_machine!='ARM64'",
+    "cryptography==46.0.3; sys_platform=='win32' and platform_machine=='ARM64'",
     "mlflow-skinny<=2.22.1",
     "joblibspark>=0.5.0",
     "joblib<=1.3.2",
     "nbconvert",
     "nbformat",
     "ipykernel",
-    "pytorch-lightning",
+    "pytorch-lightning; sys_platform!='win32' or platform_machine!='ARM64'",
     "tensorboardX",
     "requests",
     "packaging",
@@ -145,7 +149,8 @@ benchmark = [
     "pandas==1.1.4",
 ]
 synapse = [
-    "jupyter",
+    "ipython",
+    "nbformat>=4.2.0",
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
     "scipy>=1.4.1",
@@ -163,7 +168,8 @@ synapse = [
     "mlflow-skinny",
     "joblibspark==0.5.2; python_version<'3.12'",
     "joblibspark>=0.6.0; python_version>='3.12'",
-    "joblib<=1.3.2",
+    "joblib<=1.3.2; python_version<'3.13'",
+    "joblib<=1.4.2; python_version>='3.13'",
     "prophet>=1.1.5; python_version>='3.11'",
     "hcrystalball==0.1.10",
     "vowpalwabbit>=8.10.0, <9.0.0; python_version<'3.10'",
@@ -171,7 +177,6 @@ synapse = [
     "rgf-python==3.12.0",
     "nni; python_version<'3.12'",
     "tensorboardX>=2.6.1; python_version<'3.12'",
-    "rouge_score",
 ]
 autozero = [
     "scikit-learn",
@@ -182,7 +187,9 @@ autofe = [
     "scikit-learn>=1.3.0",
 ]
 fabric_python = [
-    "jupyter",
+    "ipython",
+    "nbformat>=4.2.0",
+    "mlflow-skinny",
     "lightgbm>=2.3.1",
     "xgboost>=0.90",
     "scipy>=1.4.1",
@@ -202,7 +209,6 @@ fabric_python = [
     "thop; python_version<'3.12'",
     "rgf-python==3.12.0",
     "nni; python_version<'3.12'",
-    "rouge_score",
 ]
 
 [tool.setuptools.dynamic]
@@ -216,7 +222,7 @@ include = ["flaml*"]
 flaml = ["py.typed"]
 
 [tool.pytest.ini_options]
-addopts = '--junitxml=junit/test-results.xml --cov=. --cov-append --cov-branch --cov-report=xml -m "not conda"'
+addopts = '-m "not conda"'
 markers = ["conda: test related to conda forge distribution"]
 
 

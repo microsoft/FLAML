@@ -15,8 +15,6 @@ except ImportError:  # pragma: no cover
 
 
 def pytest_configure(config):
-    os.environ["FLAML_FEATURIZATION"] = os.environ.get("FLAML_FEATURIZATION", "auto")
-
     # Isolate MLflow tracking per xdist worker (and per process) so that
     # parallel workers don't race on writes to the same ``mlruns/<exp>/<run>/meta.yaml``
     # file. Concurrent writers can leave the file half-written, which then

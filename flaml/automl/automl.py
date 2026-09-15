@@ -39,6 +39,7 @@ from flaml.config import (
     SPLIT_RATIO,
 )
 from flaml.default import suggest_learner
+from flaml.fabric import is_fabric_runtime
 from flaml.tune.spark.utils import check_spark, get_broadcast_data
 from flaml.version import __version__ as flaml_version
 
@@ -212,7 +213,8 @@ class AutoML(BaseEstimator):
                 - 'all': Logs all configs and models (if `model_history` is True), regardless of performance.
                 Note: Configs are always logged to MLflow if MLflow logging is enabled.
             model_history: A boolean of whether to keep the best
-                model per estimator. Make sure memory is large enough if setting to True. Default True.
+                model per estimator. Defaults to False outside Fabric and True in Fabric.
+                An explicit value overrides the runtime default. Make sure memory is large enough if True.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
@@ -298,10 +300,10 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            featurization: str or dict, default="off" | Apply tunable feature engineering to the input data.
+            featurization: str, default="off" | Apply tunable feature engineering to the input data.
                 Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
                 Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
-                Set "off" to disable featurization.
+                Set "off" to disable featurization. An explicit value overrides FLAML_FEATURIZATION.
                 Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
@@ -463,7 +465,7 @@ class AutoML(BaseEstimator):
         settings["sample"] = settings.get("sample", True)
         settings["ensemble"] = settings.get("ensemble", False)
         settings["log_type"] = settings.get("log_type", "better")
-        settings["model_history"] = settings.get("model_history", True)
+        settings["model_history"] = settings.get("model_history", is_fabric_runtime())
         settings["log_training_metric"] = settings.get("log_training_metric", False)
         settings["mem_thres"] = settings.get("mem_thres", MEM_THRES)
         settings["pred_time_limit"] = settings.get("pred_time_limit", np.inf)
@@ -979,6 +981,14 @@ class AutoML(BaseEstimator):
 
             # Apply task-level preprocessing to new data
             X_test_preprocessed = automl.preprocess(X_test)
+
+            # Required when calling a single ensemble component directly, since
+            # `automl.model.estimators_[i]` was fitted on already-preprocessed
+            # data and cannot consume raw input (see issue #1136):
+            automl_ensemble = AutoML()
+            automl_ensemble.fit(X_train, y_train, task="classification", ensemble=True)
+            X_test_preprocessed = automl_ensemble.preprocess(X_test)
+            component_pred = automl_ensemble.model.estimators_[0].predict(X_test_preprocessed)
             ```
         """
         if not hasattr(self, "_state") or self._state is None:
@@ -2031,8 +2041,8 @@ class AutoML(BaseEstimator):
                 'all' logs all the tried configs.
             model_history: A boolean of whether to keep the trained best
                 model per estimator. Make sure memory is large enough if setting to True.
-                Default value is True. If False, best_model_for_estimator would return a
-                untrained model for non-best learner.
+                Defaults to the constructor setting (False outside Fabric, True in Fabric).
+                If False, best_model_for_estimator returns an untrained model for a non-best learner.
             log_training_metric: A boolean of whether to log the training
                 metric for each model.
             mem_thres: A float of the memory size constraint in bytes.
@@ -2127,10 +2137,10 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            featurization: str or dict, default="off" | Apply tunable feature engineering to the input data.
+            featurization: str, default="off" | Apply tunable feature engineering to the input data.
                 Set "auto" to let FLAML automatically tune the feature engineering pipeline, `null` is in the option lists.
                 Set "force" to forcely specify a feature engineering method for each stage, `null` is not an option.
-                Set "off" to disable featurization.
+                Set "off" to disable featurization. An explicit value overrides FLAML_FEATURIZATION.
                 Will support a custom config dict in the future.
             append_log: boolean, default=False | Whetehr to directly append the log
                 records to the input log file if it exists.
@@ -2374,7 +2384,7 @@ class AutoML(BaseEstimator):
             logger.addHandler(_ch)
         if model_history:
             logger.warning(
-                "With `model_history` set to `True` by default, all intermediate models are retained in memory, "
+                "With `model_history=True`, intermediate models are retained in memory, "
                 "which may significantly increase memory usage and slow down training. "
                 "Consider setting `model_history=False` to optimize memory and accelerate the training process."
             )
@@ -2458,13 +2468,11 @@ class AutoML(BaseEstimator):
             "extra_tag.sid": f"flaml_{flaml_version}_{int(time.time())}_{random.randint(1001, 9999)}"
         }
         if internal_mlflow and self._mlflow_logging:
-            try:
+            logging_active = mlflow.active_run() is not None or is_autolog_enabled()
+            if is_fabric_runtime() or logging_active:
                 self.mlflow_integration = MLflowIntegration("automl", mlflow_exp_name, extra_tag=self.autolog_extra_tag)
                 self._mlflow_exp_name = self.mlflow_integration.experiment_name
-                if not (mlflow.active_run() is not None or is_autolog_enabled()):
-                    self.mlflow_integration.only_history = True
-            except KeyError:
-                logger.info("Not in Fabric, Skipped")
+                self.mlflow_integration.only_history = not logging_active
         task.validate_data(
             self,
             self._state,

@@ -11,6 +11,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - 'pyproject.toml'
       - 'setup.py'
   pull_request:
     branches: ['main']
@@ -19,6 +20,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - 'pyproject.toml'
       - 'setup.py'
   merge_group:
     types: [checks_requested]
@@ -34,26 +36,68 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  public-install:
+    name: Public install (${{ matrix.os }}, ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.13"]
+    env:
+      FLAML_FABRIC_RUNTIME: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test installed core and AutoML without Fabric dependencies
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import venv
+          from pathlib import Path
+
+          checkout = Path.cwd()
+          environment = Path(os.environ["RUNNER_TEMP"]) / "flaml-public-install"
+          venv.create(environment, with_pip=True)
+          python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+          smoke_test = checkout / "test" / "check_public_install.py"
+          for extra in ("", "[automl]"):
+              subprocess.run(
+                  [str(python), "-m", "pip", "install", str(checkout) + extra],
+                  check=True, cwd=environment,
+              )
+              subprocess.run(
+                  [str(python), str(smoke_test)] + (["--automl"] if extra else []),
+                  check=True, cwd=environment,
+              )
+
   build:
 
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, windows-11-arm]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         test-type: [notspark, spark]
         exclude:
           # OSS CI does not install pyspark on Windows runners.
           - os: windows-latest
             test-type: spark
+          - os: windows-11-arm
+            test-type: spark
           # OSS CI does not install pyspark on Python 3.10.
           - python-version: "3.10"
             test-type: spark
+          - os: windows-11-arm
+            python-version: "3.10"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: On mac, install libomp to facilitate lgbm and xgboost install
@@ -199,11 +243,10 @@ jobs:
             echo "No coverage shards produced; skipping combine."
             exit 0
           fi
-          coverage combine || true
-          ls -la .coverage* || true
+          coverage combine
       - name: Upload coverage data artifact
         if: always() && matrix.os == 'ubuntu-latest' && hashFiles('.coverage') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-data-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.test-type }}
           path: .coverage
@@ -242,14 +285,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
       - name: Install coverage
         run: pip install coverage
       - name: Download all coverage data artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: coverage_artifacts
           pattern: coverage-data-*
@@ -275,7 +318,7 @@ jobs:
           coverage report -m || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           # Use the repository upload token from Codecov's settings page
           # (added as the CODECOV_TOKEN repo secret). This is what reliably
@@ -299,8 +342,8 @@ jobs:
       # "passed"/"failed"/"skipped" counts, so the action would
       # otherwise refuse the file with "bad format or wrong data".
       - name: Post coverage comment to PR
-        if: hashFiles('coverage.xml') != '' && github.event_name == 'pull_request'
-        uses: MishaKav/pytest-coverage-comment@main
+        if: hashFiles('coverage.xml') != '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: MishaKav/pytest-coverage-comment@637da55541a2c0e160cbe17c914b92c6a7a3ee67
         with:
           pytest-xml-coverage-path: ./coverage.xml
           title: Coverage Report

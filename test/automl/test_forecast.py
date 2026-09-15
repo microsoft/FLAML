@@ -125,6 +125,38 @@ def test_models(budget=3):
         automl.predict(X[144:])
 
 
+def test_simple_forecaster_sets_initialization_method(monkeypatch):
+    from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+    initialization_methods = []
+
+    def simple_exp_smoothing(*args, **kwargs):
+        initialization_methods.append(kwargs.get("initialization_method"))
+        return SimpleExpSmoothing(*args, **kwargs)
+
+    monkeypatch.setattr("statsmodels.tsa.holtwinters.SimpleExpSmoothing", simple_exp_smoothing)
+
+    data = pd.DataFrame(
+        {
+            "ds": pd.date_range("2024-01-01", periods=30, freq="D"),
+            "y": np.linspace(10.0, 20.0, 30),
+        }
+    )
+    automl = AutoML()
+    automl.fit(
+        dataframe=data,
+        label="y",
+        task="ts_forecast",
+        estimator_list=["naive"],
+        period=3,
+        max_iter=1,
+        verbose=0,
+    )
+
+    assert initialization_methods
+    assert set(initialization_methods) == {"estimated"}
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))
@@ -186,13 +218,11 @@ def load_multi_dataset():
         "https://raw.githubusercontent.com/srivatsan88/YouTubeLI/master/dataset/nyc_energy_consumption.csv"
     )
     # preprocessing data
-    df["timeStamp"] = pd.to_datetime(df["timeStamp"])
-    df = df.set_index("timeStamp")
-    df = df.resample("D").mean()
+    df["timeStamp"] = pd.to_datetime(df["timeStamp"]).dt.floor("D")
+    df = df.groupby("timeStamp", as_index=False).mean(numeric_only=True)
     df["temp"] = df["temp"].ffill()
     df["precip"] = df["precip"].ffill()
     df = df[:-2]  # last two rows are NaN for 'demand' column so remove them
-    df = df.reset_index()
 
     return df
 

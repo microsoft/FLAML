@@ -316,34 +316,17 @@ def test_searchers():
     assert len(analysis.trials) == 5
 
 
-def test_no_optuna(monkeypatch):
-    import importlib
+def test_no_optuna():
+    import subprocess
     import sys
 
-    # Simulate optuna being unavailable without mutating the global
-    # conda env (the old ``pip uninstall`` approach raced with other
-    # workers under xdist parallelism: a parallel test emitting an
-    # optuna warning would crash the xdist controller while optuna
-    # was uninstalled).  Set ``sys.modules['optuna'] = None`` so
-    # ``import optuna`` raises ``ImportError`` for the duration of
-    # this test, then reload the FLAML module under test.
-    for mod in [m for m in sys.modules if m == "optuna" or m.startswith("optuna.")]:
-        monkeypatch.delitem(sys.modules, mod, raising=False)
-    monkeypatch.setitem(sys.modules, "optuna", None)
-
-    import flaml.tune.searcher.suggestion as _sug
-
-    try:
-        importlib.reload(_sug)
-    finally:
-        # Reloading ``suggestion`` with ``optuna`` patched out leaves its
-        # module-level ``ot`` binding set to ``None``.  ``monkeypatch.undo()``
-        # restores ``sys.modules`` but does NOT re-evaluate ``_sug``'s globals,
-        # so without an explicit reload-back every subsequent test on the same
-        # xdist worker that uses BlendSearch / OptunaSearch trips
-        # ``assert ot is not None, "Optuna must be installed!"``.
-        monkeypatch.undo()
-        importlib.reload(_sug)
+    code = """
+import sys
+sys.modules["optuna"] = None
+import flaml.tune.searcher.suggestion as suggestion
+assert suggestion.ot is None
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_unresolved_search_space(caplog):
@@ -363,6 +346,28 @@ def test_unresolved_search_space(caplog):
     assert (
         "unresolved search space" not in text and text
     ), "BlendSearch should not produce warning about unresolved search space"
+
+
+def test_flow2_reach_mixed_type_incumbents():
+    """Regression test for #903.
+
+    FLOW2.reach() must return False instead of raising TypeError when conditional choice parameters lead to mixed-type incumbents.
+    """
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    f1 = FLOW2.__new__(FLOW2)
+    f1.best_config = {"x": 1.0}
+    f1.incumbent = {"x": 1.0}
+    f1._resource = None
+    f1._unordered_cat_hp = {}
+    f1._tunable_keys = ["x"]
+    f1.step = 0.5
+
+    f2 = FLOW2.__new__(FLOW2)
+    f2.best_config = {"x": "None"}
+    f2.incumbent = {"x": "None"}
+
+    assert f1.reach(f2) is False
 
 
 if __name__ == "__main__":

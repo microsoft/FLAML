@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import sys
 
@@ -19,7 +20,8 @@ def custom_metric(
     groups_test=None,
     groups_train=None,
 ):
-    from datasets import Dataset
+    if sys.platform != "win32" or platform.machine() != "ARM64":
+        from datasets import Dataset
 
     if estimator._trainer is None:
         trainer = estimator._init_model_for_predict()
@@ -41,7 +43,10 @@ def custom_metric(
     return metrics.pop("eval_automl_metric"), metrics
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="do not run on mac os")
+@pytest.mark.skipif(
+    sys.platform == "darwin" or (sys.platform == "win32" and platform.machine() == "ARM64"),
+    reason="do not run on mac os or win-arm64 machine",
+)
 def test_custom_metric():
     import requests
 

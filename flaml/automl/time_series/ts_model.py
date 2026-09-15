@@ -343,7 +343,7 @@ class StatsModelsEstimator(TimeSeriesEstimator):
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
-        if isinstance(X, int) and not self.regressors:
+        if isinstance(X, int) and not self.regressors and not hasattr(self._model, "get_forecast"):
             forecast = self._model.forecast(steps=X)
             forecast.name = self._target_name()
             return forecast
@@ -377,9 +377,13 @@ class StatsModelsEstimator(TimeSeriesEstimator):
             except KeyError:
                 # Date-based lookup fails for irregular time series (e.g. business days
                 # with holidays removed); fall back to step-based forecasting.
-                if len(self.regressors):
-                    exog = self._preprocess(X[self.regressors])
-                    forecast = self._model.get_forecast(steps=steps, exog=exog.values).predicted_mean
+                if hasattr(self._model, "get_forecast"):
+                    forecast_kwargs = kwargs.copy()
+                    # statsmodels 0.15 requires an explicit index for irregular-series forecasts.
+                    forecast_kwargs.setdefault("index", pd.DatetimeIndex(X[self.time_col]))
+                    if self.regressors:
+                        forecast_kwargs["exog"] = self._preprocess(X[self.regressors]).values
+                    forecast = self._model.get_forecast(steps=steps, **forecast_kwargs).predicted_mean
                 else:
                     forecast = self._model.forecast(steps=steps)
         else:
@@ -722,6 +726,7 @@ class SimpleForecaster(StatsModelsEstimator):
 
         model = SimpleExpSmoothing(
             train_df[[target_col]],
+            initialization_method="estimated",
         )
         with suppress_stdout_stderr():
             model = model.fit(smoothing_level=self.smoothing_level)

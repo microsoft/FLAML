@@ -23,6 +23,7 @@ else:
     ray_available = True
 import logging
 
+from flaml.fabric import is_fabric_runtime
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
 from .logger import logger, logger_formatter
@@ -36,7 +37,7 @@ except ImportError:
 
 try:
     from flaml.fabric.logger import init_kusto_logger
-    from flaml.fabric.mlflow import MLflowIntegration
+    from flaml.fabric.mlflow import MLflowIntegration, is_autolog_enabled
     from flaml.fabric.telemetry import log_telemetry
 
     internal_mlflow = True
@@ -284,6 +285,7 @@ def run(
     extra_tag: Optional[dict] = None,
     cost_attr: Optional[str] = "auto",
     cost_budget: Optional[float] = None,
+    mlflow_logging: bool = True,
     **ray_args,
 ):
     """The function-based way of performing HPO.
@@ -492,6 +494,9 @@ def run(
             in our search algorithm. When cost_attr is set to a str different from "auto" and "time_total_s",
             this cost_attr must be available in the result dict of the trial.
         cost_budget: A float of the cost budget. Only valid when cost_attr is a str different from "auto" and "time_total_s".
+        mlflow_logging: Whether to enable FLAML's MLflow integration when MLflow is installed.
+            Outside Fabric, an active run or enabled autologging is also required.
+            Set False to disable the integration, including Fabric's trial-history collection.
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -554,7 +559,12 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if internal_mlflow and not automl_info:
+    if (
+        internal_mlflow
+        and mlflow_logging
+        and not automl_info
+        and (is_fabric_runtime() or mlflow.active_run() is not None or is_autolog_enabled())
+    ):
         mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
         evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
         _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging

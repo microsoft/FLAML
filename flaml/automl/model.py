@@ -34,6 +34,7 @@ except ImportError:
     SKLEARN_TAGS_AVAILABLE = False
 
 from flaml import tune
+from flaml.automl._lightgbm_compat import patch_lightgbm_sklearn_validation
 from flaml.automl.data import group_counts
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
@@ -70,6 +71,8 @@ try:
     from lightgbm import LGBMClassifier, LGBMRanker, LGBMRegressor
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
+else:
+    patch_lightgbm_sklearn_validation()
 
 xgb_callback = False
 try:
@@ -154,6 +157,9 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
         if hasattr(self, "_estimator_type"):
             params["_estimator_type"] = self._estimator_type
         return params
+
+    def __sklearn_is_fitted__(self):
+        return self._model is not None
 
     def __sklearn_tags__(self):
         """Override sklearn tags to respect the _estimator_type attribute.
@@ -2034,7 +2040,11 @@ class LRL1Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
-        params["penalty"] = params.get("penalty", "l1")
+        if SKLEARN_VERSION >= "1.8":
+            params["l1_ratio"] = params.get("l1_ratio", 1.0)
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l1")
         return params
 
     def __init__(self, task="binary", **config):
@@ -2063,7 +2073,10 @@ class LRL2Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
-        params["penalty"] = params.get("penalty", "l2")
+        if SKLEARN_VERSION >= "1.8":
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l2")
         return params
 
     def __init__(self, task="binary", **config):

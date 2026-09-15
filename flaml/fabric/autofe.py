@@ -333,10 +333,9 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
         """Fit the featurization pipeline."""
         _st = time.time()
         kusto_logger.info(f"Start featurization pipeline fitting at timestamp {_st}")
-        # Mark fitted up front so that early-return paths (no transformers
-        # configured) still satisfy sklearn 1.8's stricter `check_is_fitted`
-        # when this estimator is wrapped in a Pipeline.
-        self._is_fitted = True
+        self.pipeline = None
+        self.detail_config = []
+        self._is_fitted = False
         detail_config = []
         transformers = []
         column_transformers = []
@@ -344,8 +343,8 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
             X, y = self.flaml_transformer.fit_transform(X, y, self.task)
 
         if isinstance(X, TimeSeriesDataset):
-            y = X.all_data[X.target_names]
-            X = X.all_data.drop(columns=X.target_names + [X.time_col])
+            y = X.train_data[X.target_names]
+            X = X.train_data.drop(columns=X.target_names + [X.time_col])
 
         X, y, categorical_features, numerical_features = self.static_preprocess(X, y)
 
@@ -377,13 +376,14 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
             transformers.append(("extraction", feature_extractor))
 
         if len(transformers) == 0:
+            self._is_fitted = True
             return self
 
-        self.pipeline = Pipeline(transformers)
-        self.pipeline.fit(X, y)
+        pipeline = Pipeline(transformers)
+        pipeline.fit(X, y)
 
         keep_cols = X.columns
-        for stage, transformer in self.pipeline.steps:
+        for stage, transformer in pipeline.steps:
             if stage == "selection":
                 drop_mask = transformer.get_support()
                 drop_cols = list(X.columns[~drop_mask])
@@ -393,7 +393,9 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
             elif stage == "extraction":
                 feature_extractor_detail_config["columns"] = keep_cols
                 detail_config.append(feature_extractor_detail_config)
+        self.pipeline = pipeline
         self.detail_config = detail_config
+        self._is_fitted = True
         kusto_logger.info(f"Featurization pipeline fitting finished in {time.time() - _st} seconds")
         return self
 
@@ -465,7 +467,7 @@ class Featurization(SKLearnBaseEstimator, TransformerMixin):
         `fit()` so that no-op fits (no transformers configured) still register
         as fitted. Falls back to `pipeline is not None` for objects produced
         by older code paths."""
-        return getattr(self, "_is_fitted", False) or self.pipeline is not None
+        return getattr(self, "_is_fitted", self.pipeline is not None)
 
 
 class CardinalitySelector(SelectorMixin, SKLearnBaseEstimator):
@@ -479,6 +481,8 @@ class CardinalitySelector(SelectorMixin, SKLearnBaseEstimator):
         return self.support_
 
     def fit(self, X, y=None):
+        self.n_features_in_ = X.shape[1]
+        self.feature_names_in_ = X.columns.to_numpy()
         threshold = self.threshold * len(X)
         # Find columns with high cardinality
         high_cardinality_cols = [

@@ -1,7 +1,9 @@
+import platform
 import sys
 import unittest
 
 import numpy as np
+import pytest
 import scipy.sparse
 from sklearn.datasets import load_iris, load_wine
 
@@ -168,7 +170,10 @@ class TestMultiClass(unittest.TestCase):
         except ImportError:
             return
 
-    @unittest.skipIf(skip_py311, reason="Skip tests not compatible with python 3.11.")
+    @pytest.mark.skipif(
+        sys.platform == "win32" and platform.machine() == "ARM64",
+        reason="catboost is not available on win-arm64 machine",
+    )
     def test_ensemble(self):
         automl = AutoML()
         automl.add_learner(learner_name="RGF", learner_class=MyRegularizedGreedyForest)
@@ -483,6 +488,10 @@ class TestMultiClass(unittest.TestCase):
         automl_experiment.fit(X_train=X_train, y_train=y_train, max_iter=1, **automl_settings)
         print(automl_experiment.model)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and platform.machine() == "ARM64",
+        reason="catboost is not available on win-arm64 machine",
+    )
     def test_time_limit(self):
         automl_experiment = AutoML()
         automl_experiment.add_learner(learner_name="large_lgbm", learner_class=MyLargeLGBM)

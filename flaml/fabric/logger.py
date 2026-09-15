@@ -1,18 +1,20 @@
+import logging
 import re
 
 from flaml.fabric import is_fabric_runtime
 
-try:
-    from synapse.ml.pymds import get_mds_logger
-    from synapse.ml.pymds.handler import default_scrubbers
-    from synapse.ml.pymds.scrubbers.scrubber import IScrub
-
-    if not is_fabric_runtime():
-        raise ImportError("Not running in Fabric runtime")
-except ImportError:
-    no_synapse = True
-else:
-    no_synapse = False
+no_synapse = True
+if is_fabric_runtime():
+    try:
+        from synapse.ml.pymds import get_mds_logger
+        from synapse.ml.pymds.handler import default_scrubbers
+        from synapse.ml.pymds.scrubbers.scrubber import IScrub
+    except ModuleNotFoundError as exc:
+        if exc.name is not None and exc.name.split(".")[0] != "synapse":
+            raise
+        logging.getLogger(__name__).debug("Fabric logging is unavailable: %s", exc)
+    else:
+        no_synapse = False
 
 _KUSTO_TABLE_NAME = "SynapseMLLogs"
 

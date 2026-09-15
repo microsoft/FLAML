@@ -973,10 +973,13 @@ class TestResumeMlflowShutdownSafety:
 
         with mlflow.start_run():
             integration = MLflowIntegration()
+        original_params = integration.resume_params
         integration.resume_params = {"disable": False, "silent": True}
 
         with patch("flaml.fabric.mlflow.mlflow", None):
             integration.resume_mlflow()  # must not raise
+        integration.resume_params = original_params
+        integration.resume_mlflow()
 
     def test_resume_mlflow_handles_mlflow_missing_autolog(self):
         """A non-None mlflow without an ``autolog`` attribute is treated like None."""
@@ -984,6 +987,7 @@ class TestResumeMlflowShutdownSafety:
 
         with mlflow.start_run():
             integration = MLflowIntegration()
+        original_params = integration.resume_params
         integration.resume_params = {"disable": False}
 
         # A bare ``object()`` has no ``autolog`` attribute, so ``hasattr``
@@ -991,6 +995,8 @@ class TestResumeMlflowShutdownSafety:
         # instead of attempting ``object().autolog(...)``.
         with patch("flaml.fabric.mlflow.mlflow", object()):
             integration.resume_mlflow()  # must not raise
+        integration.resume_params = original_params
+        integration.resume_mlflow()
 
     def test_resume_mlflow_calls_autolog_normally(self):
         """The happy path still calls ``mlflow.autolog`` with ``resume_params``."""
@@ -1028,9 +1034,9 @@ class TestRegisterAutomlPipeline:
         automl.pipeline_signature = None
 
         mock_mv = MagicMock()
-        with patch.object(mlflow.sklearn, "log_model"), patch.object(
-            mlflow, "search_model_versions", return_value=[mock_mv]
-        ):
+        with patch.object(
+            mlflow.sklearn, "log_model", return_value=SimpleNamespace(model_uri="runs:/new/model")
+        ), patch.object(mlflow, "register_model", return_value=mock_mv):
             result = register_automl_pipeline(automl)
         assert result == mock_mv
 
@@ -1042,12 +1048,10 @@ class TestRegisterAutomlPipeline:
         automl.best_run_id = "best_run"
         automl._mlflow_exp_name = "test"
 
-        mock_run = MagicMock()
-        mock_run.info.run_id = "best_run"
         mock_mv = MagicMock()
-        with patch.object(mlflow, "get_run", return_value=mock_run), patch.object(
-            mlflow, "register_model", return_value=mock_mv
-        ):
+        with patch.object(
+            mlflow.sklearn, "log_model", return_value=SimpleNamespace(model_uri="runs:/new/model")
+        ), patch.object(mlflow, "register_model", return_value=mock_mv):
             result = register_automl_pipeline(automl, model_name="custom_name")
         assert result == mock_mv
 
@@ -1062,7 +1066,7 @@ class TestRegisterAutomlPipeline:
         mock_mv = MagicMock()
         custom_sig = MagicMock()
         with patch.object(mlflow.sklearn, "log_model") as mock_log, patch.object(
-            mlflow, "search_model_versions", return_value=[mock_mv]
+            mlflow, "register_model", return_value=mock_mv
         ):
             register_automl_pipeline(automl, signature=custom_sig)
         mock_log.assert_called_once()

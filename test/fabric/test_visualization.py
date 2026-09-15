@@ -1,5 +1,7 @@
+import os
 import unittest
 import warnings
+from unittest.mock import patch
 
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
@@ -15,6 +17,9 @@ warnings.filterwarnings("ignore")
 
 class TestVisualization(unittest.TestCase):
     def setUp(self):
+        fabric_runtime = patch.dict(os.environ, {"FLAML_FABRIC_RUNTIME": "true"})
+        fabric_runtime.start()
+        self.addCleanup(fabric_runtime.stop)
         x, y = load_iris(return_X_y=True, as_frame=True)
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=7654321)
 

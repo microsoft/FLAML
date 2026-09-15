@@ -5,10 +5,12 @@ import logging
 import os
 import pickle
 import random
+import sys
 import tempfile
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, wait
+from importlib import import_module
 from typing import MutableMapping
 
 import mlflow
@@ -316,19 +318,22 @@ def safe_json_dumps(obj):
 
 class MLflowIntegration:
     def __init__(self, experiment_type="automl", mlflow_exp_name=None, extra_tag=None):
-        try:
-            from synapse.ml.mlflow import get_mlflow_env_config
-
-            if not is_fabric_runtime():
-                raise ModuleNotFoundError("Not in fabric runtime")
-
-            self.driver_mlflow_env_config = get_mlflow_env_config()
-            self._on_internal = True
-            self._notebook_name = _get_notebook_name()
-        except ModuleNotFoundError:
-            self.driver_mlflow_env_config = None
-            self._on_internal = False
-            self._notebook_name = None
+        fabric_runtime = is_fabric_runtime()
+        self._tag_prefix = "synapseml.flaml" if fabric_runtime else "flaml"
+        self.driver_mlflow_env_config = None
+        self._on_internal = False
+        self._notebook_name = None
+        if fabric_runtime:
+            try:
+                from synapse.ml.mlflow import get_mlflow_env_config
+            except ModuleNotFoundError as exc:
+                if exc.name is not None and exc.name.split(".")[0] != "synapse":
+                    raise
+                logger.debug("Fabric MLflow configuration is unavailable: %s", exc)
+            else:
+                self.driver_mlflow_env_config = get_mlflow_env_config()
+                self._on_internal = True
+                self._notebook_name = _get_notebook_name()
 
         self.autolog = False
         self.manual_log = False
@@ -336,6 +341,7 @@ class MLflowIntegration:
         self.parent_run_name = None
         self.log_type = "null"
         self.resume_params = {}
+        self.resume_flavor_params = {}
         self.train_func = None
         self.best_iteration = None
         self.best_run_id = None
@@ -381,6 +387,18 @@ class MLflowIntegration:
             # only end user created parent run in autolog scenario
             mlflow.end_run()
 
+    def _tag(self, name):
+        # Older serialized integrations do not have a tag-prefix attribute.
+        prefix = getattr(self, "_tag_prefix", "synapseml.flaml" if getattr(self, "_on_internal", False) else "flaml")
+        return f"{prefix}.{name}"
+
+    @staticmethod
+    def _set_flavor_autolog(name, config):
+        # MLflow stores this bookkeeping field alongside actual autolog() arguments.
+        parameters = {key: value for key, value in config.items() if key != "globally_configured"}
+        import_module(f"mlflow.{name}").autolog(**parameters)
+        AUTOLOGGING_INTEGRATIONS[name].update(config)
+
     def set_mlflow_config(self):
         if self.driver_mlflow_env_config is not None:
             try:
@@ -408,15 +426,30 @@ class MLflowIntegration:
     ):
         # Currently we disable autologging for better control in AutoML
         _autolog = is_autolog_enabled()
-        self._do_log_model = AUTOLOGGING_INTEGRATIONS["mlflow"].get("log_models", True)
+        mlflow_autolog = AUTOLOGGING_INTEGRATIONS.get("mlflow", {})
+        self._do_log_model = all(
+            config.get("log_models", True)
+            for config in AUTOLOGGING_INTEGRATIONS.values()
+            if not config.get("disable", False)
+        )
         if self.experiment_type == "automl":
             self.autolog = False
             self.manual_log = mlflow.active_run() is not None or _autolog
             self.log_type = "manual"
             if _autolog:
                 logger.debug("Disabling autologging")
-                self.resume_params = AUTOLOGGING_INTEGRATIONS["mlflow"].copy()
-                mlflow.autolog(disable=True, silent=True, log_models=self._do_log_model)
+                self.resume_params = mlflow_autolog.copy()
+                # Empty entries only mark imported flavors; global configurations restore lazily.
+                self.resume_flavor_params = {
+                    name: config.copy()
+                    for name, config in AUTOLOGGING_INTEGRATIONS.items()
+                    if name != "mlflow" and config and not config.get("globally_configured", False)
+                }
+                if self.resume_params:
+                    mlflow.autolog(disable=True, silent=True, log_models=self._do_log_model)
+                else:
+                    for name, config in self.resume_flavor_params.items():
+                        self._set_flavor_autolog(name, {**config, "disable": True})
                 self.log_type = "r_autolog"  # 'r' for replace autolog with manual log
 
         elif self.experiment_type == "tune":
@@ -475,12 +508,12 @@ class MLflowIntegration:
             "metrics": metrics,
             "params": params,
             "tags": {
-                "synapseml.flaml.best_run": False,
-                "synapseml.flaml.iteration_number": self.child_counter,
-                "synapseml.flaml.version": __version__,
-                "synapseml.flaml.meric": metric_name,
-                "synapseml.flaml.run_source": "flaml-tune",
-                "synapseml.flaml.log_type": self.log_type,
+                self._tag("best_run"): False,
+                self._tag("iteration_number"): self.child_counter,
+                self._tag("version"): __version__,
+                self._tag("meric"): metric_name,
+                self._tag("run_source"): "flaml-tune",
+                self._tag("log_type"): self.log_type,
             },
             "submetrics": {
                 "values": [],
@@ -518,7 +551,7 @@ class MLflowIntegration:
             best_mlflow_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             analysis.best_run_id = best_mlflow_run_id
             analysis.best_run_name = best_mlflow_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, self._tag("best_run"), True)
             self.best_run_id = best_mlflow_run_id
             if not self.has_summary:
                 self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id)
@@ -719,18 +752,18 @@ class MLflowIntegration:
                 automl_metric_name: automl_metric_value,
             },
             "tags": {
-                "synapseml.flaml.best_run": False,
-                "synapseml.flaml.estimator_name": estimator,
-                "synapseml.flaml.estimator_class": search_state.learner_class.__name__,
-                "synapseml.flaml.iteration_number": automl._track_iter,
-                "synapseml.flaml.version": __version__,
-                "synapseml.flaml.learner": estimator,
-                "synapseml.flaml.sample_size": search_state.sample_size,
-                "synapseml.flaml.meric": automl_metric_name,
-                "synapseml.flaml.run_source": "flaml-automl",
-                "synapseml.flaml.log_type": self.log_type,
-                "synapseml.flaml.automl_user_configurations": self.automl_user_configurations,
-                "synapseml.flaml.automl_display_configurations": self.automl_display_configurations,
+                self._tag("best_run"): False,
+                self._tag("estimator_name"): estimator,
+                self._tag("estimator_class"): search_state.learner_class.__name__,
+                self._tag("iteration_number"): automl._track_iter,
+                self._tag("version"): __version__,
+                self._tag("learner"): estimator,
+                self._tag("sample_size"): search_state.sample_size,
+                self._tag("meric"): automl_metric_name,
+                self._tag("run_source"): "flaml-automl",
+                self._tag("log_type"): self.log_type,
+                self._tag("automl_user_configurations"): self.automl_user_configurations,
+                self._tag("automl_display_configurations"): self.automl_display_configurations,
             },
             "params": {
                 "sample_size": search_state.sample_size,
@@ -834,7 +867,7 @@ class MLflowIntegration:
             best_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             automl.best_run_id = best_mlflow_run_id
             automl.best_run_name = best_run_name
-            self.mlflow_client.set_tag(best_mlflow_run_id, "synapseml.flaml.best_run", True)
+            self.mlflow_client.set_tag(best_mlflow_run_id, self._tag("best_run"), True)
             self.best_run_id = best_mlflow_run_id
             if self.parent_run_id is not None:
                 conf = automl._config_history[automl._best_iteration][1].copy()
@@ -887,22 +920,18 @@ class MLflowIntegration:
                         self.has_model = True
 
     def resume_mlflow(self):
-        if len(self.resume_params) > 0:
-            # During interpreter shutdown the module-level ``mlflow`` binding
-            # may be cleared by Python's garbage collector — either reset to
-            # ``None`` or deleted outright (which would raise ``NameError``
-            # on a bare name lookup). Read via ``globals().get("mlflow")``
-            # so this method is safe whether the global is still bound to
-            # the module, has been set to ``None``, or has been removed
-            # entirely; this matters because ``__del__`` calls this method
-            # and ``__del__`` runs at unpredictable points including
-            # interpreter teardown. Other (non-shutdown) failures still
-            # propagate to the caller — ``__del__`` already wraps this
-            # method, so destructor exception suppression is preserved.
-            _mlflow = globals().get("mlflow")
-            if _mlflow is None or not hasattr(_mlflow, "autolog"):
-                return
-            _mlflow.autolog(**self.resume_params)
+        # The module can be cleared before __del__ runs during interpreter shutdown.
+        _mlflow = globals().get("mlflow")
+        if sys.is_finalizing() or _mlflow is None or not hasattr(_mlflow, "autolog"):
+            return
+        resume_params = getattr(self, "resume_params", {})
+        if resume_params:
+            _mlflow.autolog(**resume_params)
+            self.resume_params = {}
+        flavor_params = getattr(self, "resume_flavor_params", {})
+        for name, config in list(flavor_params.items()):
+            self._set_flavor_autolog(name, config)
+            del flavor_params[name]
 
     def _log_automl_configurations(self, run_id):
         self.mlflow_client.log_text(
@@ -1022,7 +1051,7 @@ class MLflowIntegration:
                                 "mlflow.runName",
                                 f"{self.parent_run_name}_child_{self.child_counter}",
                             )
-                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.child_counter", self.child_counter)
+                        self.mlflow_client.set_tag(child_run_id, self._tag("child_counter"), self.child_counter)
 
                     # Merge autolog child run and corresponding FLAML trial info (if available).
                     # In nested scenarios (e.g., Tune -> AutoML -> MLflow autolog), MLflow can create
@@ -1051,7 +1080,7 @@ class MLflowIntegration:
                         )
 
                     if flaml_info is not None and self.child_counter == best_iteration:
-                        self.mlflow_client.set_tag(child_run_id, "synapseml.flaml.best_run", True)
+                        self.mlflow_client.set_tag(child_run_id, self._tag("best_run"), True)
                         if result is not None:
                             if child_run is None:
                                 child_run = self.mlflow_client.get_run(child_run_id)
@@ -1079,24 +1108,16 @@ class MLflowIntegration:
 
 
 def register_automl_pipeline(automl, model_name=None, signature=None, artifact_path="model"):
+    """Log and register the current fitted pipeline, not a potentially metrics-only trial."""
     pipeline = automl.automl_pipeline
     if pipeline is None:
         logger.warning("pipeline not found, cannot register it")
         return
     if model_name is None:
-        model_name = automl._mlflow_exp_name + "_pipeline"
-    if automl.best_run_id is None:
-        mlflow.sklearn.log_model(
-            pipeline,
-            artifact_path,
-            registered_model_name=model_name,
-            signature=automl.pipeline_signature if signature is None else signature,
-        )
-        mvs = mlflow.search_model_versions(
-            filter_string=f"name='{model_name}'", order_by=["attribute.version_number ASC"], max_results=1
-        )
-        return mvs[0]
-    else:
-        best_run = mlflow.get_run(automl.best_run_id)
-        model_uri = f"runs:/{best_run.info.run_id}/{artifact_path}"
-        return mlflow.register_model(model_uri, model_name)
+        model_name = (automl._mlflow_exp_name or "flaml") + "_pipeline"
+    model_info = mlflow.sklearn.log_model(
+        pipeline,
+        artifact_path,
+        signature=getattr(automl, "pipeline_signature", None) if signature is None else signature,
+    )
+    return mlflow.register_model(model_info.model_uri, model_name)

@@ -92,6 +92,31 @@ def test_single_timestamp_raises():
         TimeSeriesDataset(df, time_col="ds", target_names="y")
 
 
+@pytest.mark.parametrize("estimator_name", ["arima", "sarimax"])
+@pytest.mark.parametrize("date_features", [False, True])
+@pytest.mark.parametrize("as_steps", [False, True])
+def test_statsmodels_irregular_forecast_has_prediction_index(estimator_name, date_features, as_steps):
+    from flaml.automl.time_series.ts_model import ARIMA, SARIMAX
+
+    data = _make_stock_data(end="2024-03-01", holidays=US_HOLIDAYS_2024)[["ds", "price"]]
+    dataset = TimeSeriesDataset(data, time_col="ds", target_names="price")
+    params = {
+        "task": "ts_forecast",
+        "p": 1,
+        "d": 0,
+        "q": 0,
+        "monthly_fourier_degree": 1 if date_features else 0,
+        "fourier_time_features": date_features,
+    }
+    estimator = ARIMA(**params) if estimator_name == "arima" else SARIMAX(**params, P=0, D=0, Q=0, s=7)
+    estimator.fit(dataset, budget=5)
+    future = create_forward_frame(estimator.frequency, 5, estimator.end_date, estimator.time_col)
+    prediction = estimator.predict(5 if as_steps else future)
+    assert len(prediction) == 5
+    assert np.isfinite(prediction).all()
+    pd.testing.assert_index_equal(prediction.index, pd.DatetimeIndex(future["ds"]), check_names=False)
+
+
 def test_forecast_stock_data_without_holidays(budget=30):
     """End-to-end AutoML forecast: train and predict on synthetic daily
     stock price data that has business-day dates with US holidays removed."""

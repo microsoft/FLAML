@@ -1,6 +1,9 @@
+import platform
+import sys
 from datetime import datetime
 
 import numpy as np
+import pytest
 from pandas import DataFrame
 from sklearn.datasets import make_classification
 
@@ -26,6 +29,9 @@ def test_lrl2():
     lr.fit(X, y, budget=1e-5)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" and platform.machine() == "ARM64", reason="catboost is not available on win-arm64 machine"
+)
 def test_prep():
     X = np.array(
         list(
