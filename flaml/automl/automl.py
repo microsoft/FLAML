@@ -865,8 +865,9 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
-            X = estimator.autofe.transform(X)
+        autofe = getattr(estimator, "autofe", None)
+        if autofe is not None:
+            X = autofe.transform(X)
 
         if self._label_transformer:
             y = self._label_transformer.transform(y)
@@ -910,9 +911,10 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
+        autofe = getattr(estimator, "autofe", None)
+        if autofe is not None:
             time_col = getattr(estimator, "time_col", None)
-            X = estimator.autofe.transform(X, time_col)
+            X = autofe.transform(X, time_col)
         y_pred = estimator.predict(X, **pred_kwargs)
 
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
@@ -940,9 +942,10 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         X = self._state.task.preprocess(X, self._transformer)
-        if estimator.autofe is not None:
+        autofe = getattr(estimator, "autofe", None)
+        if autofe is not None:
             time_col = getattr(estimator, "time_col", None)
-            X = estimator.autofe.transform(X, time_col)
+            X = autofe.transform(X, time_col)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
 

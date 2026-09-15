@@ -37,10 +37,10 @@ class TestFlamlInit:
         """Cover lines 18-19: ImportError when flaml.fabric.telemetry is unavailable."""
         code = (
             "import sys; "
-            "sys.modules['flaml.fabric'] = None; "
             "sys.modules['flaml.fabric.telemetry'] = None; "
             "import flaml; "
             "assert not flaml.is_log_telemetry; "
+            "assert flaml.has_automl; "
             "print('OK')"
         )
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30)

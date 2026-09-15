@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.datasets import load_breast_cancer, load_diabetes
 
 from flaml import AutoML
@@ -290,6 +291,23 @@ class TestCategoricalEncodingStability(unittest.TestCase):
         nan_code = list(X_pred["gender"].cat.categories).index("__NAN__")
         unseen_rows = X_pred["gender"].cat.codes[predict_df["gender"].isin(["X", "Y"]).values]
         self.assertTrue((unseen_rows == nan_code).all())
+
+
+@pytest.mark.parametrize("task", ["classification", "regression"])
+def test_prediction_apis_accept_estimators_without_autofe(task):
+    X = np.random.RandomState(7).normal(size=(40, 3))
+    y = (X[:, 0] > 0).astype(int) if task == "classification" else X[:, 0]
+    automl = AutoML(task=task, estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False)
+    automl.fit(X, y)
+    estimator = automl.model.model
+    transformed = automl.preprocess(X)
+    assert not hasattr(estimator, "autofe")
+    automl._trained_estimator = estimator
+
+    np.testing.assert_array_equal(automl.predict(X), estimator.predict(transformed))
+    assert automl.score(X, y) == pytest.approx(estimator.score(transformed, y))
+    if task == "classification":
+        np.testing.assert_allclose(automl.predict_proba(X), estimator.predict_proba(transformed))
 
 
 if __name__ == "__main__":

@@ -128,6 +128,7 @@ def test_spark_synapseml_rank():
     _test_spark_synapseml_lightgbm(spark, "rank")
 
 
+@pytest.mark.usefixtures("fabric_runtime")
 def test_spark_input_df_and_pickle():
     import pandas as pd
 

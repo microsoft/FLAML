@@ -14,6 +14,12 @@ except ImportError:  # pragma: no cover
     Pool = None
 
 
+@pytest.fixture
+def fabric_runtime(monkeypatch):
+    """Enable Fabric defaults only for tests that explicitly exercise them."""
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+
+
 def pytest_configure(config):
     # Isolate MLflow tracking per xdist worker (and per process) so that
     # parallel workers don't race on writes to the same ``mlruns/<exp>/<run>/meta.yaml``

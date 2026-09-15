@@ -868,6 +868,8 @@ class MLflowIntegration:
 
         if self.manual_log:
             best_mlflow_run_id = self.manual_run_ids[automl._best_iteration]
+            # A late trial-metadata write must not reset the winning run's tag.
+            wait(tuple(self.futures))
             best_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
             automl.best_run_id = best_mlflow_run_id
             automl.best_run_name = best_run_name

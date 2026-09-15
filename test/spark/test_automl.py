@@ -28,6 +28,7 @@ skip_spark = not spark_available
 pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
+@pytest.mark.usefixtures("fabric_runtime")
 def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
     import flaml.visualization as fviz
 
@@ -74,6 +75,7 @@ def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
     fviz.plot_param_importance(automl_loaded)
 
 
+@pytest.mark.usefixtures("fabric_runtime")
 def test_parallel_xgboost_others():
     # use random search as the hpo_method
     test_parallel_xgboost_and_pickle(hpo_method="random")

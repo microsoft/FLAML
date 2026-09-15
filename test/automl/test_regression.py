@@ -145,6 +145,7 @@ class TestRegression(unittest.TestCase):
         )
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **settings)
 
+    @pytest.mark.usefixtures("fabric_runtime")
     def test_parallel_and_pickle(self, hpo_method=None):
         import flaml.visualization as fviz
 

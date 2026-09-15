@@ -669,6 +669,7 @@ class TestImportFallbacks:
 
 
 class TestMLflowIntegration:
+    @pytest.mark.usefixtures("fabric_runtime")
     def test_run_with_mocked_internal_mlflow(self):
         """Cover lines 557-562: internal_mlflow wraps evaluation function."""
         import flaml.tune.tune as tune_mod
@@ -828,6 +829,7 @@ class TestEdgeCases:
         )
         assert len(analysis.trials) == 2
 
+    @pytest.mark.usefixtures("fabric_runtime")
     def test_run_internal_mlflow_sequential(self):
         """Cover lines 966-970, 989-990: internal_mlflow logging in sequential path."""
         import flaml.tune.tune as tune_mod
@@ -859,6 +861,7 @@ class TestEdgeCases:
         finally:
             tune_mod.internal_mlflow = old_internal
 
+    @pytest.mark.usefixtures("fabric_runtime")
     def test_run_internal_mlflow_with_best_run_id(self):
         """Cover lines 968-970: log best run info when best_run_id is not None."""
         import flaml.tune.tune as tune_mod

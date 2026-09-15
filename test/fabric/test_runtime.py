@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from concurrent.futures import Future
 from types import SimpleNamespace
 from unittest.mock import Mock, call
 
@@ -202,6 +203,35 @@ def test_active_runs_keep_logging_in_both_environments(local_mlflow, monkeypatch
         tags = mlflow.get_run(result.best_run_id).data.tags
         assert tags[f"{prefix}.best_run"] == "True"
         assert f"{prefix}.version" in tags
+
+
+def test_best_run_tag_waits_for_trial_metadata(monkeypatch):
+    module = importlib.import_module("flaml.fabric.mlflow")
+    trial_write = Future()
+    integration = module.MLflowIntegration.__new__(module.MLflowIntegration)
+    integration.autolog = False
+    integration.manual_log = True
+    integration.parent_run_id = None
+    integration.manual_run_ids = ["winner"]
+    integration.resume_params = {}
+    integration.futures = {trial_write: "trial metadata"}
+    integration._tag_prefix = "flaml"
+    integration.mlflow_client = Mock()
+    integration.mlflow_client.get_run.return_value.info.run_name = "winner-name"
+
+    def complete_trial_writes(futures):
+        assert trial_write in futures
+        trial_write.set_result(None)
+        return {trial_write}, set()
+
+    def set_tag(*args):
+        assert trial_write.done(), "Pending trial metadata can overwrite the winning tag"
+
+    monkeypatch.setattr(module, "wait", complete_trial_writes)
+    integration.mlflow_client.set_tag.side_effect = set_tag
+    automl = SimpleNamespace(best_iteration=0, _best_iteration=0)
+    integration.log_automl(automl)
+    integration.mlflow_client.set_tag.assert_called_once_with("winner", "flaml.best_run", True)
 
 
 @pytest.mark.parametrize("global_autolog", [False, True])

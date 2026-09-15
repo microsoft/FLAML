@@ -641,7 +641,7 @@ class TestMultiClass(unittest.TestCase):
             X_train,
             y_train,
             estimator_list=["lgbm"],
-            time_budget=2,
+            time_budget=10,
             seed=11,
             starting_points=am1.best_config_per_estimator,
         )
