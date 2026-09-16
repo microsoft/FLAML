@@ -476,9 +476,13 @@ class Quantized(Sampler):
             indices = self.sampler.sample(index_domain, spec, size, random_state=random_state)
             if size == 1:
                 return domain.cast(int(indices) * q)
-            # Historically size > 1 returned an integer ndarray; keep that container and
-            # dtype instead of a Python list of per-element domain.cast() calls.
-            return np.asarray(indices, dtype=np.int64) * q
+            values = np.asarray(indices, dtype=np.int64) * q
+            # Historically q == 1 (the common default) returned an integer ndarray, while
+            # q > 1 returned a plain Python list (the float quantization path below still
+            # does, via list(quantized)); preserve both contracts rather than unifying them.
+            if q == 1:
+                return values
+            return list(values)
 
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q

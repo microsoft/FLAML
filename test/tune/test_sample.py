@@ -96,10 +96,12 @@ def test_qrandint_returns_plain_int_scalar_and_batched():
     assert isinstance(batched, np.ndarray)
     assert np.issubdtype(batched.dtype, np.integer)
 
+    # q > 1 historically returned a plain Python list, not an ndarray; only the q == 1
+    # default path returns the integer ndarray checked above.
     q_domain = qrandint(0, 20, 5)
     batched_q = q_domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
-    assert isinstance(batched_q, np.ndarray)
-    assert np.issubdtype(batched_q.dtype, np.integer)
+    assert isinstance(batched_q, list)
+    assert all(isinstance(v, (int, np.integer)) for v in batched_q)
     assert all(v % 5 == 0 for v in batched_q)
 
 
@@ -122,8 +124,10 @@ def test_qrandint_large_nonzero_lower_bound_batched():
     lower, upper, q = 2**55, 2**55 + 2**50 * 8, 2**50
     rs = np.random.RandomState(0)
     batched = qrandint(lower, upper, q).sample(spec=None, size=50, random_state=rs)
-    assert isinstance(batched, np.ndarray)
-    assert np.issubdtype(batched.dtype, np.integer)
+    # q > 1 (as here) returns a plain Python list, not an ndarray; see
+    # test_qrandint_returns_plain_int_scalar_and_batched for the q == 1 ndarray contract.
+    assert isinstance(batched, list)
+    assert all(isinstance(v, (int, np.integer)) for v in batched)
     for v in batched:
         v = int(v)
         assert lower <= v <= upper, v
