@@ -456,7 +456,7 @@ class Quantized(Sampler):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
 
-        if self.q == 1:
+        if self.q == 1 and isinstance(domain, Integer):
             return self.sampler.sample(domain, spec, size, random_state=random_state)
 
         quantized_domain = copy(domain)
