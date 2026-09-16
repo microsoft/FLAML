@@ -4,6 +4,7 @@ import warnings
 
 import pandas as pd
 import pytest
+from packaging.version import Version
 from sklearn import __version__ as sklearn_version
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
@@ -13,7 +14,7 @@ from flaml.automl import Featurization
 
 warnings.filterwarnings("ignore")
 
-skip_autofe = pytest.mark.skipif(sklearn_version < "1.3.0", reason="AutoFe requires sklearn>=1.3.0")
+skip_autofe = pytest.mark.skipif(Version(sklearn_version) < Version("1.3.0"), reason="AutoFe requires sklearn>=1.3.0")
 
 
 def run_autofe(featurization):

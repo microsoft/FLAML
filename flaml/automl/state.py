@@ -70,6 +70,7 @@ class SearchState:
         max_iter=None,
         budget=None,
         featurization="auto",
+        estimator_name=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -90,7 +91,7 @@ class SearchState:
 
         self.data_size = data_size
         if parse_autofe_config is not None:
-            result = parse_autofe_config(featurization, data, task, learner_class)
+            result = parse_autofe_config(featurization, data, task, learner_class, estimator_name=estimator_name)
             search_space.update(result)
 
         if custom_hp is not None:

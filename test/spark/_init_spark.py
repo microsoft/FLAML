@@ -23,18 +23,24 @@ import mlflow
 from packaging.version import Version
 
 from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
-from flaml.tune.spark.utils import check_spark
+from flaml.tune.spark.utils import _spark_major_minor_version, check_spark
 
 
 def _spark_jars_packages() -> str:
-    """Maven coordinates for the JARs added to the Spark session."""
-    return (
-        "com.microsoft.azure:synapseml_2.12:1.0.14,"
-        "org.apache.hadoop:hadoop-azure:3.3.5,"
-        "com.microsoft.azure:azure-storage:8.6.6,"
-        f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
+    """Maven coordinates with the MLflow Scala suffix matched to Spark."""
+    scala_version = "2.13" if _spark_major_minor_version[0] >= 4 else "2.12"
+    mlflow_jar = (
+        f"org.mlflow:mlflow-spark_{scala_version}:{mlflow.__version__}"
         if Version(mlflow.__version__) >= Version("2.9.0")
         else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
+    )
+    return ",".join(
+        (
+            "com.microsoft.azure:synapseml_2.12:1.0.14",
+            "org.apache.hadoop:hadoop-azure:3.3.5",
+            "com.microsoft.azure:azure-storage:8.6.6",
+            mlflow_jar,
+        )
     )
 
 

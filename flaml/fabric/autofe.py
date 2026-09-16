@@ -85,6 +85,7 @@ def parse_autofe_config(
     data: Any,
     task: Task,
     learner_class: BaseEstimator,
+    estimator_name: Optional[str] = None,
 ) -> Dict[str, Dict[str, tune.sample.Categorical]]:
     """Handle the autofe config.
 
@@ -93,6 +94,8 @@ def parse_autofe_config(
         data: Training data. Could be any type that flaml supports.
         task: The flaml Task object, to determine what methods are avaliable.
         learner_class: The flaml Estimator class, to determine what methods are avaliable.
+        estimator_name: The registered learner name, including custom learners.
+            If omitted, infer an exact built-in match; unmatched learners use the generic feature space.
 
     Raises:
         ValueError: Unsupported config.
@@ -112,11 +115,12 @@ def parse_autofe_config(
     if raw_config == "off":
         return empty_search_space
 
-    for estimator_name, estimator_class in task.estimators.items():
-        if estimator_class == learner_class:
-            break
+    if estimator_name is None:
+        estimator_name = next(
+            (name for name, estimator_class in task.estimators.items() if estimator_class == learner_class), None
+        )
 
-    if estimator_name.endswith("_spark"):
+    if estimator_name is not None and estimator_name.endswith("_spark"):
         logger.warning("Auto featurization is not supported for spark data. Featurization is turned off.")
         return empty_search_space
 

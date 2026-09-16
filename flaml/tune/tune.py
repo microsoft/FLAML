@@ -511,10 +511,9 @@ def run(
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
     kusto_logger.info(
-        f"tune.run: search_alg={search_alg}, metric={metric}, mode={mode}, time_budget_s={time_budget_s}, "
-        f"num_samples={num_samples}, automl_info={automl_info}, "
-        f"force_cancel={force_cancel}, mlflow_exp_name={mlflow_exp_name}, extra_tag={extra_tag}, "
-        f"use_spark={use_spark}, verbose={verbose}\nconfig={config}"
+        f"tune.run: config_entries={len(config) if isinstance(config, dict) else 0}, "
+        f"has_search_alg={search_alg is not None}, custom_metric={callable(metric)}, "
+        f"use_ray={use_ray is True}, use_spark={use_spark is True}"
     )
     if is_log_telemetry_tune and internal_mlflow and not automl_info:
         log_telemetry(activity_name="flaml-tune")

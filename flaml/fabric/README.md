@@ -60,6 +60,13 @@ given; `"off"` always opts out. Custom configuration dictionaries are not yet
 supported. Feature engineering is fitted only on training data, separately for
 each cross-validation fold, never on the held-out labels. Spark learners, sparse
 data, NLP tasks, and ensembles retain their existing AutoFE exclusions.
+Registered custom learner names are used for AutoFE selection; unknown learners
+use the generic feature space instead of inheriting an unrelated built-in name.
+
+`AutoML.get_estimator_from_log()` preserves logged `fe.*` choices in an unfitted
+scikit-learn pipeline. Fit that pipeline on appropriately preprocessed training
+data before prediction: logs contain choices, not fitted task-level preprocessing.
+Records without AutoFE retain the existing raw-estimator return behavior.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`; MLflow is imported when it is called,
@@ -70,3 +77,6 @@ pipeline and registers those exact artifacts, even when model history is disable
 AutoML restores both global and flavor-specific autologging settings after fitting.
 An autologging `log_models=False` setting suppresses automatic model and pipeline
 artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.
+
+Tune's centralized startup log contains only configuration counts and boolean
+flags, not configuration contents, user tags, metric names, or experiment names.

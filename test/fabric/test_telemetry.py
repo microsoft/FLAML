@@ -1,64 +1,86 @@
-import re
+import importlib
+from unittest.mock import Mock
 
 import numpy as np
+import pytest
 
-import flaml
-
-
-def test_automl_telemetry(caplog):
-    automl_1 = flaml.AutoML()
-    X_train = np.array([[1, 2], [3, 4], [5, 6]])
-    y_train = np.array([1, 2, 3])
-    automl_1.fit(X_train, y_train, max_iter=3)
-
-    automl_2 = flaml.AutoML()
-    X_train = np.array([[1, 2], [3, 4], [5, 6]])
-    y_train = np.array([1, 2, 3])
-    automl_2.fit(X_train, y_train, max_iter=4)
-
-    """
-    Below assertions worked on my local machine, but not on Azure pipeline.
-    """
-    # captured_text = caplog.text
-    # assert len(re.findall("log_telemetry: flaml.automl", captured_text)) == 1
-    # assert len(re.findall("log_telemetry: flaml.tune", captured_text)) == 0
+from flaml import AutoML, tune
+from flaml.version import __version__
 
 
-def test_tune_telemetry(caplog):
-    def tune_func1(config):
-        return {"metric": config["x"] ** 2}
-
-    def tune_func2(config):
-        return {"metric": config["x"] ** 3}
-
-    flaml.tune.run(tune_func1, config={"x": flaml.tune.uniform(0, 1)}, num_samples=3, metric="metric", mode="min")
-    flaml.tune.run(tune_func2, config={"x": flaml.tune.uniform(0, 1)}, num_samples=3, metric="metric", mode="max")
-
-    """
-    Below assertions worked on my local machine, but not on Azure pipeline.
-    """
-    # captured_text = caplog.text
-    # assert len(re.findall("log_telemetry: flaml.automl", captured_text)) == 0
-    # assert len(re.findall("log_telemetry: flaml.tune", captured_text)) == 1
+@pytest.fixture
+def telemetry_reporter(monkeypatch):
+    module = importlib.import_module("flaml.fabric.telemetry")
+    reporter = Mock()
+    monkeypatch.setattr(module, "report_usage_telemetry", reporter)
+    return module, reporter
 
 
-if __name__ == "__main__":
+@pytest.mark.parametrize("fabric_runtime", [False, True])
+def test_automl_telemetry(monkeypatch, telemetry_reporter, fabric_runtime):
+    module, reporter = telemetry_reporter
+    monkeypatch.setattr(module, "is_fabric_runtime", lambda: fabric_runtime)
+    monkeypatch.setattr("flaml.automl.automl.is_log_telemetry", True)
+    monkeypatch.setattr("flaml.automl.automl.internal_mlflow", True)
+    X = np.arange(40).reshape(20, 2)
+    y = np.tile([0, 1], 10)
+    for _ in range(2):
+        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False)
+        automl.fit(X, y)
+    if fabric_runtime:
+        reporter.assert_called_once_with(
+            "PyLibraryImport",
+            "flaml-automl",
+            attributes={"version": __version__, "ImportType": "EXPLICIT_IMPORTED_BY_USER"},
+        )
+    else:
+        reporter.assert_not_called()
 
-    def tune_func1(config):
-        return {"metric": config["x"] ** 2}
 
-    def tune_func2(config):
-        return {"metric": config["x"] ** 3}
+@pytest.mark.parametrize("fabric_runtime", [False, True])
+def test_tune_telemetry(monkeypatch, telemetry_reporter, fabric_runtime):
+    module, reporter = telemetry_reporter
+    monkeypatch.setattr(module, "is_fabric_runtime", lambda: fabric_runtime)
+    monkeypatch.setattr("flaml.tune.tune.is_log_telemetry_tune", True)
+    monkeypatch.setattr("flaml.tune.tune.internal_mlflow", True)
+    for exponent in (2, 3):
+        tune.run(
+            lambda config: {"metric": config["x"] ** exponent},
+            config={"x": 1},
+            num_samples=1,
+            metric="metric",
+            mode="min",
+            mlflow_logging=False,
+            verbose=0,
+        )
+    if fabric_runtime:
+        reporter.assert_called_once_with(
+            "PyLibraryImport",
+            "flaml-tune",
+            attributes={"version": __version__, "ImportType": "EXPLICIT_IMPORTED_BY_USER"},
+        )
+    else:
+        reporter.assert_not_called()
 
-    flaml.tune.run(tune_func1, config={"x": flaml.tune.uniform(0, 1)}, num_samples=3, metric="metric", mode="min")
-    flaml.tune.run(tune_func2, config={"x": flaml.tune.uniform(0, 1)}, num_samples=3, metric="metric", mode="max")
 
-    automl_1 = flaml.AutoML()
-    X_train = np.array([[1, 2], [3, 4], [5, 6]])
-    y_train = np.array([1, 2, 3])
-    automl_1.fit(X_train, y_train, max_iter=3)
-
-    automl_2 = flaml.AutoML()
-    X_train = np.array([[1, 2], [3, 4], [5, 6]])
-    y_train = np.array([1, 2, 3])
-    automl_2.fit(X_train, y_train, max_iter=4)
+def test_tune_central_logs_do_not_include_user_configuration(monkeypatch):
+    module = importlib.import_module("flaml.tune.tune")
+    central_logger = Mock()
+    monkeypatch.setattr(module, "kusto_logger", central_logger)
+    private_value = "private-configuration-value"
+    analysis = tune.run(
+        lambda config: {"metric": 1.0},
+        config={"api_key": private_value},
+        extra_tag={"user_tag": private_value},
+        mlflow_exp_name=private_value,
+        num_samples=1,
+        metric="metric",
+        mode="min",
+        mlflow_logging=False,
+        verbose=0,
+    )
+    assert len(analysis.trials) == 1
+    central_logger.info.assert_called_once()
+    assert private_value not in str(central_logger.mock_calls)
+    assert "api_key" not in str(central_logger.mock_calls)
+    assert "user_tag" not in str(central_logger.mock_calls)
