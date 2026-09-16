@@ -979,6 +979,15 @@ class GenericTask(Task):
                             state.fit_kwargs["sample_weight"] = weight[train_idx]
                             state.weight_val = weight[val_idx]
             elif self.is_classification():
+                if getattr(self, "_resampler", None) is not None:
+                    _, counts = np.unique(y_train_all, return_counts=True)
+                    if np.any(counts < 2):
+                        raise ValueError(
+                            "Resampling requires disjoint holdout partitions with at least two "
+                            "examples per class. A singleton class cannot appear in both "
+                            "training and validation without duplicating a row."
+                        )
+                    allow_label_overlap = False
                 # for classification, make sure the labels are complete in both
                 # training and validation data
                 stratify = y_train_all if split_type == "stratified" else None

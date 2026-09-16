@@ -40,6 +40,7 @@ class SimpleTrial(Trial):
         self.metric_analysis = {}
         self.n_steps = [5, 10]
         self.metric_n_steps = {}
+        self.metric_n_reports = {}
 
 
 class BaseTrialRunner:

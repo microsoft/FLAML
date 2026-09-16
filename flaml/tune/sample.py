@@ -456,9 +456,6 @@ class Quantized(Sampler):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
 
-        if self.q == 1 and not isinstance(domain, Integer):
-            return self.sampler.sample(domain, spec, size, random_state=random_state)
-
         if isinstance(domain, Integer):
             # domain.upper is documented inclusive here (qrandint/qlograndint), while every
             # wrapped Integer sampler draws exclusive of its own domain.upper (randint's own
