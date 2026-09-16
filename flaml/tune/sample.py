@@ -484,8 +484,10 @@ class Quantized(Sampler):
             # widened the sampler's own dtype for no reason; return indices as-is instead.
             if q == 1:
                 return indices
-            values = np.asarray(indices, dtype=np.int64) * q
-            return list(values)
+            # Grid points above 2**63 - 1 overflow (and silently wrap) a numpy int64
+            # multiply, so each index is multiplied as an arbitrary-precision Python int
+            # instead of via np.asarray(..., dtype=np.int64) * q.
+            return [int(i) * q for i in indices]
 
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q

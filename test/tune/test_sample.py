@@ -153,6 +153,23 @@ def test_qrandint_large_nonzero_lower_bound_batched():
         assert (v - lower) % q == 0, v
 
 
+def test_qrandint_batched_beyond_int64_range():
+    # the batched q > 1 path used to multiply the grid index by q as a numpy int64
+    # operation; once index * q exceeds 2**63 - 1 that multiply silently wraps, so a
+    # value can come back negative or otherwise outside the requested domain even
+    # though the sampled index itself is small. Python-int multiplication has no such
+    # ceiling.
+    lower, upper, q = 0, 2**65, 2**62
+    assert upper > 2**63 - 1
+    rs = np.random.RandomState(0)
+    batched = qrandint(lower, upper, q).sample(spec=None, size=50, random_state=rs)
+    assert isinstance(batched, list)
+    for v in batched:
+        v = int(v)
+        assert lower <= v <= upper, v
+        assert v % q == 0, v
+
+
 def test_qrandint_grid_bins_are_uniform_including_top_bin():
     # the pre-fix implementation extended the raw draw's range by a full q and clamped
     # the overshoot into the top bin, giving it roughly 1.4x the width of an interior
