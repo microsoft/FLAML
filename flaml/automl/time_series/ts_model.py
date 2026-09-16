@@ -354,9 +354,14 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                 return pd.Series([], name=self.target_names[0], dtype=float)
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
-            if len(self.regressors):
-                exog = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
+            exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
+            if self.end_date is not None and start > self.end_date:
+                if exog is not None:
+                    forecast = self._model.forecast(steps=X.shape[0], exog=exog, **kwargs)
+                else:
+                    forecast = self._model.forecast(steps=X.shape[0], **kwargs)
+            elif exog is not None:
+                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
