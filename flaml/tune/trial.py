@@ -109,13 +109,15 @@ class Trial:
                         "last": value,
                     }
                     self.metric_n_steps[metric] = {}
+                    self.metric_n_reports[metric] = 1
                     for n in self.n_steps:
                         key = f"last-{n:d}-avg"
                         self.metric_analysis[metric][key] = value
                         # Store n as string for correct restore.
                         self.metric_n_steps[metric][str(n)] = deque([value], maxlen=n)
                 else:
-                    step = result["training_iteration"] or 1
+                    self.metric_n_reports[metric] += 1
+                    step = self.metric_n_reports[metric]
                     self.metric_analysis[metric]["max"] = max(value, self.metric_analysis[metric]["max"])
                     self.metric_analysis[metric]["min"] = min(value, self.metric_analysis[metric]["min"])
                     self.metric_analysis[metric]["avg"] = (
