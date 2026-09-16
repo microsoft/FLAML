@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <b>简体中文</b>
+  <a href="https://github.com/microsoft/FLAML/blob/main/README.md">English</a> · <b>简体中文</b>
 </p>
 
 :fire: FLAML 全面支持 [Microsoft Fabric Data Science](https://learn.microsoft.com/zh-cn/fabric/data-science/automated-machine-learning-fabric) 中的 AutoML 与超参数调优。此外，得益于 Microsoft Fabric 产品团队的贡献，我们引入了对 Python 3.11+ 的支持、一系列全新的算法评估器（Estimators），并深度集成了 MLflow。
@@ -26,8 +26,8 @@
 
 FLAML 是一个轻量级 Python 算法库，专注于机器学习（ML）与人工智能操作（AI Operations）的高效自动化。它能够自动化编排基于大语言模型、经典机器学习模型等工作流，并极致优化其性能表现。
 
-- **低算力消耗的经济型自动化**：FLAML 支持在严格的计算资源与时间约束下，自动化完成模型选择与超参数优化。
-- **高性价比的常见任务求解**：对于分类、回归等常见机器学习任务，FLAML 能够在极低算力开销下迅速为用户提供的高质量数据筛选出最优模型。它易于定制与扩展，用户可以在平滑的灵活性区间内随心设定所需的自定义程度。
+- **经济高效的自动化与调优**：FLAML 支持在严格的计算资源与时间约束下，对 ML/AI 工作流自动化完成模型选择与超参数优化。
+- **低算力开销的常见任务求解**：对于分类和回归等常见机器学习任务，它能够在极低算力开销下迅速针对用户提供的数据找到高质量模型。它易于定制或扩展，用户可以在平滑的自由度区间内随心设定所需的自定义程度。
 - **快速经济的通用自动化调优**：支持各类复杂场景下的自动调优（例如：基座大模型的推理超参数、MLOps/LMOps 工作流配置、流水线、数学与统计模型、特定算法、计算实验参数、底层软件系统配置等），能够从容应对具有异构评估开销（Heterogeneous Evaluation Cost）、复杂约束条件、先验引导以及早停机制的超大规模搜索空间。
 
 FLAML 凝聚了微软研究院（Microsoft Research）以及宾夕法尼亚州立大学、斯蒂文斯理工学院、华盛顿大学和滑铁卢大学等合作科研机构的[系列前沿学术研究成果](https://microsoft.github.io/FLAML/docs/Research/)。
@@ -73,11 +73,11 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 from flaml import tune
 
 tune.run(
-    evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600
+    evaluation_function, config={...}, low_cost_partial_config={...}, time_budget_s=3600
 )
 ```
 
-- **零样本 AutoML (Zero-shot AutoML)**：直接沿用 lightgbm、xgboost 等现有原生训练 API，同时享受 AutoML 在各具体任务上自动精选的高性能超参数配置：
+- [零样本 AutoML (Zero-shot AutoML)](https://microsoft.github.io/FLAML/docs/Use-Cases/Zero-Shot-AutoML) 允许直接沿用 lightgbm、xgboost 等现有原生训练 API，同时享受 AutoML 在各具体任务上自动精选的高性能超参数配置：
 
 ```python
 from flaml.default import LGBMRegressor
@@ -106,7 +106,7 @@ estimator.fit(X_train, y_train)
 
 本项目非常欢迎开源社区的贡献与建议。绝大多数贡献都需要您签署贡献者许可协议（CLA），声明您有权且确实授予我们使用您贡献内容的权利。详情请访问：<https://cla.opensource.microsoft.com>。
 
-如果您刚接触 GitHub，[此处](https://help.github.com/categories/collaborating-with-issues-and-pull-requests/)提供了关于参与 GitHub 开源协同开发的详尽指南。
+如果您刚接触 GitHub，[此处](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests)提供了关于参与 GitHub 开源协同开发的详尽指南。
 
 当您提交 Pull Request 时，CLA 机器人将自动核验您是否需要签署 CLA，并在 PR 中进行相应的状态标识（如状态检查与评论提示）。只需根据机器人的提示完成确认即可。在所有采用微软 CLA 的代码仓库中，此步骤仅需签署一次。
 
@@ -118,6 +118,6 @@ estimator.fit(X_train, y_train)
   <img src="https://contrib.rocks/image?repo=microsoft/flaml&max=204" />
 </a>
 
----
+______________________________________________________________________
 
-> 💡 **文档维护说明**：本中文文档由社区志愿者（@JasonYeYuhe）翻译维护，最后同步更新于 2026年09月13日。如发现内容与官方英文原版存在差异或新特性滞后，欢迎提交 PR 共同完善！
+> 💡 **文档维护说明**：本中文文档由社区志愿者（@JasonYeYuhe）翻译维护，最后同步更新于 2026年09月16日。如发现内容与官方英文原版存在差异或新特性滞后，欢迎提交 PR 共同完善！

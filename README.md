@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.zh.md">简体中文</a>
+  <b>English</b> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh.md">简体中文</a>
 </p>
 
 :fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11+ support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
@@ -78,7 +78,7 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 from flaml import tune
 
 tune.run(
-    evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600
+    evaluation_function, config={...}, low_cost_partial_config={...}, time_budget_s=3600
 )
 ```
 
@@ -113,7 +113,7 @@ This project welcomes contributions and suggestions. Most contributions require 
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit <https://cla.opensource.microsoft.com>.
 
-If you are new to GitHub [here](https://help.github.com/categories/collaborating-with-issues-and-pull-requests/) is a detailed help source on getting involved with development on GitHub.
+If you are new to GitHub [here](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests) is a detailed help source on getting involved with development on GitHub.
 
 When you submit a pull request, a CLA bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
