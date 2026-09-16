@@ -476,12 +476,15 @@ class Quantized(Sampler):
             indices = self.sampler.sample(index_domain, spec, size, random_state=random_state)
             if size == 1:
                 return domain.cast(int(indices) * q)
-            values = np.asarray(indices, dtype=np.int64) * q
-            # Historically q == 1 (the common default) returned an integer ndarray, while
-            # q > 1 returned a plain Python list (the float quantization path below still
-            # does, via list(quantized)); preserve both contracts rather than unifying them.
+            # Historically q == 1 (the common default) returned the wrapped sampler's own
+            # integer ndarray unchanged (e.g. int32 on Windows, int64 elsewhere), while
+            # q > 1 returned a plain Python list computed via safe int64 arithmetic (the
+            # float quantization path below still does, via list(quantized)). Multiplying
+            # by q == 1 is a no-op on the values, so forcing int64 here only narrowed or
+            # widened the sampler's own dtype for no reason; return indices as-is instead.
             if q == 1:
-                return values
+                return indices
+            values = np.asarray(indices, dtype=np.int64) * q
             return list(values)
 
         quantized_domain = copy(domain)

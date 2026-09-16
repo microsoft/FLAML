@@ -105,6 +105,25 @@ def test_qrandint_returns_plain_int_scalar_and_batched():
     assert all(v % 5 == 0 for v in batched_q)
 
 
+def test_qrandint_batched_q1_preserves_underlying_sampler_dtype():
+    # The batched q == 1 path used to force np.int64 on the sampled indices before
+    # returning them. RandomState.randint (the wrapped sampler here) returns the
+    # platform's own default int dtype, int32 on Windows and int64 on Linux/macOS, and
+    # forcing int64 silently widened it there. q == 1 does not need the multiply-by-q
+    # step at all, so the fix returns the sampler's own array untouched.
+    from flaml.tune.sample import Integer, Quantized
+
+    class _Int32Sampler:
+        def sample(self, domain, spec=None, size=1, random_state=None):
+            return (np.arange(size, dtype=np.int32) + int(domain.lower)).astype(np.int32)
+
+    domain = Integer(0, 20)
+    domain.set_sampler(Quantized(_Int32Sampler(), 1))
+    batched = domain.sample(spec=None, size=5, random_state=np.random.RandomState(0))
+    assert isinstance(batched, np.ndarray)
+    assert batched.dtype == np.int32
+
+
 def test_qrandint_large_bound_keeps_integer_precision():
     # values above 2**53 cannot round-trip through float64; a grid point must come back
     # exactly, not off by a rounding error introduced by the sampler.
