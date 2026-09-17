@@ -52,7 +52,9 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.target_names: Optional[Union[str, List[str]]] = None
         self.frequency: Optional[str] = None
         self.end_date: Optional[datetime] = None
+        self.train_end_date: Optional[datetime] = None
         self.regressors: Optional[List[str]] = None
+        self.user_regressors: List[str] = []
 
     def enrich(
         self,
@@ -141,6 +143,8 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.X_train = X_train
         self.frequency = self.X_train.frequency
         self.end_date = self.X_train.end_date
+        self.train_end_date = self.X_train.train_data.iloc[-1][self.time_col]
+        self.user_regressors = self.X_train.regressors
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
@@ -354,9 +358,34 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                 return pd.Series([], name=self.target_names[0], dtype=float)
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
-            if len(self.regressors):
-                exog = self._preprocess(X[self.regressors])
-                forecast = self._model.predict(start=start, end=end, exog=exog.values, **kwargs)
+            exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
+            if self.train_end_date is not None and start > self.train_end_date:
+                first_forecast_date = self.train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
+                forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=self.frequency)
+                requested_dates = pd.DatetimeIndex(X[self.time_col])
+                positions = forecast_dates.get_indexer(requested_dates)
+                if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
+                    raise ValueError(
+                        "Prediction timestamps must be unique, increasing, and aligned with the training frequency."
+                    )
+                if exog is not None and len(forecast_dates) != len(requested_dates):
+                    if self.user_regressors:
+                        raise ValueError(
+                            "Exogenous values are required for every period between the training data and requested predictions."
+                        )
+                    forecast_frame = pd.DataFrame({self.time_col: forecast_dates})
+                    forecast_frame = self.enrich(forecast_frame)
+                    exog = self._preprocess(forecast_frame[self.regressors]).values
+                if exog is not None:
+                    forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **kwargs)
+                else:
+                    forecast = self._model.forecast(steps=len(forecast_dates), **kwargs)
+                if len(forecast_dates) != len(requested_dates):
+                    forecast = forecast.iloc[positions]
+            elif self.train_end_date is not None and end > self.train_end_date:
+                raise ValueError("Prediction timestamps cannot span both training and future periods.")
+            elif exog is not None:
+                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
@@ -665,6 +694,7 @@ class SimpleForecaster(StatsModelsEstimator):
         }
 
     def joint_preprocess(self, X_train, y_train=None):
+        super().fit(X_train, y_train)
         X_train = self.enrich(X_train)
 
         self.regressors = []
@@ -693,8 +723,6 @@ class SimpleForecaster(StatsModelsEstimator):
 
         self.season = self.params.get("season", 1)
         current_time = time.time()
-        super().fit(X_train, y_train, budget=budget, **kwargs)
-
         train_df, target_col = self.joint_preprocess(X_train, y_train)
 
         model = SimpleExpSmoothing(
