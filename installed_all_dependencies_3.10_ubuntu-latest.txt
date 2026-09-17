@@ -49,7 +49,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.7
--e git+https://github.com/microsoft/FLAML@5148bc870e6050e25f55dee2e809b65c11f80df7#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@fc9c39b69fb179d46a6110940fafaa793891b43f#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -139,7 +139,7 @@ nvidia-cusolver==12.0.4.66
 nvidia-cusparse==12.6.3.3
 nvidia-cusparselt-cu13==0.8.1
 nvidia-nccl-cu13==2.30.7
-nvidia-nvjitlink==13.4.52
+nvidia-nvjitlink==13.4.92
 nvidia-nvshmem-cu13==3.4.5
 nvidia-nvtx==13.0.85
 openml==0.15.1
@@ -155,7 +155,7 @@ parso==0.8.7
 patsy==1.0.3
 pexpect==4.9.0
 pillow==12.3.0
-platformdirs==4.11.8
+platformdirs==4.11.9
 plotly==7.1.0
 pluggy==1.6.0
 pre_commit==4.6.2
