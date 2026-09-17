@@ -19,7 +19,7 @@ optuna==3.6.1
 packaging==24.2
 pandas==3.0.5
 psutil==7.2.2
-pytest-rerunfailures==16.6.1
+pytest-rerunfailures==16.7
 pytest==9.1.1
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.6
@@ -37,4 +37,4 @@ torchvision==0.29.0
 transformers==5.17.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: 8956fa47e09817abe5dfc5be6b392b13984418a9
+Current commit hash: 16247dc613fdcf82384c3a7c20d5c17d1baceeda
