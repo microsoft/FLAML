@@ -36,8 +36,8 @@ distlib==0.4.3
 executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
-filelock==3.32.5
--e git+https://github.com/microsoft/FLAML@1044dac45263410b9a148d4645334493b0005005#egg=FLAML
+filelock==3.32.6
+-e git+https://github.com/microsoft/FLAML@884b8a37b83915e74bb78786d474a4a69a73fbec#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -114,7 +114,7 @@ parso==0.8.7
 patsy==1.0.3
 pillow==12.3.0
 pipx==1.17.2
-platformdirs==4.11.7
+platformdirs==4.11.8
 pluggy==1.6.0
 pre_commit==4.6.2
 prometheus_client==0.26.0
