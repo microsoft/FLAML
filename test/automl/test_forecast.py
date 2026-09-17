@@ -291,6 +291,34 @@ def test_statsmodels_delayed_future_forecast_requires_exog():
     estimator._model.forecast.assert_not_called()
 
 
+def test_statsmodels_generated_exog_fills_future_gap():
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=8, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = ["derived"]
+
+    def enrich(X):
+        X = X.copy()
+        X["derived"] = np.arange(len(X))
+        return X
+
+    estimator.enrich = enrich
+    estimator._model = Mock()
+    estimator._model.forecast.return_value = pd.Series([4.0, 5.0, 6.0, 7.0])
+    delayed_data = pd.DataFrame({"ds": dates[[5, 7]]})
+
+    forecast = estimator.predict(delayed_data)
+
+    forecast_exog = estimator._model.forecast.call_args.kwargs["exog"]
+    assert forecast_exog.shape == (4, 1)
+    assert forecast.tolist() == [5.0, 7.0]
+
+
 def load_multi_dataset():
     """multivariate time series forecasting dataset"""
     import pandas as pd

@@ -54,6 +54,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.end_date: Optional[datetime] = None
         self.train_end_date: Optional[datetime] = None
         self.regressors: Optional[List[str]] = None
+        self.user_regressors: List[str] = []
 
     def enrich(
         self,
@@ -143,6 +144,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.frequency = self.X_train.frequency
         self.end_date = self.X_train.end_date
         self.train_end_date = self.X_train.train_data.iloc[-1][self.time_col]
+        self.user_regressors = self.X_train.regressors
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
@@ -367,9 +369,13 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                         "Prediction timestamps must be unique, increasing, and aligned with the training frequency."
                     )
                 if exog is not None and len(forecast_dates) != len(requested_dates):
-                    raise ValueError(
-                        "Exogenous values are required for every period between the training data and requested predictions."
-                    )
+                    if self.user_regressors:
+                        raise ValueError(
+                            "Exogenous values are required for every period between the training data and requested predictions."
+                        )
+                    forecast_frame = pd.DataFrame({self.time_col: forecast_dates})
+                    forecast_frame = self.enrich(forecast_frame)
+                    exog = self._preprocess(forecast_frame[self.regressors]).values
                 if exog is not None:
                     forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **kwargs)
                 else:
