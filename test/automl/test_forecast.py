@@ -1,6 +1,7 @@
 import datetime
 import os
 import sys
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -155,6 +156,20 @@ def test_simple_forecaster_sets_initialization_method(monkeypatch):
     assert set(initialization_methods) == {"estimated"}
 
 
+@pytest.mark.parametrize("estimator_name", ["average", "seasonal_average"])
+def test_average_forecasters_set_training_boundary(estimator_name):
+    from flaml.automl.time_series import Average, SeasonalAverage, TimeSeriesDataset
+
+    dates = pd.date_range("2026-01-01", periods=30, freq="D")
+    train_data = pd.DataFrame({"ds": dates, "y": np.sin(np.arange(30))})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = Average() if estimator_name == "average" else SeasonalAverage()
+
+    estimator.fit(dataset, season=3)
+
+    assert estimator.train_end_date == dates[-1]
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))
@@ -205,6 +220,124 @@ def test_numpy_large():
         task="ts_forecast",
         time_budget=10,  # time budget in seconds
     )
+
+
+def test_statsmodels_future_forecast_uses_training_boundary():
+    import pandas as pd
+
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=7, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:5], "y": range(5)})
+    test_data = pd.DataFrame({"ds": dates[5:], "y": range(5, 7)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y", test_data=test_data)
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    estimator._model.forecast.return_value = pd.Series([5.0, 6.0])
+
+    forecast = estimator.predict(dataset)
+
+    estimator._model.forecast.assert_called_once_with(steps=2)
+    estimator._model.predict.assert_not_called()
+    assert forecast.tolist() == [5.0, 6.0]
+
+
+def test_statsmodels_delayed_future_forecast():
+    import pandas as pd
+
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=8, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    estimator._model.forecast.return_value = pd.Series([4.0, 5.0, 6.0, 7.0])
+    delayed_data = pd.DataFrame({"ds": dates[[5, 7]]})
+
+    forecast = estimator.predict(delayed_data)
+
+    estimator._model.forecast.assert_called_once_with(steps=4)
+    assert forecast.tolist() == [5.0, 7.0]
+
+
+def test_statsmodels_delayed_future_forecast_requires_exog():
+    import pandas as pd
+
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=7, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "x": range(4), "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = ["x"]
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    delayed_data = pd.DataFrame({"ds": dates[5:], "x": range(2)})
+
+    with pytest.raises(ValueError, match="Exogenous values are required for every period"):
+        estimator.predict(delayed_data)
+
+    estimator._model.forecast.assert_not_called()
+
+
+def test_statsmodels_generated_exog_fills_future_gap():
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=8, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = ["derived"]
+
+    def enrich(X):
+        X = X.copy()
+        X["derived"] = np.arange(len(X))
+        return X
+
+    estimator.enrich = enrich
+    estimator._model = Mock()
+    estimator._model.forecast.return_value = pd.Series([4.0, 5.0, 6.0, 7.0])
+    delayed_data = pd.DataFrame({"ds": dates[[5, 7]]})
+
+    forecast = estimator.predict(delayed_data)
+
+    forecast_exog = estimator._model.forecast.call_args.kwargs["exog"]
+    assert forecast_exog.shape == (4, 1)
+    assert forecast.tolist() == [5.0, 7.0]
+
+
+def test_statsmodels_rejects_mixed_training_and_future_periods():
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=6, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    mixed_data = pd.DataFrame({"ds": dates[[2, 4]]})
+
+    with pytest.raises(ValueError, match="cannot span both training and future periods"):
+        estimator.predict(mixed_data)
+
+    estimator._model.predict.assert_not_called()
+    estimator._model.forecast.assert_not_called()
 
 
 def load_multi_dataset():
