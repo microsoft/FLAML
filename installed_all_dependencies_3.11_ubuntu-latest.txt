@@ -46,7 +46,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.7
--e git+https://github.com/microsoft/FLAML@09094f04f03d8a242e1eb877034fe74433db8c9d#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@0b15f2d85da9cb5a1c67c9dd63b385db3868a7ca#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -63,9 +63,9 @@ hf-xet==1.6.0
 holidays==0.104
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.31.0
+huggingface_hub==1.32.0
 identify==2.6.19
-idna==3.19
+idna==3.20
 importlib_metadata==8.9.0
 iniconfig==2.3.0
 interface_meta==2.0.1
@@ -180,7 +180,7 @@ PyMeeus==0.5.12
 pyparsing==3.3.2
 pyspark==3.5.1
 pytest==9.1.1
-pytest-rerunfailures==16.6.1
+pytest-rerunfailures==16.7
 python-dateutil==2.9.0.post0
 python-discovery==1.6.0
 python-json-logger==4.2.0

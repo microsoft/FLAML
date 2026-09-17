@@ -20,7 +20,7 @@ packaging==24.2
 pandas==2.3.3
 prophet==1.4.0
 psutil==7.2.2
-pytest-rerunfailures==16.6.1
+pytest-rerunfailures==16.7
 pytest==9.1.1
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.6
@@ -38,4 +38,4 @@ torchvision==0.29.0
 transformers==5.17.0
 xgboost==3.2.0
 xgboost==3.2.0
-Current commit hash: 09094f04f03d8a242e1eb877034fe74433db8c9d
+Current commit hash: 0b15f2d85da9cb5a1c67c9dd63b385db3868a7ca
