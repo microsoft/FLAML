@@ -15,7 +15,7 @@ optuna==3.6.1
 packaging==24.2
 pandas==3.0.5
 psutil==7.2.2
-pytest-rerunfailures==16.6.1
+pytest-rerunfailures==16.7
 pytest==9.1.1
 requests==2.34.2
 rouge_score==0.1.2
@@ -26,4 +26,4 @@ statsmodels==0.15.0
 tensorboardX==2.6.5
 transformers==5.17.0
 xgboost==3.2.0
-Current commit hash: 3537b2742ccfc8be4c9760332ddfdf113fb6e4ce
+Current commit hash: c737e9e0fcf98807bc7938509824c4cd23186398
