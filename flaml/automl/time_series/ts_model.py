@@ -52,6 +52,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.target_names: Optional[Union[str, List[str]]] = None
         self.frequency: Optional[str] = None
         self.end_date: Optional[datetime] = None
+        self.train_end_date: Optional[datetime] = None
         self.regressors: Optional[List[str]] = None
 
     def enrich(
@@ -141,6 +142,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         self.X_train = X_train
         self.frequency = self.X_train.frequency
         self.end_date = self.X_train.end_date
+        self.train_end_date = self.X_train.train_data.iloc[-1][self.time_col]
 
     def score(self, X_val: DataFrame, y_val: Series, **kwargs):
         from sklearn.metrics import r2_score
@@ -355,11 +357,25 @@ class StatsModelsEstimator(TimeSeriesEstimator):
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
             exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
-            if self.end_date is not None and start > self.end_date:
+            if self.train_end_date is not None and start > self.train_end_date:
+                first_forecast_date = self.train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
+                forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=self.frequency)
+                requested_dates = pd.DatetimeIndex(X[self.time_col])
+                positions = forecast_dates.get_indexer(requested_dates)
+                if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
+                    raise ValueError(
+                        "Prediction timestamps must be unique, increasing, and aligned with the training frequency."
+                    )
+                if exog is not None and len(forecast_dates) != len(requested_dates):
+                    raise ValueError(
+                        "Exogenous values are required for every period between the training data and requested predictions."
+                    )
                 if exog is not None:
-                    forecast = self._model.forecast(steps=X.shape[0], exog=exog, **kwargs)
+                    forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **kwargs)
                 else:
-                    forecast = self._model.forecast(steps=X.shape[0], **kwargs)
+                    forecast = self._model.forecast(steps=len(forecast_dates), **kwargs)
+                if len(forecast_dates) != len(requested_dates):
+                    forecast = forecast.iloc[positions]
             elif exog is not None:
                 forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
