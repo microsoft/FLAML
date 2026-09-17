@@ -382,6 +382,8 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = self._model.forecast(steps=len(forecast_dates), **kwargs)
                 if len(forecast_dates) != len(requested_dates):
                     forecast = forecast.iloc[positions]
+            elif self.train_end_date is not None and end > self.train_end_date:
+                raise ValueError("Prediction timestamps cannot span both training and future periods.")
             elif exog is not None:
                 forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:

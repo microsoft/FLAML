@@ -319,6 +319,27 @@ def test_statsmodels_generated_exog_fills_future_gap():
     assert forecast.tolist() == [5.0, 7.0]
 
 
+def test_statsmodels_rejects_mixed_training_and_future_periods():
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=6, freq="D")
+    train_data = pd.DataFrame({"ds": dates[:4], "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    mixed_data = pd.DataFrame({"ds": dates[[2, 4]]})
+
+    with pytest.raises(ValueError, match="cannot span both training and future periods"):
+        estimator.predict(mixed_data)
+
+    estimator._model.predict.assert_not_called()
+    estimator._model.forecast.assert_not_called()
+
+
 def load_multi_dataset():
     """multivariate time series forecasting dataset"""
     import pandas as pd
