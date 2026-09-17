@@ -156,6 +156,20 @@ def test_simple_forecaster_sets_initialization_method(monkeypatch):
     assert set(initialization_methods) == {"estimated"}
 
 
+@pytest.mark.parametrize("estimator_name", ["average", "seasonal_average"])
+def test_average_forecasters_set_training_boundary(estimator_name):
+    from flaml.automl.time_series import Average, SeasonalAverage, TimeSeriesDataset
+
+    dates = pd.date_range("2026-01-01", periods=30, freq="D")
+    train_data = pd.DataFrame({"ds": dates, "y": np.sin(np.arange(30))})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = Average() if estimator_name == "average" else SeasonalAverage()
+
+    estimator.fit(dataset, season=3)
+
+    assert estimator.train_end_date == dates[-1]
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))

@@ -686,6 +686,7 @@ class SimpleForecaster(StatsModelsEstimator):
         }
 
     def joint_preprocess(self, X_train, y_train=None):
+        super().fit(X_train, y_train)
         X_train = self.enrich(X_train)
 
         self.regressors = []
@@ -714,8 +715,6 @@ class SimpleForecaster(StatsModelsEstimator):
 
         self.season = self.params.get("season", 1)
         current_time = time.time()
-        super().fit(X_train, y_train, budget=budget, **kwargs)
-
         train_df, target_col = self.joint_preprocess(X_train, y_train)
 
         model = SimpleExpSmoothing(
