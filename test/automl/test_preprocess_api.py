@@ -292,5 +292,94 @@ class TestCategoricalEncodingStability(unittest.TestCase):
         self.assertTrue((unseen_rows == nan_code).all())
 
 
+class TestOrdinalEncoderBackedTransform(unittest.TestCase):
+    """Coverage for the categorical-encoding refactor in #1564: DataTransformer
+    uses sklearn's OrdinalEncoder as the source of truth for the per-column
+    category list at fit time, and the three-tier backward-compat fallback
+    (`_ordinal_encoder` → `_cat_categories` → legacy) at transform time so that
+    pickles from any recent FLAML version continue to load."""
+
+    def _fit_simple(self):
+        from flaml.automl.data import DataTransformer
+        from flaml.automl.task.factory import task_factory
+
+        rng = np.random.RandomState(0)
+        n = 100
+        fit_df = pd.DataFrame({"a": rng.randn(n), "gender": rng.choice(["M", "F"], n)})
+        fit_y = pd.Series(rng.randn(n))
+        transformer = DataTransformer()
+        task = task_factory("regression", fit_df, fit_y)
+        X_fit, _ = transformer.fit_transform(fit_df.copy(), fit_y, task)
+        return transformer, X_fit
+
+    def test_fit_transform_installs_ordinal_encoder(self):
+        from sklearn.preprocessing import OrdinalEncoder
+
+        transformer, _ = self._fit_simple()
+        self.assertTrue(hasattr(transformer, "_ordinal_encoder"))
+        self.assertIsInstance(transformer._ordinal_encoder, OrdinalEncoder)
+        self.assertIn("gender", list(transformer._ordinal_encoder.feature_names_in_))
+
+    def test_ordinal_encoder_path_matches_1561_semantics(self):
+        """Refactored path preserves the observable behavior from #1561:
+        - known-category codes are stable across fit/predict distributions,
+        - unseen values are remapped to the "__NAN__" sentinel code,
+        - a `UserWarning` is emitted on unseen values."""
+        import warnings
+
+        transformer, X_fit = self._fit_simple()
+        fit_M_code = int(X_fit["gender"].cat.codes[X_fit["gender"] == "M"].iloc[0])
+
+        # (a) Stability under a smaller predict-time value set
+        predict_df = pd.DataFrame({"a": np.zeros(20), "gender": ["M"] * 20})
+        X_pred = transformer.transform(predict_df.copy())
+        pred_M_code = int(X_pred["gender"].cat.codes[X_pred["gender"] == "M"].iloc[0])
+        self.assertEqual(fit_M_code, pred_M_code)
+
+        # (b) Unseen-category warning + (c) sentinel remap
+        predict_df2 = pd.DataFrame({"a": np.zeros(5), "gender": ["M", "F", "X", "M", "Y"]})
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            X_pred2 = transformer.transform(predict_df2.copy())
+        unseen_warnings = [
+            w for w in caught if issubclass(w.category, UserWarning) and "unseen at fit time" in str(w.message)
+        ]
+        self.assertEqual(len(unseen_warnings), 1)
+        nan_code = list(X_pred2["gender"].cat.categories).index("__NAN__")
+        unseen_rows = X_pred2["gender"].cat.codes[predict_df2["gender"].isin(["X", "Y"]).values]
+        self.assertTrue((unseen_rows == nan_code).all())
+
+    def test_transform_falls_back_to_cat_categories_when_encoder_missing(self):
+        """Pickles produced between #1561 and #1564 only have `_cat_categories`.
+        `transform()` must still work correctly for them."""
+        transformer, X_fit = self._fit_simple()
+        # Simulate a #1561-era pickle by removing the encoder and installing the
+        # ad-hoc dict the older code produced.
+        del transformer._ordinal_encoder
+        transformer._cat_categories = {
+            "gender": list(X_fit["gender"].cat.categories) + ["__NAN__"],
+        }
+
+        fit_M_code = int(X_fit["gender"].cat.codes[X_fit["gender"] == "M"].iloc[0])
+        predict_df = pd.DataFrame({"a": np.zeros(20), "gender": ["M"] * 20})
+        X_pred = transformer.transform(predict_df.copy())
+        pred_M_code = int(X_pred["gender"].cat.codes[X_pred["gender"] == "M"].iloc[0])
+        self.assertEqual(fit_M_code, pred_M_code)
+
+    def test_transform_legacy_pickle_without_either_attribute(self):
+        """Pickles from before #1561 have neither `_ordinal_encoder` nor
+        `_cat_categories`. `transform()` must not raise; it falls through to the
+        legacy `astype("category")` path. Drift is possible on those pickles
+        (that is the bug that #1561 and #1564 fix), but load-and-predict must
+        continue to work without upgrading users' pickle files."""
+        transformer, _ = self._fit_simple()
+        del transformer._ordinal_encoder  # no `_cat_categories` was ever set
+
+        predict_df = pd.DataFrame({"a": np.zeros(20), "gender": ["M"] * 20})
+        # Legacy path just does astype("category") — no exception, no warning.
+        X_pred = transformer.transform(predict_df.copy())
+        self.assertEqual(str(X_pred["gender"].dtype), "category")
+
+
 if __name__ == "__main__":
     unittest.main()
