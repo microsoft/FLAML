@@ -456,8 +456,45 @@ class Quantized(Sampler):
         if not isinstance(random_state, _BackwardsCompatibleNumpyRng):
             random_state = _BackwardsCompatibleNumpyRng(random_state)
 
-        if self.q == 1 and isinstance(domain, Integer):
+        uses_integer_grid = isinstance(domain, Integer) and type(self.sampler) in (
+            Integer._Uniform,
+            Integer._LogUniform,
+        )
+        if self.q == 1 and isinstance(domain, Integer) and not uses_integer_grid:
             return self.sampler.sample(domain, spec, size, random_state=random_state)
+
+        if uses_integer_grid:
+            # domain.upper is documented inclusive here (qrandint/qlograndint), while every
+            # wrapped Integer sampler draws exclusive of its own domain.upper (randint's own
+            # contract). Sample the grid point's own index (value // q), not an index
+            # rebased to start at 1: LogUniform is scale-invariant under multiplication
+            # (X ~ LogUniform(a, b) implies qX ~ LogUniform(qa, qb)) but not under an
+            # arbitrary additive shift, so rebasing to 1 turned qlograndint's draw into a
+            # shifted, differently-shaped distribution whenever lower > q. Every point, top
+            # one included, is still reachable through exactly one index. Integer
+            # arithmetic throughout (no `/`) avoids the float-division precision loss that
+            # bit scalar and batched sampling above 2**53.
+            q = int(self.q)
+            lower_idx = -(-int(domain.lower) // q)  # ceiling division
+            upper_idx = int(domain.upper) // q  # floor division
+            index_domain = copy(domain)
+            index_domain.lower = lower_idx
+            index_domain.upper = upper_idx + 1
+            indices = self.sampler.sample(index_domain, spec, size, random_state=random_state)
+            if size == 1:
+                return domain.cast(int(indices) * q)
+            # Historically q == 1 (the common default) returned the wrapped sampler's own
+            # integer ndarray unchanged (e.g. int32 on Windows, int64 elsewhere), while
+            # q > 1 returned a plain Python list computed via safe int64 arithmetic (the
+            # float quantization path below still does, via list(quantized)). Multiplying
+            # by q == 1 is a no-op on the values, so forcing int64 here only narrowed or
+            # widened the sampler's own dtype for no reason; return indices as-is instead.
+            if q == 1:
+                return indices
+            # Grid points above 2**63 - 1 overflow (and silently wrap) a numpy int64
+            # multiply, so each index is multiplied as an arbitrary-precision Python int
+            # instead of via np.asarray(..., dtype=np.int64) * q.
+            return [int(i) * q for i in indices]
 
         quantized_domain = copy(domain)
         quantized_domain.lower = np.ceil(domain.lower / self.q) * self.q
