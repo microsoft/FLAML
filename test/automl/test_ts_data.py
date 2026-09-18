@@ -135,13 +135,15 @@ def test_irregular_forecast_preserves_future_gaps(estimator_name, user_regressor
     if user_regressors:
         future["volume"] = np.arange(8, dtype=float) + 5000
     full_forecast = estimator.predict(future)
-    delayed = future.iloc[[1, 5]]
+    # Compare the same horizon to isolate gap selection from batch-size-dependent rounding.
+    positions = [1, len(future) - 1]
+    delayed = future.iloc[positions]
     if user_regressors:
         with pytest.raises(ValueError, match="Exogenous values are required for every period"):
             estimator.predict(delayed)
     else:
         forecast = estimator.predict(delayed)
-        np.testing.assert_allclose(forecast, full_forecast.iloc[[1, 5]])
+        np.testing.assert_allclose(forecast, full_forecast.iloc[positions])
         pd.testing.assert_index_equal(forecast.index, pd.DatetimeIndex(delayed["ds"]), check_names=False)
         assert forecast.name == "price"
 
