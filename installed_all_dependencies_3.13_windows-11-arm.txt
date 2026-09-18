@@ -36,8 +36,8 @@ distlib==0.4.3
 executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
-filelock==3.32.5
--e git+https://github.com/microsoft/FLAML@263712b8af2492928d465e74ce335972df5a659a#egg=FLAML
+filelock==3.32.6
+-e git+https://github.com/microsoft/FLAML@b7ecb3e074c7fda42eb69f05c8cc2b786d03824f#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -108,13 +108,13 @@ opentelemetry-sdk==1.44.0
 opentelemetry-semantic-conventions==0.65b0
 optuna==3.6.1
 packaging==24.2
-pandas==3.0.5
+pandas==3.0.6
 pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==12.3.0
 pipx==1.17.2
-platformdirs==4.11.7
+platformdirs==4.11.8
 pluggy==1.6.0
 pre_commit==4.6.2
 prometheus_client==0.26.0
@@ -135,7 +135,7 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 pytest-rerunfailures==16.7
 python-dateutil==2.9.0.post0
-python-discovery==1.6.0
+python-discovery==1.6.1
 python-json-logger==4.2.0
 pywinpty==3.0.5
 PyYAML==6.0.3
@@ -182,8 +182,8 @@ uri-template==1.3.0
 urllib3==2.8.0
 userpath==1.9.2
 uvicorn==0.53.0
-virtualenv==21.7.11
-wcwidth==0.8.3
+virtualenv==21.7.14
+wcwidth==0.8.4
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
