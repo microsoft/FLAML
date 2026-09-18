@@ -229,7 +229,9 @@ class AutoMLState:
                     sampled_X_train = self.X_train.iloc[:sample_size]
                 else:
                     sampled_X_train = self.X_train[:sample_size]
-                if isinstance(self.y_train, (Series, psSeries)):
+                if self.y_train is None:
+                    sampled_y_train = None
+                elif isinstance(self.y_train, (Series, psSeries)):
                     sampled_y_train = self.y_train.iloc[:sample_size]
                 else:
                     sampled_y_train = self.y_train[:sample_size]
@@ -357,7 +359,10 @@ class AutoMLState:
         is_retrain: bool = False,
     ):
         if not sample_size:
-            sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
+            sample_size = config_w_resource.get(
+                "FLAML_sample_size",
+                len(self.y_train_all) if self.y_train_all is not None else self.data_size[0],
+            )
         config = AutoMLState.sanitize(config_w_resource)
 
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
