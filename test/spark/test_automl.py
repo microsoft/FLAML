@@ -28,7 +28,10 @@ skip_spark = not spark_available
 pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
 
 
+@pytest.mark.usefixtures("fabric_runtime")
 def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
+    import flaml.visualization as fviz
+
     automl_experiment = AutoML()
     automl_settings = {
         "time_budget": 30,
@@ -53,19 +56,26 @@ def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
     print(automl_experiment.best_iteration)
     print(automl_experiment.best_estimator)
 
-    # test pickle and load_pickle, should work for prediction
+    # test pickle and load_pickle, should work for vizualization and prediction
     automl_experiment.pickle("automl_xgboost_spark.pkl")
     automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
     assert automl_loaded.best_estimator == automl_experiment.best_estimator
     assert automl_loaded.best_loss == automl_experiment.best_loss
     automl_loaded.predict(X_train)
 
-    import shutil
+    fig1 = fviz.plot_optimization_history(automl_experiment)
+    fig2 = fviz.plot_optimization_history(automl_loaded)
+    assert fig1.to_json() == fig2.to_json()
+    fviz.plot_feature_importance(automl_loaded)
+    fviz.plot_parallel_coordinate(automl_loaded)
+    fviz.plot_contour(automl_loaded)
+    fviz.plot_edf(automl_loaded)
+    fviz.plot_timeline(automl_loaded)
+    fviz.plot_slice(automl_loaded)
+    fviz.plot_param_importance(automl_loaded)
 
-    shutil.rmtree("automl_xgboost_spark.pkl", ignore_errors=True)
-    shutil.rmtree("automl_xgboost_spark.pkl.flaml_artifacts", ignore_errors=True)
 
-
+@pytest.mark.usefixtures("fabric_runtime")
 def test_parallel_xgboost_others():
     # use random search as the hpo_method
     test_parallel_xgboost_and_pickle(hpo_method="random")

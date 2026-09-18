@@ -7,6 +7,7 @@ import time
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from sklearn.pipeline import Pipeline
 
 from flaml.automl.data import group_counts
 from flaml.automl.model import BaseEstimator, TransformersEstimator
@@ -30,6 +31,11 @@ try:
     )
 except ImportError:
     pass
+
+try:
+    from flaml.fabric.autofe import Featurization
+except ImportError:
+    Featurization = None
 
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
@@ -359,12 +365,18 @@ def compute_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
 
     if isinstance(estimator, TransformersEstimator):
         # TODO: move the partial function to nlp
@@ -424,8 +436,9 @@ def train_estimator(
     fit_kwargs: Optional[dict] = None,
     eval_metric=None,
     free_mem_ratio=0,
-) -> Tuple[EstimatorSubclass, float]:
+) -> Tuple[Union[EstimatorSubclass, Pipeline], float]:
     start_time = time.time()
+    config_dic = config_dic.copy()
     fe_params = {}
     for param, value in config_dic.items():
         if param.startswith("fe."):
@@ -434,12 +447,20 @@ def train_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+        if X_train is not None:
+            X_train = autofe.fit_transform(X_train, y_train)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
 
     if fit_kwargs is None:
         fit_kwargs = {}
@@ -452,6 +473,8 @@ def train_estimator(
         train_time = estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     else:
         estimator = estimator.estimator_class(**estimator.params)
+        if autofe is not None:
+            estimator = Pipeline([("autofe", autofe), ("estimator", estimator)])
     train_time = time.time() - start_time
     return estimator, train_time
 
@@ -532,6 +555,11 @@ def get_val_loss(
     free_mem_ratio=0,
 ):
     start = time.time()
+    autofe = getattr(estimator, "autofe", None)
+    if autofe is not None:
+        # This runs separately for each CV fold as well as for a holdout split.
+        X_train = autofe.fit_transform(X_train, y_train)
+        X_val = autofe.transform(X_val)
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val

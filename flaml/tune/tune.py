@@ -23,6 +23,7 @@ else:
     ray_available = True
 import logging
 
+from flaml.fabric import is_fabric_runtime
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
 from .logger import logger, logger_formatter
@@ -33,13 +34,30 @@ try:
     import mlflow
 except ImportError:
     mlflow = None
+
 try:
+    from flaml.fabric.logger import init_kusto_logger
     from flaml.fabric.mlflow import MLflowIntegration, is_autolog_enabled
+    from flaml.fabric.telemetry import log_telemetry
 
     internal_mlflow = True
+    is_log_telemetry_tune = True
+    kusto_logger = init_kusto_logger("flaml.tune")
 except ImportError:
     internal_mlflow = False
+    is_log_telemetry_tune = False
 
+    class KustoLogger:
+        def info(self, *args, **kwargs):
+            pass
+
+        def warning(self, *args, **kwargs):
+            pass
+
+        def error(self, *args, **kwargs):
+            pass
+
+    kusto_logger = KustoLogger()
 
 _use_ray = True
 _runner = None
@@ -267,6 +285,7 @@ def run(
     extra_tag: Optional[dict] = None,
     cost_attr: Optional[str] = "auto",
     cost_budget: Optional[float] = None,
+    mlflow_logging: bool = True,
     **ray_args,
 ):
     """The function-based way of performing HPO.
@@ -475,6 +494,9 @@ def run(
             in our search algorithm. When cost_attr is set to a str different from "auto" and "time_total_s",
             this cost_attr must be available in the result dict of the trial.
         cost_budget: A float of the cost budget. Only valid when cost_attr is a str different from "auto" and "time_total_s".
+        mlflow_logging: Whether to enable FLAML's MLflow integration when MLflow is installed.
+            Outside Fabric, an active run or enabled autologging is also required.
+            Set False to disable the integration, including Fabric's trial-history collection.
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
@@ -483,11 +505,19 @@ def run(
     global _running_trial
     global _training_iteration
     global internal_mlflow
+    global is_log_telemetry_tune
     old_use_ray = _use_ray
     old_verbose = _verbose
     old_running_trial = _running_trial
     old_training_iteration = _training_iteration
-
+    kusto_logger.info(
+        f"tune.run: config_entries={len(config) if isinstance(config, dict) else 0}, "
+        f"has_search_alg={search_alg is not None}, custom_metric={callable(metric)}, "
+        f"use_ray={use_ray is True}, use_spark={use_spark is True}"
+    )
+    if is_log_telemetry_tune and internal_mlflow and not automl_info:
+        log_telemetry(activity_name="flaml-tune")
+        is_log_telemetry_tune = False
     if log_file_name:
         dir_name = os.path.dirname(log_file_name)
         if dir_name:
@@ -528,7 +558,12 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
+    if (
+        internal_mlflow
+        and mlflow_logging
+        and not automl_info
+        and (is_fabric_runtime() or mlflow.active_run() is not None or is_autolog_enabled())
+    ):
         mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
         evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
         _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
@@ -751,6 +786,10 @@ def run(
             n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
             max_concurrent,
         )
+        kusto_logger.info(
+            f"Use {n_concurrent_trials} concurrent trials in spark. FLAML_MAX_CONCURRENT={FLAML_MAX_CONCURRENT}. "
+            f"num_executors={num_executors}. max_spark_parallelism={max_spark_parallelism}. max_concurrent={max_concurrent}."
+        )
         if n_concurrent_trials < passed_in_n_concurrent_trials:
             logger.warning(
                 f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
@@ -792,6 +831,7 @@ def run(
                         trials_to_run = _runner.running_trials
                         if not trials_to_run:
                             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
+                            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
                             break
                         logger.info(
                             f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
@@ -924,6 +964,7 @@ def run(
                 num_failures += 1
         if num_failures == upperbound_num_failures:
             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
+            kusto_logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
         analysis = ExperimentAnalysis(
             _runner.get_trials(),
             metric=metric,

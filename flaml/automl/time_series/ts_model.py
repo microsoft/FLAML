@@ -333,13 +333,26 @@ class Prophet(TimeSeriesEstimator):
 
 
 class StatsModelsEstimator(TimeSeriesEstimator):
+    def _target_name(self) -> str:
+        # ``self.target_names`` is set either as a string (e.g., ARIMA.fit
+        # at line 447) or as a list (the TimeSeriesEstimator default), so
+        # indexing with ``[0]`` on a string would yield only the first
+        # character of the column name. Normalize via type check.
+        names = self.target_names
+        if isinstance(names, str):
+            return names
+        return names[0]
+
     def predict(self, X, **kwargs) -> pd.Series:
-        X = self.enrich(X)
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
-        if isinstance(X, int):
-            return self._model.forecast(steps=X)
+        if isinstance(X, int) and not self.regressors and not hasattr(self._model, "get_forecast"):
+            forecast = self._model.forecast(steps=X)
+            forecast.name = self._target_name()
+            return forecast
+
+        X = self.enrich(X)
 
         if isinstance(X, TimeSeriesDataset):
             data = X
@@ -355,12 +368,13 @@ class StatsModelsEstimator(TimeSeriesEstimator):
 
         if isinstance(X, DataFrame):
             if X.shape[0] == 0:
-                return pd.Series([], name=self.target_names[0], dtype=float)
+                return pd.Series([], name=self._target_name(), dtype=float)
             start = X[self.time_col].iloc[0]
             end = X[self.time_col].iloc[-1]
             exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
-            if self.train_end_date is not None and start > self.train_end_date:
-                first_forecast_date = self.train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
+            train_end_date = getattr(self, "train_end_date", None)
+            if train_end_date is not None and start > train_end_date:
+                first_forecast_date = train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
                 forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=self.frequency)
                 requested_dates = pd.DatetimeIndex(X[self.time_col])
                 positions = forecast_dates.get_indexer(requested_dates)
@@ -376,24 +390,45 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast_frame = pd.DataFrame({self.time_col: forecast_dates})
                     forecast_frame = self.enrich(forecast_frame)
                     exog = self._preprocess(forecast_frame[self.regressors]).values
+                forecast_kwargs = kwargs.copy()
+                if (
+                    hasattr(self._model, "get_forecast")
+                    and getattr(getattr(self._model, "model", None), "_index_generated", False) is True
+                ):
+                    # statsmodels 0.15 requires an explicit index when training dates were irregular.
+                    forecast_kwargs.setdefault("index", forecast_dates)
                 if exog is not None:
-                    forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **kwargs)
+                    forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **forecast_kwargs)
                 else:
-                    forecast = self._model.forecast(steps=len(forecast_dates), **kwargs)
+                    forecast = self._model.forecast(steps=len(forecast_dates), **forecast_kwargs)
                 if len(forecast_dates) != len(requested_dates):
                     forecast = forecast.iloc[positions]
-            elif self.train_end_date is not None and end > self.train_end_date:
+            elif train_end_date is not None and end > train_end_date:
                 raise ValueError("Prediction timestamps cannot span both training and future periods.")
-            elif exog is not None:
-                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
-                forecast = self._model.predict(start=start, end=end, **kwargs)
+                try:
+                    if exog is not None:
+                        forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
+                    else:
+                        forecast = self._model.predict(start=start, end=end, **kwargs)
+                except KeyError:
+                    if train_end_date is not None:
+                        raise
+                    # Preserve step-based prediction for models saved without a training boundary.
+                    if hasattr(self._model, "get_forecast"):
+                        forecast_kwargs = kwargs.copy()
+                        forecast_kwargs.setdefault("index", pd.DatetimeIndex(X[self.time_col]))
+                        if exog is not None:
+                            forecast_kwargs["exog"] = exog
+                        forecast = self._model.get_forecast(steps=len(X), **forecast_kwargs).predicted_mean
+                    else:
+                        forecast = self._model.forecast(steps=len(X))
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"
                 " or an int number of periods for predict()."
             )
-        forecast.name = self.target_names[0]
+        forecast.name = self._target_name()
         return forecast
 
 
@@ -743,7 +778,10 @@ class SeasonalNaive(SimpleForecaster):
         if isinstance(X, int):
             forecasts = []
             for i in range(X):
-                forecast = self._model.forecast(steps=self.season)[0]
+                # `.iloc[0]` is needed because in pandas 3 plain `[0]` performs
+                # label-based lookup on Series with non-integer index (statsmodels
+                # forecasts use a positional/RangeIndex that may be reset).
+                forecast = self._model.forecast(steps=self.season).iloc[0]
                 forecasts.append(forecast)
             return pd.Series(forecasts)
         else:
