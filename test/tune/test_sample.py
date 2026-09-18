@@ -6,6 +6,7 @@ from flaml.tune import choice
 from flaml.tune.sample import (
     BaseSampler,
     Domain,
+    Integer,
     PolynomialExpansionSet,
     lograndint,
     loguniform,
@@ -209,3 +210,53 @@ def test_qlograndint_stays_log_uniform_when_lower_much_greater_than_q():
     empirical_mean = sum(samples) / n
     analytic_mean = (upper - lower) / np.log(upper / lower)
     assert abs(empirical_mean - analytic_mean) < 0.1, (empirical_mean, analytic_mean)
+
+
+def test_quantized_custom_integer_sampler_q1_gets_actual_domain():
+    # A subclass of Integer._Uniform is not one of the two built-in grid-aware samplers
+    # by exact type, so q == 1 must call it directly on the real (lower, upper) domain,
+    # exactly as it did before this PR's grid-index rewrite existed.
+    class _EchoUniform(Integer._Uniform):
+        seen_domains = []
+
+        def sample(self, domain, spec=None, size=1, random_state=None):
+            _EchoUniform.seen_domains.append((domain.lower, domain.upper))
+            return 12 if size == 1 else np.array([12] * size)
+
+    _EchoUniform.seen_domains.clear()
+    domain = Integer(0, 20)
+    domain.set_sampler(_EchoUniform())
+    domain = domain.quantized(1)
+
+    assert domain.sample(random_state=np.random.RandomState(0)) == 12
+    assert _EchoUniform.seen_domains[-1] == (0, 20)
+
+    batch = domain.sample(size=4, random_state=np.random.RandomState(0))
+    assert list(batch) == [12, 12, 12, 12]
+    assert _EchoUniform.seen_domains[-1] == (0, 20)
+
+
+def test_quantized_custom_integer_sampler_q_gt_1_gets_actual_domain():
+    # For q > 1 a non-built-in sampler must fall through to the historical actual-value
+    # quantization (round the sampler's own output to the nearest multiple of q), not
+    # the grid-index transform reserved for Integer._Uniform/_LogUniform: the sampler
+    # sees real bounds aligned to the grid, never an index domain.
+    class _RecordingUniform(Integer._Uniform):
+        seen_domains = []
+
+        def sample(self, domain, spec=None, size=1, random_state=None):
+            _RecordingUniform.seen_domains.append((domain.lower, domain.upper))
+            return domain.lower if size == 1 else np.array([domain.lower] * size)
+
+    _RecordingUniform.seen_domains.clear()
+    domain = Integer(0, 20)
+    domain.set_sampler(_RecordingUniform())
+    domain = domain.quantized(2)
+
+    scalar = domain.sample(random_state=np.random.RandomState(0))
+    assert scalar == 0
+    assert _RecordingUniform.seen_domains[-1] == (0, 20)
+
+    batch = domain.sample(size=3, random_state=np.random.RandomState(0))
+    assert list(batch) == [0, 0, 0]
+    assert _RecordingUniform.seen_domains[-1] == (0, 20)
