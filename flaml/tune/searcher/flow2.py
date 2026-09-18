@@ -422,7 +422,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj:
+            if obj is not None:
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]
@@ -479,7 +479,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj:
+            if obj is not None:
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]

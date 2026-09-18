@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -114,7 +116,60 @@ def test_statsmodels_irregular_forecast_has_prediction_index(estimator_name, dat
     prediction = estimator.predict(5 if as_steps else future)
     assert len(prediction) == 5
     assert np.isfinite(prediction).all()
+    assert prediction.name == "price"
     pd.testing.assert_index_equal(prediction.index, pd.DatetimeIndex(future["ds"]), check_names=False)
+
+
+@pytest.mark.parametrize("estimator_name", ["arima", "sarimax"])
+@pytest.mark.parametrize("user_regressors", [False, True])
+def test_irregular_forecast_preserves_future_gaps(estimator_name, user_regressors):
+    from flaml.automl.time_series.ts_model import ARIMA, SARIMAX
+
+    columns = ["ds", "price", "volume"] if user_regressors else ["ds", "price"]
+    data = _make_stock_data(end="2024-03-01", holidays=US_HOLIDAYS_2024)[columns]
+    dataset = TimeSeriesDataset(data, time_col="ds", target_names="price")
+    params = {"task": "ts_forecast", "p": 1, "d": 0, "q": 0, "monthly_fourier_degree": 1}
+    estimator = ARIMA(**params) if estimator_name == "arima" else SARIMAX(**params, P=0, D=0, Q=0, s=7)
+    estimator.fit(dataset, budget=5)
+    future = create_forward_frame(estimator.frequency, 8, estimator.end_date, estimator.time_col)
+    if user_regressors:
+        future["volume"] = np.arange(8, dtype=float) + 5000
+    full_forecast = estimator.predict(future)
+    delayed = future.iloc[[1, 5]]
+    if user_regressors:
+        with pytest.raises(ValueError, match="Exogenous values are required for every period"):
+            estimator.predict(delayed)
+    else:
+        forecast = estimator.predict(delayed)
+        np.testing.assert_allclose(forecast, full_forecast.iloc[[1, 5]])
+        pd.testing.assert_index_equal(forecast.index, pd.DatetimeIndex(delayed["ds"]), check_names=False)
+        assert forecast.name == "price"
+
+
+def test_statsmodels_legacy_boundary_and_empty_forecast():
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    estimator = StatsModelsEstimator()
+    estimator.time_col = "ds"
+    estimator.target_names = "sales_total"
+    estimator.regressors = []
+    estimator.enrich = lambda frame: frame
+    del estimator.train_end_date
+    dates = pd.date_range("2026-01-01", periods=2)
+    estimator._model = Mock()
+    estimator._model.predict.side_effect = KeyError("unsupported date index")
+    estimator._model.get_forecast.return_value.predicted_mean = pd.Series([1.0, 2.0], index=dates)
+
+    forecast = estimator.predict(pd.DataFrame({"ds": dates}))
+    assert forecast.tolist() == [1.0, 2.0]
+    assert forecast.name == "sales_total"
+    arguments = estimator._model.get_forecast.call_args.kwargs
+    assert arguments["steps"] == 2
+    pd.testing.assert_index_equal(arguments["index"], pd.DatetimeIndex(dates, name="ds"))
+
+    empty = estimator.predict(pd.DataFrame({"ds": dates[:0]}))
+    assert empty.empty
+    assert empty.name == "sales_total"
 
 
 def test_forecast_stock_data_without_holidays(budget=30):
