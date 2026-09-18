@@ -460,7 +460,7 @@ class Quantized(Sampler):
             Integer._Uniform,
             Integer._LogUniform,
         )
-        if self.q == 1 and not uses_integer_grid:
+        if self.q == 1 and isinstance(domain, Integer) and not uses_integer_grid:
             return self.sampler.sample(domain, spec, size, random_state=random_state)
 
         if uses_integer_grid:
