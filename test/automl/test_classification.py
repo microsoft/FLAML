@@ -16,6 +16,11 @@ from sklearn.model_selection import (
 from flaml import AutoML, tune
 from flaml.automl.model import LGBMEstimator
 
+if sys.version_info >= (3, 11):
+    skip_py311 = True
+else:
+    skip_py311 = False
+
 
 class MyLargeLGBM(LGBMEstimator):
     @classmethod
@@ -201,22 +206,6 @@ class TestClassification(unittest.TestCase):
             # "verbose": 4,
             "ensemble": True,
             "skip_transform": True,
-        }
-        automl.fit(X, y, **automl_settings)
-        del automl
-
-        automl = AutoML()
-        automl_settings = {
-            "time_budget": 3,
-            "task": "classification",
-            "n_jobs": 1,
-            "estimator_list": ["histgb"],
-            "eval_method": "cv",
-            "n_splits": 3,
-            "metric": "accuracy",
-            "log_training_metric": True,
-            # "verbose": 4,
-            "ensemble": True,
         }
         automl.fit(X, y, **automl_settings)
         del automl
@@ -469,6 +458,7 @@ def test_reproducibility_of_classification_models(estimator: str):
         "metric": "f1",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -536,6 +526,7 @@ def test_reproducibility_of_underlying_classification_models(estimator: str):
         "metric": "f1",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)

@@ -183,6 +183,10 @@ patch.diff
 # Test things
 notebook/lightning_logs/
 lightning_logs/
+
+# lowcode related
+lowcode/handlebars/test_file/
+
 flaml/autogen/extensions/tmp/
 test/autogen/my_tmp/
 catboost_*
