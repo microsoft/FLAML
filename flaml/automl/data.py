@@ -315,7 +315,8 @@ class DataTransformer:
                     elif X[column].dtype.name == "category":
                         current_categories = X[column].cat.categories
                         if "__NAN__" not in current_categories:
-                            X[column] = X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+                            X[column] = X[column].cat.add_categories("__NAN__")
+                        X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                     else:
                         X[column] = X[column].fillna("__NAN__")
@@ -351,23 +352,16 @@ class DataTransformer:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
-                # Fit an OrdinalEncoder as the source of truth for the per-column
-                # allowed category list — see issue #1564. This replaces the
-                # ad-hoc `_cat_categories` dict from #1561 with sklearn's
-                # standard implementation. `transform()` reads the pinned lists
-                # from `encoder.categories_` (membership check; the encoder's
-                # own transform is not called) and remaps values outside the
-                # fit-time list to the "__NAN__" sentinel category, preserving
-                # the pandas categorical dtype that the downstream estimator
-                # wrappers (LGBM / CatBoost / sklearn) key off of.
                 from sklearn.preprocessing import OrdinalEncoder
 
+                categories = [X[column].cat.categories.to_numpy(dtype=object) for column in cat_columns]
                 self._ordinal_encoder = OrdinalEncoder(
+                    categories=[np.arange(len(values)) for values in categories],
                     handle_unknown="use_encoded_value",
                     unknown_value=-1,
-                    encoded_missing_value=-1,
                 )
-                self._ordinal_encoder.fit(X[cat_columns].astype(object))
+                self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
+                self._ordinal_encoder.categories_ = categories
             if num_columns:
                 X_num = X[num_columns]
                 try:
@@ -465,7 +459,8 @@ class DataTransformer:
                 elif X[column].dtype.name == "category":
                     current_categories = X[column].cat.categories
                     if "__NAN__" not in current_categories:
-                        X[column] = X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+                        X[column] = X[column].cat.add_categories("__NAN__")
+                    X[column] = X[column].fillna("__NAN__")
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
                 # Pin codes to the categories seen at fit time so they do not
@@ -481,11 +476,7 @@ class DataTransformer:
                 encoder = getattr(self, "_ordinal_encoder", None)
                 saved_cats_map = getattr(self, "_cat_categories", None)
                 if encoder is not None:
-                    encoder_col_idx = {name: i for i, name in enumerate(encoder.feature_names_in_)}
-                    for column in cat_columns:
-                        col_idx = encoder_col_idx.get(column)
-                        if col_idx is None:
-                            continue
+                    for col_idx, column in enumerate(cat_columns):
                         known_cats = list(encoder.categories_[col_idx])
                         # Include "__NAN__" as the sentinel slot even if the
                         # fit-time data did not contain missing values.

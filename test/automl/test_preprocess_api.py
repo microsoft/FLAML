@@ -1,8 +1,10 @@
 """Tests for the public preprocessor APIs."""
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.datasets import load_breast_cancer, load_diabetes
 
 from flaml import AutoML
@@ -318,7 +320,7 @@ class TestOrdinalEncoderBackedTransform(unittest.TestCase):
         transformer, _ = self._fit_simple()
         self.assertTrue(hasattr(transformer, "_ordinal_encoder"))
         self.assertIsInstance(transformer._ordinal_encoder, OrdinalEncoder)
-        self.assertIn("gender", list(transformer._ordinal_encoder.feature_names_in_))
+        self.assertIn("gender", transformer._cat_columns)
 
     def test_ordinal_encoder_path_matches_1561_semantics(self):
         """Refactored path preserves the observable behavior from #1561:
@@ -379,6 +381,63 @@ class TestOrdinalEncoderBackedTransform(unittest.TestCase):
         # Legacy path just does astype("category") — no exception, no warning.
         X_pred = transformer.transform(predict_df.copy())
         self.assertEqual(str(X_pred["gender"].dtype), "category")
+
+
+@pytest.mark.parametrize("columns", [["first", "second"], [0, 1], [0, "second"]])
+@pytest.mark.parametrize("categories", [["z", "a", "unused"], [3, 1, 2], [1, "1", "unused"]])
+def test_category_order_and_column_labels(columns, categories):
+    from flaml.automl.data import DataTransformer
+    from flaml.automl.task.factory import task_factory
+
+    values = [categories[0], categories[1], None] * 4
+    X = pd.DataFrame(
+        {
+            columns[0]: pd.Categorical(values, categories=categories, ordered=True),
+            columns[1]: pd.Categorical(["b", "a"] * 6, categories=["b", "a"]),
+        }
+    )
+    y = pd.Series(np.arange(len(X), dtype=float))
+    transformer = DataTransformer()
+    fitted, _ = transformer.fit_transform(X.copy(), y, task_factory("regression", X, y))
+    predicted = transformer.transform(X.copy())
+    for column in columns:
+        assert list(fitted[column].cat.categories) == list(predicted[column].cat.categories)
+        np.testing.assert_array_equal(fitted[column].cat.codes, predicted[column].cat.codes)
+    assert list(fitted[columns[0]].cat.categories) == categories + ["__NAN__"]
+    np.testing.assert_array_equal(predicted[columns[0]].cat.codes, [0, 1, 3] * 4)
+    subset = X.iloc[[1, 0]].astype(object)
+    np.testing.assert_array_equal(transformer.transform(subset)[columns[0]].cat.codes, [1, 0])
+    subset.loc[subset.index[0], columns[0]] = "new"
+    with pytest.warns(UserWarning, match="unseen at fit time"):
+        unseen = transformer.transform(subset)
+    assert unseen[columns[0]].iloc[0] == "__NAN__"
+
+
+def test_encoder_uses_sklearn_10_constructor():
+    from sklearn.preprocessing import OrdinalEncoder
+
+    def legacy_encoder(*, categories="auto", dtype=np.float64, handle_unknown="error", unknown_value=None):
+        return OrdinalEncoder(
+            categories=categories, dtype=dtype, handle_unknown=handle_unknown, unknown_value=unknown_value
+        )
+
+    with patch("sklearn.preprocessing.OrdinalEncoder", side_effect=legacy_encoder):
+        transformer, fitted = TestOrdinalEncoderBackedTransform()._fit_simple()
+    predicted = transformer.transform(fitted.copy())
+    np.testing.assert_array_equal(fitted["gender"].cat.codes, predicted["gender"].cat.codes)
+
+
+def test_existing_missing_sentinel_is_filled():
+    from flaml.automl.data import DataTransformer
+    from flaml.automl.task.factory import task_factory
+
+    X = pd.DataFrame({"cat": pd.Categorical([1, "one", None] * 4, categories=[1, "one", "__NAN__"])})
+    y = pd.Series(np.arange(len(X), dtype=float))
+    transformer = DataTransformer()
+    fitted, _ = transformer.fit_transform(X.copy(), y, task_factory("regression", X, y))
+    predicted = transformer.transform(X.copy())
+    np.testing.assert_array_equal(fitted["cat"].cat.codes, [0, 1, 2] * 4)
+    np.testing.assert_array_equal(predicted["cat"].cat.codes, fitted["cat"].cat.codes)
 
 
 if __name__ == "__main__":
