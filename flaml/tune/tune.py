@@ -5,6 +5,7 @@
 import datetime
 import os
 import sys
+import threading
 import time
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -41,11 +42,27 @@ except ImportError:
     internal_mlflow = False
 
 
-_use_ray = True
-_runner = None
-_verbose = 0
-_running_trial = None
-_training_iteration = 0
+class _TuneState(threading.local):
+    """Per-thread run() state.
+
+    report()/run() coordinate purely through this state (use_ray, runner,
+    verbose, running_trial, training_iteration). A plain module global here
+    is shared by every thread, so two threads calling tune.run() concurrently
+    overwrite each other's runner/trial bookkeeping mid-flight (#996).
+    threading.local's __init__ re-runs on each thread's first access, so
+    every thread starts from these same defaults without an explicit
+    per-thread init call.
+    """
+
+    def __init__(self):
+        self.use_ray = True
+        self.runner = None
+        self.verbose = 0
+        self.running_trial = None
+        self.training_iteration = 0
+
+
+_state = _TuneState()
 
 INCUMBENT_RESULT = "__incumbent_result__"
 
@@ -189,11 +206,7 @@ def report(_metric=None, **kwargs):
         SystemExit (when using ray):
             A SystemExit exception is raised if the trial has been signaled to stop by ray.
     """
-    global _use_ray
-    global _verbose
-    global _running_trial
-    global _training_iteration
-    if _use_ray:
+    if _state.use_ray:
         try:
             from ray import __version__ as ray_version
 
@@ -211,22 +224,22 @@ def report(_metric=None, **kwargs):
     result = kwargs
     if _metric is not None:
         result[DEFAULT_METRIC] = _metric
-    trial = getattr(_runner, "running_trial", None)
+    trial = getattr(_state.runner, "running_trial", None)
     if not trial:
         return None
-    if _running_trial == trial:
-        _training_iteration += 1
+    if _state.running_trial == trial:
+        _state.training_iteration += 1
     else:
-        _training_iteration = 0
-        _running_trial = trial
-    result["training_iteration"] = _training_iteration
+        _state.training_iteration = 0
+        _state.running_trial = trial
+    result["training_iteration"] = _state.training_iteration
     result["config"] = trial.config
     if INCUMBENT_RESULT in result["config"]:
         del result["config"][INCUMBENT_RESULT]
     for key, value in trial.config.items():
         result["config/" + key] = value
-    _runner.process_trial_result(trial, result)
-    if _verbose > 2:
+    _state.runner.process_trial_result(trial, result)
+    if _state.verbose > 2:
         logger.info(f"result: {result}")
     if trial.is_finished():
         raise StopIteration
@@ -478,15 +491,11 @@ def run(
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
-    global _use_ray
-    global _verbose
-    global _running_trial
-    global _training_iteration
     global internal_mlflow
-    old_use_ray = _use_ray
-    old_verbose = _verbose
-    old_running_trial = _running_trial
-    old_training_iteration = _training_iteration
+    old_use_ray = _state.use_ray
+    old_verbose = _state.verbose
+    old_running_trial = _state.running_trial
+    old_training_iteration = _state.training_iteration
 
     if log_file_name:
         dir_name = os.path.dirname(log_file_name)
@@ -498,13 +507,12 @@ def run(
     if use_ray and use_spark:
         raise ValueError("use_ray and use_spark cannot be both True.")
     if not use_ray:
-        _use_ray = False
-        _verbose = verbose
+        _state.use_ray = False
+        _state.verbose = verbose
         old_handlers = logger.handlers
         old_level = logger.getEffectiveLevel()
         logger.handlers = []
-        global _runner
-        old_runner = _runner
+        old_runner = _state.runner
         assert not ray_args, "ray_args is only valid when use_ray=True"
         if (
             old_handlers
@@ -674,7 +682,7 @@ def run(
             from ray import tune
         except ImportError:
             raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
-        _use_ray = True
+        _state.use_ray = True
         try:
             analysis = tune.run(
                 evaluation_function,
@@ -695,10 +703,10 @@ def run(
                         f.write(f"result: {trial.last_result}\n")
             return analysis
         finally:
-            _use_ray = old_use_ray
-            _verbose = old_verbose
-            _running_trial = old_running_trial
-            _training_iteration = old_training_iteration
+            _state.use_ray = old_use_ray
+            _state.verbose = old_verbose
+            _state.running_trial = old_running_trial
+            _state.training_iteration = old_training_iteration
 
     if use_spark:
         # parallel run with spark
@@ -759,7 +767,7 @@ def run(
         with parallel_backend("spark"):
             with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
                 try:
-                    _runner = SparkTrialRunner(
+                    _state.runner = SparkTrialRunner(
                         search_alg=search_alg,
                         scheduler=scheduler,
                         metric=metric,
@@ -779,9 +787,9 @@ def run(
                         if automl_info and automl_info[1] == "all" and automl_info[0] > 0 and time_budget_s < np.inf:
                             time_budget_s -= automl_info[0] * n_concurrent_trials
                             logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
-                        while len(_runner.running_trials) < n_concurrent_trials:
+                        while len(_state.runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark
-                            trial_next = _runner.step()
+                            trial_next = _state.runner.step()
                             if trial_next:
                                 num_trials += 1
                             else:
@@ -789,13 +797,13 @@ def run(
                                 logger.debug(f"consecutive failures is {num_failures}")
                                 if num_failures >= upperbound_num_failures:
                                     break
-                        trials_to_run = _runner.running_trials
+                        trials_to_run = _state.runner.running_trials
                         if not trials_to_run:
                             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
                             break
                         logger.info(
-                            f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
-                            f" {len(_runner._trials) - len(_runner.running_trials)} TERMINATED"
+                            f"Number of trials: {num_trials}/{num_samples}, {len(_state.runner.running_trials)} RUNNING,"
+                            f" {len(_state.runner._trials) - len(_state.runner.running_trials)} TERMINATED"
                         )
                         logger.debug(
                             f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
@@ -817,7 +825,7 @@ def run(
                         while results:
                             result = results.pop(0)
                             trial_to_run = trials_to_run[0]
-                            _runner.running_trial = trial_to_run
+                            _state.runner.running_trial = trial_to_run
                             if result is not None:
                                 if _internal_mlflow:
                                     mlflow_integration.record_trial(result, trial_to_run, metric)
@@ -832,10 +840,10 @@ def run(
                                 else:
                                     logger.info("Brief result: {metric: result}")
                                     report(_metric=result)
-                            _runner.stop_trial(trial_to_run)
+                            _state.runner.stop_trial(trial_to_run)
                         num_failures = 0
                     analysis = ExperimentAnalysis(
-                        _runner.get_trials(),
+                        _state.runner.get_trials(),
                         metric=metric,
                         mode=mode,
                         lexico_objectives=lexico_objectives,
@@ -857,12 +865,12 @@ def run(
                     return analysis
                 finally:
                     # recover the global variables in case of nested run
-                    _use_ray = old_use_ray
-                    _verbose = old_verbose
-                    _running_trial = old_running_trial
-                    _training_iteration = old_training_iteration
+                    _state.use_ray = old_use_ray
+                    _state.verbose = old_verbose
+                    _state.running_trial = old_running_trial
+                    _state.training_iteration = old_training_iteration
                     if not use_ray:
-                        _runner = old_runner
+                        _state.runner = old_runner
                         logger.handlers = old_handlers
                         logger.setLevel(old_level)
                     if _internal_mlflow:
@@ -870,13 +878,13 @@ def run(
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
-    _use_ray = False
+    _state.use_ray = False
     if scheduler:
         scheduler.set_search_properties(metric=metric, mode=mode)
     from .trial_runner import SequentialTrialRunner
 
     try:
-        _runner = SequentialTrialRunner(
+        _state.runner = SequentialTrialRunner(
             search_alg=search_alg,
             scheduler=scheduler,
             metric=metric,
@@ -892,7 +900,7 @@ def run(
             and (num_samples < 0 or num_trials < num_samples)
             and num_failures < upperbound_num_failures
         ):
-            trial_to_run = _runner.step()
+            trial_to_run = _state.runner.step()
             if trial_to_run:
                 num_trials += 1
                 if verbose:
@@ -913,7 +921,7 @@ def run(
                             trial_to_run.set_status(Trial.ERROR)
                     else:
                         report(_metric=result)
-                _runner.stop_trial(trial_to_run)
+                _state.runner.stop_trial(trial_to_run)
                 num_failures = 0
                 if trial_to_run.last_result is None:
                     # application stops tuning by returning None
@@ -925,7 +933,7 @@ def run(
         if num_failures == upperbound_num_failures:
             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
         analysis = ExperimentAnalysis(
-            _runner.get_trials(),
+            _state.runner.get_trials(),
             metric=metric,
             mode=mode,
             lexico_objectives=lexico_objectives,
@@ -946,12 +954,12 @@ def run(
         return analysis
     finally:
         # recover the global variables in case of nested run
-        _use_ray = old_use_ray
-        _verbose = old_verbose
-        _running_trial = old_running_trial
-        _training_iteration = old_training_iteration
+        _state.use_ray = old_use_ray
+        _state.verbose = old_verbose
+        _state.running_trial = old_running_trial
+        _state.training_iteration = old_training_iteration
         if not use_ray:
-            _runner = old_runner
+            _state.runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
         if _internal_mlflow:
