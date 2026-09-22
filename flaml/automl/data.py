@@ -315,7 +315,8 @@ class DataTransformer:
                     elif X[column].dtype.name == "category":
                         current_categories = X[column].cat.categories
                         if "__NAN__" not in current_categories:
-                            X[column] = X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+                            X[column] = X[column].cat.add_categories("__NAN__")
+                        X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                     else:
                         X[column] = X[column].fillna("__NAN__")
@@ -351,17 +352,16 @@ class DataTransformer:
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
-                # Pin the per-column category list seen at fit time so
-                # `transform()` produces the same integer codes for the same
-                # values regardless of what is passed at predict time (see
-                # issue #1101). "__NAN__" is reserved as the sentinel slot
-                # used for values unseen at fit time.
-                self._cat_categories = {}
-                for col in cat_columns:
-                    cats = list(X[col].cat.categories)
-                    if "__NAN__" not in cats:
-                        cats.append("__NAN__")
-                    self._cat_categories[col] = cats
+                from sklearn.preprocessing import OrdinalEncoder
+
+                categories = [X[column].cat.categories.to_numpy(dtype=object) for column in cat_columns]
+                self._ordinal_encoder = OrdinalEncoder(
+                    categories=[np.arange(len(values)) for values in categories],
+                    handle_unknown="use_encoded_value",
+                    unknown_value=-1,
+                )
+                self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
+                self._ordinal_encoder.categories_ = categories
             if num_columns:
                 X_num = X[num_columns]
                 try:
@@ -459,16 +459,44 @@ class DataTransformer:
                 elif X[column].dtype.name == "category":
                     current_categories = X[column].cat.categories
                     if "__NAN__" not in current_categories:
-                        X[column] = X[column].cat.add_categories("__NAN__").fillna("__NAN__")
+                        X[column] = X[column].cat.add_categories("__NAN__")
+                    X[column] = X[column].fillna("__NAN__")
             if cat_columns:
                 X[cat_columns] = X[cat_columns].astype("category")
                 # Pin codes to the categories seen at fit time so they do not
                 # drift when the predict-time column has a different value
                 # distribution than the fit-time column (see issue #1101).
-                # Older pickles without `_cat_categories` fall back to
-                # whatever `astype("category")` inferred above.
+                # Three-tier fallback for cross-version pickle compatibility:
+                #   1. `_ordinal_encoder` (post-#1564)  — sklearn OrdinalEncoder is
+                #      the source of truth for allowed categories;
+                #   2. `_cat_categories` (post-#1561)   — ad-hoc dict from the
+                #      defensive patch that landed before this refactor;
+                #   3. neither (pre-#1561 pickle)       — fall through to
+                #      whatever `astype("category")` inferred above.
+                encoder = getattr(self, "_ordinal_encoder", None)
                 saved_cats_map = getattr(self, "_cat_categories", None)
-                if saved_cats_map:
+                if encoder is not None:
+                    for col_idx, column in enumerate(cat_columns):
+                        known_cats = list(encoder.categories_[col_idx])
+                        # Include "__NAN__" as the sentinel slot even if the
+                        # fit-time data did not contain missing values.
+                        pinned_cats = list(known_cats)
+                        if "__NAN__" not in pinned_cats:
+                            pinned_cats.append("__NAN__")
+                        current = X[column].astype(object)
+                        unseen_mask = ~current.isin(pinned_cats) & current.notna()
+                        if unseen_mask.any():
+                            samples = sorted({str(v) for v in current[unseen_mask].unique()})[:5]
+                            warnings.warn(
+                                f"Column '{column}' contains values unseen at fit time "
+                                f"(e.g. {samples}); these rows will be encoded as '__NAN__' "
+                                "and predictions may be unreliable.",
+                                UserWarning,
+                                stacklevel=2,
+                            )
+                            current = current.where(~unseen_mask, "__NAN__")
+                        X[column] = pd.Categorical(current, categories=pinned_cats)
+                elif saved_cats_map:
                     for column in cat_columns:
                         saved_cats = saved_cats_map.get(column)
                         if saved_cats is None:
