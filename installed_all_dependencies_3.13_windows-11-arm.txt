@@ -37,7 +37,7 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==3.32.6
--e git+https://github.com/microsoft/FLAML@23f7d7cc00c5939238b60b63cce05768d45d5595#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@e96b9073cbea800ada180770af9ff704476ac1fe#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -77,7 +77,7 @@ jupyter_client==8.10.0
 jupyter_core==5.9.1
 jupyter_server==2.21.1
 jupyter_server_terminals==0.5.4
-jupyterlab==4.6.3
+jupyterlab==4.6.4
 jupyterlab_pygments==0.3.0
 jupyterlab_server==2.28.1
 jupyterlab_widgets==3.0.17
@@ -100,7 +100,7 @@ nbformat==5.11.1
 nest-asyncio2==1.7.2
 nltk==3.10.3
 nodeenv==1.10.0
-notebook==7.6.2
+notebook==7.6.3
 notebook_shim==0.2.4
 numpy==2.5.3
 opentelemetry-api==1.44.0
@@ -182,7 +182,7 @@ uri-template==1.3.0
 urllib3==2.8.0
 userpath==1.9.2
 uvicorn==0.53.0
-virtualenv==21.9.0
+virtualenv==21.9.1
 wcwidth==0.8.4
 webcolors==25.10.0
 webencodings==0.6.1
