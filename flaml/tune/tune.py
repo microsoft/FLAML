@@ -3,11 +3,13 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import contextlib
+import contextvars
 import datetime
 import os
 import sys
 import threading
 import time
+import weakref
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -46,27 +48,27 @@ except ImportError:
 class _TuneState(threading.local):
     """Per-thread run() state.
 
-    report()/run() coordinate purely through this state (use_ray, runner,
-    verbose, running_trial, training_iteration, log_run_id). A plain module
-    global here is shared by every thread, so two threads calling tune.run()
-    concurrently overwrite each other's runner/trial bookkeeping mid-flight
-    (#996). threading.local's __init__ re-runs on each thread's first access,
-    so every thread starts from these same defaults without an explicit
-    per-thread init call.
+    report()/run() coordinate through this state (use_ray, runner, verbose,
+    log_run_id) on the thread that is actually driving a tune.run() call. A
+    plain module global here is shared by every thread, so two threads
+    calling tune.run() concurrently overwrite each other's runner/trial
+    bookkeeping mid-flight (#996). threading.local's __init__ re-runs on
+    each thread's first access, so every thread starts from these same
+    defaults without an explicit per-thread init call.
 
-    Being per-thread means a thread that a trainable spawns on its own (e.g.
-    a background worker that later calls tune.report()) starts from these
-    defaults too, with no runner attached; see get_run_context()/
-    use_run_context() below for the supported way to hand that thread the
-    calling thread's state.
+    Being per-thread means a thread that a trainable spawns on its own (a
+    worker/callback thread that later calls tune.report()) starts from
+    these defaults too, with runner=None: report() then falls back to
+    _propagated_context below rather than this thread's own (empty) state.
+    running_trial/training_iteration used to live here too; see
+    _RunContext and _next_training_iteration for where that bookkeeping
+    went and why (#996 follow-up, second review points 1 and 2).
     """
 
     def __init__(self):
         self.use_ray = True
         self.runner = None
         self.verbose = 0
-        self.running_trial = None
-        self.training_iteration = 0
         self.log_run_id = None
 
 
@@ -128,25 +130,134 @@ def _logger_level_exit(level: int) -> None:
 
 
 class _RunContext:
-    """Snapshot of one thread's active tune.run() state (#996 follow-up).
+    """Snapshot of one tune.run() call's active state (#996 follow-up).
+
+    Invariant: there is one active run-context per concurrent tune.run()
+    call, and it must be visible to that run's own worker/callback threads,
+    and invisible to any other concurrent run()'s threads.
 
     `tune.report()` reports against `_state.runner`, which is thread-local.
     If a trainable spawns its own worker/callback thread and that thread
     calls `tune.report()`, the worker thread has no runner attached (its
-    `_TuneState` just initialized to defaults) and the report is silently
-    dropped, same as calling tune.report() outside of tune.run() entirely.
-    Capture the driving thread's context with get_run_context() and attach it
-    on the worker thread with use_run_context() to report through it.
+    `_TuneState` just initialized to defaults) and the report used to be
+    silently dropped, same as calling tune.report() outside of tune.run()
+    entirely (#996 follow-up, second review point 1). run() now sets
+    _propagated_context (below) around every evaluation_function() call it
+    makes on its own driving thread, and a plain threading.Thread started
+    from inside that call automatically inherits it, see
+    _install_thread_context_propagation(). get_run_context()/
+    use_run_context() remain the explicit escape hatch for handoffs that
+    patch can't reach (a persistent thread-pool executor whose worker
+    threads outlive any single submitted task, for instance).
+
+    training_iteration does NOT live here (it used to, see
+    _next_training_iteration for why that broke synchronization).
     """
 
-    __slots__ = ("use_ray", "runner", "verbose", "running_trial", "training_iteration")
+    __slots__ = ("use_ray", "runner", "verbose", "running_trial")
 
-    def __init__(self, use_ray, runner, verbose, running_trial, training_iteration):
+    def __init__(self, use_ray, runner, verbose, running_trial):
         self.use_ray = use_ray
         self.runner = runner
         self.verbose = verbose
         self.running_trial = running_trial
-        self.training_iteration = training_iteration
+
+
+# Ambient propagation channel report() consults when its own thread's
+# _state.runner is None (#996 follow-up, second review point 1). Set by
+# use_run_context() for the duration of its `with` block, and by run()
+# around each evaluation_function() call on the sequential (non-ray,
+# non-spark) path. A bare threading.Thread does NOT inherit a
+# contextvars.ContextVar value the way an asyncio Task does: CPython
+# gives every new OS thread its own empty top-level Context, so this by
+# itself only reaches use_run_context() callers, not a worker thread a
+# trainable spawns on its own with no FLAML-specific code. Pairing it with
+# _install_thread_context_propagation() below is what makes that second,
+# more common case ("existing trainables ... unless callers adopt the new
+# context API", per review) work with no trainable-side change.
+_propagated_context: "contextvars.ContextVar[Optional[_RunContext]]" = contextvars.ContextVar(
+    "flaml_tune_propagated_context", default=None
+)
+
+
+def _install_thread_context_propagation() -> None:
+    """Make threading.Thread inherit the calling thread's contextvars
+    Context, process-wide, once.
+
+    Without this, `_propagated_context` set on the thread driving
+    tune.run() is invisible to a `threading.Thread(...)` a trainable spawns
+    from inside its own evaluation_function. contextvars are per-OS-thread
+    in CPython by default, same as threading.local, and only asyncio Task
+    creation (or an explicit Context.run()) copies the parent's bindings.
+    Patching Thread.start()/run() this way is the standard trick other
+    libraries (structlog, OpenTelemetry) use to give plain threads the same
+    inheritance asyncio gets for free: start() captures
+    contextvars.copy_context() on the CALLING thread (the one invoking
+    .start(), which is "inside" evaluation_function whenever the trainable
+    itself is the one spawning the helper thread), and the new OS thread's
+    run() executes inside that captured Context. A thread started outside
+    any tune.run() call captures a context with nothing bound in it and
+    behaves exactly as before. Idempotent: a second import/call is a no-op.
+    """
+    if getattr(threading.Thread, "_flaml_tune_context_propagation", False):
+        return
+    _orig_start = threading.Thread.start
+    _orig_run = threading.Thread.run
+
+    def _start(self, *args, **kwargs):
+        self._flaml_tune_ctx = contextvars.copy_context()
+        return _orig_start(self, *args, **kwargs)
+
+    def _run(self, *args, **kwargs):
+        ctx = getattr(self, "_flaml_tune_ctx", None)
+        if ctx is None:
+            return _orig_run(self, *args, **kwargs)
+        return ctx.run(_orig_run, self, *args, **kwargs)
+
+    threading.Thread.start = _start
+    threading.Thread.run = _run
+    threading.Thread._flaml_tune_context_propagation = True
+
+
+_install_thread_context_propagation()
+
+# Per-trial training_iteration bookkeeping (#996 follow-up, second review
+# point 2). See _next_training_iteration for the invariant this maintains.
+_trial_iteration_lock = threading.Lock()
+_trial_iteration: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
+def _next_training_iteration(trial) -> int:
+    """Return trial's next training_iteration, as a counter shared by every
+    thread that reports for this trial, whichever thread that is.
+
+    training_iteration used to be a plain int on _RunContext: a snapshot
+    get_run_context() took of _state.training_iteration, copied onto the
+    receiving thread's own _state by use_run_context(), and discarded (via
+    _state restore) when that thread's `with` block exited. The driving
+    thread's own copy was never updated by a worker thread's reports, so
+    every get_run_context() call handed out the same stale snapshot the
+    driving thread's own copy still held, 0 if the driving thread never
+    reports directly itself, which is the common case when a worker thread
+    does the reporting instead. Every one of those propagated reports then
+    repeated the SAME training_iteration (verified: 0, for three separate
+    handoffs in a row), instead of the trial's count going up, which is
+    what a scheduler/searcher that orders trials by training_iteration
+    (ASHA and similar) needs to see.
+
+    The trial object itself is the one thing every one of those threads
+    already holds a reference to in common (_state.runner.running_trial on
+    the driving thread, ctx.running_trial on a propagated one), so keying
+    the counter on the trial, instead of copying it through whichever
+    thread or context happens to be reporting, makes it actually shared.
+    The lock makes the read-increment-write atomic across threads; the
+    WeakKeyDictionary drops a trial's entry once nothing else references
+    it, so finished trials need no separate cleanup.
+    """
+    with _trial_iteration_lock:
+        iteration = _trial_iteration.get(trial, -1) + 1
+        _trial_iteration[trial] = iteration
+        return iteration
 
 
 def get_run_context() -> Optional["_RunContext"]:
@@ -156,10 +267,15 @@ def get_run_context() -> Optional["_RunContext"]:
     at the top of the trainable, before spawning a helper thread). Returns
     None if this thread is not currently inside a tune.run() call, in which
     case there is nothing to propagate.
+
+    Existing trainables do not need to call this: a plain worker thread
+    already gets a context automatically, via _propagated_context and
+    _install_thread_context_propagation(). This (and use_run_context())
+    stay as the explicit form for the cases that patch cannot reach.
     """
     if _state.runner is None:
         return None
-    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.running_trial, _state.training_iteration)
+    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.runner.running_trial)
 
 
 @contextlib.contextmanager
@@ -171,33 +287,20 @@ def use_run_context(ctx: Optional["_RunContext"]):
     `ctx=None` is accepted and is a no-op, so callers do not need to special
     case "this thread never got a context".
 
-    Note this only propagates report() bookkeeping (which trial, which
-    training_iteration); it does not add any locking around the shared
-    TrialRunner, so this is meant for a single worker thread computing a
-    result and handing it off (report(), then join), not for multiple
-    threads reporting against the same trial truly concurrently.
+    Note this only propagates report() bookkeeping (which runner, which
+    trial); it does not add any locking around the shared TrialRunner, so
+    this is meant for a single worker thread computing a result and handing
+    it off (report(), then join), not for multiple threads reporting
+    against the same trial truly concurrently.
     """
     if ctx is None:
         yield
         return
-    old_use_ray = _state.use_ray
-    old_runner = _state.runner
-    old_verbose = _state.verbose
-    old_running_trial = _state.running_trial
-    old_training_iteration = _state.training_iteration
-    _state.use_ray = ctx.use_ray
-    _state.runner = ctx.runner
-    _state.verbose = ctx.verbose
-    _state.running_trial = ctx.running_trial
-    _state.training_iteration = ctx.training_iteration
+    token = _propagated_context.set(ctx)
     try:
         yield
     finally:
-        _state.use_ray = old_use_ray
-        _state.runner = old_runner
-        _state.verbose = old_verbose
-        _state.running_trial = old_running_trial
-        _state.training_iteration = old_training_iteration
+        _propagated_context.reset(token)
 
 
 class ExperimentAnalysis(EA):
@@ -338,8 +441,25 @@ def report(_metric=None, **kwargs):
             A StopIteration exception is raised if the trial has been signaled to stop.
         SystemExit (when using ray):
             A SystemExit exception is raised if the trial has been signaled to stop by ray.
+
+    A worker/callback thread a trainable spawns during evaluation can call
+    this too, with no change on the trainable's part: this thread's own
+    _state.runner is None (a fresh thread never ran tune.run() itself), so
+    the active run's runner/trial is read from _propagated_context instead
+    (#996 follow-up, second review point 1). See _RunContext.
     """
-    if _state.use_ray:
+    use_ray = _state.use_ray
+    runner = _state.runner
+    verbose = _state.verbose
+    running_trial = None
+    if runner is None:
+        ctx = _propagated_context.get()
+        if ctx is not None:
+            use_ray = ctx.use_ray
+            runner = ctx.runner
+            verbose = ctx.verbose
+            running_trial = ctx.running_trial
+    if use_ray:
         try:
             from ray import __version__ as ray_version
 
@@ -357,22 +477,21 @@ def report(_metric=None, **kwargs):
     result = kwargs
     if _metric is not None:
         result[DEFAULT_METRIC] = _metric
-    trial = getattr(_state.runner, "running_trial", None)
+    # running_trial is the trial a propagated context pinned this report to;
+    # otherwise (the thread actually driving run()'s own loop) resolve it
+    # live off the runner, which is always the trial that loop is currently
+    # stepping.
+    trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
     if not trial:
         return None
-    if _state.running_trial == trial:
-        _state.training_iteration += 1
-    else:
-        _state.training_iteration = 0
-        _state.running_trial = trial
-    result["training_iteration"] = _state.training_iteration
+    result["training_iteration"] = _next_training_iteration(trial)
     result["config"] = trial.config
     if INCUMBENT_RESULT in result["config"]:
         del result["config"][INCUMBENT_RESULT]
     for key, value in trial.config.items():
         result["config/" + key] = value
-    _state.runner.process_trial_result(trial, result)
-    if _state.verbose > 2:
+    runner.process_trial_result(trial, result)
+    if verbose > 2:
         logger.info(f"result: {result}")
     if trial.is_finished():
         raise StopIteration
@@ -627,8 +746,6 @@ def run(
     global internal_mlflow
     old_use_ray = _state.use_ray
     old_verbose = _state.verbose
-    old_running_trial = _state.running_trial
-    old_training_iteration = _state.training_iteration
     old_runner = _state.runner
     old_log_run_id = _state.log_run_id
     _run_handler = None
@@ -638,16 +755,18 @@ def run(
     def _restore_tune_state():
         """Undo every mutation this call made to shared/thread-local state.
 
-        Called from the tail of every branch below AND from the except
-        clause wrapping the setup section, so a searcher/scheduler/backend
-        setup failure restores state exactly like a normal return does,
-        instead of leaking a mutated _state/logger into whatever run() this
-        thread resumes next (#996 follow-up).
+        Called from the except clause wrapping the common setup section,
+        AND from the single outer try/finally that wraps every backend
+        branch (ray/spark/sequential) below it, so a setup or execution
+        failure anywhere in this call restores state exactly like a normal
+        return does, instead of leaking a mutated _state/logger into
+        whatever run() this thread resumes next. Backend init (the spark
+        session, `check_spark()`) and the sequential scheduler setup used
+        to run outside any restoration guard; both are inside the outer
+        try/finally now (#996 follow-up, second review point 3).
         """
         _state.use_ray = old_use_ray
         _state.verbose = old_verbose
-        _state.running_trial = old_running_trial
-        _state.training_iteration = old_training_iteration
         if not use_ray:
             _state.runner = old_runner
             _state.log_run_id = old_log_run_id
@@ -841,13 +960,23 @@ def run(
         _restore_tune_state()
         raise
 
-    if use_ray:
-        try:
-            from ray import tune
-        except ImportError:
-            raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
-        _state.use_ray = True
-        try:
+    # One outer try/finally for every backend branch below (ray, spark,
+    # sequential): Spark/backend initialization (check_spark(), the
+    # SparkSession, register_spark()) and the sequential path's scheduler
+    # setup used to run before any of these branches' own try/finally
+    # started, so a failure there raised straight out of run() without
+    # calling _restore_tune_state() at all, leaking the earlier setup
+    # section's _state/logger mutations into whatever this thread runs
+    # next, nested tune.run() call or caught-and-retried one alike (#996
+    # follow-up, second review point 3). Wrapping from here means every
+    # setup step and every execution branch shares the one guard.
+    try:
+        if use_ray:
+            try:
+                from ray import tune
+            except ImportError:
+                raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
+            _state.use_ray = True
             analysis = tune.run(
                 evaluation_function,
                 metric=metric,
@@ -866,68 +995,65 @@ def run(
                     for trial in analysis.trials:
                         f.write(f"result: {trial.last_result}\n")
             return analysis
-        finally:
-            _restore_tune_state()
 
-    if use_spark:
-        # parallel run with spark
-        spark_available, spark_error_msg = check_spark()
-        if not spark_available:
-            raise spark_error_msg
-        try:
-            from joblib import Parallel, delayed, parallel_backend
-            from joblibspark import register_spark
-            from pyspark.sql import SparkSession
-        except ImportError as e:
-            raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
-        from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+        if use_spark:
+            # parallel run with spark
+            spark_available, spark_error_msg = check_spark()
+            if not spark_available:
+                raise spark_error_msg
+            try:
+                from joblib import Parallel, delayed, parallel_backend
+                from joblibspark import register_spark
+                from pyspark.sql import SparkSession
+            except ImportError as e:
+                raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
+            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
 
-        from .trial_runner import SparkTrialRunner
+            from .trial_runner import SparkTrialRunner
 
-        register_spark()
-        spark = SparkSession.builder.getOrCreate()
-        sc = spark._jsc.sc()
-        num_executors = len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
-        """
-        By default, the number of executors is the number of VMs in the cluster. And we can
-        launch one trial per executor. However, sometimes we can launch more trials than
-        the number of executors (e.g., local mode). In this case, we can set the environment
-        variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
+            register_spark()
+            spark = SparkSession.builder.getOrCreate()
+            sc = spark._jsc.sc()
+            num_executors = len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
+            """
+            By default, the number of executors is the number of VMs in the cluster. And we can
+            launch one trial per executor. However, sometimes we can launch more trials than
+            the number of executors (e.g., local mode). In this case, we can set the environment
+            variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
 
-        `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
-        `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
-        is not an instance of `ConcurrencyLimiter`.
+            `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
+            `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
+            is not an instance of `ConcurrencyLimiter`.
 
-        The final number of concurrent trials is the minimum of `max_concurrent` and
-        `num_executors` if `n_concurrent_trials<=0` (default, automl cases), otherwise the
-        minimum of `max_concurrent` and `n_concurrent_trials` (tuning cases).
-        """
-        time_start = time.time()
-        try:
-            FLAML_MAX_CONCURRENT = int(os.getenv("FLAML_MAX_CONCURRENT", 0))
-        except ValueError:
-            FLAML_MAX_CONCURRENT = 0
-        num_executors = max(num_executors, FLAML_MAX_CONCURRENT, 1)
-        max_spark_parallelism = max(spark.sparkContext.defaultParallelism, FLAML_MAX_CONCURRENT)
-        if scheduler:
-            scheduler.set_search_properties(metric=metric, mode=mode)
-        if isinstance(search_alg, ConcurrencyLimiter):
-            max_concurrent = max(1, search_alg.max_concurrent)
-        else:
-            max_concurrent = max(1, max_spark_parallelism)
-        passed_in_n_concurrent_trials = max(n_concurrent_trials, max_concurrent)
-        n_concurrent_trials = min(
-            n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
-            max_concurrent,
-        )
-        if n_concurrent_trials < passed_in_n_concurrent_trials:
-            logger.warning(
-                f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
-                f"variable `FLAML_MAX_CONCURRENT` to '{passed_in_n_concurrent_trials}' to override the detected num of executors."
+            The final number of concurrent trials is the minimum of `max_concurrent` and
+            `num_executors` if `n_concurrent_trials<=0` (default, automl cases), otherwise the
+            minimum of `max_concurrent` and `n_concurrent_trials` (tuning cases).
+            """
+            time_start = time.time()
+            try:
+                FLAML_MAX_CONCURRENT = int(os.getenv("FLAML_MAX_CONCURRENT", 0))
+            except ValueError:
+                FLAML_MAX_CONCURRENT = 0
+            num_executors = max(num_executors, FLAML_MAX_CONCURRENT, 1)
+            max_spark_parallelism = max(spark.sparkContext.defaultParallelism, FLAML_MAX_CONCURRENT)
+            if scheduler:
+                scheduler.set_search_properties(metric=metric, mode=mode)
+            if isinstance(search_alg, ConcurrencyLimiter):
+                max_concurrent = max(1, search_alg.max_concurrent)
+            else:
+                max_concurrent = max(1, max_spark_parallelism)
+            passed_in_n_concurrent_trials = max(n_concurrent_trials, max_concurrent)
+            n_concurrent_trials = min(
+                n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
+                max_concurrent,
             )
-        with parallel_backend("spark"):
-            with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
-                try:
+            if n_concurrent_trials < passed_in_n_concurrent_trials:
+                logger.warning(
+                    f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
+                    f"variable `FLAML_MAX_CONCURRENT` to '{passed_in_n_concurrent_trials}' to override the detected num of executors."
+                )
+            with parallel_backend("spark"):
+                with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
                     _state.runner = SparkTrialRunner(
                         search_alg=search_alg,
                         scheduler=scheduler,
@@ -1024,18 +1150,14 @@ def run(
                         #     )
 
                     return analysis
-                finally:
-                    # recover the global/shared state in case of nested run
-                    _restore_tune_state()
 
-    # simple sequential run without using tune.run() from ray
-    time_start = time.time()
-    _state.use_ray = False
-    if scheduler:
-        scheduler.set_search_properties(metric=metric, mode=mode)
-    from .trial_runner import SequentialTrialRunner
+        # simple sequential run without using tune.run() from ray
+        time_start = time.time()
+        _state.use_ray = False
+        if scheduler:
+            scheduler.set_search_properties(metric=metric, mode=mode)
+        from .trial_runner import SequentialTrialRunner
 
-    try:
         _state.runner = SequentialTrialRunner(
             search_alg=search_alg,
             scheduler=scheduler,
@@ -1058,8 +1180,20 @@ def run(
                 if verbose:
                     logger.info(f"trial {num_trials} config: {trial_to_run.config}")
                 result = None
-                with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
-                    result = evaluation_function(trial_to_run.config)
+                # Pin this evaluation call's runner/trial in _propagated_context
+                # so a worker thread evaluation_function spawns on its own can
+                # call tune.report() and land on the right trial with no
+                # trainable-side change (#996 follow-up, second review point 1).
+                # _install_thread_context_propagation() is what makes a plain
+                # threading.Thread started inside this call see it.
+                _prop_token = _propagated_context.set(
+                    _RunContext(_state.use_ray, _state.runner, _state.verbose, trial_to_run)
+                )
+                try:
+                    with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
+                        result = evaluation_function(trial_to_run.config)
+                finally:
+                    _propagated_context.reset(_prop_token)
                 logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
                     if _internal_mlflow:
@@ -1105,7 +1239,8 @@ def run(
 
         return analysis
     finally:
-        # recover the global/shared state in case of nested run
+        # recover the global/shared state in case of nested run, or a
+        # failure anywhere in the block above (#996 follow-up point 3)
         _restore_tune_state()
 
 

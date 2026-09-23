@@ -252,43 +252,50 @@ def test_tune_run_setup_failure_restores_state():
 
 
 def test_tune_report_from_trainable_spawned_thread():
-    """Follow-up to #996, reviewer point 1: report() reads _state.runner,
-    which is thread-local (per-thread by design, so concurrent tune.run()
-    calls do not see each other's runner). A worker/callback thread that a
-    trainable spawns on its own therefore starts from fresh _TuneState
-    defaults, with no runner attached.
+    """Follow-up to #996, reviewer point 1 (second review): report() reads
+    _state.runner, which is thread-local (per-thread by design, so
+    concurrent tune.run() calls do not see each other's runner). A
+    worker/callback thread that a trainable spawns on its own therefore
+    starts from fresh _TuneState defaults, with no runner attached.
 
-    First half is a positive control: without using get_run_context()/
-    use_run_context(), report() from that worker thread is silently dropped,
-    the same way calling tune.report() outside of tune.run() is documented
-    to be a no-op. This is a real, pre-existing limitation this PR does not
-    claim to fix by itself. Second half shows the supported way to fix it:
-    capture the driving thread's context and attach it on the worker thread.
+    An earlier version of this fix required the trainable to call
+    get_run_context()/use_run_context() itself, and the reviewer asked for
+    that to work automatically instead, for existing trainables that never
+    call either. First half now checks exactly that: a plain
+    threading.Thread with no FLAML-specific code in it still reports
+    correctly, because run() sets _propagated_context around the
+    evaluation_function() call and a patched threading.Thread.start()
+    carries that ambient context into any thread spawned during it (see
+    _install_thread_context_propagation() in tune.py). Second half checks
+    the explicit get_run_context()/use_run_context() API still works too,
+    for callers who want it (a persistent thread-pool executor, for
+    instance, where the automatic patch can't reach individual submissions).
     """
 
-    def eval_without_propagation(config):
+    def eval_automatic_propagation(config):
         def worker():
             tune.report(metric=42.0)
 
         t = threading.Thread(target=worker)
         t.start()
         t.join(timeout=5)
-        return None  # the worker thread's report(), if it lands, is the only result
+        return None  # the worker thread's report() is the only result
 
     analysis = tune.run(
-        eval_without_propagation,
+        eval_automatic_propagation,
         config={"x": tune.uniform(0, 1)},
         metric="metric",
         mode="min",
         num_samples=1,
         verbose=0,
     )
-    assert analysis.trials[0].last_result is None, (
-        "expected report() from an un-propagated worker thread to be silently dropped "
-        f"(pre-existing limitation); got {analysis.trials[0].last_result}"
+    assert analysis.trials[0].last_result is not None, (
+        "report() from a plain worker thread with no explicit context call was dropped; "
+        "expected automatic propagation via _propagated_context"
     )
+    assert analysis.trials[0].last_result.get("metric") == 42.0
 
-    def eval_with_propagation(config):
+    def eval_with_explicit_propagation(config):
         ctx = tune.get_run_context()
 
         def worker():
@@ -301,7 +308,7 @@ def test_tune_report_from_trainable_spawned_thread():
         return None
 
     analysis2 = tune.run(
-        eval_with_propagation,
+        eval_with_explicit_propagation,
         config={"x": tune.uniform(0, 1)},
         metric="metric",
         mode="min",
@@ -310,3 +317,98 @@ def test_tune_report_from_trainable_spawned_thread():
     )
     assert analysis2.trials[0].last_result is not None, "propagated report() from the worker thread was dropped"
     assert analysis2.trials[0].last_result.get("metric") == 7.0
+
+
+def test_training_iteration_shared_across_worker_threads():
+    """Follow-up to #996, reviewer point 2 (second review): training_iteration
+    used to be a plain int copied onto _RunContext by get_run_context() and
+    discarded when the receiving thread's use_run_context() block exited.
+    The driving thread's own copy was never updated by a worker thread's
+    report(), so each new propagated handoff restarted counting from
+    whatever the driving thread's stale copy held (0 here, since the
+    driving thread itself never reports directly) instead of continuing
+    the trial's real count. Every one of the three handoffs below would
+    report training_iteration=1 on unfixed code, not 0, 1, 2.
+
+    Three SEPARATE worker threads report for the SAME trial, one at a
+    time (joined before the next starts, so this is deterministic, not a
+    race): each is a brand-new threading.Thread with its own fresh
+    _TuneState, so this exercises whether the iteration counter is
+    actually shared through the trial, not just accidentally continuous
+    because it stayed on one thread.
+    """
+
+    def eval_multi_handoff(config):
+        ctx = tune.get_run_context()
+        for _ in range(3):
+
+            def worker():
+                with tune.use_run_context(ctx):
+                    tune.report(metric=1.0)
+
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join(timeout=5)
+        return None
+
+    analysis = tune.run(
+        eval_multi_handoff,
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=0,
+    )
+    last_result = analysis.trials[0].last_result
+    assert last_result is not None
+    assert last_result.get("training_iteration") == 2, (
+        "expected the third propagated report to record training_iteration=2 (0-indexed, "
+        f"monotonically increasing across the three handoffs); got {last_result}"
+    )
+
+
+def test_tune_run_spark_setup_failure_restores_state():
+    """Follow-up to #996, reviewer point 3 (second review): Spark backend
+    initialization (check_spark(), constructing the SparkSession) used to
+    run before the try/finally that calls _restore_tune_state(), so a
+    failure there (here: PySpark not installed, the same failure a user
+    hits from a bad environment) raised straight out of run() without
+    restoring the _state/logger mutations the earlier common-setup section
+    had already made, leaking them into whatever this thread does next.
+
+    PySpark is not installed in this test environment, so check_spark()
+    deterministically returns unavailable; no real Spark cluster needed.
+    """
+    handlers_before = list(logger.handlers)
+    level_before = logger.getEffectiveLevel()
+    use_ray_before = tune.tune._state.use_ray
+    verbose_before = tune.tune._state.verbose
+
+    with pytest.raises(ImportError):
+        tune.run(
+            lambda config: {"metric": 1.0},
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            verbose=2,
+            use_spark=True,
+        )
+
+    assert logger.handlers == handlers_before, f"logger.handlers leaked past the spark setup failure: {logger.handlers}"
+    assert logger.getEffectiveLevel() == level_before, "logger level leaked past the spark setup failure"
+    assert tune.tune._state.use_ray == use_ray_before, "_state.use_ray leaked past the spark setup failure"
+    assert tune.tune._state.verbose == verbose_before, "_state.verbose leaked past the spark setup failure"
+
+    # State genuinely was not left corrupted: an ordinary run right after
+    # still works, rather than inheriting whatever the failed setup left.
+    analysis = tune.run(
+        lambda config: {"metric": 1.0},
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=0,
+    )
+    assert len(analysis.trials) == 1
+    assert analysis.trials[0].last_result.get("metric") == 1.0
