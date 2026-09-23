@@ -20,6 +20,7 @@ silently drops its result
 and B's stop_trial() call raises AttributeError on that stale/None runner.
 """
 
+import concurrent.futures
 import threading
 from unittest import mock
 
@@ -419,3 +420,188 @@ def test_tune_run_spark_setup_failure_restores_state():
     )
     assert len(analysis.trials) == 1
     assert analysis.trials[0].last_result.get("metric") == 1.0
+
+
+def test_tune_report_from_prewarmed_threadpool_executor_worker():
+    """Follow-up to #996, third review point 1: a ThreadPoolExecutor's
+    worker threads call Thread.start() once, when the pool spins them up,
+    not once per submitted task. _install_thread_context_propagation()
+    captures the ambient _RunContext at start() time, so a worker warmed up
+    BEFORE any tune.run() call exists would previously capture nothing, and
+    every later task submitted to that same (reused) worker would silently
+    lose report() the same way an un-patched plain Thread used to.
+
+    The pool is created and its worker warmed up (submit + result()) before
+    tune.run() is ever called, so this cannot pass by accident just because
+    the worker happened to start during a run.
+    """
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    executor.submit(lambda: None).result()  # warm up the one worker thread
+
+    def eval_via_prewarmed_pool(config):
+        future = executor.submit(tune.report, metric=99.0)
+        future.result(timeout=5)
+        return None  # the pool worker's report() is the only result
+
+    try:
+        analysis = tune.run(
+            eval_via_prewarmed_pool,
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            verbose=0,
+        )
+    finally:
+        executor.shutdown(wait=True)
+
+    assert analysis.trials[0].last_result is not None, (
+        "report() submitted to an already-warmed-up ThreadPoolExecutor worker was dropped; "
+        "expected _install_executor_context_propagation() to attach the context per task"
+    )
+    assert analysis.trials[0].last_result.get("metric") == 99.0
+
+
+def test_tune_report_from_prewarmed_executor_reused_across_trials():
+    """Same mechanism as above, exercised across TWO trials sharing the SAME
+    pre-warmed worker thread (the "cross-trial executor reuse" half of
+    third review point 1): each trial's task must land on ITS OWN trial,
+    not get pinned to whichever trial warmed the worker up first.
+    """
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    executor.submit(lambda: None).result()
+
+    def eval_via_prewarmed_pool(config):
+        future = executor.submit(tune.report, metric=config["x"])
+        future.result(timeout=5)
+        return None
+
+    try:
+        analysis = tune.run(
+            eval_via_prewarmed_pool,
+            config={"x": tune.uniform(0, 1)},
+            points_to_evaluate=[{"x": 11.0}, {"x": 22.0}],
+            metric="metric",
+            mode="min",
+            num_samples=2,
+            verbose=0,
+        )
+    finally:
+        executor.shutdown(wait=True)
+
+    reported = sorted(t.last_result.get("metric") for t in analysis.trials if t.last_result is not None)
+    assert reported == [
+        11.0,
+        22.0,
+    ], f"expected each of the two trials to land its own report() through the reused pool worker, got {reported}"
+
+
+def test_tune_report_from_thread_subclass_overriding_run():
+    """Follow-up to #996, third review point 2: the first version of this
+    patch replaced threading.Thread.run directly, which a Thread SUBCLASS
+    overriding its own run() (idiomatic, common) shadows, so the patch's
+    context-attaching code never executed for it. The fix wraps
+    Thread._bootstrap_inner instead, which CPython calls internally and
+    which invokes self.run() regardless of which run() that resolves to.
+    """
+
+    class ReportingWorker(threading.Thread):
+        def run(self):
+            tune.report(metric=123.0)
+
+    def eval_subclassed_thread(config):
+        t = ReportingWorker()
+        t.start()
+        t.join(timeout=5)
+        return None
+
+    analysis = tune.run(
+        eval_subclassed_thread,
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=0,
+    )
+    assert analysis.trials[0].last_result is not None, (
+        "report() from a Thread SUBCLASS overriding run() was dropped; expected "
+        "_install_thread_context_propagation() to wrap _bootstrap_inner, not run(), "
+        "so an overridden run() is still covered"
+    )
+    assert analysis.trials[0].last_result.get("metric") == 123.0
+
+
+def test_tune_log_records_from_worker_thread_reach_run_log(tmp_path):
+    """Follow-up to #996, third review point 4: automatic context
+    propagation (a plain worker Thread, or a ThreadPoolExecutor task)
+    carried report()'s runner/trial routing, but not `_state.log_run_id`,
+    which `_RunScopedFilter` matches against to decide whether a log record
+    belongs in THIS run's log file. A worker thread's own _TuneState starts
+    with log_run_id=None, so its log records were silently filtered out of
+    the run log even though its report() call correctly reached the right
+    trial.
+    """
+    log_path = str(tmp_path / "worker_thread.log")
+
+    def eval_logging_worker(config):
+        def worker():
+            logger.info("MARKER_FROM_WORKER_THREAD")
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join(timeout=5)
+        return {"metric": 1.0}
+
+    tune.run(
+        eval_logging_worker,
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=2,
+        log_file_name=log_path,
+    )
+
+    text = open(log_path).read()
+    assert "MARKER_FROM_WORKER_THREAD" in text, (
+        "a worker thread's log record was filtered out of its own run's log file; "
+        f"expected log_run_id propagation to carry it through, got: {text!r}"
+    )
+
+
+def test_tune_log_records_from_executor_worker_reach_run_log(tmp_path):
+    """Same as above (third review point 4), for a task submitted to a
+    ThreadPoolExecutor rather than a plain Thread, since the two are
+    separate propagation paths (_install_thread_context_propagation() vs
+    _install_executor_context_propagation()).
+    """
+    log_path = str(tmp_path / "executor_worker.log")
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    executor.submit(lambda: None).result()  # warm up before any run exists
+
+    def emit():
+        logger.info("MARKER_FROM_EXECUTOR_WORKER")
+
+    def eval_logging_executor(config):
+        future = executor.submit(emit)
+        future.result(timeout=5)
+        return {"metric": 1.0}
+
+    try:
+        tune.run(
+            eval_logging_executor,
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            verbose=2,
+            log_file_name=log_path,
+        )
+    finally:
+        executor.shutdown(wait=True)
+
+    text = open(log_path).read()
+    assert "MARKER_FROM_EXECUTOR_WORKER" in text, (
+        "an executor worker's log record was filtered out of its own run's log file; "
+        f"expected log_run_id propagation to carry it through, got: {text!r}"
+    )

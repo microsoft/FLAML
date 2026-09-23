@@ -2,6 +2,7 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import concurrent.futures
 import contextlib
 import contextvars
 import datetime
@@ -152,15 +153,22 @@ class _RunContext:
 
     training_iteration does NOT live here (it used to, see
     _next_training_iteration for why that broke synchronization).
+
+    log_run_id (#996 follow-up, third review point 4) is the same value
+    _RunScopedFilter matches against `_state.log_run_id`; carrying it here
+    means the one propagation mechanism below (thread or executor) also
+    covers "this worker's log records belong in the run log", not just
+    report() routing.
     """
 
-    __slots__ = ("use_ray", "runner", "verbose", "running_trial")
+    __slots__ = ("use_ray", "runner", "verbose", "running_trial", "log_run_id")
 
-    def __init__(self, use_ray, runner, verbose, running_trial):
+    def __init__(self, use_ray, runner, verbose, running_trial, log_run_id=None):
         self.use_ray = use_ray
         self.runner = runner
         self.verbose = verbose
         self.running_trial = running_trial
+        self.log_run_id = log_run_id
 
 
 # Ambient propagation channel report() consults when its own thread's
@@ -172,7 +180,8 @@ class _RunContext:
 # gives every new OS thread its own empty top-level Context, so this by
 # itself only reaches use_run_context() callers, not a worker thread a
 # trainable spawns on its own with no FLAML-specific code. Pairing it with
-# _install_thread_context_propagation() below is what makes that second,
+# _install_thread_context_propagation() and
+# _install_executor_context_propagation() below is what makes that second,
 # more common case ("existing trainables ... unless callers adopt the new
 # context API", per review) work with no trainable-side change.
 _propagated_context: "contextvars.ContextVar[Optional[_RunContext]]" = contextvars.ContextVar(
@@ -181,45 +190,114 @@ _propagated_context: "contextvars.ContextVar[Optional[_RunContext]]" = contextva
 
 
 def _install_thread_context_propagation() -> None:
-    """Make threading.Thread inherit the calling thread's contextvars
-    Context, process-wide, once.
+    """Make a plain threading.Thread inherit the calling thread's active
+    _RunContext, process-wide, once.
 
     Without this, `_propagated_context` set on the thread driving
     tune.run() is invisible to a `threading.Thread(...)` a trainable spawns
     from inside its own evaluation_function. contextvars are per-OS-thread
     in CPython by default, same as threading.local, and only asyncio Task
     creation (or an explicit Context.run()) copies the parent's bindings.
-    Patching Thread.start()/run() this way is the standard trick other
-    libraries (structlog, OpenTelemetry) use to give plain threads the same
-    inheritance asyncio gets for free: start() captures
-    contextvars.copy_context() on the CALLING thread (the one invoking
-    .start(), which is "inside" evaluation_function whenever the trainable
-    itself is the one spawning the helper thread), and the new OS thread's
-    run() executes inside that captured Context. A thread started outside
-    any tune.run() call captures a context with nothing bound in it and
+
+    Two changes from the first version of this patch (#996 follow-up, third
+    review):
+
+    - Captures and restores only `_propagated_context`'s own _RunContext
+      value (plus setting `_state.log_run_id` from it), never
+      `contextvars.copy_context()`. The full-context copy dragged every
+      ambient application ContextVar into every new thread process-wide,
+      including ones with nothing to do with tuning (third review point
+      3); this only ever touches the one FLAML-owned value.
+    - Wraps `Thread._bootstrap_inner` instead of `Thread.run`.
+      `_bootstrap_inner` is what CPython's Thread._bootstrap() actually
+      calls, and it invokes `self.run()` internally regardless of which
+      `run()` that resolves to, so a Thread SUBCLASS overriding `run()`
+      (idiomatic and common) is still covered; the original patch replaced
+      only the base class's `run` attribute, which a subclass's own `run`
+      shadows and the patch then never runs (third review point 2).
+
+    A thread started outside any tune.run() call captures no context and
     behaves exactly as before. Idempotent: a second import/call is a no-op.
+    Does not help a persistent thread pool's already-running worker
+    threads; see _install_executor_context_propagation() for that case.
     """
     if getattr(threading.Thread, "_flaml_tune_context_propagation", False):
         return
     _orig_start = threading.Thread.start
-    _orig_run = threading.Thread.run
+    _orig_bootstrap_inner = threading.Thread._bootstrap_inner
 
     def _start(self, *args, **kwargs):
-        self._flaml_tune_ctx = contextvars.copy_context()
+        self._flaml_tune_ctx = _propagated_context.get()
         return _orig_start(self, *args, **kwargs)
 
-    def _run(self, *args, **kwargs):
+    def _bootstrap_inner(self, *args, **kwargs):
         ctx = getattr(self, "_flaml_tune_ctx", None)
         if ctx is None:
-            return _orig_run(self, *args, **kwargs)
-        return ctx.run(_orig_run, self, *args, **kwargs)
+            return _orig_bootstrap_inner(self, *args, **kwargs)
+        token = _propagated_context.set(ctx)
+        _state.log_run_id = ctx.log_run_id
+        try:
+            return _orig_bootstrap_inner(self, *args, **kwargs)
+        finally:
+            _propagated_context.reset(token)
 
     threading.Thread.start = _start
-    threading.Thread.run = _run
+    threading.Thread._bootstrap_inner = _bootstrap_inner
     threading.Thread._flaml_tune_context_propagation = True
 
 
+def _install_executor_context_propagation() -> None:
+    """Make concurrent.futures.ThreadPoolExecutor.submit() propagate the
+    submitting thread's active _RunContext to the task it submits (#996
+    follow-up, third review point 1, "pre-warmed and cross-trial executor
+    reuse").
+
+    A pool's worker threads call Thread.start() once, when the pool spins
+    them up, not once per submitted task, so _install_thread_context_
+    propagation()'s capture-at-start() never sees a context for a task
+    submitted to an already-running worker: that worker's start() ran (if
+    at all) before this task's context existed. Verified directly:
+    ThreadPoolExecutor.submit() does not propagate a plain
+    contextvars.ContextVar to an already-warmed-up worker either (CPython
+    does not give submit() the automatic inheritance asyncio Task creation
+    gets), so this is not reachable by patching Thread at any capture
+    point; submit() itself has to be the interception point, applied once
+    per task rather than once per worker thread.
+
+    Wraps the submitted callable rather than the worker thread: the same
+    worker thread runs many tasks across its lifetime, each potentially
+    from a different tune.run() call (or none), so the context has to be
+    attached and detached per task, not once for the thread. Idempotent:
+    a second import/call is a no-op. map() is covered for free, since
+    concurrent.futures.Executor.map() calls self.submit() per item.
+    """
+    if getattr(concurrent.futures.ThreadPoolExecutor, "_flaml_tune_context_propagation", False):
+        return
+    _orig_submit = concurrent.futures.ThreadPoolExecutor.submit
+
+    def _submit(self, fn, *args, **kwargs):
+        ctx = _propagated_context.get()
+        if ctx is None:
+            return _orig_submit(self, fn, *args, **kwargs)
+
+        def _flaml_tune_wrapped(*a, **kw):
+            token = _propagated_context.set(ctx)
+            prior_log_run_id = _state.log_run_id
+            _state.log_run_id = ctx.log_run_id
+            try:
+                return fn(*a, **kw)
+            finally:
+                _propagated_context.reset(token)
+                _state.log_run_id = prior_log_run_id
+
+        return _orig_submit(self, _flaml_tune_wrapped, *args, **kwargs)
+
+    concurrent.futures.ThreadPoolExecutor.submit = _submit
+    concurrent.futures.ThreadPoolExecutor._flaml_tune_context_propagation = True
+
+
 _install_thread_context_propagation()
+_install_executor_context_propagation()
 
 # Per-trial training_iteration bookkeeping (#996 follow-up, second review
 # point 2). See _next_training_iteration for the invariant this maintains.
@@ -268,14 +346,18 @@ def get_run_context() -> Optional["_RunContext"]:
     None if this thread is not currently inside a tune.run() call, in which
     case there is nothing to propagate.
 
-    Existing trainables do not need to call this: a plain worker thread
-    already gets a context automatically, via _propagated_context and
-    _install_thread_context_propagation(). This (and use_run_context())
-    stay as the explicit form for the cases that patch cannot reach.
+    Existing trainables do not need to call this: a plain worker thread, or
+    a task submitted to a ThreadPoolExecutor, already gets a context
+    automatically, via _propagated_context and
+    _install_thread_context_propagation()/
+    _install_executor_context_propagation(). This (and use_run_context())
+    stay as the explicit form for the cases neither patch can reach (a
+    Thread subclass that also overrides _bootstrap_inner itself, for
+    instance, or a non-stdlib executor).
     """
     if _state.runner is None:
         return None
-    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.runner.running_trial)
+    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.runner.running_trial, _state.log_run_id)
 
 
 @contextlib.contextmanager
@@ -287,20 +369,28 @@ def use_run_context(ctx: Optional["_RunContext"]):
     `ctx=None` is accepted and is a no-op, so callers do not need to special
     case "this thread never got a context".
 
+    Also attaches ctx.log_run_id to this thread's _state for the duration,
+    so log records emitted inside the `with` block land in the owning run's
+    log the same way a report() call routes to the owning trial (#996
+    follow-up, third review point 4).
+
     Note this only propagates report() bookkeeping (which runner, which
-    trial); it does not add any locking around the shared TrialRunner, so
-    this is meant for a single worker thread computing a result and handing
-    it off (report(), then join), not for multiple threads reporting
-    against the same trial truly concurrently.
+    trial) and log routing; it does not add any locking around the shared
+    TrialRunner, so this is meant for a single worker thread computing a
+    result and handing it off (report(), then join), not for multiple
+    threads reporting against the same trial truly concurrently.
     """
     if ctx is None:
         yield
         return
     token = _propagated_context.set(ctx)
+    prior_log_run_id = _state.log_run_id
+    _state.log_run_id = ctx.log_run_id
     try:
         yield
     finally:
         _propagated_context.reset(token)
+        _state.log_run_id = prior_log_run_id
 
 
 class ExperimentAnalysis(EA):
@@ -1180,14 +1270,19 @@ def run(
                 if verbose:
                     logger.info(f"trial {num_trials} config: {trial_to_run.config}")
                 result = None
-                # Pin this evaluation call's runner/trial in _propagated_context
-                # so a worker thread evaluation_function spawns on its own can
-                # call tune.report() and land on the right trial with no
-                # trainable-side change (#996 follow-up, second review point 1).
-                # _install_thread_context_propagation() is what makes a plain
-                # threading.Thread started inside this call see it.
+                # Pin this evaluation call's runner/trial/log_run_id in
+                # _propagated_context so a worker thread evaluation_function
+                # spawns on its own (or a task it submits to a
+                # ThreadPoolExecutor) can call tune.report() and land on the
+                # right trial, with its log records landing in the right
+                # run log, with no trainable-side change (#996 follow-up,
+                # second review point 1; log_run_id: third review point 4).
+                # _install_thread_context_propagation() and
+                # _install_executor_context_propagation() are what make a
+                # plain threading.Thread or executor task started inside
+                # this call see it.
                 _prop_token = _propagated_context.set(
-                    _RunContext(_state.use_ray, _state.runner, _state.verbose, trial_to_run)
+                    _RunContext(_state.use_ray, _state.runner, _state.verbose, trial_to_run, _state.log_run_id)
                 )
                 try:
                     with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
