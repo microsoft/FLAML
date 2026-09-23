@@ -2,6 +2,7 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import contextlib
 import datetime
 import os
 import sys
@@ -46,12 +47,18 @@ class _TuneState(threading.local):
     """Per-thread run() state.
 
     report()/run() coordinate purely through this state (use_ray, runner,
-    verbose, running_trial, training_iteration). A plain module global here
-    is shared by every thread, so two threads calling tune.run() concurrently
-    overwrite each other's runner/trial bookkeeping mid-flight (#996).
-    threading.local's __init__ re-runs on each thread's first access, so
-    every thread starts from these same defaults without an explicit
+    verbose, running_trial, training_iteration, log_run_id). A plain module
+    global here is shared by every thread, so two threads calling tune.run()
+    concurrently overwrite each other's runner/trial bookkeeping mid-flight
+    (#996). threading.local's __init__ re-runs on each thread's first access,
+    so every thread starts from these same defaults without an explicit
     per-thread init call.
+
+    Being per-thread means a thread that a trainable spawns on its own (e.g.
+    a background worker that later calls tune.report()) starts from these
+    defaults too, with no runner attached; see get_run_context()/
+    use_run_context() below for the supported way to hand that thread the
+    calling thread's state.
     """
 
     def __init__(self):
@@ -60,11 +67,137 @@ class _TuneState(threading.local):
         self.verbose = 0
         self.running_trial = None
         self.training_iteration = 0
+        self.log_run_id = None
 
 
 _state = _TuneState()
 
 INCUMBENT_RESULT = "__incumbent_result__"
+
+
+class _RunScopedFilter(logging.Filter):
+    """Passes only log records emitted while the emitting thread is "inside"
+    the run() call that owns this filter.
+
+    Concurrent/nested tune.run() calls each add their own Handler to the
+    shared `flaml.tune.logger` logger instead of replacing `logger.handlers`
+    wholesale, so one run's handler is never wiped out by another's setup or
+    teardown (#996 follow-up: the shared logger was still corrupted the same
+    way the five state globals used to be). This filter is what keeps one
+    run's records out of another's handler: matching is against thread-local
+    `_state.log_run_id`, so a nested run on the SAME thread resolves to
+    "innermost run wins" (the same behavior the old module-global design
+    had), while two DIFFERENT threads never see each other's records at all,
+    since `_state` is thread-local and Python's logging dispatch runs
+    synchronously on the emitting thread.
+    """
+
+    def __init__(self, run_id):
+        super().__init__()
+        self._run_id = run_id
+
+    def filter(self, record):
+        return _state.log_run_id is self._run_id
+
+
+# Bookkeeping for the shared logger's OWN level (logger.setLevel), which is a
+# single process-global value distinct from any one run's Handler.setLevel().
+# Each concurrently active run() contributes its desired level; the logger is
+# kept at the most permissive (lowest) of those so no run's handler is
+# starved by another run's stricter request, and it is restored to its
+# pre-any-run value once the last active run exits. _logger_state_lock only
+# ever guards this short bookkeeping section, never a run's full duration.
+_logger_state_lock = threading.Lock()
+_active_log_levels: List[int] = []
+_logger_pristine_level: Optional[int] = None
+
+
+def _logger_level_enter(level: int) -> None:
+    global _logger_pristine_level
+    with _logger_state_lock:
+        if not _active_log_levels:
+            _logger_pristine_level = logger.getEffectiveLevel()
+        _active_log_levels.append(level)
+        logger.setLevel(min(_active_log_levels))
+
+
+def _logger_level_exit(level: int) -> None:
+    with _logger_state_lock:
+        _active_log_levels.remove(level)
+        logger.setLevel(min(_active_log_levels) if _active_log_levels else _logger_pristine_level)
+
+
+class _RunContext:
+    """Snapshot of one thread's active tune.run() state (#996 follow-up).
+
+    `tune.report()` reports against `_state.runner`, which is thread-local.
+    If a trainable spawns its own worker/callback thread and that thread
+    calls `tune.report()`, the worker thread has no runner attached (its
+    `_TuneState` just initialized to defaults) and the report is silently
+    dropped, same as calling tune.report() outside of tune.run() entirely.
+    Capture the driving thread's context with get_run_context() and attach it
+    on the worker thread with use_run_context() to report through it.
+    """
+
+    __slots__ = ("use_ray", "runner", "verbose", "running_trial", "training_iteration")
+
+    def __init__(self, use_ray, runner, verbose, running_trial, training_iteration):
+        self.use_ray = use_ray
+        self.runner = runner
+        self.verbose = verbose
+        self.running_trial = running_trial
+        self.training_iteration = training_iteration
+
+
+def get_run_context() -> Optional["_RunContext"]:
+    """Snapshot the calling thread's active tune.run() state.
+
+    Call this from the thread tune.run() is driving the trainable on (e.g.
+    at the top of the trainable, before spawning a helper thread). Returns
+    None if this thread is not currently inside a tune.run() call, in which
+    case there is nothing to propagate.
+    """
+    if _state.runner is None:
+        return None
+    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.running_trial, _state.training_iteration)
+
+
+@contextlib.contextmanager
+def use_run_context(ctx: Optional["_RunContext"]):
+    """Attach a context captured by get_run_context() to the calling thread.
+
+    `tune.report()` calls made inside the `with` block report against the
+    run `ctx` was captured from, as if they were made on the driving thread.
+    `ctx=None` is accepted and is a no-op, so callers do not need to special
+    case "this thread never got a context".
+
+    Note this only propagates report() bookkeeping (which trial, which
+    training_iteration); it does not add any locking around the shared
+    TrialRunner, so this is meant for a single worker thread computing a
+    result and handing it off (report(), then join), not for multiple
+    threads reporting against the same trial truly concurrently.
+    """
+    if ctx is None:
+        yield
+        return
+    old_use_ray = _state.use_ray
+    old_runner = _state.runner
+    old_verbose = _state.verbose
+    old_running_trial = _state.running_trial
+    old_training_iteration = _state.training_iteration
+    _state.use_ray = ctx.use_ray
+    _state.runner = ctx.runner
+    _state.verbose = ctx.verbose
+    _state.running_trial = ctx.running_trial
+    _state.training_iteration = ctx.training_iteration
+    try:
+        yield
+    finally:
+        _state.use_ray = old_use_ray
+        _state.runner = old_runner
+        _state.verbose = old_verbose
+        _state.running_trial = old_running_trial
+        _state.training_iteration = old_training_iteration
 
 
 class ExperimentAnalysis(EA):
@@ -496,187 +629,218 @@ def run(
     old_verbose = _state.verbose
     old_running_trial = _state.running_trial
     old_training_iteration = _state.training_iteration
+    old_runner = _state.runner
+    old_log_run_id = _state.log_run_id
+    _run_handler = None
+    _internal_mlflow = False
+    mlflow_integration = None
 
-    if log_file_name:
-        dir_name = os.path.dirname(log_file_name)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
-    elif local_dir and verbose > 0:
-        os.makedirs(local_dir, exist_ok=True)
-        log_file_name = os.path.join(local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log")
-    if use_ray and use_spark:
-        raise ValueError("use_ray and use_spark cannot be both True.")
-    if not use_ray:
-        _state.use_ray = False
-        _state.verbose = verbose
-        old_handlers = logger.handlers
-        old_level = logger.getEffectiveLevel()
-        logger.handlers = []
-        old_runner = _state.runner
-        assert not ray_args, "ray_args is only valid when use_ray=True"
-        if (
-            old_handlers
-            and isinstance(old_handlers[0], logging.StreamHandler)
-            and not isinstance(old_handlers[0], logging.FileHandler)
-        ):
-            # Add the console handler.
-            logger.addHandler(old_handlers[0])
-        if verbose > 0:
-            if log_file_name:
-                logger.addHandler(logging.FileHandler(log_file_name))
-            elif not logger.hasHandlers():
-                # Add the console handler.
-                _ch = logging.StreamHandler(stream=sys.stdout)
-                _ch.setFormatter(logger_formatter)
-                logger.addHandler(_ch)
-            if verbose <= 2:
-                logger.setLevel(logging.INFO)
-            else:
-                logger.setLevel(logging.DEBUG)
+    def _restore_tune_state():
+        """Undo every mutation this call made to shared/thread-local state.
+
+        Called from the tail of every branch below AND from the except
+        clause wrapping the setup section, so a searcher/scheduler/backend
+        setup failure restores state exactly like a normal return does,
+        instead of leaking a mutated _state/logger into whatever run() this
+        thread resumes next (#996 follow-up).
+        """
+        _state.use_ray = old_use_ray
+        _state.verbose = old_verbose
+        _state.running_trial = old_running_trial
+        _state.training_iteration = old_training_iteration
+        if not use_ray:
+            _state.runner = old_runner
+            _state.log_run_id = old_log_run_id
+            if _run_handler is not None:
+                logger.removeHandler(_run_handler)
+                _logger_level_exit(_run_handler.level)
+            if _internal_mlflow:
+                mlflow_integration.adopt_children()
+
+    try:
+        if log_file_name:
+            dir_name = os.path.dirname(log_file_name)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+        elif local_dir and verbose > 0:
+            os.makedirs(local_dir, exist_ok=True)
+            log_file_name = os.path.join(local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log")
+        if use_ray and use_spark:
+            raise ValueError("use_ray and use_spark cannot be both True.")
+        if not use_ray:
+            _state.use_ray = False
+            _state.verbose = verbose
+            assert not ray_args, "ray_args is only valid when use_ray=True"
+            _log_run_id = object()
+            _state.log_run_id = _log_run_id
+            if verbose > 0:
+                if log_file_name:
+                    _run_handler = logging.FileHandler(log_file_name)
+                else:
+                    _run_handler = logging.StreamHandler(stream=sys.stdout)
+                    _run_handler.setFormatter(logger_formatter)
+                # Filter + addHandler (never `logger.handlers = [...]`) so a
+                # concurrently active run's handler is never wiped out, and a
+                # per-run level (not a shared logger.setLevel by itself) so one
+                # run's verbosity can never silence or tighten another's (#996
+                # follow-up: the logger was still a corruptible sixth piece of
+                # shared state after the five _TuneState fields were fixed).
+                _run_handler.addFilter(_RunScopedFilter(_log_run_id))
+                _run_handler.setLevel(logging.DEBUG if verbose > 2 else logging.INFO)
+                logger.addHandler(_run_handler)
+                _logger_level_enter(_run_handler.level)
+            # verbose == 0 intentionally adds no handler and touches no shared
+            # state: the old code called logger.setLevel(logging.CRITICAL) here,
+            # which silenced every OTHER concurrently active run's logging too,
+            # the same corruption class this whole block now avoids.
+
+        if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
+            mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
+            evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
+            _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
         else:
-            logger.setLevel(logging.CRITICAL)
+            _internal_mlflow = False
 
-    if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
-        mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
-        evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
-        _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
-    else:
-        _internal_mlflow = False
+        from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
-    from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
+        if lexico_objectives is not None:
+            if "modes" not in lexico_objectives.keys():
+                lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
+            for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
+                if t_metric not in lexico_objectives["tolerances"].keys():
+                    lexico_objectives["tolerances"][t_metric] = 0
+                if t_metric not in lexico_objectives["targets"].keys():
+                    lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
+        if search_alg is None or isinstance(search_alg, str):
+            if isinstance(search_alg, str):
+                assert search_alg in [
+                    "BlendSearch",
+                    "CFO",
+                    "CFOCat",
+                    "RandomSearch",
+                ], f"search_alg={search_alg} is not recognized. 'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
 
-    if lexico_objectives is not None:
-        if "modes" not in lexico_objectives.keys():
-            lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
-        for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
-            if t_metric not in lexico_objectives["tolerances"].keys():
-                lexico_objectives["tolerances"][t_metric] = 0
-            if t_metric not in lexico_objectives["targets"].keys():
-                lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
-    if search_alg is None or isinstance(search_alg, str):
-        if isinstance(search_alg, str):
-            assert search_alg in [
-                "BlendSearch",
-                "CFO",
-                "CFOCat",
-                "RandomSearch",
-            ], f"search_alg={search_alg} is not recognized. 'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
-
-        flaml_scheduler_resource_attr = (
-            flaml_scheduler_min_resource
-        ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
-        if scheduler in (None, "flaml"):
-            # when scheduler is set 'flaml' or None, we will use a scheduler that is
-            # authentic to the search algorithms in flaml. After setting up
-            # the search algorithm accordingly, we need to set scheduler to
-            # None in case it is later used in the trial runner.
-            flaml_scheduler_resource_attr = resource_attr
-            flaml_scheduler_min_resource = min_resource
-            flaml_scheduler_max_resource = max_resource
-            flaml_scheduler_reduction_factor = reduction_factor
-            scheduler = None
-        if lexico_objectives:
-            # TODO: Modify after supporting BlendSearch in lexicographic optimization
-            SearchAlgorithm = CFO
-            logger.info(
-                f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
-            )
-            metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
-        else:
-            if not search_alg or search_alg == "BlendSearch":
-                try:
-                    import optuna as _
-
-                    SearchAlgorithm = BlendSearch
-                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
-                except ImportError:
-                    if search_alg == "BlendSearch":
-                        raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
-                    else:
-                        SearchAlgorithm = CFO
-                        logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
-            else:
-                SearchAlgorithm = locals()[search_alg]
-                logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
-            metric = metric or DEFAULT_METRIC
-        search_alg = SearchAlgorithm(
-            metric=metric,
-            mode=mode,
-            space=config,
-            points_to_evaluate=points_to_evaluate,
-            evaluated_rewards=evaluated_rewards,
-            low_cost_partial_config=low_cost_partial_config,
-            cat_hp_cost=cat_hp_cost,
-            time_budget_s=time_budget_s,
-            num_samples=num_samples,
-            resource_attr=flaml_scheduler_resource_attr,
-            min_resource=flaml_scheduler_min_resource,
-            max_resource=flaml_scheduler_max_resource,
-            reduction_factor=flaml_scheduler_reduction_factor,
-            config_constraints=config_constraints,
-            metric_constraints=metric_constraints,
-            use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
-            lexico_objectives=lexico_objectives,
-            cost_attr=cost_attr,
-            cost_budget=cost_budget,
-        )
-    else:
-        if metric is None or mode is None:
+            flaml_scheduler_resource_attr = (
+                flaml_scheduler_min_resource
+            ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
+            if scheduler in (None, "flaml"):
+                # when scheduler is set 'flaml' or None, we will use a scheduler that is
+                # authentic to the search algorithms in flaml. After setting up
+                # the search algorithm accordingly, we need to set scheduler to
+                # None in case it is later used in the trial runner.
+                flaml_scheduler_resource_attr = resource_attr
+                flaml_scheduler_min_resource = min_resource
+                flaml_scheduler_max_resource = max_resource
+                flaml_scheduler_reduction_factor = reduction_factor
+                scheduler = None
             if lexico_objectives:
-                metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
-                mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+                # TODO: Modify after supporting BlendSearch in lexicographic optimization
+                SearchAlgorithm = CFO
+                logger.info(
+                    f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
+                )
+                metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
             else:
-                metric = metric or search_alg.metric or DEFAULT_METRIC
-                mode = mode or search_alg.mode
-        if ray_available and use_ray:
-            if ray_version.startswith("1."):
-                from ray.tune.suggest import ConcurrencyLimiter
+                if not search_alg or search_alg == "BlendSearch":
+                    try:
+                        import optuna as _
+
+                        SearchAlgorithm = BlendSearch
+                        logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
+                    except ImportError:
+                        if search_alg == "BlendSearch":
+                            raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
+                        else:
+                            SearchAlgorithm = CFO
+                            logger.warning(
+                                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+                            )
+                else:
+                    SearchAlgorithm = locals()[search_alg]
+                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
+                metric = metric or DEFAULT_METRIC
+            search_alg = SearchAlgorithm(
+                metric=metric,
+                mode=mode,
+                space=config,
+                points_to_evaluate=points_to_evaluate,
+                evaluated_rewards=evaluated_rewards,
+                low_cost_partial_config=low_cost_partial_config,
+                cat_hp_cost=cat_hp_cost,
+                time_budget_s=time_budget_s,
+                num_samples=num_samples,
+                resource_attr=flaml_scheduler_resource_attr,
+                min_resource=flaml_scheduler_min_resource,
+                max_resource=flaml_scheduler_max_resource,
+                reduction_factor=flaml_scheduler_reduction_factor,
+                config_constraints=config_constraints,
+                metric_constraints=metric_constraints,
+                use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
+                lexico_objectives=lexico_objectives,
+                cost_attr=cost_attr,
+                cost_budget=cost_budget,
+            )
+        else:
+            if metric is None or mode is None:
+                if lexico_objectives:
+                    metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
+                    mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+                else:
+                    metric = metric or search_alg.metric or DEFAULT_METRIC
+                    mode = mode or search_alg.mode
+            if ray_available and use_ray:
+                if ray_version.startswith("1."):
+                    from ray.tune.suggest import ConcurrencyLimiter
+                else:
+                    from ray.tune.search import ConcurrencyLimiter
             else:
-                from ray.tune.search import ConcurrencyLimiter
-        else:
-            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
-        if (
-            search_alg.__class__.__name__
-            in [
-                "BlendSearch",
-                "CFO",
-                "CFOCat",
-            ]
-            and use_incumbent_result_in_evaluation is not None
-        ):
-            search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
-        searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
-        if lexico_objectives:
-            # TODO: Modify after supporting BlendSearch in lexicographic optimization
-            assert search_alg.__class__.__name__ in [
-                "CFO",
-            ], "If lexico_objectives is not None, the search_alg must be CFO for now."
-            search_alg.lexico_objective = lexico_objectives
+                from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+            if (
+                search_alg.__class__.__name__
+                in [
+                    "BlendSearch",
+                    "CFO",
+                    "CFOCat",
+                ]
+                and use_incumbent_result_in_evaluation is not None
+            ):
+                search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
+            searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
+            if lexico_objectives:
+                # TODO: Modify after supporting BlendSearch in lexicographic optimization
+                assert search_alg.__class__.__name__ in [
+                    "CFO",
+                ], "If lexico_objectives is not None, the search_alg must be CFO for now."
+                search_alg.lexico_objective = lexico_objectives
 
-        if isinstance(searcher, BlendSearch):
-            setting = {}
-            if time_budget_s:
-                setting["time_budget_s"] = time_budget_s
-            if num_samples > 0:
-                setting["num_samples"] = num_samples
-            searcher.set_search_properties(metric, mode, config, **setting)
-        else:
-            searcher.set_search_properties(metric, mode, config)
-    if scheduler in ("asha", "asynchyperband", "async_hyperband"):
-        params = {}
-        # scheduler resource_dimension=resource_attr
-        if resource_attr:
-            params["time_attr"] = resource_attr
-        if max_resource:
-            params["max_t"] = max_resource
-        if min_resource:
-            params["grace_period"] = min_resource
-        if reduction_factor:
-            params["reduction_factor"] = reduction_factor
-        if ray_available:
-            from ray.tune.schedulers import ASHAScheduler
+            if isinstance(searcher, BlendSearch):
+                setting = {}
+                if time_budget_s:
+                    setting["time_budget_s"] = time_budget_s
+                if num_samples > 0:
+                    setting["num_samples"] = num_samples
+                searcher.set_search_properties(metric, mode, config, **setting)
+            else:
+                searcher.set_search_properties(metric, mode, config)
+        if scheduler in ("asha", "asynchyperband", "async_hyperband"):
+            params = {}
+            # scheduler resource_dimension=resource_attr
+            if resource_attr:
+                params["time_attr"] = resource_attr
+            if max_resource:
+                params["max_t"] = max_resource
+            if min_resource:
+                params["grace_period"] = min_resource
+            if reduction_factor:
+                params["reduction_factor"] = reduction_factor
+            if ray_available:
+                from ray.tune.schedulers import ASHAScheduler
 
-            scheduler = ASHAScheduler(**params)
+                scheduler = ASHAScheduler(**params)
+    except Exception:
+        _restore_tune_state()
+        raise
+
     if use_ray:
         try:
             from ray import tune
@@ -703,10 +867,7 @@ def run(
                         f.write(f"result: {trial.last_result}\n")
             return analysis
         finally:
-            _state.use_ray = old_use_ray
-            _state.verbose = old_verbose
-            _state.running_trial = old_running_trial
-            _state.training_iteration = old_training_iteration
+            _restore_tune_state()
 
     if use_spark:
         # parallel run with spark
@@ -864,17 +1025,8 @@ def run(
 
                     return analysis
                 finally:
-                    # recover the global variables in case of nested run
-                    _state.use_ray = old_use_ray
-                    _state.verbose = old_verbose
-                    _state.running_trial = old_running_trial
-                    _state.training_iteration = old_training_iteration
-                    if not use_ray:
-                        _state.runner = old_runner
-                        logger.handlers = old_handlers
-                        logger.setLevel(old_level)
-                    if _internal_mlflow:
-                        mlflow_integration.adopt_children()
+                    # recover the global/shared state in case of nested run
+                    _restore_tune_state()
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -953,17 +1105,8 @@ def run(
 
         return analysis
     finally:
-        # recover the global variables in case of nested run
-        _state.use_ray = old_use_ray
-        _state.verbose = old_verbose
-        _state.running_trial = old_running_trial
-        _state.training_iteration = old_training_iteration
-        if not use_ray:
-            _state.runner = old_runner
-            logger.handlers = old_handlers
-            logger.setLevel(old_level)
-        if _internal_mlflow:
-            mlflow_integration.adopt_children()
+        # recover the global/shared state in case of nested run
+        _restore_tune_state()
 
 
 class Tuner:
