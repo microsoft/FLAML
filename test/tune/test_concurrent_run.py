@@ -21,6 +21,7 @@ and B's stop_trial() call raises AttributeError on that stale/None runner.
 """
 
 import threading
+from unittest import mock
 
 import pytest
 
@@ -371,29 +372,35 @@ def test_tune_run_spark_setup_failure_restores_state():
     """Follow-up to #996, reviewer point 3 (second review): Spark backend
     initialization (check_spark(), constructing the SparkSession) used to
     run before the try/finally that calls _restore_tune_state(), so a
-    failure there (here: PySpark not installed, the same failure a user
+    failure there (here: forced via check_spark(), the same failure a user
     hits from a bad environment) raised straight out of run() without
     restoring the _state/logger mutations the earlier common-setup section
     had already made, leaking them into whatever this thread does next.
 
-    PySpark is not installed in this test environment, so check_spark()
-    deterministically returns unavailable; no real Spark cluster needed.
+    Patches check_spark() itself rather than relying on PySpark being
+    absent: CI installs real pyspark on some legs, where check_spark()
+    would otherwise succeed and this test would never exercise the
+    failure path at all.
     """
     handlers_before = list(logger.handlers)
     level_before = logger.getEffectiveLevel()
     use_ray_before = tune.tune._state.use_ray
     verbose_before = tune.tune._state.verbose
 
-    with pytest.raises(ImportError):
-        tune.run(
-            lambda config: {"metric": 1.0},
-            config={"x": tune.uniform(0, 1)},
-            metric="metric",
-            mode="min",
-            num_samples=1,
-            verbose=2,
-            use_spark=True,
-        )
+    with mock.patch(
+        "flaml.tune.tune.check_spark",
+        return_value=(False, ImportError("simulated: pyspark unavailable")),
+    ):
+        with pytest.raises(ImportError):
+            tune.run(
+                lambda config: {"metric": 1.0},
+                config={"x": tune.uniform(0, 1)},
+                metric="metric",
+                mode="min",
+                num_samples=1,
+                verbose=2,
+                use_spark=True,
+            )
 
     assert logger.handlers == handlers_before, f"logger.handlers leaked past the spark setup failure: {logger.handlers}"
     assert logger.getEffectiveLevel() == level_before, "logger level leaked past the spark setup failure"
