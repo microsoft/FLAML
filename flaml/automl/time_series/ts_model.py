@@ -334,6 +334,9 @@ class Prophet(TimeSeriesEstimator):
 
 class StatsModelsEstimator(TimeSeriesEstimator):
     def predict(self, X, **kwargs) -> pd.Series:
+        if isinstance(X, int) and self.train_end_date is not None:
+            # Forecast the requested number of periods right after the fitted training data
+            X = create_forward_frame(self.frequency, X, self.train_end_date, self.time_col)
         X = self.enrich(X)
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
@@ -736,28 +739,44 @@ class SimpleForecaster(StatsModelsEstimator):
         return train_time
 
 
+class SeasonalRandomWalk:
+    """Point forecasts of a seasonal random walk, where each value repeats the one a season earlier."""
+
+    def __init__(self, y: pd.Series, season: int, frequency: str):
+        self.season = season
+        self.frequency = frequency
+        self.last_date = y.index[-1]
+        self.last_cycle = y.to_numpy()[-season:]
+        # In-sample predictions; the first season has no earlier value and uses the first observation
+        self.fittedvalues = y.shift(season).fillna(y.iloc[0])
+
+    def forecast(self, steps: int, **kwargs) -> pd.Series:
+        start = self.last_date + pd.tseries.frequencies.to_offset(self.frequency)
+        index = pd.date_range(start=start, periods=steps, freq=self.frequency)
+        return pd.Series(np.resize(self.last_cycle, steps), index=index)
+
+    def predict(self, start, end, **kwargs) -> pd.Series:
+        return self.fittedvalues.loc[start:end]
+
+
 class SeasonalNaive(SimpleForecaster):
     smoothing_level = 1.0
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
-        import warnings
-
-        warnings.filterwarnings("ignore")
-        from statsmodels.tsa.statespace.sarimax import SARIMAX
-
-        self.season = self.params.get("season", 1)
-        if self.season <= 1:
+        season = self.params.get("season", 1)
+        if isinstance(season, bool) or not isinstance(season, (int, np.integer)) or season < 1:
+            raise ValueError(f"season must be a positive integer, got {season!r}.")
+        if season == 1:
             return super().fit(X_train, y_train, budget=budget, **kwargs)
         current_time = time.time()
+        self.season = int(season)
         train_df, target_col = self.joint_preprocess(X_train, y_train)
-
-        # A seasonal random walk forecasts each period with the value one season earlier
-        model = SARIMAX(train_df[[target_col]], order=(0, 0, 0), seasonal_order=(0, 1, 0, self.season))
-        with suppress_stdout_stderr():
-            model = model.fit(disp=False)
-        train_time = time.time() - current_time
-        self._model = model
-        return train_time
+        if len(train_df) < self.season:
+            raise ValueError(
+                f"SeasonalNaive needs at least season={self.season} training observations, got {len(train_df)}."
+            )
+        self._model = SeasonalRandomWalk(train_df[target_col], self.season, self.frequency)
+        return time.time() - current_time
 
 
 class Naive(SimpleForecaster):

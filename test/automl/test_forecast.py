@@ -204,6 +204,47 @@ def test_seasonal_naive_repeats_last_season():
     np.testing.assert_allclose(estimator.predict(7), last_season)
 
 
+def test_seasonal_naive_predicts_in_sample_one_season_back():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, y, _ = _weekly_dataset()
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    in_sample = dataset.train_data[["ds"]].iloc[20:40]
+    np.testing.assert_allclose(estimator.predict(in_sample), y.iloc[13:33])
+
+
+def test_seasonal_naive_integer_horizon_starts_after_training_data():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    _, y, _ = _weekly_dataset()
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=len(y), freq="D"), "y": y})
+    # 10 held-out rows, not a multiple of the season, so a forecast that started after them would be out of phase
+    dataset = TimeSeriesDataset(data.iloc[:70], time_col="ds", target_names="y", test_data=data.iloc[70:80])
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    np.testing.assert_allclose(estimator.predict(7), y.iloc[63:70])
+
+
+@pytest.mark.parametrize("season", [0, -3, 2.5])
+def test_seasonal_naive_rejects_invalid_season(season):
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, _, _ = _weekly_dataset()
+    with pytest.raises(ValueError, match="season must be a positive integer"):
+        SeasonalNaive(season=season).fit(dataset)
+
+
+def test_seasonal_naive_requires_a_full_season():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, _, _ = _weekly_dataset()
+    with pytest.raises(ValueError, match="at least season=100"):
+        SeasonalNaive(season=100).fit(dataset)
+
+
 def test_seasonal_average_uses_tuned_season():
     from flaml.automl.time_series import SeasonalAverage
 
