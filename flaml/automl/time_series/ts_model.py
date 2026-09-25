@@ -387,10 +387,19 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = forecast.iloc[positions]
             elif self.train_end_date is not None and end > self.train_end_date:
                 raise ValueError("Prediction timestamps cannot span both training and future periods.")
-            elif exog is not None:
-                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
-                forecast = self._model.predict(start=start, end=end, **kwargs)
+                if exog is not None:
+                    forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
+                else:
+                    forecast = self._model.predict(start=start, end=end, **kwargs)
+                # The model predicts every period from start to end; keep only the requested timestamps
+                positions = pd.DatetimeIndex(forecast.index).get_indexer(pd.DatetimeIndex(X[self.time_col]))
+                if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
+                    raise ValueError(
+                        "Prediction timestamps must be unique, increasing, and aligned with the training frequency."
+                    )
+                if len(positions) != len(forecast):
+                    forecast = forecast.iloc[positions]
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"

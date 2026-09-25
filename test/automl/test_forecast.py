@@ -214,6 +214,9 @@ def test_seasonal_naive_predicts_in_sample_one_season_back():
     in_sample = dataset.train_data[["ds"]].iloc[20:40]
     np.testing.assert_allclose(estimator.predict(in_sample), y.iloc[13:33])
 
+    sparse = dataset.train_data[["ds"]].iloc[[20, 22, 30]]
+    np.testing.assert_allclose(estimator.predict(sparse), y.iloc[[13, 15, 23]])
+
 
 def test_seasonal_naive_integer_horizon_starts_after_training_data():
     from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
