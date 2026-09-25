@@ -170,6 +170,50 @@ def test_average_forecasters_set_training_boundary(estimator_name):
     assert estimator.train_end_date == dates[-1]
 
 
+def _weekly_dataset():
+    from flaml.automl.time_series import TimeSeriesDataset
+
+    t = np.arange(84)
+    weekly = np.array([0.0, 5.0, 2.0, -3.0, 8.0, -6.0, 1.0])
+    dates = pd.date_range("2024-01-01", periods=84, freq="D")
+    train_data = pd.DataFrame({"ds": dates, "y": 100 + 0.1 * t + weekly[t % 7]})
+    future = pd.DataFrame({"ds": pd.date_range(dates[-1] + pd.Timedelta(days=1), periods=14, freq="D")})
+    return TimeSeriesDataset(train_data, time_col="ds", target_names="y"), train_data["y"], future
+
+
+def test_naive_forecasts_last_observation():
+    from flaml.automl.time_series import Naive
+
+    dataset, y, future = _weekly_dataset()
+    estimator = Naive()
+    estimator.fit(dataset)
+
+    np.testing.assert_allclose(estimator.predict(future), y.iloc[-1])
+    np.testing.assert_allclose(estimator.predict(3), y.iloc[-1])
+
+
+def test_seasonal_naive_repeats_last_season():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, y, future = _weekly_dataset()
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    last_season = y.iloc[-7:].to_numpy()
+    np.testing.assert_allclose(estimator.predict(future), np.tile(last_season, 2))
+    np.testing.assert_allclose(estimator.predict(7), last_season)
+
+
+def test_seasonal_average_uses_tuned_season():
+    from flaml.automl.time_series import SeasonalAverage
+
+    dataset, _, _ = _weekly_dataset()
+    estimator = SeasonalAverage(season=7)
+    estimator.fit(dataset)
+
+    assert estimator.season == 7
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))

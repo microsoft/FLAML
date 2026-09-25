@@ -739,30 +739,33 @@ class SimpleForecaster(StatsModelsEstimator):
 class SeasonalNaive(SimpleForecaster):
     smoothing_level = 1.0
 
-    def predict(self, X, **kwargs):
-        if isinstance(X, int):
-            forecasts = []
-            for i in range(X):
-                forecast = self._model.forecast(steps=self.season)[0]
-                forecasts.append(forecast)
-            return pd.Series(forecasts)
-        else:
-            return super().predict(X, **kwargs)
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        import warnings
+
+        warnings.filterwarnings("ignore")
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        self.season = self.params.get("season", 1)
+        if self.season <= 1:
+            return super().fit(X_train, y_train, budget=budget, **kwargs)
+        current_time = time.time()
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+
+        # A seasonal random walk forecasts each period with the value one season earlier
+        model = SARIMAX(train_df[[target_col]], order=(0, 0, 0), seasonal_order=(0, 1, 0, self.season))
+        with suppress_stdout_stderr():
+            model = model.fit(disp=False)
+        train_time = time.time() - current_time
+        self._model = model
+        return train_time
 
 
 class Naive(SimpleForecaster):
-    smoothing_level = 0.0
+    smoothing_level = 1.0
 
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         return {}
-
-    def predict(self, X, **kwargs):
-        if isinstance(X, int):
-            last_observation = self._model.params["initial_level"]
-            return pd.Series([last_observation] * X)
-        else:
-            return super().predict(X, **kwargs)
 
 
 class SeasonalAverage(SimpleForecaster):
@@ -771,7 +774,7 @@ class SeasonalAverage(SimpleForecaster):
 
         start_time = time.time()
 
-        self.season = kwargs.get("season", 1)  # seasonality period
+        self.season = kwargs.get("season", self.params.get("season", 1))  # seasonality period
         train_df, target_col = self.joint_preprocess(X_train, y_train)
         selection_res = ar_select_order(train_df[target_col], maxlag=self.season)
 
