@@ -48,8 +48,8 @@ exceptiongroup==1.3.1
 executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
-filelock==4.0.1
--e git+https://github.com/microsoft/FLAML@0e9097128af789b1b91b93affb8fd53ceb795201#egg=FLAML
+filelock==4.0.3
+-e git+https://github.com/microsoft/FLAML@abdd8d466a23d663f45f0ff58af01c39f84291a2#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.5.1
@@ -57,7 +57,7 @@ frozenlist==1.8.0
 fsspec==2026.6.0
 gitdb==4.0.12
 GitPython==3.1.62
-google-auth==2.58.0
+google-auth==2.58.1
 graphviz==0.21
 greenlet==3.5.6
 h11==0.16.0
@@ -66,7 +66,7 @@ hf-xet==1.6.0
 holidays==0.105
 httpcore==1.0.9
 httpx==0.28.1
-huggingface_hub==1.32.0
+huggingface_hub==1.33.0
 identify==2.6.19
 idna==3.20
 importlib_metadata==8.9.0
@@ -185,7 +185,7 @@ python-discovery==1.6.1
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.6
-pytz==2026.3.post1
+pytz==2026.4
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
@@ -207,12 +207,12 @@ seqeval==1.2.2
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
-soupsieve==2.9.2
+soupsieve==2.10
 SQLAlchemy==2.0.54
 sqlparse==0.6.0
 stack-data==0.6.3
 stanio==0.5.1
-starlette==1.6.0
+starlette==1.7.0
 statsmodels==0.15.0
 sympy==1.14.0
 tensorboardX==2.6.5
@@ -237,8 +237,8 @@ tzdata==2026.4
 uri-template==1.3.0
 urllib3==2.8.0
 uvicorn==0.53.0
-virtualenv==21.11.0
-wcwidth==0.8.4
+virtualenv==21.12.1
+wcwidth==0.9.1
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
