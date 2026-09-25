@@ -122,6 +122,14 @@ class GenericTask(Task):
             )
             assert X_train_all.size != 0, "Input data must not be empty."
 
+            if self.is_anomaly_detection():
+                for label_name, labels in (("y_train", y_train_all), ("y_val", y_val)):
+                    if labels is not None and not pd.api.types.is_numeric_dtype(labels):
+                        raise ValueError(
+                            f"{label_name} for anomaly_detection must be numeric and use either "
+                            "{0, 1} with 1=anomaly or {-1, 1} with -1=anomaly."
+                        )
+
             if y_train_all is not None:
                 assert isinstance(
                     y_train_all, (np.ndarray, pd.Series, psSeries)
@@ -272,9 +280,7 @@ class GenericTask(Task):
             state.groups = groups
 
         automl.data_size_full = (
-            len(automl._y_train_all)
-            if automl._y_train_all is not None
-            else automl._X_train_all.shape[0]
+            len(automl._y_train_all) if automl._y_train_all is not None else automl._X_train_all.shape[0]
         )
 
     @staticmethod
@@ -1342,10 +1348,7 @@ class GenericTask(Task):
                         "Use 'isolation_forest' or a compatible custom learner."
                     )
             elif "isolation_forest" in estimator_list:
-                raise ValueError(
-                    "Built-in estimator 'isolation_forest' only supports "
-                    "the anomaly_detection task."
-                )
+                raise ValueError("Built-in estimator 'isolation_forest' only supports " "the anomaly_detection task.")
             n_estimators = len(estimator_list)
             if is_spark_dataframe:
                 # For spark dataframe, only estimators ending with '_spark' are supported

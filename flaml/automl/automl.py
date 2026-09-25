@@ -2513,11 +2513,7 @@ class AutoML(BaseEstimator):
             groups_val,
             groups,
         )
-        unlabeled_anomaly = (
-            task.is_anomaly_detection()
-            and self._y_train_all is None
-            and self._state.y_val is None
-        )
+        unlabeled_anomaly = task.is_anomaly_detection() and self._y_train_all is None and self._state.y_val is None
 
         self._search_states = {}  # key: estimator name; value: SearchState
         self._random = np.random.RandomState(RANDOM_SEED)
@@ -2602,6 +2598,12 @@ class AutoML(BaseEstimator):
 
         # Validate metric parameter before processing
         self._validate_metric_parameter(metric, allow_auto=True)
+
+        if task.is_anomaly_detection() and callable(metric):
+            raise ValueError(
+                "Callable metrics are not currently supported for anomaly_detection. "
+                "Use the built-in 'ap' or 'roc_auc' metric."
+            )
 
         metric = task.default_metric(metric)
 
@@ -2707,6 +2709,22 @@ class AutoML(BaseEstimator):
         elif max_iter is None:
             # set to a large number
             max_iter = 1000000
+
+        if task.is_anomaly_detection() and max_iter > 1:
+            from flaml.automl.ml import normalize_anomaly_labels
+
+            evaluation_labels = self._state.y_val if eval_method == "holdout" else self._y_train_all
+            if evaluation_labels is None:
+                raise ValueError(
+                    "Hyperparameter search for anomaly_detection requires labeled "
+                    "evaluation data containing both normal and anomaly samples."
+                )
+            normalized_labels = normalize_anomaly_labels(evaluation_labels)
+            if set(np.unique(normalized_labels)) != {0, 1}:
+                raise ValueError(
+                    "Hyperparameter search for anomaly_detection requires evaluation "
+                    "labels containing both normal and anomaly classes."
+                )
         self._state.retrain_final = (
             retrain_full is True
             and eval_method == "holdout"

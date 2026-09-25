@@ -308,8 +308,7 @@ def normalize_anomaly_labels(y):
         return y
 
     raise ValueError(
-        "For anomaly detection with AP/ROC-AUC, labels must use "
-        "{0, 1} with 1=anomaly or {-1, 1} with -1=anomaly."
+        "For anomaly detection with AP/ROC-AUC, labels must use " "{0, 1} with 1=anomaly or {-1, 1} with -1=anomaly."
     )
 
 
@@ -636,12 +635,17 @@ def _eval_estimator(
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
+        if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]:
+            y_val_for_metric = normalize_anomaly_labels(y_val)
+            if set(np.unique(y_val_for_metric)) != {0, 1}:
+                raise ValueError(
+                    "Anomaly detection evaluation with AP/ROC-AUC requires "
+                    "both normal and anomaly labels after normalization."
+                )
+        else:
+            y_val_for_metric = y_val
+
         try:
-            y_val_for_metric = (
-                normalize_anomaly_labels(y_val)
-                if task.is_anomaly_detection() and eval_metric in ["ap", "roc_auc"]
-                else y_val
-            )
             val_loss = metric_loss_score(
                 eval_metric,
                 y_processed_predict=val_pred_y,
@@ -655,7 +659,7 @@ def _eval_estimator(
             val_loss = np.inf
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
-        if log_training_metric:
+        if log_training_metric and y_train is not None:
             # For time series forecasting, X_train may be a sampled dataset whose
             # test partition can be empty. Use the training partition from X_val
             # (which is the dataset used to define y_train above) to keep shapes
