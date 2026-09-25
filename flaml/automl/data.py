@@ -392,7 +392,14 @@ class DataTransformer:
                 datetime_columns,
             )
             self._drop = drop
-        if task.is_classification() or not pd.api.types.is_numeric_dtype(y) and not task.is_nlg():
+        if y is None:
+            self.label_transformer = None
+        elif task.is_anomaly_detection() and not pd.api.types.is_numeric_dtype(y):
+            raise ValueError(
+                "Anomaly detection labels must be numeric and use either "
+                "{0, 1} with 1=anomaly or {-1, 1} with -1=anomaly."
+            )
+        elif task.is_classification() or not pd.api.types.is_numeric_dtype(y) and not task.is_nlg():
             if not task.is_token_classification():
                 from sklearn.preprocessing import LabelEncoder
 
