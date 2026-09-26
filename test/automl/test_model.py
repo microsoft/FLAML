@@ -4,10 +4,12 @@ from datetime import datetime
 
 import numpy as np
 import pytest
+import scipy.sparse
 from pandas import DataFrame
 from sklearn.datasets import make_classification
 
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
+from flaml.automl.contrib.sefr import SEFRBoostEstimator, SEFRClassifier, SEFREstimator
 from flaml.automl.model import (
     BaseEstimator,
     CatBoostEstimator,
@@ -146,6 +148,80 @@ def test_prep():
     lgbm.predict(X[:2])
     print(lgbm.feature_names_in_)
     print(lgbm.feature_importances_)
+
+
+def test_sefr_matches_closed_form():
+    """SEFR is a closed form; check the fitted model against it directly."""
+    X, y = make_classification(200, 8, random_state=0)
+    clf = SEFRClassifier(scaling="none", calibration="sigmoid").fit(X, y)
+
+    avg_pos = X[y == 1].mean(axis=0)
+    avg_neg = X[y == 0].mean(axis=0)
+    expected_coef = (avg_pos - avg_neg) / (avg_pos + avg_neg + 1e-7)
+    scores = X @ expected_coef
+    n_pos, n_neg = int((y == 1).sum()), int((y == 0).sum())
+    expected_bias = (n_neg * scores[y == 1].mean() + n_pos * scores[y == 0].mean()) / (n_pos + n_neg)
+
+    np.testing.assert_allclose(clf.coef_.ravel(), expected_coef)
+    np.testing.assert_allclose(clf.intercept_[0], expected_bias)
+    assert clf.coef_.shape == (1, 8)
+    # the model is n_features + 1 floats
+    assert clf.coef_.size + clf.intercept_.size == 9
+
+
+def test_sefr_sample_weight():
+    X, y = make_classification(200, 8, random_state=0)
+    base = SEFRClassifier().fit(X, y)
+    uniform = SEFRClassifier().fit(X, y, sample_weight=np.full(len(y), 3.0))
+    # a constant weight rescales both class means identically, so it is a no-op
+    np.testing.assert_allclose(base.coef_, uniform.coef_)
+    np.testing.assert_allclose(base.intercept_, uniform.intercept_)
+
+    weights = np.random.RandomState(0).uniform(0.1, 5.0, len(y))
+    weighted = SEFRClassifier().fit(X, y, sample_weight=weights)
+    assert not np.allclose(base.coef_, weighted.coef_)
+
+
+def test_sefr_multiclass_and_proba():
+    X, y = make_classification(300, 8, n_classes=3, n_informative=5, random_state=0)
+    for calibration in ("platt", "sigmoid"):
+        clf = SEFRClassifier(calibration=calibration).fit(X, y)
+        assert clf.coef_.shape == (3, 8)
+        proba = clf.predict_proba(X)
+        assert proba.shape == (300, 3)
+        np.testing.assert_allclose(proba.sum(axis=1), 1.0)
+        assert set(np.unique(clf.predict(X))) <= set(clf.classes_)
+
+
+def test_sefr_sparse():
+    X, y = make_classification(200, 8, random_state=0)
+    X = np.abs(X)
+    dense = SEFRClassifier(scaling="maxabs").fit(X, y)
+    sparse = SEFRClassifier(scaling="maxabs").fit(scipy.sparse.csr_matrix(X), y)
+    np.testing.assert_allclose(dense.coef_, sparse.coef_)
+    np.testing.assert_allclose(dense.decision_function(X), sparse.decision_function(scipy.sparse.csr_matrix(X)))
+
+
+def test_sefr_estimators():
+    X, y = make_classification(200, 8, random_state=0)
+    assert set(SEFREstimator.search_space()) == {
+        "scaling",
+        "class_weight",
+        "threshold",
+        "threshold_shift",
+        "calibration",
+    }
+    assert "n_estimators" in SEFRBoostEstimator.search_space(data_size=(200, 8))
+
+    sefr = SEFREstimator(task="binary")
+    sefr.fit(X, y)
+    assert sefr.predict(X).shape == (200,)
+    assert sefr.predict_proba(X).shape == (200, 2)
+    assert sefr.feature_importances_ is not None
+
+    boost = SEFRBoostEstimator(task="binary", n_estimators=4)
+    boost.fit(X, y)
+    assert boost.predict_proba(X).shape == (200, 2)
 
 
 if __name__ == "__main__":

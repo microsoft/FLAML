@@ -185,6 +185,8 @@ The estimator list can contain one or more estimator names, each corresponding t
   - 'extra_tree': ExtraTreesEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_features, max_leaves, criterion (for classification only). Starting from v1.1.0,
     it uses a fixed random_state by default.
   - 'histgb': HistGradientBoostingEstimator for task "classification", "regression", "ts_forecast" and "ts_forecast_classification". Hyperparameters: n_estimators, max_leaves, min_samples_leaf, learning_rate, log_max_bin (logarithm of (max_bin + 1) with base 2), l2_regularization. It uses a fixed random_state by default.
+  - 'sefr': SEFREstimator for task "classification". A single-pass linear-time classifier ([SEFR](https://arxiv.org/abs/2006.04620)); the model is `n_features + 1` floats and training is one pass over the data, so it is the cheapest estimator in the portfolio and the one most likely to return a model under a very small `time_budget`. Hyperparameters: scaling, class_weight, threshold, threshold_shift, calibration. It scales features internally.
+  - 'sefr_boost': SEFRBoostEstimator for task "classification". AdaBoost over SEFR base learners. Hyperparameters: n_estimators, learning_rate, scaling, class_weight. It uses a fixed random_state by default.
   - 'lrl1': LRL1Classifier (sklearn.LogisticRegression with L1 regularization) for task "classification". Hyperparameters: C.
   - 'lrl2': LRL2Classifier (sklearn.LogisticRegression with L2 regularization) for task "classification". Hyperparameters: C.
   - 'catboost': CatBoostEstimator for task "classification" and "regression". Hyperparameters: early_stopping_rounds, learning_rate, n_estimators.
