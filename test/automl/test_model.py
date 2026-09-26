@@ -1,3 +1,4 @@
+import inspect
 import platform
 import sys
 from datetime import datetime
@@ -7,6 +8,7 @@ import pytest
 import scipy.sparse
 from pandas import DataFrame
 from sklearn.datasets import make_classification
+from sklearn.utils.estimator_checks import check_estimator
 
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
 from flaml.automl.contrib.sefr import SEFRBoostEstimator, SEFRClassifier, SEFREstimator
@@ -153,7 +155,8 @@ def test_prep():
 def test_sefr_matches_closed_form():
     """SEFR is a closed form; check the fitted model against it directly."""
     X, y = make_classification(200, 8, random_state=0)
-    clf = SEFRClassifier(scaling="none", calibration="sigmoid").fit(X, y)
+    X = np.abs(X)
+    clf = SEFRClassifier(scaling="none").fit(X, y)
 
     avg_pos = X[y == 1].mean(axis=0)
     avg_neg = X[y == 0].mean(axis=0)
@@ -164,48 +167,101 @@ def test_sefr_matches_closed_form():
 
     np.testing.assert_allclose(clf.coef_.ravel(), expected_coef)
     np.testing.assert_allclose(clf.intercept_[0], expected_bias)
-    assert clf.coef_.shape == (1, 8)
-    # the model is n_features + 1 floats
+    # a binary head is n_features + 1 floats
     assert clf.coef_.size + clf.intercept_.size == 9
 
 
 def test_sefr_sample_weight():
     X, y = make_classification(200, 8, random_state=0)
-    base = SEFRClassifier().fit(X, y)
-    uniform = SEFRClassifier().fit(X, y, sample_weight=np.full(len(y), 3.0))
-    # a constant weight rescales both class means identically, so it is a no-op
-    np.testing.assert_allclose(base.coef_, uniform.coef_)
-    np.testing.assert_allclose(base.intercept_, uniform.intercept_)
+    for calibration in ("sigmoid", "platt"):
+        base = SEFRClassifier(calibration=calibration).fit(X, y)
+        uniform = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=np.full(len(y), 3.0))
+        # a constant weight rescales both class means identically, so it is a no-op
+        np.testing.assert_allclose(base.coef_, uniform.coef_)
+        np.testing.assert_allclose(base.intercept_, uniform.intercept_)
 
-    weights = np.random.RandomState(0).uniform(0.1, 5.0, len(y))
-    weighted = SEFRClassifier().fit(X, y, sample_weight=weights)
-    assert not np.allclose(base.coef_, weighted.coef_)
+        weights = np.random.RandomState(0).uniform(0.1, 5.0, len(y))
+        weighted = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=weights)
+        assert not np.allclose(base.coef_, weighted.coef_)
+        # the weights reach the calibration too, not only the SEFR head
+        assert base.calibration_scale_ != weighted.calibration_scale_
+
+        # a zero weight is the same as dropping the sample, feature range included
+        weights[:50] = 0
+        zeroed = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=weights)
+        dropped = SEFRClassifier(calibration=calibration).fit(X[50:], y[50:], sample_weight=weights[50:])
+        np.testing.assert_allclose(zeroed.coef_, dropped.coef_)
+        np.testing.assert_allclose(zeroed.calibration_scale_, dropped.calibration_scale_, rtol=1e-5)
+
+
+def test_sefr_invalid_sample_weight():
+    X, y = make_classification(200, 8, random_state=0)
+    weights = np.ones(len(y))
+    weights[y == 0] = 0
+    with pytest.raises(ValueError, match="sum to zero"):
+        SEFRClassifier(class_weight="balanced").fit(X, y, sample_weight=weights)
+    with pytest.raises(ValueError, match="non-negative"):
+        SEFRClassifier().fit(X, y, sample_weight=-np.ones(len(y)))
+    with pytest.raises(ValueError, match="finite"):
+        SEFRClassifier().fit(X, y, sample_weight=np.full(len(y), np.nan))
 
 
 def test_sefr_multiclass_and_proba():
     X, y = make_classification(300, 8, n_classes=3, n_informative=5, random_state=0)
-    for calibration in ("platt", "sigmoid"):
+    for calibration in ("sigmoid", "platt"):
         clf = SEFRClassifier(calibration=calibration).fit(X, y)
         assert clf.coef_.shape == (3, 8)
         proba = clf.predict_proba(X)
         assert proba.shape == (300, 3)
         np.testing.assert_allclose(proba.sum(axis=1), 1.0)
-        assert set(np.unique(clf.predict(X))) <= set(clf.classes_)
+        np.testing.assert_array_equal(clf.classes_[proba.argmax(axis=1)], clf.predict(X))
+        np.testing.assert_array_equal(clf.decision_function(X).argmax(axis=1), proba.argmax(axis=1))
 
 
 def test_sefr_sparse():
     X, y = make_classification(200, 8, random_state=0)
-    X = np.abs(X)
-    dense = SEFRClassifier(scaling="maxabs").fit(X, y)
-    sparse = SEFRClassifier(scaling="maxabs").fit(scipy.sparse.csr_matrix(X), y)
+    X = np.where(np.abs(X) > 0.5, np.abs(X), 0.0)
+    # every column holds a zero, so dense min-max scaling and sparse max scaling agree
+    dense = SEFRClassifier().fit(X, y)
+    sparse = SEFRClassifier().fit(scipy.sparse.csr_matrix(X), y)
     np.testing.assert_allclose(dense.coef_, sparse.coef_)
     np.testing.assert_allclose(dense.decision_function(X), sparse.decision_function(scipy.sparse.csr_matrix(X)))
+
+    # sparse input cannot be shifted into [0, 1] without densifying, so negatives are rejected
+    signed = scipy.sparse.csr_matrix(np.where(y[:, None] == 1, X, -X))
+    with pytest.raises(ValueError, match="Negative values"):
+        SEFRClassifier().fit(signed, y)
+    with pytest.raises(ValueError, match="Negative values"):
+        SEFRClassifier(scaling="none").fit(-X, y)
+    # out-of-range values at prediction time are clipped into [0, 1]
+    assert np.all(sparse._scale(-signed).data >= 0)
+    assert np.all(dense._scale(X * 3 - 1) >= 0) and np.all(dense._scale(X * 3 - 1) <= 1)
+
+
+def test_sefr_sklearn_estimator_checks():
+    # Per-class weights cancel in the class means of Eq. 3-4 and only move the
+    # threshold of Eq. 9, so SEFR cannot reach the 87% majority this check expects.
+    expected_failed = {"check_class_weight_classifiers": "SEFR class weights only move the Eq. 9 threshold"}
+    for estimator in (SEFRClassifier(), SEFRClassifier(calibration="platt")):
+        if "on_fail" in inspect.signature(check_estimator).parameters:  # scikit-learn >= 1.6
+            results = check_estimator(estimator, expected_failed_checks=expected_failed, on_fail=None)
+            failed = [r["check_name"] for r in results if r["status"] == "failed"]
+        else:
+            failed = []
+            for est, check in check_estimator(estimator, generate_only=True):
+                name = getattr(check, "func", check).__name__
+                if name in expected_failed:
+                    continue
+                try:
+                    check(est)
+                except Exception:
+                    failed.append(name)
+        assert not failed, failed
 
 
 def test_sefr_estimators():
     X, y = make_classification(200, 8, random_state=0)
     assert set(SEFREstimator.search_space()) == {
-        "scaling",
         "class_weight",
         "threshold",
         "threshold_shift",

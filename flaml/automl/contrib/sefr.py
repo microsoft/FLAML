@@ -1,4 +1,4 @@
-"""SEFR: a single-pass, linear-time classifier.
+"""SEFR: a linear-time, closed-form classifier.
 
 Reference:
     Keshavarz, Saniee Abadeh, Rawassizadeh (2020).
@@ -6,10 +6,11 @@ Reference:
     https://arxiv.org/abs/2006.04620
 
 SEFR derives one weight per feature plus a bias from class-conditional feature
-means, so fitting is a single O(n_samples * n_features) pass with no iterative
-optimization. The trained model is ``n_features + 1`` floats. That makes it the
-cheapest learner in the FLAML portfolio and the only one that reliably returns a
-model within a very small ``time_budget`` on large data.
+means. Fitting is a closed form with no iterative optimization: a constant
+number of O(n_samples * n_features) passes (feature range, class means, training
+scores). A binary SEFR head is ``n_features + 1`` floats; the fitted classifier
+also stores the per-feature scaling parameters, one head per class for
+multiclass targets, and one probability scale.
 
 It is implemented here in NumPy rather than pulled in as a dependency: the whole
 algorithm is a handful of array operations, and FLAML's only required dependency
@@ -17,6 +18,8 @@ is NumPy.
 """
 
 from __future__ import annotations
+
+import inspect
 
 import numpy as np
 
@@ -33,6 +36,16 @@ try:
     from sklearn.base import ClassifierMixin
     from sklearn.ensemble import AdaBoostClassifier
     from sklearn.linear_model import LogisticRegression
+    from sklearn.utils.multiclass import check_classification_targets
+    from sklearn.utils.validation import check_is_fitted
+
+    try:
+        from sklearn.utils.validation import validate_data as _validate_data  # scikit-learn >= 1.6
+    except ImportError:
+
+        def _validate_data(estimator, **kwargs):
+            return estimator._validate_data(**kwargs)
+
 except ImportError as e:
     print(f"scikit-learn is required for SEFREstimator. Please install it; error: {e}")
 
@@ -55,33 +68,52 @@ def _to_dense_row(values):
     return np.asarray(values).ravel()
 
 
+def _weighted_std(values, weights):
+    mean = np.average(values, weights=weights)
+    return float(np.sqrt(np.average((values - mean) ** 2, weights=weights)))
+
+
+def _min_value(X):
+    if issparse(X):
+        return X.data.min() if X.nnz else 0.0
+    return X.min() if X.size else 0.0
+
+
 class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
     """Scalable, Efficient and Fast classifieR (SEFR).
 
     Binary targets are fit with the closed form of the paper (Eqs. 3-9);
     multiclass targets use the one-vs-rest scheme of Sec. 3.4.
 
+    SEFR's weight formula is only meaningful for non-negative features, so every
+    input reaches the SEFR heads in that domain or is rejected.
+
     Parameters
     ----------
-    scaling : {"minmax", "maxabs", "none"}, default="minmax"
-        SEFR's weight formula assumes non-negative features, and FLAML does not
-        scale features anywhere in its pipeline, so scaling belongs to the
-        estimator. Sparse input falls back to "maxabs", which preserves sparsity.
-    class_weight : {"none", "balanced"}, default="none"
-        "balanced" reweights samples inversely to class frequency before the
-        means of Eq. 3-4 are taken.
+    scaling : {"minmax", "none"}, default="minmax"
+        "minmax" maps each feature to [0, 1] using the range seen in training,
+        and clips values outside that range at prediction time. Sparse input is
+        scaled by the column maximum instead, which preserves sparsity; that is
+        only a valid [0, 1] map for non-negative data, so sparse input with
+        negative entries is rejected at fit time. "none" uses the features as
+        given and requires them to be non-negative.
+    class_weight : dict, "balanced" or "none", default="none"
+        Multiplies each sample's weight by the weight of its class before the
+        means of Eq. 3-4 are taken. "balanced" weights classes inversely to
+        their total sample weight. None is accepted as an alias of "none".
     threshold : {"sefr", "balanced"}, default="sefr"
         "sefr" is the class-count-weighted score average of Eq. 9. "balanced"
         is the unweighted midpoint of the two class score means.
     threshold_shift : float, default=0.0
         Shifts the bias by this many standard deviations of the training scores.
-        Only affects `predict`, not the ranking produced by `decision_function`.
-    calibration : {"platt", "sigmoid"}, default="platt"
-        SEFR produces margins, not probabilities. "sigmoid" squashes the margin
-        by its training standard deviation; "platt" fits a one-dimensional
-        logistic regression on the training margins. Both are monotone, so the
-        choice does not affect ROC AUC, but it matters a great deal for
-        log_loss, which is FLAML's default multiclass metric.
+    calibration : {"sigmoid", "platt"}, default="sigmoid"
+        SEFR produces margins, not probabilities. Both options map a margin m to
+        sigmoid(a * m) with one scale a shared by all heads, so `predict`,
+        `decision_function` and `predict_proba` always agree. "sigmoid" sets a
+        to the inverse standard deviation of the training margins (closed form).
+        "platt" fits a by a one-parameter logistic regression on the training
+        margins; it is iterative, so it gives up the closed form, but it usually
+        gives a better log_loss.
     eps : float, default=1e-7
         Stabilizer for the denominator of Eq. 5.
     """
@@ -92,7 +124,7 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         class_weight="none",
         threshold="sefr",
         threshold_shift=0.0,
-        calibration="platt",
+        calibration="sigmoid",
         eps=_EPS,
     ):
         self.scaling = scaling
@@ -102,33 +134,88 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         self.calibration = calibration
         self.eps = eps
 
+    def _more_tags(self):  # scikit-learn < 1.6
+        return {"requires_positive_X": self.scaling == "none"}
+
+    def __sklearn_tags__(self):  # scikit-learn >= 1.6
+        tags = super().__sklearn_tags__()
+        tags.input_tags.sparse = True
+        tags.input_tags.positive_only = self.scaling == "none"
+        return tags
+
+    def _check_params(self):
+        if not (self.class_weight in (None, "none", "balanced") or isinstance(self.class_weight, dict)):
+            raise ValueError(f"class_weight must be a dict, 'balanced' or 'none', got {self.class_weight!r}")
+        for name, allowed in (
+            ("scaling", ("minmax", "none")),
+            ("threshold", ("sefr", "balanced")),
+            ("calibration", ("sigmoid", "platt")),
+        ):
+            if getattr(self, name) not in allowed:
+                raise ValueError(f"{name} must be one of {allowed}, got {getattr(self, name)!r}")
+
+    @staticmethod
+    def _check_sample_weight(sample_weight, n_samples):
+        if sample_weight is None:
+            return np.ones(n_samples, dtype=np.float64)
+        sample_weight = np.asarray(sample_weight, dtype=np.float64)
+        if sample_weight.ndim == 0:
+            sample_weight = np.full(n_samples, float(sample_weight))
+        if sample_weight.shape != (n_samples,):
+            raise ValueError(f"sample_weight.shape == {sample_weight.shape}, expected {(n_samples,)}!")
+        if not np.all(np.isfinite(sample_weight)):
+            raise ValueError("sample_weight must be finite")
+        if np.any(sample_weight < 0):
+            raise ValueError("sample_weight must be non-negative")
+        return sample_weight
+
+    def _check_non_negative(self, X, reason):
+        if _min_value(X) < 0:
+            raise ValueError(
+                f"Negative values in data passed to SEFRClassifier: SEFR requires non-negative features {reason}. "
+                "Use dense input with scaling='minmax', or shift the features to be non-negative."
+            )
+
+    def _class_totals(self, y_index, sample_weight):
+        """Per-class weight totals; a class with none would divide by zero in Eq. 3-4."""
+        totals = np.bincount(y_index, weights=sample_weight, minlength=self.classes_.size)
+        if np.any(totals <= 0):
+            raise ValueError(
+                f"Sample weights sum to zero for classes {self.classes_[totals <= 0].tolist()}; "
+                "every class needs a positive total weight"
+            )
+        return totals
+
     def _fit_scaler(self, X):
-        scaling = self.scaling
-        if issparse(X) and scaling == "minmax":
-            # subtracting a per-column minimum would densify the matrix
-            scaling = "maxabs"
-        if scaling == "minmax":
-            self.offset_ = _to_dense_row(X.min(axis=0))
-            spread = _to_dense_row(X.max(axis=0)) - self.offset_
-        elif scaling == "maxabs":
+        if issparse(X):
+            self._check_non_negative(X, "for sparse input")
+        if self.scaling == "none":
+            self._check_non_negative(X, "when scaling='none'")
+            self.offset_, self.spread_ = None, None
+            return
+        if issparse(X):
+            # the input is non-negative, so dividing by the column maximum maps
+            # it into [0, 1]; subtracting a column minimum would densify it
             self.offset_ = None
-            spread = _to_dense_row(abs(X).max(axis=0))
+            spread = _to_dense_row(X.max(axis=0))
         else:
-            self.offset_ = None
-            spread = None
-        if spread is not None:
-            spread[spread == 0] = 1.0
+            self.offset_ = X.min(axis=0)
+            spread = X.max(axis=0) - self.offset_
+        spread[spread == 0] = 1.0
         self.spread_ = spread
 
     def _scale(self, X):
         if self.spread_ is None:
+            self._check_non_negative(X, "when scaling='none'")
             return X
         if issparse(X):
             # multiply() keeps the matrix sparse; dividing by a dense row would not
-            return X.multiply(1.0 / self.spread_).tocsr()
-        if self.offset_ is None:
-            return X / self.spread_
-        return (X - self.offset_) / self.spread_
+            X = X.multiply(1.0 / self.spread_).tocsr()
+            np.clip(X.data, 0.0, 1.0, out=X.data)
+            return X
+        if self.offset_ is not None:
+            X = X - self.offset_
+        return np.clip(X / self.spread_, 0.0, 1.0)
 
     def _fit_head(self, X, is_positive, sample_weight):
         """Return (coef, bias, margins) for one binary problem."""
@@ -148,62 +235,64 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         else:
             bias = (sum_neg * score_pos + sum_pos * score_neg) / (sum_neg + sum_pos)
         if self.threshold_shift:
-            bias += self.threshold_shift * (scores.std() or 1.0)
+            bias += self.threshold_shift * (_weighted_std(scores, sample_weight) or 1.0)
         return coef, bias, scores - bias
 
-    def _fit_calibrator(self, margins, target):
-        if self.calibration == "sigmoid":
-            return float(margins.std() or 1.0)
-        calibrator = LogisticRegression(solver="lbfgs")
-        calibrator.fit(margins.reshape(-1, 1), target)
-        return calibrator
-
-    @staticmethod
-    def _apply_calibrator(calibrator, margins):
-        if isinstance(calibrator, float):
-            return 1.0 / (1.0 + np.exp(-np.clip(margins / calibrator, -30, 30)))
-        return calibrator.predict_proba(margins.reshape(-1, 1))[:, 1]
+    def _fit_calibration(self, margins, targets, sample_weight):
+        """Return the scale ``a`` of ``sigmoid(a * margin)``, shared by all heads."""
+        margins, targets = margins.ravel(), targets.ravel()
+        # margins are (n_samples, n_heads) in row-major order
+        weights = np.repeat(sample_weight, margins.size // sample_weight.size)
+        scale = 1.0 / (_weighted_std(margins, weights) or 1.0)
+        if self.calibration == "platt":
+            calibrator = LogisticRegression(fit_intercept=False)
+            calibrator.fit(margins.reshape(-1, 1), targets, sample_weight=weights)
+            slope = float(calibrator.coef_[0, 0])
+            # a non-positive slope would invert predict_proba relative to predict
+            if np.isfinite(slope) and slope > 0:
+                scale = slope
+        return scale
 
     def fit(self, X, y, sample_weight=None):
-        if not issparse(X):
-            X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y).ravel()
-        if X.ndim != 2:
-            raise ValueError(f"X must be 2-D, got shape {X.shape}")
-
-        self.classes_ = np.unique(y)
-        self.n_features_in_ = X.shape[1]
+        self._check_params()
+        X, y = _validate_data(self, X=X, y=y, accept_sparse="csr", dtype=np.float64)
+        check_classification_targets(y)
+        self.classes_, y_index = np.unique(y, return_inverse=True)
         if self.classes_.size < 2:
-            raise ValueError("SEFR needs at least two classes in the training data")
+            raise ValueError(
+                "SEFR needs samples of at least 2 classes in the data, "
+                f"but the data contains only one class: {self.classes_[0]}"
+            )
 
-        if sample_weight is None:
-            sample_weight = np.ones(y.shape[0], dtype=np.float64)
-        else:
-            sample_weight = np.asarray(sample_weight, dtype=np.float64).ravel()
+        sample_weight = self._check_sample_weight(sample_weight, X.shape[0])
+        class_totals = self._class_totals(y_index, sample_weight)
         if self.class_weight == "balanced":
-            counts = {c: sample_weight[y == c].sum() for c in self.classes_}
-            scale = y.shape[0] / (self.classes_.size * np.array([counts[c] for c in self.classes_]))
-            lookup = dict(zip(self.classes_, scale))
-            sample_weight = sample_weight * np.array([lookup[label] for label in y])
+            sample_weight = sample_weight * (sample_weight.sum() / (self.classes_.size * class_totals))[y_index]
+        elif isinstance(self.class_weight, dict):
+            factors = np.array([self.class_weight.get(label, 1.0) for label in self.classes_], dtype=np.float64)
+            sample_weight = self._check_sample_weight(sample_weight * factors[y_index], X.shape[0])
+            self._class_totals(y_index, sample_weight)
 
-        self._fit_scaler(X)
+        # zero-weight samples take no part in the fit, including the feature range
+        self._fit_scaler(X[sample_weight > 0])
         X = self._scale(X)
 
-        heads = [self.classes_[1]] if self.classes_.size == 2 else list(self.classes_)
-        coefs, biases, self.calibrators_ = [], [], []
-        for label in heads:
-            is_positive = y == label
-            coef, bias, margins = self._fit_head(X, is_positive, sample_weight)
+        heads = [1] if self.classes_.size == 2 else range(self.classes_.size)
+        coefs, biases, margins = [], [], []
+        for head in heads:
+            coef, bias, head_margins = self._fit_head(X, y_index == head, sample_weight)
             coefs.append(coef)
             biases.append(bias)
-            self.calibrators_.append(self._fit_calibrator(margins, is_positive.astype(int)))
+            margins.append(head_margins)
         self.coef_ = np.vstack(coefs)
         self.intercept_ = np.array(biases)
+        targets = np.column_stack([y_index == head for head in heads])
+        self.calibration_scale_ = self._fit_calibration(np.column_stack(margins), targets, sample_weight)
         return self
 
     def decision_function(self, X):
-        if not issparse(X):
-            X = np.asarray(X, dtype=np.float64)
+        check_is_fitted(self)
+        X = _validate_data(self, X=X, accept_sparse="csr", dtype=np.float64, reset=False)
         scores = np.asarray(self._scale(X) @ self.coef_.T) - self.intercept_
         return scores.ravel() if self.coef_.shape[0] == 1 else scores
 
@@ -215,13 +304,16 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
 
     def predict_proba(self, X):
         scores = self.decision_function(X)
+        proba = 1.0 / (1.0 + np.exp(-np.clip(scores * self.calibration_scale_, -30, 30)))
         if self.coef_.shape[0] == 1:
-            positive = self._apply_calibrator(self.calibrators_[0], scores)
-            return np.column_stack([1.0 - positive, positive])
-        proba = np.column_stack([self._apply_calibrator(cal, scores[:, i]) for i, cal in enumerate(self.calibrators_)])
-        total = proba.sum(axis=1, keepdims=True)
-        total[total == 0] = 1.0
-        return proba / total
+            return np.column_stack([1.0 - proba, proba])
+        return proba / proba.sum(axis=1, keepdims=True)
+
+
+def _adaboost_estimator_param():
+    """AdaBoostClassifier's ``base_estimator`` was renamed ``estimator`` in scikit-learn 1.2."""
+    params = inspect.signature(AdaBoostClassifier.__init__).parameters
+    return "estimator" if "estimator" in params else "base_estimator"
 
 
 class SEFREstimator(SKLearnEstimator):
@@ -230,10 +322,6 @@ class SEFREstimator(SKLearnEstimator):
     @classmethod
     def search_space(cls, **params) -> dict:
         return {
-            "scaling": {
-                "domain": tune.choice(["minmax", "maxabs"]),
-                "init_value": "minmax",
-            },
             "class_weight": {
                 "domain": tune.choice(["none", "balanced"]),
                 "init_value": "none",
@@ -247,8 +335,8 @@ class SEFREstimator(SKLearnEstimator):
                 "init_value": 0.0,
             },
             "calibration": {
-                "domain": tune.choice(["platt", "sigmoid"]),
-                "init_value": "platt",
+                "domain": tune.choice(["sigmoid", "platt"]),
+                "init_value": "sigmoid",
             },
         }
 
@@ -273,7 +361,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
 
     SEFR has no hyperparameters of its own to trade accuracy against cost, so on
     its own it gives the search very little to do. Boosting it keeps the
-    single-pass base learner while giving FLAML a real, cheap-to-traverse search
+    closed-form base learner while giving FLAML a real, cheap-to-traverse search
     space.
     """
 
@@ -294,13 +382,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
                 "init_value": 0.1,
             },
         }
-        space.update(
-            {
-                key: value
-                for key, value in SEFREstimator.search_space(**params).items()
-                if key in ("scaling", "class_weight")
-            }
-        )
+        space["class_weight"] = SEFREstimator.search_space(**params)["class_weight"]
         return space
 
     @classmethod
@@ -311,7 +393,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
         params = super().config2params(config)
         params.pop("n_jobs", None)
         base_params = {key: params.pop(key) for key in ("scaling", "class_weight") if key in params}
-        params["estimator"] = SEFRClassifier(**base_params)
+        params[_adaboost_estimator_param()] = SEFRClassifier(**base_params)
         if "random_state" not in params:
             params["random_state"] = 24092023
         return params
