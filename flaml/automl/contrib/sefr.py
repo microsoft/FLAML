@@ -10,7 +10,8 @@ means. Fitting is a closed form with no iterative optimization: a constant
 number of O(n_samples * n_features) passes (feature range, class means, training
 scores). A binary SEFR head is ``n_features + 1`` floats; the fitted classifier
 also stores the per-feature scaling parameters, one head per class for
-multiclass targets, and one probability scale.
+multiclass targets, and the calibration (one scale, plus one bias per class for
+multiclass targets).
 
 It is implemented here in NumPy rather than pulled in as a dependency: the whole
 algorithm is a handful of array operations, and FLAML's only required dependency
@@ -54,6 +55,10 @@ from flaml.automl.model import SKLearnEstimator
 from flaml.automl.task import Task
 
 _EPS = 1e-7
+# Multiclass Platt calibration fits n_classes + 1 parameters; past this many
+# margin entries it uses a deterministic row subsample, which barely changes the
+# fit (log_loss 2.152 vs 2.156 on 355-class Dionis) and is several times faster.
+_CALIBRATION_MAX_ENTRIES = 20_000_000
 
 
 def _column_weighted_mean(X, weights, total):
@@ -71,6 +76,39 @@ def _to_dense_row(values):
 def _weighted_std(values, weights):
     mean = np.average(values, weights=weights)
     return float(np.sqrt(np.average((values - mean) ** 2, weights=weights)))
+
+
+def _fit_multinomial(margins, y_index, sample_weight, scale, bias):
+    """Fit ``softmax(a * margins + b)`` to the labels by weighted maximum likelihood.
+
+    Starts from the closed-form ``(scale, bias)``; ``a`` stays positive. Each step
+    is O(n_samples * n_classes), with two arrays of that size in memory.
+    """
+    from scipy.optimize import minimize
+    from scipy.special import logsumexp
+
+    rows = np.arange(margins.shape[0])
+    total = sample_weight.sum()
+
+    def loss_and_grad(theta):
+        logits = margins * theta[0]
+        logits += theta[1:]
+        norm = logsumexp(logits, axis=1)
+        loss = np.dot(sample_weight, norm - logits[rows, y_index]) / total
+        # reuse the buffer for the weighted residuals w * (softmax - onehot)
+        residual = logits
+        np.exp(residual - norm[:, None], out=residual)
+        residual[rows, y_index] -= 1.0
+        residual *= sample_weight[:, None]
+        grad = np.empty_like(theta)
+        grad[0] = np.einsum("ij,ij->", residual, margins) / total
+        grad[1:] = residual.sum(axis=0) / total
+        return loss, grad
+
+    theta = np.concatenate([[scale], bias])
+    bounds = [(1e-8, None)] + [(None, None)] * bias.size
+    theta = minimize(loss_and_grad, theta, jac=True, method="L-BFGS-B", bounds=bounds).x
+    return float(theta[0]), theta[1:]
 
 
 def _min_value(X):
@@ -107,13 +145,17 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
     threshold_shift : float, default=0.0
         Shifts the bias by this many standard deviations of the training scores.
     calibration : {"sigmoid", "platt"}, default="sigmoid"
-        SEFR produces margins, not probabilities. Both options map a margin m to
-        sigmoid(a * m) with one scale a shared by all heads, so `predict`,
-        `decision_function` and `predict_proba` always agree. "sigmoid" sets a
-        to the inverse standard deviation of the training margins (closed form).
-        "platt" fits a by a one-parameter logistic regression on the training
-        margins; it is iterative, so it gives up the closed form, but it usually
-        gives a better log_loss.
+        SEFR produces margins, not probabilities. Binary margins m map to
+        sigmoid(a * m). Multiclass margins map to calibrated logits a * m + b,
+        with one scale a shared by all heads and one bias b per class, and to
+        probabilities softmax(a * m + b); `decision_function` returns these
+        logits, so multiclass `predict` is their argmax. Either way `predict`,
+        `decision_function` and `predict_proba` always agree.
+        "sigmoid" is closed form: a is the inverse standard deviation of the
+        training margins and b the log of the weighted class prior.
+        "platt" fits a (binary) or a and b (multiclass) by weighted maximum
+        likelihood on the training margins. It is iterative, so it gives up the
+        closed form, but it usually gives a much better log_loss.
     eps : float, default=1e-7
         Stabilizer for the denominator of Eq. 5.
     """
@@ -238,20 +280,32 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             bias += self.threshold_shift * (_weighted_std(scores, sample_weight) or 1.0)
         return coef, bias, scores - bias
 
-    def _fit_calibration(self, margins, targets, sample_weight):
-        """Return the scale ``a`` of ``sigmoid(a * margin)``, shared by all heads."""
-        margins, targets = margins.ravel(), targets.ravel()
-        # margins are (n_samples, n_heads) in row-major order
-        weights = np.repeat(sample_weight, margins.size // sample_weight.size)
-        scale = 1.0 / (_weighted_std(margins, weights) or 1.0)
+    def _fit_calibration(self, margins, y_index, sample_weight):
+        """Return the scale ``a`` and per-head biases ``b`` of the calibrated logits."""
+        n_heads = margins.shape[1]
+        weights = np.repeat(sample_weight, n_heads)  # margins are row-major
+        scale = 1.0 / (_weighted_std(margins.ravel(), weights) or 1.0)
+        if n_heads == 1:
+            bias = np.zeros(1)
+            if self.calibration == "platt":
+                calibrator = LogisticRegression(fit_intercept=False)
+                calibrator.fit(margins, y_index, sample_weight=sample_weight)
+                slope = float(calibrator.coef_[0, 0])
+                # a non-positive slope would invert predict_proba relative to predict
+                if np.isfinite(slope) and slope > 0:
+                    scale = slope
+            return scale, bias
+        prior = np.bincount(y_index, weights=sample_weight, minlength=n_heads) / sample_weight.sum()
+        bias = np.log(prior)
         if self.calibration == "platt":
-            calibrator = LogisticRegression(fit_intercept=False)
-            calibrator.fit(margins.reshape(-1, 1), targets, sample_weight=weights)
-            slope = float(calibrator.coef_[0, 0])
-            # a non-positive slope would invert predict_proba relative to predict
-            if np.isfinite(slope) and slope > 0:
-                scale = slope
-        return scale
+            rows = slice(None)
+            if margins.size > _CALIBRATION_MAX_ENTRIES:
+                stride = -(-margins.size // _CALIBRATION_MAX_ENTRIES)
+                # keep a row of every class, or its bias would be driven to -inf
+                first_rows = np.unique(y_index, return_index=True)[1]
+                rows = np.union1d(np.arange(0, margins.shape[0], stride), first_rows)
+            scale, bias = _fit_multinomial(margins[rows], y_index[rows], sample_weight[rows], scale, bias)
+        return scale, bias
 
     def fit(self, X, y, sample_weight=None):
         self._check_params()
@@ -286,14 +340,17 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             margins.append(head_margins)
         self.coef_ = np.vstack(coefs)
         self.intercept_ = np.array(biases)
-        targets = np.column_stack([y_index == head for head in heads])
-        self.calibration_scale_ = self._fit_calibration(np.column_stack(margins), targets, sample_weight)
+        self.calibration_scale_, self.calibration_bias_ = self._fit_calibration(
+            np.column_stack(margins), y_index, sample_weight
+        )
         return self
 
     def decision_function(self, X):
         check_is_fitted(self)
         X = _validate_data(self, X=X, accept_sparse="csr", dtype=np.float64, reset=False)
         scores = np.asarray(self._scale(X) @ self.coef_.T) - self.intercept_
+        # a > 0 and binary b = 0, so this keeps the sign of every binary margin
+        scores = scores * self.calibration_scale_ + self.calibration_bias_
         return scores.ravel() if self.coef_.shape[0] == 1 else scores
 
     def predict(self, X):
@@ -304,9 +361,10 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
 
     def predict_proba(self, X):
         scores = self.decision_function(X)
-        proba = 1.0 / (1.0 + np.exp(-np.clip(scores * self.calibration_scale_, -30, 30)))
         if self.coef_.shape[0] == 1:
+            proba = 1.0 / (1.0 + np.exp(-np.clip(scores, -30, 30)))
             return np.column_stack([1.0 - proba, proba])
+        proba = np.exp(scores - scores.max(axis=1, keepdims=True))
         return proba / proba.sum(axis=1, keepdims=True)
 
 
@@ -382,7 +440,11 @@ class SEFRBoostEstimator(SKLearnEstimator):
                 "init_value": 0.1,
             },
         }
-        space["class_weight"] = SEFREstimator.search_space(**params)["class_weight"]
+        base_space = SEFREstimator.search_space(**params)
+        space["class_weight"] = base_space["class_weight"]
+        # AdaBoost's SAMME.R weights the base learners by their probabilities,
+        # so fitted calibration pays off more here than for a single SEFR model
+        space["calibration"] = dict(base_space["calibration"], init_value="platt")
         return space
 
     @classmethod
@@ -392,7 +454,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
         params.pop("n_jobs", None)
-        base_params = {key: params.pop(key) for key in ("scaling", "class_weight") if key in params}
+        base_params = {key: params.pop(key) for key in ("scaling", "class_weight", "calibration") if key in params}
         params[_adaboost_estimator_param()] = SEFRClassifier(**base_params)
         if "random_state" not in params:
             params["random_state"] = 24092023

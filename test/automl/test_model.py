@@ -8,6 +8,7 @@ import pytest
 import scipy.sparse
 from pandas import DataFrame
 from sklearn.datasets import make_classification
+from sklearn.metrics import log_loss
 from sklearn.utils.estimator_checks import check_estimator
 
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
@@ -216,6 +217,37 @@ def test_sefr_multiclass_and_proba():
         np.testing.assert_allclose(proba.sum(axis=1), 1.0)
         np.testing.assert_array_equal(clf.classes_[proba.argmax(axis=1)], clf.predict(X))
         np.testing.assert_array_equal(clf.decision_function(X).argmax(axis=1), proba.argmax(axis=1))
+
+
+def test_sefr_multiclass_calibration():
+    X, y = make_classification(600, 8, n_classes=4, n_informative=6, weights=[0.55, 0.25, 0.15], random_state=0)
+    closed = SEFRClassifier().fit(X, y)
+    fitted = SEFRClassifier(calibration="platt").fit(X, y)
+    # the closed form uses the log class prior as the per-class bias
+    prior = np.bincount(y) / len(y)
+    np.testing.assert_allclose(closed.calibration_bias_, np.log(prior))
+    # maximum likelihood starts from the closed form, so it can only improve on it
+    assert log_loss(y, fitted.predict_proba(X)) < log_loss(y, closed.predict_proba(X))
+    assert fitted.calibration_scale_ > 0
+
+    # sample weights reach the fitted biases
+    weights = np.where(y == 0, 5.0, 1.0)
+    weighted = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=weights)
+    assert weighted.calibration_bias_[0] - weighted.calibration_bias_[1] > (
+        fitted.calibration_bias_[0] - fitted.calibration_bias_[1]
+    )
+
+
+def test_sefr_calibration_subsample(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    X, y = make_classification(2000, 8, n_classes=4, n_informative=6, random_state=0)
+    full = SEFRClassifier(calibration="platt").fit(X, y)
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 1000)
+    sub = SEFRClassifier(calibration="platt").fit(X, y)
+    np.testing.assert_allclose(full.coef_, sub.coef_)
+    assert np.all(np.isfinite(sub.calibration_bias_))
+    assert abs(log_loss(y, sub.predict_proba(X)) - log_loss(y, full.predict_proba(X))) < 0.05
 
 
 def test_sefr_sparse():
