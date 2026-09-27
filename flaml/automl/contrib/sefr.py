@@ -6,12 +6,18 @@ Reference:
     https://arxiv.org/abs/2006.04620
 
 SEFR derives one weight per feature plus a bias from class-conditional feature
-means. Fitting is a closed form with no iterative optimization: a constant
-number of O(n_samples * n_features) passes (feature range, class means, training
-scores). A binary SEFR head is ``n_features + 1`` floats; the fitted classifier
-also stores the per-feature scaling parameters, one head per class for
-multiclass targets, and the calibration (one scale, plus one bias per class for
-multiclass targets).
+means. Fitting is a closed form with no iterative optimization, and takes three
+passes over the data whatever the number of classes: the feature range, the
+per-class feature sums (one sparse one-hot matrix product), and the spread of
+the training scores (in row chunks). Every one-vs-rest head and its Eq. 9 bias
+follow from the per-class sums, so beyond the scaled copy of the input the fit
+holds O(n_classes * n_features) memory, not O(n_samples * n_classes).
+The optional "platt" calibration adds an iterative fit of n_classes + 1
+parameters on at most ``_CALIBRATION_MAX_ENTRIES`` training margins.
+
+A binary SEFR head is ``n_features + 1`` floats; the fitted classifier also
+stores the per-feature scaling parameters, one head per class for multiclass
+targets, and the calibration (one scale, plus one bias per class).
 
 It is implemented here in NumPy rather than pulled in as a dependency: the whole
 algorithm is a handful of array operations, and FLAML's only required dependency
@@ -36,7 +42,6 @@ try:
     from sklearn.base import BaseEstimator as SKLearnBaseEstimator
     from sklearn.base import ClassifierMixin
     from sklearn.ensemble import AdaBoostClassifier
-    from sklearn.linear_model import LogisticRegression
     from sklearn.utils.multiclass import check_classification_targets
     from sklearn.utils.validation import check_is_fitted
 
@@ -55,15 +60,24 @@ from flaml.automl.model import SKLearnEstimator
 from flaml.automl.task import Task
 
 _EPS = 1e-7
-# Multiclass Platt calibration fits n_classes + 1 parameters; past this many
-# margin entries it uses a deterministic row subsample, which barely changes the
-# fit (log_loss 2.152 vs 2.156 on 355-class Dionis) and is several times faster.
-_CALIBRATION_MAX_ENTRIES = 20_000_000
+# Platt calibration fits n_classes + 1 parameters on the training margins. Past
+# this many margin entries it uses a deterministic row subsample, which bounds its
+# memory (two float64 arrays of this size) and barely changes the fit.
+_CALIBRATION_MAX_ENTRIES = 10_000_000
+# Strength of the pull of the Platt slope (relative to the closed form) towards the
+# closed form, against the weighted mean log loss; keeps separable data finite.
+_CALIBRATION_PENALTY = 1e-3
+# rows x heads per chunk when scoring the training data
+_CHUNK_ENTRIES = 1_000_000
 
 
-def _column_weighted_mean(X, weights, total):
-    """Weighted column means of ``X``; works for dense arrays and sparse matrices."""
-    return np.asarray(X.T.dot(weights)).ravel() / total
+def _class_sums(X, y_index, sample_weight, n_classes):
+    """Weighted per-class feature sums, shape (n_classes, n_features), in one pass over ``X``."""
+    from scipy.sparse import csr_matrix
+
+    onehot = csr_matrix((sample_weight, (y_index, np.arange(X.shape[0]))), shape=(n_classes, X.shape[0]))
+    sums = onehot @ X
+    return sums.toarray() if issparse(sums) else np.asarray(sums)
 
 
 def _to_dense_row(values):
@@ -73,42 +87,73 @@ def _to_dense_row(values):
     return np.asarray(values).ravel()
 
 
-def _weighted_std(values, weights):
-    mean = np.average(values, weights=weights)
-    return float(np.sqrt(np.average((values - mean) ** 2, weights=weights)))
-
-
 def _fit_multinomial(margins, y_index, sample_weight, scale, bias):
     """Fit ``softmax(a * margins + b)`` to the labels by weighted maximum likelihood.
 
-    Starts from the closed-form ``(scale, bias)``; ``a`` stays positive. Each step
-    is O(n_samples * n_classes), with two arrays of that size in memory.
+    Optimizes ``(a / scale, b)``, starting from the closed form ``(1, bias)``;
+    ``a`` stays positive. The objective is the weighted mean log loss plus
+    ``0.5 * _CALIBRATION_PENALTY * (a / scale - 1)^2``. Only the slope can diverge
+    (on separable data); with it bounded the biases have a finite optimum, and
+    leaving them unpenalized keeps rare classes' biases free. The objective does
+    not change when the weights are rescaled (AdaBoost normalizes them to sum to
+    1). Each step is
+    O(n_samples * n_classes), with ``margins`` and one more array of its size in
+    memory.
     """
     from scipy.optimize import minimize
     from scipy.special import logsumexp
 
     rows = np.arange(margins.shape[0])
     total = sample_weight.sum()
+    start = np.concatenate([[1.0], bias])
 
     def loss_and_grad(theta):
-        logits = margins * theta[0]
+        logits = margins * (theta[0] * scale)
         logits += theta[1:]
         norm = logsumexp(logits, axis=1)
+        stretch = theta[0] - 1.0
         loss = np.dot(sample_weight, norm - logits[rows, y_index]) / total
+        loss += 0.5 * _CALIBRATION_PENALTY * stretch * stretch
         # reuse the buffer for the weighted residuals w * (softmax - onehot)
         residual = logits
-        np.exp(residual - norm[:, None], out=residual)
+        residual -= norm[:, None]
+        np.exp(residual, out=residual)
         residual[rows, y_index] -= 1.0
         residual *= sample_weight[:, None]
         grad = np.empty_like(theta)
-        grad[0] = np.einsum("ij,ij->", residual, margins) / total
-        grad[1:] = residual.sum(axis=0) / total
+        grad[0] = scale * np.einsum("ij,ij->", residual, margins)
+        grad[1:] = residual.sum(axis=0)
+        grad /= total
+        grad[0] += _CALIBRATION_PENALTY * stretch
         return loss, grad
 
-    theta = np.concatenate([[scale], bias])
     bounds = [(1e-8, None)] + [(None, None)] * bias.size
-    theta = minimize(loss_and_grad, theta, jac=True, method="L-BFGS-B", bounds=bounds).x
-    return float(theta[0]), theta[1:]
+    theta = minimize(loss_and_grad, start, jac=True, method="L-BFGS-B", bounds=bounds).x
+    return float(theta[0] * scale), theta[1:]
+
+
+def _fit_binary(margins, is_positive, sample_weight, scale, bias):
+    """Fit ``sigmoid(a * margins + b)``: the two-class case of ``_fit_multinomial``, same objective."""
+    from scipy.optimize import minimize
+    from scipy.special import expit
+
+    target = is_positive.astype(np.float64)
+    total = sample_weight.sum()
+
+    def loss_and_grad(theta):
+        logits = margins * (theta[0] * scale) + theta[1]
+        stretch = theta[0] - 1.0
+        loss = np.dot(sample_weight, np.logaddexp(0.0, logits) - target * logits) / total
+        loss += 0.5 * _CALIBRATION_PENALTY * stretch * stretch
+        residual = sample_weight * (expit(logits) - target)
+        grad = np.array([scale * np.dot(residual, margins), residual.sum()]) / total
+        grad[0] += _CALIBRATION_PENALTY * stretch
+        return loss, grad
+
+    theta = minimize(
+        loss_and_grad, np.array([1.0, bias]), jac=True, method="L-BFGS-B", bounds=[(1e-8, None), (None, None)]
+    ).x
+    return float(theta[0] * scale), np.array([theta[1]])
 
 
 def _min_value(X):
@@ -136,26 +181,32 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         negative entries is rejected at fit time. "none" uses the features as
         given and requires them to be non-negative.
     class_weight : dict, "balanced" or "none", default="none"
-        Multiplies each sample's weight by the weight of its class before the
-        means of Eq. 3-4 are taken. "balanced" weights classes inversely to
-        their total sample weight. None is accepted as an alias of "none".
+        Per-class misclassification costs c. They would cancel in the class
+        means of Eq. 3-4, so they act on the calibrated decision instead: the
+        closed-form calibration adds log(c) to each class's logit, and "platt"
+        weights each sample's likelihood by the cost of its class. "balanced"
+        sets c inversely proportional to each class's total sample weight.
+        None is accepted as an alias of "none".
     threshold : {"sefr", "balanced"}, default="sefr"
         "sefr" is the class-count-weighted score average of Eq. 9. "balanced"
         is the unweighted midpoint of the two class score means.
     threshold_shift : float, default=0.0
         Shifts the bias by this many standard deviations of the training scores.
     calibration : {"sigmoid", "platt"}, default="sigmoid"
-        SEFR produces margins, not probabilities. Binary margins m map to
-        sigmoid(a * m). Multiclass margins map to calibrated logits a * m + b,
-        with one scale a shared by all heads and one bias b per class, and to
-        probabilities softmax(a * m + b); `decision_function` returns these
-        logits, so multiclass `predict` is their argmax. Either way `predict`,
-        `decision_function` and `predict_proba` always agree.
+        SEFR produces margins, not probabilities. Margins m map to calibrated
+        logits a * m + b, with one scale a > 0 shared by all heads and one bias
+        b per head; probabilities are their sigmoid (binary) or softmax
+        (multiclass). `decision_function` returns these logits and `predict`
+        thresholds them at 0 (binary) or takes their argmax (multiclass), so
+        `predict`, `decision_function` and `predict_proba` always agree.
         "sigmoid" is closed form: a is the inverse standard deviation of the
-        training margins and b the log of the weighted class prior.
-        "platt" fits a (binary) or a and b (multiclass) by weighted maximum
-        likelihood on the training margins. It is iterative, so it gives up the
-        closed form, but it usually gives a much better log_loss.
+        training margins; b is log(c_1 / c_0) for binary targets, which keeps
+        SEFR's Eq. 9 threshold unless class_weight is set, and the log of the
+        cost-weighted class prior for multiclass targets.
+        "platt" fits a and b by weighted maximum likelihood on the training
+        margins, so the fitted intercept replaces the Eq. 9 threshold. It is
+        iterative, so it gives up the closed form, but it usually gives a much
+        better log_loss.
     eps : float, default=1e-7
         Stabilizer for the denominator of Eq. 5.
     """
@@ -177,7 +228,7 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         self.eps = eps
 
     def _more_tags(self):  # scikit-learn < 1.6
-        return {"requires_positive_X": self.scaling == "none"}
+        return {"requires_positive_X": self.scaling == "none", "X_types": ["2darray", "sparse"]}
 
     def __sklearn_tags__(self):  # scikit-learn >= 1.6
         tags = super().__sklearn_tags__()
@@ -259,53 +310,80 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             X = X - self.offset_
         return np.clip(X / self.spread_, 0.0, 1.0)
 
-    def _fit_head(self, X, is_positive, sample_weight):
-        """Return (coef, bias, margins) for one binary problem."""
-        negative = ~is_positive
-        w_pos, w_neg = sample_weight[is_positive], sample_weight[negative]
-        sum_pos, sum_neg = w_pos.sum(), w_neg.sum()
+    def _class_costs(self, class_totals):
+        if self.class_weight == "balanced":
+            return class_totals.sum() / (self.classes_.size * class_totals)
+        if isinstance(self.class_weight, dict):
+            costs = np.array([self.class_weight.get(label, 1.0) for label in self.classes_], dtype=np.float64)
+            if not np.all(np.isfinite(costs)) or np.any(costs < 0):
+                raise ValueError("class_weight values must be finite and non-negative")
+            return costs
+        return np.ones(self.classes_.size)
 
-        avg_pos = _column_weighted_mean(X[is_positive], w_pos, sum_pos)
-        avg_neg = _column_weighted_mean(X[negative], w_neg, sum_neg)
+    def _fit_heads(self, X, y_index, sample_weight, class_totals):
+        """Closed-form coef and Eq. 9 bias of every one-vs-rest head, from one pass over ``X``."""
+        sums = _class_sums(X, y_index, sample_weight, self.classes_.size)
+        if self.classes_.size == 2:
+            pos_sums, pos_totals = sums[[1]], class_totals[[1]]
+            neg_sums, neg_totals = sums[[0]], class_totals[[0]]
+        else:
+            pos_sums, pos_totals = sums, class_totals
+            neg_sums, neg_totals = sums.sum(axis=0) - sums, class_totals.sum() - class_totals
+        avg_pos = pos_sums / pos_totals[:, None]
+        avg_neg = neg_sums / neg_totals[:, None]
         coef = (avg_pos - avg_neg) / (avg_pos + avg_neg + self.eps)
 
-        scores = np.asarray(X @ coef).ravel()
-        score_pos = np.average(scores[is_positive], weights=w_pos)
-        score_neg = np.average(scores[negative], weights=w_neg)
+        # scores are linear in x, so each class's mean score is its mean row times coef
+        score_pos = np.einsum("hd,hd->h", avg_pos, coef)
+        score_neg = np.einsum("hd,hd->h", avg_neg, coef)
         if self.threshold == "balanced":
             bias = 0.5 * (score_pos + score_neg)
         else:
-            bias = (sum_neg * score_pos + sum_pos * score_neg) / (sum_neg + sum_pos)
-        if self.threshold_shift:
-            bias += self.threshold_shift * (_weighted_std(scores, sample_weight) or 1.0)
-        return coef, bias, scores - bias
+            bias = (neg_totals * score_pos + pos_totals * score_neg) / (neg_totals + pos_totals)
+        score_mean = (sums.sum(axis=0) / class_totals.sum()) @ coef.T
+        return coef, bias, score_mean
 
-    def _fit_calibration(self, margins, y_index, sample_weight):
+    def _score_std(self, X, sample_weight, score_mean):
+        """Weighted standard deviation of each head's training scores, in row chunks."""
+        chunk = max(1, _CHUNK_ENTRIES // self.coef_.shape[0])
+        second = np.zeros(self.coef_.shape[0])
+        for start in range(0, X.shape[0], chunk):
+            centered = np.asarray(X[start : start + chunk] @ self.coef_.T) - score_mean
+            second += sample_weight[start : start + chunk] @ (centered * centered)
+        return np.sqrt(second / sample_weight.sum())
+
+    def _calibration_rows(self, n_samples, y_index, weights):
+        """All rows, or a deterministic subsample that keeps a positive-weight row of every class."""
+        n_logits = 2 if self.classes_.size == 2 else self.classes_.size
+        if n_samples * n_logits <= _CALIBRATION_MAX_ENTRIES:
+            return np.arange(n_samples)
+        stride = -(-n_samples * n_logits // _CALIBRATION_MAX_ENTRIES)
+        positive = np.flatnonzero(weights > 0)
+        first_positive = positive[np.unique(y_index[positive], return_index=True)[1]]
+        rows = np.union1d(np.arange(0, n_samples, stride), first_positive)
+        # a class without weight in the subsample would drive its bias to -inf
+        self._class_totals(y_index[rows], weights[rows])
+        return rows
+
+    def _fit_calibration(self, X, y_index, sample_weight, costs, score_mean, score_std):
         """Return the scale ``a`` and per-head biases ``b`` of the calibrated logits."""
-        n_heads = margins.shape[1]
-        weights = np.repeat(sample_weight, n_heads)  # margins are row-major
-        scale = 1.0 / (_weighted_std(margins.ravel(), weights) or 1.0)
-        if n_heads == 1:
-            bias = np.zeros(1)
-            if self.calibration == "platt":
-                calibrator = LogisticRegression(fit_intercept=False)
-                calibrator.fit(margins, y_index, sample_weight=sample_weight)
-                slope = float(calibrator.coef_[0, 0])
-                # a non-positive slope would invert predict_proba relative to predict
-                if np.isfinite(slope) and slope > 0:
-                    scale = slope
+        # pooled spread of the margins (scores - intercept) over every head and sample
+        margin_mean = score_mean - self.intercept_
+        spread = np.sqrt(np.mean(score_std**2 + (margin_mean - margin_mean.mean()) ** 2))
+        scale = 1.0 / (spread or 1.0)
+        weights = sample_weight * costs[y_index]
+        if self.classes_.size == 2:
+            bias = np.log(costs[[1]] / costs[[0]])
+        else:
+            bias = np.log(np.bincount(y_index, weights=weights, minlength=self.classes_.size) / weights.sum())
+        if self.calibration == "sigmoid":
             return scale, bias
-        prior = np.bincount(y_index, weights=sample_weight, minlength=n_heads) / sample_weight.sum()
-        bias = np.log(prior)
-        if self.calibration == "platt":
-            rows = slice(None)
-            if margins.size > _CALIBRATION_MAX_ENTRIES:
-                stride = -(-margins.size // _CALIBRATION_MAX_ENTRIES)
-                # keep a row of every class, or its bias would be driven to -inf
-                first_rows = np.unique(y_index, return_index=True)[1]
-                rows = np.union1d(np.arange(0, margins.shape[0], stride), first_rows)
-            scale, bias = _fit_multinomial(margins[rows], y_index[rows], sample_weight[rows], scale, bias)
-        return scale, bias
+
+        rows = self._calibration_rows(X.shape[0], y_index, weights)
+        margins = np.asarray(X[rows] @ self.coef_.T) - self.intercept_
+        if self.classes_.size == 2:
+            return _fit_binary(margins[:, 0], y_index[rows] == 1, weights[rows], scale, bias[0])
+        return _fit_multinomial(margins, y_index[rows], weights[rows], scale, bias)
 
     def fit(self, X, y, sample_weight=None):
         self._check_params()
@@ -320,28 +398,19 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
 
         sample_weight = self._check_sample_weight(sample_weight, X.shape[0])
         class_totals = self._class_totals(y_index, sample_weight)
-        if self.class_weight == "balanced":
-            sample_weight = sample_weight * (sample_weight.sum() / (self.classes_.size * class_totals))[y_index]
-        elif isinstance(self.class_weight, dict):
-            factors = np.array([self.class_weight.get(label, 1.0) for label in self.classes_], dtype=np.float64)
-            sample_weight = self._check_sample_weight(sample_weight * factors[y_index], X.shape[0])
-            self._class_totals(y_index, sample_weight)
+        costs = self._class_costs(class_totals)
+        self._class_totals(y_index, sample_weight * costs[y_index])
 
         # zero-weight samples take no part in the fit, including the feature range
-        self._fit_scaler(X[sample_weight > 0])
+        self._fit_scaler(X if np.all(sample_weight > 0) else X[sample_weight > 0])
         X = self._scale(X)
 
-        heads = [1] if self.classes_.size == 2 else range(self.classes_.size)
-        coefs, biases, margins = [], [], []
-        for head in heads:
-            coef, bias, head_margins = self._fit_head(X, y_index == head, sample_weight)
-            coefs.append(coef)
-            biases.append(bias)
-            margins.append(head_margins)
-        self.coef_ = np.vstack(coefs)
-        self.intercept_ = np.array(biases)
+        self.coef_, self.intercept_, score_mean = self._fit_heads(X, y_index, sample_weight, class_totals)
+        score_std = self._score_std(X, sample_weight, score_mean)
+        if self.threshold_shift:
+            self.intercept_ = self.intercept_ + self.threshold_shift * np.where(score_std > 0, score_std, 1.0)
         self.calibration_scale_, self.calibration_bias_ = self._fit_calibration(
-            np.column_stack(margins), y_index, sample_weight
+            X, y_index, sample_weight, costs, score_mean, score_std
         )
         return self
 
@@ -349,7 +418,6 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         check_is_fitted(self)
         X = _validate_data(self, X=X, accept_sparse="csr", dtype=np.float64, reset=False)
         scores = np.asarray(self._scale(X) @ self.coef_.T) - self.intercept_
-        # a > 0 and binary b = 0, so this keeps the sign of every binary margin
         scores = scores * self.calibration_scale_ + self.calibration_bias_
         return scores.ravel() if self.coef_.shape[0] == 1 else scores
 
