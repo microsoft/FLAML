@@ -65,6 +65,12 @@ class TrainingLogWriter:
         self.file = open(self.output_filename, "w")
 
     def append_open(self):
+        try:
+            with training_log_reader(self.output_filename) as reader:
+                for record in reader.records():
+                    self.current_record_id = max(self.current_record_id, record.record_id + 1)
+        except FileNotFoundError:
+            pass
         self.file = open(self.output_filename, "a")
 
     def append(
