@@ -574,6 +574,15 @@ def report(_metric=None, **kwargs):
     trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
     if not trial:
         return None
+    if trial.is_finished():
+        # A late report from a background thread or executor task whose
+        # captured _RunContext outlived its trial (#996 follow-up, fourth
+        # review point 2): the trial's final result is already recorded,
+        # and process_trial_result() would overwrite it with this stale
+        # value, plus the is_finished() check below would then raise
+        # StopIteration into a caller that never expected it (unlike the
+        # trainable's own control-flow loop, which does). Drop it instead.
+        return None
     result["training_iteration"] = _next_training_iteration(trial)
     result["config"] = trial.config
     if INCUMBENT_RESULT in result["config"]:

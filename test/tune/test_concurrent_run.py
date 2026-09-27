@@ -569,6 +569,48 @@ def test_tune_log_records_from_worker_thread_reach_run_log(tmp_path):
     )
 
 
+def test_late_report_via_stale_context_does_not_corrupt_finished_trial():
+    """Follow-up to #996, fourth review point 2: a _RunContext captured for
+    a trial stays usable after that trial finishes. A worker thread that
+    captured get_run_context() and reports late, after tune.run() has
+    already returned and the trial is TERMINATED, used to still write
+    through: process_trial_result() overwrote the trial's already-final
+    metric_analysis/last_result with the late value, and report()'s own
+    trailing `if trial.is_finished(): raise StopIteration` (the normal
+    scheduler-stop signal for the CURRENT report) then raised into the late
+    caller too, which has no reason to expect it the way a trainable's own
+    control-flow loop does.
+    """
+    captured = {}
+
+    def eval_capturing(config):
+        captured["ctx"] = tune.get_run_context()
+        return {"metric": 1.0}
+
+    analysis = tune.run(
+        eval_capturing,
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=0,
+    )
+    trial = analysis.trials[0]
+    assert trial.is_finished(), "expected the trial to be TERMINATED once tune.run() returns"
+    last_result_before = dict(trial.last_result)
+    metric_analysis_before = {k: dict(v) for k, v in trial.metric_analysis.items()}
+
+    with tune.use_run_context(captured["ctx"]):
+        tune.report(metric=999.0)
+
+    assert (
+        trial.last_result == last_result_before
+    ), f"a late report corrupted the finished trial's last_result: {trial.last_result}"
+    assert (
+        trial.metric_analysis == metric_analysis_before
+    ), f"a late report corrupted the finished trial's metric_analysis: {trial.metric_analysis}"
+
+
 def test_tune_log_records_from_executor_worker_reach_run_log(tmp_path):
     """Same as above (third review point 4), for a task submitted to a
     ThreadPoolExecutor rather than a plain Thread, since the two are
