@@ -126,7 +126,9 @@ class TimeSeriesTask(Task):
             else:
                 target_names = label
 
+            time_col_inferred = False
             if self.time_col is None:
+                time_col_inferred = True
                 if isinstance(X_train_all, pd.DataFrame):
                     assert dataframe is None, "One of dataframe and X arguments must be None"
                     self.time_col = X_train_all.columns[0]
@@ -149,6 +151,20 @@ class TimeSeriesTask(Task):
                 assert label in dataframe.columns, f"{label} must a column name in dataframe"
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
+
+            if (
+                time_col_inferred
+                and isinstance(dataframe.index, pd.DatetimeIndex)
+                and not pd.api.types.is_datetime64_any_dtype(dataframe[self.time_col])
+            ):
+                # The timestamps were passed as the DataFrame index instead of as a column, so the
+                # inference above picked a value column. Converting that column with
+                # `pd.to_datetime()` reads its numbers as nanoseconds since the epoch rather than
+                # failing, which silently replaces the real time axis with 1970-01-01.
+                index_name = dataframe.index.name or "ds"
+                dataframe = dataframe.reset_index().rename(columns={"index": index_name})
+                logger.info(f"Timestamp column not found, using the DataFrame index as '{index_name}'.")
+                self.time_col = index_name
 
             try:
                 dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
