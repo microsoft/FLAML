@@ -21,6 +21,7 @@ and B's stop_trial() call raises AttributeError on that stale/None runner.
 """
 
 import concurrent.futures
+import queue
 import threading
 from unittest import mock
 
@@ -646,4 +647,179 @@ def test_tune_log_records_from_executor_worker_reach_run_log(tmp_path):
     assert "MARKER_FROM_EXECUTOR_WORKER" in text, (
         "an executor worker's log record was filtered out of its own run's log file; "
         f"expected log_run_id propagation to carry it through, got: {text!r}"
+    )
+
+
+def test_concurrent_reports_for_same_trial_admit_atomically():
+    """Follow-up to #996, fifth review point 2: trial.is_finished() and
+    runner.process_trial_result() were not atomic. Two worker threads
+    reporting for the SAME trial through a shared propagated context (the
+    same handoff every test above uses, just two of them at once instead of
+    one) could both pass the is_finished() check while the trial was still
+    running; whichever one's process_trial_result() call landed AFTER the
+    other one's scheduler decision had already finished the trial still
+    wrote through, silently replacing the trial's real final result with a
+    stale one.
+
+    Forced deterministically, with events rather than a sleep: worker B is
+    paused right after its own is_finished() check returns False (via a
+    patched _next_training_iteration, the call immediately following it)
+    until worker A's entire report() call, including the scheduler decision
+    that terminates the trial, has completed. B is released only then, so
+    it always reaches admission with an already-finished trial, which is
+    exactly the window the fix closes with a second, lock-protected check
+    immediately before process_trial_result().
+    """
+
+    class StopOnFirstResult:
+        """A minimal TrialScheduler, the same pluggable interface
+        SequentialTrialRunner feeds any real scheduler through: STOPs the
+        trial the first time a result is admitted, so whichever worker
+        reaches admission first legitimately finishes the trial.
+        """
+
+        def set_search_properties(self, metric=None, mode=None, **spec):
+            pass
+
+        def on_trial_add(self, runner, trial):
+            pass
+
+        def on_trial_result(self, runner, trial, result):
+            return "STOP"
+
+        def on_trial_complete(self, runner, trial_id, result=None, error=False):
+            pass
+
+        def on_trial_remove(self, runner, trial):
+            pass
+
+    b_ready = threading.Event()
+    a_finished = threading.Event()
+    orig_next_iteration = tune.tune._next_training_iteration
+
+    def gated_next_iteration(trial_obj):
+        if threading.current_thread().name == "B_WORKER":
+            b_ready.set()
+            assert a_finished.wait(timeout=5), "worker A never finished while B was paused"
+        return orig_next_iteration(trial_obj)
+
+    def eval_concurrent_reporters(config):
+        ctx = tune.get_run_context()
+
+        def worker_a():
+            try:
+                with tune.use_run_context(ctx):
+                    tune.report(metric=1.0)
+            except StopIteration:
+                pass
+            finally:
+                a_finished.set()
+
+        def worker_b():
+            try:
+                with tune.use_run_context(ctx):
+                    tune.report(metric=2.0)
+            except StopIteration:
+                pass
+
+        thread_b = threading.Thread(target=worker_b, name="B_WORKER")
+        thread_b.start()
+        assert b_ready.wait(timeout=5), "worker B never reached the admission gap"
+        thread_a = threading.Thread(target=worker_a, name="A_WORKER")
+        thread_a.start()
+        thread_a.join(timeout=5)
+        thread_b.join(timeout=5)
+        return None
+
+    with mock.patch("flaml.tune.tune._next_training_iteration", side_effect=gated_next_iteration):
+        analysis = tune.run(
+            eval_concurrent_reporters,
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            scheduler=StopOnFirstResult(),
+            verbose=0,
+        )
+
+    trial = analysis.trials[0]
+    assert trial.is_finished()
+    assert trial.last_result.get("metric") == 1.0, (
+        "worker B's report, paused mid-flight and released only after worker A's report "
+        "had already terminated the trial via the scheduler's STOP decision, still "
+        f"overwrote the trial's real final result; got {trial.last_result}"
+    )
+
+
+def test_tune_report_from_prestarted_reused_queue_worker_via_explicit_context():
+    """Follow-up to #996, fifth review point 1 (restating fourth review
+    point 1): a generic persistent queue-consumer thread started BEFORE any
+    tune.run() call exists has nothing for _install_thread_context_
+    propagation() to capture at its Thread.start() time, and it is not a
+    ThreadPoolExecutor either, so _install_executor_context_propagation()
+    does not apply.
+
+    Automatic per-dispatch propagation for an arbitrary queue worker is not
+    being added: report()'s only handle on which trial a dequeued item
+    belongs to is whatever context was captured when it was produced, and
+    nothing at report()-call time can reconstruct that after the fact.
+    SequentialTrialRunner.step() reassigns runner.running_trial to a new
+    trial every step, so a fallback that resolved the trial live at
+    report() time would attribute a delayed item to whichever trial happens
+    to be running when it is finally dequeued, not the one it was produced
+    for, which is a silent wrong-trial write and strictly worse than today.
+
+    The compatibility route the review also names already exists:
+    get_run_context()/use_run_context(), captured by the producer at
+    enqueue time and carried on the queue item itself instead of resolved
+    at dequeue time. This is that route, on exactly the shape described: a
+    worker thread started before any tune.run() call exists, reused
+    unmodified across two separate trials.
+    """
+    work_queue = queue.Queue()
+    stop = object()
+
+    def worker():
+        while True:
+            item = work_queue.get()
+            try:
+                if item is stop:
+                    return
+                ctx, value = item
+                with tune.use_run_context(ctx):
+                    tune.report(metric=value)
+            finally:
+                work_queue.task_done()
+
+    worker_thread = threading.Thread(target=worker)
+    worker_thread.start()  # started before any tune.run() call exists
+
+    def eval_via_prestarted_queue(config):
+        ctx = tune.get_run_context()
+        work_queue.put((ctx, config["x"]))
+        work_queue.join()  # wait for the pre-started worker to drain this trial's item
+        return None
+
+    try:
+        analysis = tune.run(
+            eval_via_prestarted_queue,
+            config={"x": tune.uniform(0, 1)},
+            points_to_evaluate=[{"x": 11.0}, {"x": 22.0}],
+            metric="metric",
+            mode="min",
+            num_samples=2,
+            verbose=0,
+        )
+    finally:
+        work_queue.put(stop)
+        worker_thread.join(timeout=5)
+
+    reported = sorted(t.last_result.get("metric") for t in analysis.trials if t.last_result is not None)
+    assert reported == [
+        11.0,
+        22.0,
+    ], (
+        "a worker thread started before tune.run() and reused across both trials, using "
+        "the documented get_run_context()/use_run_context() API, did not route each "
+        f"trial's report to its own trial; got {reported}"
     )

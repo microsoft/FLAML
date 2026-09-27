@@ -304,6 +304,42 @@ _install_executor_context_propagation()
 _trial_iteration_lock = threading.Lock()
 _trial_iteration: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
 
+# Per-trial admission lock (#996 follow-up, fifth review point 2). See
+# _admission_lock_for for the invariant this maintains. A separate lock from
+# _trial_iteration_lock above: _next_training_iteration() is called from
+# inside report() while this lock may already be held, and reusing one
+# process-wide lock for both would self-deadlock a non-reentrant
+# threading.Lock the first time a report actually reaches that call.
+_admission_locks_guard = threading.Lock()
+_admission_locks: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
+def _admission_lock_for(trial) -> threading.Lock:
+    """Return the one lock guarding admission of a report into `trial`.
+
+    report()'s is_finished() check (whether to bother building a result at
+    all) and its actual admission (runner.process_trial_result(), which is
+    what can transition the trial to finished) used to be two unsynchronized
+    steps: a second, concurrent report() for the SAME trial could read
+    is_finished() as False, then have the FIRST report's scheduler decision
+    finish the trial before the second one reached process_trial_result(),
+    which still wrote through and silently replaced the trial's real final
+    result with the stale one (#996 follow-up, fifth review point 2). This
+    lock makes the re-check immediately before process_trial_result()
+    atomic with the write, so a report that loses that race is dropped
+    instead of admitted.
+
+    Keyed per trial (a WeakKeyDictionary, same pattern as
+    _trial_iteration above) rather than one global lock, so reports for
+    different trials never serialize against each other.
+    """
+    with _admission_locks_guard:
+        lock = _admission_locks.get(trial)
+        if lock is None:
+            lock = threading.Lock()
+            _admission_locks[trial] = lock
+        return lock
+
 
 def _next_training_iteration(trial) -> int:
     """Return trial's next training_iteration, as a counter shared by every
@@ -582,6 +618,9 @@ def report(_metric=None, **kwargs):
         # value, plus the is_finished() check below would then raise
         # StopIteration into a caller that never expected it (unlike the
         # trainable's own control-flow loop, which does). Drop it instead.
+        # This is a fast-path check only, not the admission decision: a
+        # concurrent report for this same trial can still finish it between
+        # this line and the lock below, which is what that lock is for.
         return None
     result["training_iteration"] = _next_training_iteration(trial)
     result["config"] = trial.config
@@ -589,11 +628,21 @@ def report(_metric=None, **kwargs):
         del result["config"][INCUMBENT_RESULT]
     for key, value in trial.config.items():
         result["config/" + key] = value
-    runner.process_trial_result(trial, result)
-    if verbose > 2:
-        logger.info(f"result: {result}")
-    if trial.is_finished():
-        raise StopIteration
+    with _admission_lock_for(trial):
+        # Re-check under the lock (#996 follow-up, fifth review point 2):
+        # the fast-path check above and this admission are not the same
+        # instant, and a second, truly concurrent report for this trial
+        # (a trainable's own worker threads reporting for the trial they
+        # share, for instance) can legitimately finish it in between. This
+        # is the only check whose result process_trial_result() actually
+        # acts on.
+        if trial.is_finished():
+            return None
+        runner.process_trial_result(trial, result)
+        if verbose > 2:
+            logger.info(f"result: {result}")
+        if trial.is_finished():
+            raise StopIteration
 
 
 def run(
