@@ -92,27 +92,62 @@ def test_index_name_collision_resolves_to_unique_column():
     _fit(automl, dataframe=df)
     # Target column should be uniquely chosen as ds_2 avoiding collision
     assert automl._state.task.time_col == "ds_2"
-    assert "ds" in automl._state.train_data.columns
-    assert "ds_1" in automl._state.train_data.columns
-    assert "ds_2" in automl._state.train_data.columns
-    assert len(automl._state.train_data) == len(df)
+    assert "ds" in automl._feature_names_in_
+    assert "ds_1" in automl._feature_names_in_
+    assert "ds_2" in automl._feature_names_in_
+    assert automl.data_size_full == len(df)
 
 
 def test_validation_data_with_datetime_index():
     """Verify that validation data passed as DataFrame with DatetimeIndex is properly promoted."""
     df_train = _make_train_df(periods=100)
-    df_val = _make_train_df(periods=20)
-    df_val.index = pd.date_range("2026-05-01", periods=20, freq="MS")
+    val_index = pd.date_range("2026-05-01", periods=20, freq="MS")
+    df_val = pd.DataFrame({"y": np.sin(np.arange(100, 120) / 6) * 10 + 50}, index=val_index)
+    X_val = pd.DataFrame(index=val_index)
+    y_val = df_val["y"]
     automl = AutoML()
     _fit(
         automl,
-        X_train=df_train,
-        y_train=df_train["y"],
-        X_val=df_val,
-        y_val=df_val["y"],
+        dataframe=df_train,
+        X_val=X_val,
+        y_val=y_val,
     )
     assert automl._state.task.time_col == "ds"
-    assert automl._state.X_val is not None
+    assert automl._state.eval_method == "holdout"
+    assert len(automl.predict(X_val)) == len(val_index)
+
+
+def test_validation_data_with_dataframe_target_and_datetime_index():
+    """Verify that validation data with DataFrame y_val and DatetimeIndex preserves aligned indexes."""
+    df_train = _make_train_df(periods=100)
+    val_index = pd.date_range("2026-05-01", periods=20, freq="MS")
+    df_val = pd.DataFrame({"y": np.sin(np.arange(100, 120) / 6) * 10 + 50}, index=val_index)
+    X_val = pd.DataFrame(index=val_index)
+    y_val = df_val[["y"]]  # DataFrame target with DatetimeIndex
+    automl = AutoML()
+    _fit(
+        automl,
+        dataframe=df_train,
+        X_val=X_val,
+        y_val=y_val,
+    )
+    assert automl._state.task.time_col == "ds"
+    assert automl._state.eval_method == "holdout"
+    assert len(automl.predict(X_val)) == len(val_index)
+
+
+def test_xtrain_ytrain_with_datetime_index():
+    """Verify that (X_train, y_train) inputs with DatetimeIndex are promoted and work seamlessly."""
+    train_idx = pd.date_range("2018-01-01", periods=100, freq="MS")
+    val_idx = pd.date_range("2026-05-01", periods=20, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(100, dtype=float)}, index=train_idx)
+    y_train = pd.Series(np.sin(np.arange(100) / 6) * 10 + 50, index=train_idx, name="y")
+    X_val = pd.DataFrame({"feat": np.arange(100, 120, dtype=float)}, index=val_idx)
+    y_val = pd.DataFrame({"y": np.sin(np.arange(100, 120) / 6) * 10 + 50}, index=val_idx)
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val)
+    assert automl._state.task.time_col == "ds"
+    assert len(automl.predict(X_val)) == 20
 
 
 def test_predict_with_datetime_index():

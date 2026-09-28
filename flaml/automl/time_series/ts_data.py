@@ -549,6 +549,9 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
         elif isinstance(y_train_all, pd.Series):
             y_train_all = pd.DataFrame(y_train_all)
             y_train_all.index = X_train_all.index
+        elif isinstance(y_train_all, pd.DataFrame):
+            y_train_all = y_train_all.copy()
+            y_train_all.index = X_train_all.index
 
         dataframe = pd.concat([X_train_all, y_train_all], axis=1)
 

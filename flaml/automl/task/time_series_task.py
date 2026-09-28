@@ -143,6 +143,18 @@ class TimeSeriesTask(Task):
             if X_train_all is not None:
                 assert y_train_all is not None, "If X_train_all is not None, y_train_all must also be"
                 assert dataframe is None, "If X_train_all is provided, dataframe must be None"
+                if isinstance(X_train_all, pd.DataFrame):
+                    X_train_all, promoted_time_col = self._promote_datetime_index_if_needed(
+                        X_train_all,
+                        time_col=self.time_col,
+                        is_inferred=time_col_inferred,
+                    )
+                    if promoted_time_col is not None:
+                        self.time_col = promoted_time_col
+                if isinstance(y_train_all, (pd.DataFrame, pd.Series)) and isinstance(X_train_all, pd.DataFrame):
+                    if not y_train_all.index.equals(X_train_all.index):
+                        y_train_all = y_train_all.copy()
+                        y_train_all.index = X_train_all.index
                 dataframe = TimeSeriesDataset.to_dataframe(X_train_all, y_train_all, target_names, self.time_col)
 
             elif dataframe is not None:
@@ -177,6 +189,10 @@ class TimeSeriesTask(Task):
                         time_col=self.time_col,
                         is_inferred=False,
                     )
+                if isinstance(y_val, (pd.DataFrame, pd.Series)) and isinstance(X_val, pd.DataFrame):
+                    if not y_val.index.equals(X_val.index):
+                        y_val = y_val.copy()
+                        y_val.index = X_val.index
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
                 val_len = len(val_df)
             else:
