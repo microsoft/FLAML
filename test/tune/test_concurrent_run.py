@@ -28,6 +28,7 @@ from unittest import mock
 
 import pytest
 
+import flaml.tune.tune as tune_module
 from flaml import tune
 from flaml.tune.logger import logger
 from flaml.tune.trial import Trial
@@ -1074,3 +1075,81 @@ def test_logger_level_restored_as_inherited_not_explicit():
         )
     finally:
         logger.setLevel(saved_level)
+
+
+def test_context_less_report_from_unchanged_legacy_queue_worker_warns_without_corrupting(tmp_path):
+    """Follow-up to #996, seventh review: a generic queue/callback worker
+    started before any tune.run() call exists, that never calls
+    get_run_context()/use_run_context() itself (an unchanged legacy
+    caller), still has its tune.report() silently dropped: automatic
+    attribution is not being added, for the same reason given in the
+    fourth, fifth and sixth review rounds (SequentialTrialRunner.step()
+    reassigns running_trial every step, so a live-resolved fallback would
+    attribute a delayed report to whichever trial happens to be running by
+    the time it is handled, not the one it was produced for).
+
+    What changed this round: the drop is no longer silent. It logs once,
+    and the message survives even while a verbose run is active with its
+    own log-file handler attached, which is the exact case
+    _RunScopedFilter would otherwise swallow it in (a handler whose filter
+    rejects a record still counts toward Python's `found` handler count,
+    so `logging.lastResort` never fires either; verified directly while
+    building this fix).
+    """
+    work_queue = queue.Queue()
+    stop = object()
+
+    def worker():
+        while True:
+            item = work_queue.get()
+            try:
+                if item is stop:
+                    return
+                # unchanged legacy caller: no get_run_context()/use_run_context(),
+                # exactly the shape the review describes.
+                tune.report(metric=item)
+            finally:
+                work_queue.task_done()
+
+    def eval_via_legacy_queue(config):
+        work_queue.put(config["x"])
+        work_queue.join()  # wait for the pre-started worker to (fail to) report it
+        return None
+
+    log_path = str(tmp_path / "legacy_worker.log")
+    worker_thread = threading.Thread(target=worker)
+    try:
+        worker_thread.start()  # started before any tune.run() call exists
+        with mock.patch.object(tune_module, "_context_less_report_warned", False):
+            analysis = tune.run(
+                eval_via_legacy_queue,
+                config={"x": tune.uniform(0, 1)},
+                points_to_evaluate=[{"x": 5.0}],
+                metric="metric",
+                mode="min",
+                num_samples=1,
+                verbose=1,
+                log_file_name=log_path,
+            )
+    finally:
+        # Put `stop` and join unconditionally, including if the mock.patch
+        # setup itself raised (as it does against a tune.py that predates
+        # this fix, which has no `_context_less_report_warned` attribute to
+        # patch): the worker thread is a plain non-daemon Thread blocked on
+        # queue.get() with nothing else able to release it, and leaving it
+        # running hangs the whole interpreter at process exit.
+        work_queue.put(stop)
+        worker_thread.join(timeout=5)
+
+    assert analysis.trials[0].last_result is None, (
+        "the context-less report should have been dropped, leaving the trial's result "
+        f"untouched (None), not corrupted with a value; got {analysis.trials[0].last_result!r}"
+    )
+
+    log_text = open(log_path).read()
+    assert (
+        "no active run to attribute it to" in log_text
+    ), f"expected the context-less-report warning in the run's own log file, got: {log_text!r}"
+    assert (
+        log_text.count("no active run to attribute it to") == 1
+    ), "the warning should fire once per process, not once per dropped report"

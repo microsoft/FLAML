@@ -93,6 +93,20 @@ class _RunScopedFilter(logging.Filter):
     had), while two DIFFERENT threads never see each other's records at all,
     since `_state` is thread-local and Python's logging dispatch runs
     synchronously on the emitting thread.
+
+    A record carrying `record.flaml_tune_unscoped = True` bypasses the
+    match and reaches every active run's handler regardless of which
+    thread emitted it (#996 follow-up, seventh review). This exists for
+    exactly one caller, the context-less-report warning below: a record
+    warning that FLAML could not attribute a report to any run has no run
+    of its own to match against, and Python's logging module only falls
+    back to printing a record nobody's handler wants (`logging.lastResort`)
+    when a logger has NO handler at all, not when every handler's filter
+    happens to reject it, so without this the warning would be silently
+    swallowed the same way the report it describes is, any time a run is
+    active with verbose > 0. Verified directly: a filtered handler present
+    on the logger suppresses lastResort with zero output anywhere, even
+    though the handler never actually emitted the record.
     """
 
     def __init__(self, run_id):
@@ -100,7 +114,7 @@ class _RunScopedFilter(logging.Filter):
         self._run_id = run_id
 
     def filter(self, record):
-        return _state.log_run_id is self._run_id
+        return getattr(record, "flaml_tune_unscoped", False) or _state.log_run_id is self._run_id
 
 
 # Bookkeeping for the shared logger's OWN level (logger.setLevel), which is a
@@ -547,6 +561,43 @@ class ExperimentAnalysis(EA):
         return None
 
 
+# Guards the one-time warning below (#996 follow-up, seventh review). A
+# generic queue/callback worker started before any tune.run() call exists
+# captures no _propagated_context at Thread.start() time (that mechanism
+# only reaches a thread started AFTER a run is already active) and never
+# calls get_run_context()/use_run_context() itself, so every report() it
+# makes lands on the "no trial to attribute this to" branch below. That
+# branch can run once per dequeued item on a hot worker loop, so the
+# warning fires once per process rather than once per call: the message is
+# the same regardless of which call produced it, and a caller stuck in
+# that state needs to see it once, not on every iteration.
+_context_less_report_warned = False
+_context_less_report_warned_lock = threading.Lock()
+
+
+def _warn_context_less_report_once() -> None:
+    global _context_less_report_warned
+    if _context_less_report_warned:
+        return
+    with _context_less_report_warned_lock:
+        if _context_less_report_warned:
+            return
+        _context_less_report_warned = True
+        logger.warning(
+            "tune.report() was called from a thread with no active run to attribute it "
+            "to (not the thread driving tune.run(), and no context was propagated or "
+            "explicitly attached). The report is dropped, not recorded against any "
+            "trial, and this will not be logged again. A worker thread started before "
+            "tune.run() is called, such as a persistent queue consumer, cannot be "
+            "attributed to a trial automatically, since resolving it live would risk "
+            "attributing the report to whichever trial happens to be running by the "
+            "time it is handled, not the one it was produced for. Capture "
+            "get_run_context() in the code that queues the work and attach it with "
+            "use_run_context() where the item is processed.",
+            extra={"flaml_tune_unscoped": True},
+        )
+
+
 def report(_metric=None, **kwargs):
     """A function called by the HPO application to report final or intermediate
     results.
@@ -591,14 +642,42 @@ def report(_metric=None, **kwargs):
     _state.runner is None (a fresh thread never ran tune.run() itself), so
     the active run's runner/trial is read from _propagated_context instead
     (#996 follow-up, second review point 1). See _RunContext.
+
+    A thread started before tune.run() is called, such as a persistent
+    queue/callback worker, is a case this cannot cover automatically and
+    is unsupported by design, not an oversight: such a thread has no
+    _propagated_context (that value did not exist yet when the thread
+    started) and made no get_run_context()/use_run_context() call of its
+    own, so there is nothing here that says which trial its report
+    belongs to. Guessing from the runner's current trial would attribute
+    the report to whichever trial happens to be running by the time it is
+    handled, which is very likely not the trial the report was actually
+    for (#996 follow-up, fourth, fifth and sixth review rounds). The
+    report is dropped instead, and this logs a one-time warning pointing
+    at get_run_context()/use_run_context() as the fix. Callers who need
+    this to work should capture get_run_context() where the work is
+    produced and attach it with use_run_context() where it is processed.
     """
     use_ray = _state.use_ray
     runner = _state.runner
     verbose = _state.verbose
     running_trial = None
+    # True only for the exact precondition the docstring above and
+    # _warn_context_less_report_once() describe: no thread-local runner and
+    # no propagated/explicit _RunContext at all (#996 follow-up, seventh
+    # review). Computed once, before deciding whether to even try ray,
+    # because it also has to cover the ImportError branch just below: a
+    # context-less thread's _state.use_ray defaults to True (_TuneState),
+    # not to whatever the real active run's use_ray actually is, so this
+    # exact caller shape reaches the ImportError return, not the "no
+    # trial" one, whenever ray is not installed. Verified directly while
+    # building this fix: an unchanged pre-started queue worker's report
+    # never reached the "no trial" branch at all in that environment.
+    context_less = runner is None
     if runner is None:
         ctx = _propagated_context.get()
         if ctx is not None:
+            context_less = False
             use_ray = ctx.use_ray
             runner = ctx.runner
             verbose = ctx.verbose
@@ -616,7 +695,13 @@ def report(_metric=None, **kwargs):
 
                 return session.report(metrics={"metric": _metric, **kwargs})
         except ImportError:
-            # calling tune.report() outside tune.run()
+            # calling tune.report() outside tune.run(), or (#996 follow-up,
+            # seventh review) a context-less caller that defaulted here
+            # instead of to the "no trial" branch below, per the comment
+            # above. Ray missing means there is nowhere else this call
+            # could reach either way, so warn under the same condition.
+            if context_less:
+                _warn_context_less_report_once()
             return
     result = kwargs
     if _metric is not None:
@@ -627,6 +712,15 @@ def report(_metric=None, **kwargs):
     # stepping.
     trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
     if not trial:
+        # No thread-local runner and no propagated/explicit context: this
+        # call cannot be attributed to a trial (see the docstring above),
+        # so it is dropped rather than guessed at. context_less can be
+        # False here too (a context was found but its running_trial had
+        # not been resolved yet), which is a different, pre-existing edge
+        # case this warning is not about, so it only fires on the one
+        # this review names.
+        if context_less:
+            _warn_context_less_report_once()
         return None
     if trial.is_finished():
         # A late report from a background thread or executor task whose
