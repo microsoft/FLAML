@@ -268,7 +268,8 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
-def test_ensemble_component_predict_via_public_preprocess():
+@pytest.mark.parametrize("task", ["regression", "classification"])
+def test_ensemble_component_predict_via_public_preprocess(task):
     """Regression coverage for #1136 — ensemble component models trained on data with
     categorical features cannot consume raw input; consumers must apply the public
     `automl.preprocess(X)` method (added in #1497) before delegating to a single
@@ -292,12 +293,14 @@ def test_ensemble_component_predict_via_public_preprocess():
         + df["education"].map({"HS": 0, "BS": 0.3, "MS": 0.6, "PhD": 1.0}).values
         + rng.normal(0, 0.1, n)
     )
+    if task == "classification":
+        y_true = (y_true > y_true.median()).astype(int)
 
     automl = AutoML()
     automl.fit(
         df,
         y_true,
-        task="regression",
+        task=task,
         ensemble=True,
         n_jobs=1,
         time_budget=-1,
@@ -325,6 +328,9 @@ def test_ensemble_component_predict_via_public_preprocess():
 
     # The public `preprocess(X)` API (added in #1497) is the supported workaround.
     df_preprocessed = automl.preprocess(df)
+    assert automl.score(df, y_true) == pytest.approx(automl.model.score(df_preprocessed, y_true))
+    if task == "classification":
+        np.testing.assert_allclose(automl.predict_proba(df), automl.model.predict_proba(df_preprocessed))
     for est in components:
         pred = est.predict(df_preprocessed)
         assert len(pred) == n

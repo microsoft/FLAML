@@ -174,6 +174,50 @@ def test_statsmodels_legacy_boundary_and_empty_forecast():
     assert empty.name == "sales_total"
 
 
+@pytest.mark.parametrize("with_regressors", [False, True])
+def test_forecast_cv_uses_fitted_business_day_frequency(with_regressors):
+    from flaml.automl.time_series.ts_model import ARIMA
+
+    columns = ["ds", "price", "volume"] if with_regressors else ["ds", "price"]
+    data = _make_stock_data().iloc[:40][columns].drop(index=32)
+    dataset = TimeSeriesDataset(data, "ds", "price")
+    fold = next(dataset.cv_train_val_sets(n_splits=2, val_length=5, step_size=15))
+    assert pd.infer_freq(fold.train_data["ds"]) == "B"
+    assert fold.frequency != "B"
+    estimator = ARIMA(p=1, d=0, q=0, monthly_fourier_degree=0, fourier_time_features=0)
+    estimator.fit(fold, budget=10)
+
+    predictions = estimator.predict(fold)
+    enriched = estimator.enrich(fold)
+    exog = estimator._preprocess(enriched.test_data[estimator.regressors]).values if estimator.regressors else None
+    expected = estimator._model.forecast(steps=5, exog=exog)
+    pd.testing.assert_series_equal(predictions, expected.rename("price"))
+
+
+@pytest.mark.parametrize("fabric_runtime", [False, True])
+@pytest.mark.parametrize("estimator_name", ["Naive", "SeasonalNaive"])
+def test_simple_forecasters_use_estimated_initialization_everywhere(monkeypatch, fabric_runtime, estimator_name):
+    from unittest.mock import patch
+
+    from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+    from flaml.automl.time_series import ts_model
+
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric_runtime))
+    values = np.r_[100.0, np.full(29, 10.0)]
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=len(values)), "price": values})
+    estimator = getattr(ts_model, estimator_name)(task="ts_forecast", season=3)
+    with patch("statsmodels.tsa.holtwinters.SimpleExpSmoothing", wraps=SimpleExpSmoothing) as constructor:
+        estimator.fit(TimeSeriesDataset(data, "ds", "price"), budget=10)
+    assert constructor.call_args.kwargs["initialization_method"] == "estimated"
+    legacy = SimpleExpSmoothing(values, initialization_method="legacy-heuristic").fit(
+        smoothing_level=estimator.smoothing_level
+    )
+    assert estimator.model.sse <= legacy.sse + 1e-6
+    if estimator_name == "Naive":
+        assert estimator.model.params["initial_level"] == pytest.approx(values.mean(), abs=1e-3)
+
+
 def test_forecast_stock_data_without_holidays(budget=30):
     """End-to-end AutoML forecast: train and predict on synthetic daily
     stock price data that has business-day dates with US holidays removed."""

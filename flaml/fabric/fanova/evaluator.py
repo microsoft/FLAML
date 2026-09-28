@@ -1,4 +1,5 @@
 import warnings
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from typing import Dict, Mapping, Optional
 
 import numpy as np
@@ -8,6 +9,11 @@ from optuna.exceptions import ExperimentalWarning
 from optuna.importance import FanovaImportanceEvaluator as OptunaFanovaImportanceEvaluator
 from optuna.importance._fanova import _tree as optuna_fanova_tree
 from optuna.trial import create_trial
+
+try:
+    from optuna.distributions import FloatDistribution, IntDistribution
+except ImportError:
+    FloatDistribution = IntDistribution = None
 
 
 class FanovaImportanceEvaluator:
@@ -64,7 +70,7 @@ class FanovaImportanceEvaluator:
         if valid_mask.sum() < 2:
             return {}
 
-        trial_distributions = {name: search_space[name] for name in param_names}
+        trial_distributions = _expand_distributions_to_observations(search_space, hp_df, valid_mask, param_names)
         study = optuna.create_study(direction="maximize")
 
         with warnings.catch_warnings():
@@ -88,18 +94,96 @@ def _normalize_param_value(name: str, value, distribution: BaseDistribution):
     if isinstance(value, np.generic):
         value = value.item()
 
-    if isinstance(distribution, IntUniformDistribution):
+    if _is_int_distribution(distribution):
         if isinstance(value, float) and not value.is_integer():
             raise ValueError(f"Parameter {name!r} has non-integral value {value!r} for integer distribution.")
         return int(value)
 
-    if isinstance(distribution, UniformDistribution):
+    if _is_float_distribution(distribution):
         return float(value)
 
     if isinstance(distribution, CategoricalDistribution):
         return value
 
     return value
+
+
+def _expand_distributions_to_observations(
+    search_space: Mapping[str, BaseDistribution],
+    hp_df,
+    valid_mask: np.ndarray,
+    param_names,
+) -> Dict[str, BaseDistribution]:
+    trial_distributions = {}
+    for name in param_names:
+        distribution = search_space[name]
+        values = [_normalize_param_value(name, value, distribution) for value in hp_df.loc[valid_mask, name]]
+        trial_distributions[name] = _expand_distribution(distribution, values)
+    return trial_distributions
+
+
+def _expand_distribution(distribution: BaseDistribution, values) -> BaseDistribution:
+    """Widen replay bounds while retaining compatible log scales and step grids."""
+    if all(_contains_value(distribution, value) for value in values):
+        return distribution
+
+    if _is_int_distribution(distribution):
+        low = min([int(getattr(distribution, "low"))] + [int(value) for value in values])
+        high = max([int(getattr(distribution, "high"))] + [int(value) for value in values])
+        step = distribution.step
+        if any((int(value) - distribution.low) % step != 0 for value in values):
+            step = 1
+        if IntDistribution is not None and isinstance(distribution, IntDistribution):
+            return IntDistribution(low=low, high=high, log=distribution.log and low > 0, step=step)
+        return IntUniformDistribution(low, high, step=step)
+
+    if _is_float_distribution(distribution):
+        low = min([float(getattr(distribution, "low"))] + [float(value) for value in values])
+        high = max([float(getattr(distribution, "high"))] + [float(value) for value in values])
+        if FloatDistribution is not None and isinstance(distribution, FloatDistribution):
+            if distribution.step is not None:
+                # Round outward on the original grid using decimal arithmetic, as Optuna does.
+                origin = Decimal(str(distribution.low))
+                step = Decimal(str(distribution.step))
+                low_index = ((Decimal(str(low)) - origin) / step).to_integral_value(rounding=ROUND_FLOOR)
+                high_index = ((Decimal(str(high)) - origin) / step).to_integral_value(rounding=ROUND_CEILING)
+                expanded = FloatDistribution(
+                    low=float(origin + low_index * step),
+                    high=float(origin + high_index * step),
+                    step=distribution.step,
+                )
+                if all(_contains_value(expanded, value) for value in values):
+                    return expanded
+            return FloatDistribution(low=low, high=high, log=distribution.log and low > 0)
+        return UniformDistribution(low, high)
+
+    if isinstance(distribution, CategoricalDistribution):
+        choices = list(distribution.choices)
+        for value in values:
+            if value not in choices:
+                choices.append(value)
+        return CategoricalDistribution(choices)
+
+    return distribution
+
+
+def _contains_value(distribution: BaseDistribution, value) -> bool:
+    try:
+        return distribution._contains(distribution.to_internal_repr(value))
+    except ValueError:
+        return False
+
+
+def _is_int_distribution(distribution: BaseDistribution) -> bool:
+    if isinstance(distribution, IntUniformDistribution):
+        return True
+    return IntDistribution is not None and isinstance(distribution, IntDistribution)
+
+
+def _is_float_distribution(distribution: BaseDistribution) -> bool:
+    if isinstance(distribution, UniformDistribution):
+        return True
+    return FloatDistribution is not None and isinstance(distribution, FloatDistribution)
 
 
 def _patch_optuna_fanova_tree() -> None:

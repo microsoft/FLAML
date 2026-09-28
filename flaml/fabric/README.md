@@ -80,3 +80,15 @@ artifacts; explicitly calling `register_automl_pipeline` still registers the req
 
 Tune's centralized startup log contains only configuration counts and boolean
 flags, not configuration contents, user tags, metric names, or experiment names.
+
+Forecasting uses the same `estimated` exponential-smoothing initialization in
+all environments; the internal legacy initialization is not a Fabric default.
+For regular fitted Statsmodels models, forecast dates follow the fitted model's
+frequency, which can differ from the full dataset's inferred frequency during
+cross-validation. Existing public prediction-index and date-gap rules remain
+unchanged for irregular series.
+
+The fANOVA adapter widens replay distributions when recorded trials contain
+values outside the declared search space, preserving compatible log scales and
+step grids. This does not mutate the original search space or change subsequent
+searches.

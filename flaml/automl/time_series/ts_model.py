@@ -374,8 +374,15 @@ class StatsModelsEstimator(TimeSeriesEstimator):
             exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
             train_end_date = getattr(self, "train_end_date", None)
             if train_end_date is not None and start > train_end_date:
-                first_forecast_date = train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
-                forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=self.frequency)
+                model_frequency = getattr(getattr(self._model, "model", None), "_index_freq", None)
+                # A regular CV training fold can have a different calendar from the full dataset.
+                frequency = (
+                    model_frequency
+                    if isinstance(model_frequency, pd.DateOffset)
+                    else pd.tseries.frequencies.to_offset(self.frequency)
+                )
+                first_forecast_date = train_end_date + frequency
+                forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=frequency)
                 requested_dates = pd.DatetimeIndex(X[self.time_col])
                 positions = forecast_dates.get_indexer(requested_dates)
                 if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
