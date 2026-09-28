@@ -21,7 +21,10 @@ except ImportError:
 from requests.exceptions import ChunkedEncodingError, SSLError
 
 
-def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
+# Performance decrease. budget=5 will get no estimator; budget=600 will get acc=0.667 < 0.669
+# the slow speed of first iter comes from flaml/automl/automl.py: infer_signature for input/output with mlflow > 2.9.2
+# FIXME: change to 120 to see if it can generate first iter.
+def test_automl(tmp_path, budget=120, dataset_format="dataframe", hpo_method=None):
     import urllib3
 
     from flaml.automl.data import load_openml_dataset
@@ -62,10 +65,11 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
         "max_iter": max_iter,  # maximum number of iterations
         "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy','roc_auc','roc_auc_ovr','roc_auc_ovo','f1','log_loss','mae','mse','r2']
         "task": "classification",  # task type
-        "log_file_name": "airlines_experiment.log",  # flaml log file
+        "log_file_name": str(tmp_path / "airlines_experiment.log"),  # flaml log file
         "seed": 7654321,  # random seed
         "hpo_method": hpo_method,
         "log_type": "all",
+        "model_history": False,
         "estimator_list": [
             "lgbm",
             "xgboost",
@@ -91,7 +95,7 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     """ pickle and save the automl object """
     import pickle
 
-    with open("automl.pkl", "wb") as f:
+    with open(tmp_path / "automl.pkl", "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
     """ compute predictions of testing dataset """
     y_pred = automl.predict(X_test)
@@ -131,13 +135,13 @@ def test_automl(budget=5, dataset_format="dataframe", hpo_method=None):
     sys.platform in ["win32"] and sys.version.startswith("3.9"),
     reason="do not run if windows and python 3.9",
 )
-def test_automl_array():
-    test_automl(5, "array", "bs")
+def test_automl_array(tmp_path):
+    test_automl(tmp_path, 5, "array", "bs")
 
 
-def _test_nobudget():
+def _test_nobudget(tmp_path):
     # needs large RAM to run this test
-    test_automl(-1)
+    test_automl(tmp_path, -1)
 
 
 def test_mlflow():
@@ -205,4 +209,8 @@ def test_mlflow_iris():
 
 
 if __name__ == "__main__":
-    test_automl(600)
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory() as output_dir:
+        test_automl(Path(output_dir), 600)

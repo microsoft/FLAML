@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 
 class ColoredFormatter(logging.Formatter):
@@ -35,3 +36,28 @@ logger_formatter = ColoredFormatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S", use_color
 )
 logger.propagate = False
+
+
+def init_logger(name=None):
+    """Return a logger configured with the FLAML console handler and formatter.
+
+    Idempotent: if the logger already has handlers attached, the existing
+    handlers are preserved and no new handler is added. ``propagate`` is
+    always set to ``False`` so the FLAML console handler is not duplicated
+    by ancestor loggers.
+
+    Args:
+        name: Logger name to retrieve via ``logging.getLogger(name)``.
+            Defaults to ``None``, which returns the module's existing logger
+            (``flaml.automl.logger``). Typical callers pass ``__name__``.
+
+    Returns:
+        The configured ``logging.Logger`` instance.
+    """
+    _logger = logging.getLogger(name) if name is not None else logger
+    if not _logger.handlers:
+        _ch = logging.StreamHandler(stream=sys.stdout)
+        _ch.setFormatter(logger_formatter)
+        _logger.addHandler(_ch)
+    _logger.propagate = False
+    return _logger

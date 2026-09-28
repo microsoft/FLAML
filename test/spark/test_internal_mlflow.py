@@ -6,8 +6,10 @@ import time
 import warnings
 
 import mlflow
+import pyspark
 import pytest
-from packaging.version import Version
+from pyspark.ml.evaluation import RegressionEvaluator
+from pyspark.ml.feature import VectorAssembler
 from sklearn.datasets import fetch_california_housing, load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
@@ -17,28 +19,11 @@ import flaml
 from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
 from flaml.automl.spark.utils import to_pandas_on_spark
 
-try:
-    import pyspark
-    from pyspark.ml.evaluation import RegressionEvaluator
-    from pyspark.ml.feature import VectorAssembler
-except ImportError:
-    pass
 pytestmark = pytest.mark.spark
 warnings.filterwarnings("ignore")
 
 skip_spark = importlib.util.find_spec("pyspark") is None
 client = mlflow.tracking.MlflowClient()
-
-if (sys.platform.startswith("darwin") or sys.platform.startswith("nt")) and (
-    sys.version_info[0] == 3 and sys.version_info[1] >= 10
-):
-    # TODO: remove this block when tests are stable
-    # Below tests will fail, but the functions run without error if run individually.
-    # test_tune_autolog_parentrun_nonparallel()
-    # test_tune_autolog_noparentrun_nonparallel()
-    # test_tune_noautolog_parentrun_nonparallel()
-    # test_tune_noautolog_noparentrun_nonparallel()
-    pytest.skip("skipping MacOS and Windows for python 3.10 and 3.11", allow_module_level=True)
 
 """
 The spark used in below tests should be initiated in test_0sparkml.py when run with pytest.
@@ -62,7 +47,6 @@ def _sklearn_tune(config):
 
 
 def _test_tune(is_autolog, is_parent_run, is_parallel):
-    mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     params = {
@@ -106,7 +90,7 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
         child_runs = client.search_runs(experiment_ids=[experiment_id])
     experiment_name = client.get_experiment(experiment_id).name
     metrics = [metric in run.data.metrics for run in child_runs]
-    tags = ["flaml.version" in run.data.tags for run in child_runs]
+    tags = ["synapseml.flaml.version" in run.data.tags for run in child_runs]
     params = ["learner" in run.data.params for run in child_runs]
     assert (
         len(child_runs) in possible_num_runs
@@ -184,7 +168,6 @@ def _test_automl_sparkdata(is_autolog, is_parent_run):
 
     estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
 
-    mlflow.end_run()
     mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     if is_autolog:
@@ -303,43 +286,17 @@ def test_exit_pyspark_autolog():
 
 
 def _init_spark_for_main():
-    import pyspark
+    from test.spark._init_spark import setup_spark_for_tests
 
-    spark = (
-        pyspark.sql.SparkSession.builder.appName("MyApp")
-        .master("local[2]")
-        .config(
-            "spark.jars.packages",
-            (
-                "com.microsoft.azure:synapseml_2.12:1.0.4,"
-                "org.apache.hadoop:hadoop-azure:3.3.5,"
-                "com.microsoft.azure:azure-storage:8.6.6,"
-                f"org.mlflow:mlflow-spark_2.12:{mlflow.__version__}"
-                if Version(mlflow.__version__) >= Version("2.9.0")
-                else f"org.mlflow:mlflow-spark:{mlflow.__version__}"
-            ),
-        )
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .config("spark.sql.debug.maxToStringFields", "100")
-        .config("spark.driver.extraJavaOptions", "-Xss1m")
-        .config("spark.executor.extraJavaOptions", "-Xss1m")
-        .getOrCreate()
-    )
-    spark.sparkContext._conf.set(
-        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
-        "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
-    )
-
-    spark, ansi_conf, adjusted = disable_spark_ansi_mode()
-    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
+    setup_spark_for_tests("MyApp")
 
 
 if __name__ == "__main__":
     _init_spark_for_main()
 
-    # test_tune_autolog_parentrun_parallel()
+    test_tune_autolog_parentrun_parallel()
     # test_tune_autolog_parentrun_nonparallel()
-    test_tune_autolog_noparentrun_parallel()  # TODO: runs not removed
+    # test_tune_autolog_noparentrun_parallel()  # TODO: runs not removed
     # test_tune_noautolog_parentrun_parallel()
     # test_tune_autolog_noparentrun_nonparallel()
     # test_tune_noautolog_parentrun_nonparallel()

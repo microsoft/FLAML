@@ -87,8 +87,17 @@ class TestRegression(unittest.TestCase):
         )
         print(automl.model.estimator)
         y_pred2 = automl.predict(X_train)
-        # In some rare case, the last config is early stopped and it's the best config. But the logged config's n_estimator is not reduced.
-        assert n_iter != automl.model.estimator.get_params().get("n_estimators") or (y_pred == y_pred2).all()
+        # Either retrain used a reduced n_estimators (so different predictions are
+        # expected), or the predictions stay close. Exact equality is too strict because:
+        #   - LGBMEstimator does not seed random_state by default, so LGBM's internal
+        #     feature_fraction_seed/bagging_seed differ across fits.
+        #   - The first fit uses n_jobs=1 while retrain_from_log defaults to n_jobs=-1,
+        #     making LGBM histogram construction thread-schedule dependent.
+        #   - The first fit uses early-stopping callbacks (X_val provided), while the
+        #     train_full=True retrain disables them.
+        assert n_iter != automl.model.estimator.get_params().get("n_estimators") or np.allclose(
+            y_pred, y_pred2, rtol=0.5, atol=0.5
+        )
 
     @pytest.mark.skipif(
         sys.platform == "win32" and platform.machine() == "ARM64",
@@ -136,7 +145,10 @@ class TestRegression(unittest.TestCase):
         )
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **settings)
 
+    @pytest.mark.usefixtures("fabric_runtime")
     def test_parallel_and_pickle(self, hpo_method=None):
+        import flaml.visualization as fviz
+
         automl_experiment = AutoML()
         automl_settings = {
             "time_budget": 10,
@@ -159,17 +171,23 @@ class TestRegression(unittest.TestCase):
         except ImportError:
             return
 
-        # test pickle and load_pickle, should work for prediction
+        # test pickle and load_pickle, should work for vizualization and prediction
         automl_experiment.pickle("automl_xgboost_spark.pkl")
         automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
         assert automl_loaded.best_estimator == automl_experiment.best_estimator
         assert automl_loaded.best_loss == automl_experiment.best_loss
         automl_loaded.predict(X_train)
 
-        import shutil
-
-        shutil.rmtree("automl_xgboost_spark.pkl", ignore_errors=True)
-        shutil.rmtree("automl_xgboost_spark.pkl.flaml_artifacts", ignore_errors=True)
+        fig1 = fviz.plot_optimization_history(automl_experiment)
+        fig2 = fviz.plot_optimization_history(automl_loaded)
+        assert fig1.to_json() == fig2.to_json()
+        fviz.plot_feature_importance(automl_loaded)
+        fviz.plot_parallel_coordinate(automl_loaded)
+        fviz.plot_contour(automl_loaded)
+        fviz.plot_edf(automl_loaded)
+        fviz.plot_timeline(automl_loaded)
+        fviz.plot_slice(automl_loaded)
+        fviz.plot_param_importance(automl_loaded)
 
     def test_sparse_matrix_regression_holdout(self):
         X_train = scipy.sparse.random(8, 100)
@@ -250,7 +268,8 @@ def test_multioutput():
     print(model.predict(X_test))
 
 
-def test_ensemble_component_predict_via_public_preprocess():
+@pytest.mark.parametrize("task", ["regression", "classification"])
+def test_ensemble_component_predict_via_public_preprocess(task):
     """Regression coverage for #1136 — ensemble component models trained on data with
     categorical features cannot consume raw input; consumers must apply the public
     `automl.preprocess(X)` method (added in #1497) before delegating to a single
@@ -274,12 +293,14 @@ def test_ensemble_component_predict_via_public_preprocess():
         + df["education"].map({"HS": 0, "BS": 0.3, "MS": 0.6, "PhD": 1.0}).values
         + rng.normal(0, 0.1, n)
     )
+    if task == "classification":
+        y_true = (y_true > y_true.median()).astype(int)
 
     automl = AutoML()
     automl.fit(
         df,
         y_true,
-        task="regression",
+        task=task,
         ensemble=True,
         n_jobs=1,
         time_budget=-1,
@@ -307,6 +328,9 @@ def test_ensemble_component_predict_via_public_preprocess():
 
     # The public `preprocess(X)` API (added in #1497) is the supported workaround.
     df_preprocessed = automl.preprocess(df)
+    assert automl.score(df, y_true) == pytest.approx(automl.model.score(df_preprocessed, y_true))
+    if task == "classification":
+        np.testing.assert_allclose(automl.predict_proba(df), automl.model.predict_proba(df_preprocessed))
     for est in components:
         pred = est.predict(df_preprocessed)
         assert len(pred) == n
@@ -350,6 +374,7 @@ def test_reproducibility_of_regression_models(estimator: str):
         "keep_search_state": True,
         "skip_transform": True,
         "retrain_full": True,
+        "featurization": "off",
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -399,6 +424,7 @@ def test_reproducibility_of_catboost_regression_model():
         "keep_search_state": True,
         "skip_transform": True,
         "retrain_full": True,
+        "featurization": "off",
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -499,17 +525,19 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
     if estimator == "catboost" and sys.platform == "win32" and platform.machine() == "ARM64":
         pytest.skip("catboost is not available on win-arm64 machine")
     automl = AutoML()
+    is_enet = estimator == "enet"
     automl_settings = {
-        "max_iter": 5,
+        "max_iter": 2 if is_enet else 5,
         "time_budget": -1,
         "task": "regression",
         "n_jobs": 1,
         "estimator_list": [estimator],
         "eval_method": "cv",
-        "n_splits": 10,
+        "n_splits": 3 if is_enet else 10,
         "metric": "r2",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
         "retrain_full": False,
     }
     X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")

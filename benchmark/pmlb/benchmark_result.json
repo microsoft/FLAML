@@ -1,0 +1,72 @@
+{
+    "1203_BNG_pwLinear": {
+        "score": 0.6205666323036628,
+        "duration": 10.537997722625732,
+        "metric": "r2"
+    },
+    "1193_BNG_lowbwt": {
+        "score": 0.6143425839540998,
+        "duration": 10.076170444488525,
+        "metric": "r2"
+    },
+    "537_houses": {
+        "score": 0.8422067560750335,
+        "duration": 10.469677448272705,
+        "metric": "r2"
+    },
+    "294_satellite_image": {
+        "score": 0.9045753786806208,
+        "duration": 10.212934732437134,
+        "metric": "r2"
+    },
+    "598_fri_c0_1000_25": {
+        "score": 0.9221223594017856,
+        "duration": 10.182389259338379,
+        "metric": "r2"
+    },
+    "627_fri_c2_500_10": {
+        "score": 0.9172661074080998,
+        "duration": 10.052815198898315,
+        "metric": "r2"
+    },
+    "1089_USCrime": {
+        "score": 0.6727254704330683,
+        "duration": 9.998720645904541,
+        "metric": "r2"
+    },
+    "sleep": {
+        "score": 0.776862937643993,
+        "duration": 11.601000308990479,
+        "metric": "accuracy"
+    },
+    "fars": {
+        "score": 0.8040171143332541,
+        "duration": 12.089869737625122,
+        "metric": "accuracy"
+    },
+    "adult": {
+        "score": 0.8700352141511751,
+        "duration": 10.77751636505127,
+        "metric": "accuracy"
+    },
+    "satimage": {
+        "score": 0.9024238657551275,
+        "duration": 10.068237066268921,
+        "metric": "accuracy"
+    },
+    "yeast": {
+        "score": 0.6027027027027027,
+        "duration": 10.081578969955444,
+        "metric": "accuracy"
+    },
+    "horse_colic": {
+        "score": 0.8152173913043478,
+        "duration": 10.00631070137024,
+        "metric": "accuracy"
+    },
+    "analcatdata_fraud": {
+        "score": 0.5454545454545454,
+        "duration": 10.017324686050415,
+        "metric": "accuracy"
+    }
+}

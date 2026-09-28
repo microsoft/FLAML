@@ -1,5 +1,6 @@
 from functools import wraps
 
+from flaml.automl._lightgbm_compat import patch_lightgbm_sklearn_validation
 from flaml.automl.task.task import CLASSIFICATION
 
 from .suggest import preprocess_and_suggest_hyperparams
@@ -187,6 +188,7 @@ try:
 except ImportError:
     LGBMRegressor = LGBMClassifier = ImportError("Using flaml.default.LGBM* requires lightgbm.")
 else:
+    patch_lightgbm_sklearn_validation()
     LGBMRegressor = flamlize_estimator(lightgbm.LGBMRegressor, "lgbm", "regression")
     LGBMClassifier = flamlize_estimator(lightgbm.LGBMClassifier, "lgbm", "classification")
 
