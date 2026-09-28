@@ -80,3 +80,49 @@ def test_timestamp_column_input_is_unchanged():
     _fit(automl, dataframe=df, time_col="ds")
     assert automl._state.task.time_col == "ds"
     assert len(automl.predict(df[["ds"]].tail(12))) == 12
+
+
+def test_index_name_collision_resolves_to_unique_column():
+    """When dataframe already has a column named 'ds' (or 'index') that is not datetime,
+    promoting an unnamed DatetimeIndex must not overwrite or conflict with the existing column."""
+    df = _make_train_df()
+    df["ds"] = np.arange(len(df), dtype=float)  # Collision candidate
+    df["ds_1"] = np.arange(len(df), dtype=float)  # Double collision candidate
+    automl = AutoML()
+    _fit(automl, dataframe=df)
+    # Target column should be uniquely chosen as ds_2 avoiding collision
+    assert automl._state.task.time_col == "ds_2"
+    assert "ds" in automl._state.train_data.columns
+    assert "ds_1" in automl._state.train_data.columns
+    assert "ds_2" in automl._state.train_data.columns
+    assert len(automl._state.train_data) == len(df)
+
+
+def test_validation_data_with_datetime_index():
+    """Verify that validation data passed as DataFrame with DatetimeIndex is properly promoted."""
+    df_train = _make_train_df(periods=100)
+    df_val = _make_train_df(periods=20)
+    df_val.index = pd.date_range("2026-05-01", periods=20, freq="MS")
+    automl = AutoML()
+    _fit(
+        automl,
+        X_train=df_train,
+        y_train=df_train["y"],
+        X_val=df_val,
+        y_val=df_val["y"],
+    )
+    assert automl._state.task.time_col == "ds"
+    assert automl._state.X_val is not None
+
+
+def test_predict_with_datetime_index():
+    """Verify that future prediction data passed with DatetimeIndex works without explicit time_col."""
+    df = _make_train_df(periods=120)
+    automl = AutoML()
+    _fit(automl, dataframe=df)
+
+    # Future prediction input using DatetimeIndex
+    future_index = pd.date_range("2028-01-01", periods=12, freq="MS")
+    future_df = pd.DataFrame(index=future_index)
+    preds = automl.predict(future_df)
+    assert len(preds) == 12

@@ -152,19 +152,13 @@ class TimeSeriesTask(Task):
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
-            if (
-                time_col_inferred
-                and isinstance(dataframe.index, pd.DatetimeIndex)
-                and not pd.api.types.is_datetime64_any_dtype(dataframe[self.time_col])
-            ):
-                # The timestamps were passed as the DataFrame index instead of as a column, so the
-                # inference above picked a value column. Converting that column with
-                # `pd.to_datetime()` reads its numbers as nanoseconds since the epoch rather than
-                # failing, which silently replaces the real time axis with 1970-01-01.
-                index_name = dataframe.index.name or "ds"
-                dataframe = dataframe.reset_index().rename(columns={"index": index_name})
-                logger.info(f"Timestamp column not found, using the DataFrame index as '{index_name}'.")
-                self.time_col = index_name
+            dataframe, promoted_time_col = self._promote_datetime_index_if_needed(
+                dataframe,
+                time_col=self.time_col,
+                is_inferred=time_col_inferred,
+            )
+            if promoted_time_col is not None:
+                self.time_col = promoted_time_col
 
             try:
                 dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
@@ -177,6 +171,12 @@ class TimeSeriesTask(Task):
 
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
+                if isinstance(X_val, pd.DataFrame):
+                    X_val, _ = self._promote_datetime_index_if_needed(
+                        X_val,
+                        time_col=self.time_col,
+                        is_inferred=False,
+                    )
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
                 val_len = len(val_df)
             else:
@@ -401,7 +401,60 @@ class TimeSeriesTask(Task):
             X = transformer.transform(X)
         return X
 
+    @staticmethod
+    def _promote_datetime_index_if_needed(df, time_col=None, is_inferred=False):
+        """Promote a DatetimeIndex to a guaranteed-unique column if needed.
+
+        Args:
+            df: A pandas DataFrame.
+            time_col: The current timestamp column name (if known).
+            is_inferred: Whether time_col was inferred rather than explicitly specified.
+
+        Returns:
+            Tuple of (df_processed, promoted_col_name or None).
+        """
+        if not isinstance(df, pd.DataFrame) or not isinstance(df.index, pd.DatetimeIndex):
+            return df, None
+
+        # Precondition check:
+        # 1. If time_col was inferred: promote if df lacks a datetime-typed time_col.
+        # 2. If time_col was explicit: promote if time_col is missing from df.columns.
+        needs_promotion = False
+        if is_inferred:
+            if time_col is None or time_col not in df.columns or not pd.api.types.is_datetime64_any_dtype(df[time_col]):
+                needs_promotion = True
+        else:
+            if time_col is not None and time_col not in df.columns:
+                needs_promotion = True
+
+        if not needs_promotion:
+            return df, None
+
+        base_name = df.index.name or "ds"
+        promoted_col = base_name if not is_inferred and time_col else base_name
+        if not is_inferred and time_col:
+            promoted_col = time_col
+
+        # Guarantee unique column name avoiding collisions with existing columns
+        target_col = promoted_col
+        i = 1
+        while target_col in df.columns:
+            target_col = f"{promoted_col}_{i}"
+            i += 1
+
+        df_out = df.copy()
+        df_out.insert(0, target_col, df.index)
+        df_out = df_out.reset_index(drop=True)
+        logger.info(f"Timestamp column not found, promoted DataFrame index as '{target_col}'.")
+        return df_out, target_col
+
     def preprocess(self, X, transformer=None):
+        if isinstance(X, pd.DataFrame):
+            X, _ = self._promote_datetime_index_if_needed(
+                X,
+                time_col=self.time_col,
+                is_inferred=False,
+            )
         if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
             X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
             return self._preprocess(X, transformer)
