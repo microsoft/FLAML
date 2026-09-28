@@ -116,10 +116,28 @@ _logger_pristine_level: Optional[int] = None
 
 
 def _logger_level_enter(level: int) -> None:
+    """Raise (numerically lower) the shared logger's level for the duration
+    of at least one active run, remembering the level to restore it to once
+    none are left.
+
+    Saves `logger.level`, the logger's OWN unresolved level (0/NOTSET when
+    the logger has never had `setLevel()` called on it and is inheriting
+    from its ancestors), not `logger.getEffectiveLevel()` (#996 follow-up,
+    sixth review point 4). The two read the same value only by coincidence,
+    whenever the logger already had an explicit level of its own; a fresh
+    `flaml.tune` logger has none, so `getEffectiveLevel()` resolves up to
+    whatever the root logger happens to be at (commonly WARNING) and
+    `_logger_level_exit()` used to bake that RESOLVED number back in as an
+    explicit `logger.level` via `setLevel()`, which is a different, and
+    permanent, configuration: the logger would no longer follow a later
+    change to the root logger's level the way NOTSET inheritance does.
+    `logger.level` is exactly the value `setLevel()` needs to reproduce the
+    original state, inheritance included.
+    """
     global _logger_pristine_level
     with _logger_state_lock:
         if not _active_log_levels:
-            _logger_pristine_level = logger.getEffectiveLevel()
+            _logger_pristine_level = logger.level
         _active_log_levels.append(level)
         logger.setLevel(min(_active_log_levels))
 
@@ -622,7 +640,6 @@ def report(_metric=None, **kwargs):
         # concurrent report for this same trial can still finish it between
         # this line and the lock below, which is what that lock is for.
         return None
-    result["training_iteration"] = _next_training_iteration(trial)
     result["config"] = trial.config
     if INCUMBENT_RESULT in result["config"]:
         del result["config"][INCUMBENT_RESULT]
@@ -638,6 +655,19 @@ def report(_metric=None, **kwargs):
         # acts on.
         if trial.is_finished():
             return None
+        # Allocated inside this same critical section, immediately before
+        # the write it orders (#996 follow-up, sixth review point 3):
+        # _next_training_iteration() used to run before this lock was
+        # taken, so two truly concurrent reports for this trial could be
+        # handed iterations in one order (A=5, B=6) and then reach
+        # process_trial_result() in the OTHER order if B's thread happened
+        # to acquire the lock first, handing the scheduler/searcher a
+        # decreasing training_iteration for the trial they track. Locking
+        # allocation and admission together makes the two always agree:
+        # whichever report acquires the lock first is both the one that
+        # gets the lower iteration number and the one process_trial_result()
+        # sees first.
+        result["training_iteration"] = _next_training_iteration(trial)
         runner.process_trial_result(trial, result)
         if verbose > 2:
             logger.info(f"result: {result}")

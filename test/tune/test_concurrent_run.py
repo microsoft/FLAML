@@ -21,6 +21,7 @@ and B's stop_trial() call raises AttributeError on that stale/None runner.
 """
 
 import concurrent.futures
+import logging
 import queue
 import threading
 from unittest import mock
@@ -29,6 +30,7 @@ import pytest
 
 from flaml import tune
 from flaml.tune.logger import logger
+from flaml.tune.trial import Trial
 
 
 def test_concurrent_tune_run_does_not_corrupt_state():
@@ -662,13 +664,24 @@ def test_concurrent_reports_for_same_trial_admit_atomically():
     stale one.
 
     Forced deterministically, with events rather than a sleep: worker B is
-    paused right after its own is_finished() check returns False (via a
-    patched _next_training_iteration, the call immediately following it)
-    until worker A's entire report() call, including the scheduler decision
-    that terminates the trial, has completed. B is released only then, so
-    it always reaches admission with an already-finished trial, which is
-    exactly the window the fix closes with a second, lock-protected check
-    immediately before process_trial_result().
+    paused right after its own is_finished() check returns False, before it
+    enters the critical section, until worker A's entire report() call,
+    including the scheduler decision that terminates the trial, has
+    completed. B is released only then, so it always reaches admission with
+    an already-finished trial, which is exactly the window the fix closes
+    with a second, lock-protected check immediately before
+    process_trial_result().
+
+    Gate point: `_admission_lock_for(trial)`, patched to pause AFTER
+    fetching the real per-trial lock but BEFORE returning it, i.e. before
+    the `with` statement that follows ever calls `.acquire()` on it, so B
+    is paused without holding the lock. This used to gate on
+    `_next_training_iteration` instead (also called between the fast check
+    and the `with` block, at the time); #996 follow-up sixth review point 3
+    moved that call INSIDE the locked section (allocation and admission
+    must be one atomic step, not two), so gating there now would mean B
+    pauses WHILE HOLDING the lock A's own report() needs, deadlocking both
+    threads instead of testing anything.
     """
 
     class StopOnFirstResult:
@@ -695,13 +708,14 @@ def test_concurrent_reports_for_same_trial_admit_atomically():
 
     b_ready = threading.Event()
     a_finished = threading.Event()
-    orig_next_iteration = tune.tune._next_training_iteration
+    orig_admission_lock_for = tune.tune._admission_lock_for
 
-    def gated_next_iteration(trial_obj):
+    def gated_admission_lock_for(trial_obj):
+        lock = orig_admission_lock_for(trial_obj)
         if threading.current_thread().name == "B_WORKER":
             b_ready.set()
             assert a_finished.wait(timeout=5), "worker A never finished while B was paused"
-        return orig_next_iteration(trial_obj)
+        return lock
 
     def eval_concurrent_reporters(config):
         ctx = tune.get_run_context()
@@ -731,7 +745,7 @@ def test_concurrent_reports_for_same_trial_admit_atomically():
         thread_b.join(timeout=5)
         return None
 
-    with mock.patch("flaml.tune.tune._next_training_iteration", side_effect=gated_next_iteration):
+    with mock.patch("flaml.tune.tune._admission_lock_for", side_effect=gated_admission_lock_for):
         analysis = tune.run(
             eval_concurrent_reporters,
             config={"x": tune.uniform(0, 1)},
@@ -823,3 +837,240 @@ def test_tune_report_from_prestarted_reused_queue_worker_via_explicit_context():
         "the documented get_run_context()/use_run_context() API, did not route each "
         f"trial's report to its own trial; got {reported}"
     )
+
+
+def test_stop_trial_shares_lifecycle_lock_with_late_report():
+    """Follow-up to #996, sixth review point 1: report()'s admission
+    (process_trial_result(), guarded by tune.py's per-trial
+    _admission_lock_for) and trial_runner.py's stop_trial() did not share a
+    lock, even though both mutate the same trial: last_result and
+    metric_analysis (via Trial.update_last_result()), status, and the
+    search_alg/scheduler on_trial_* callbacks. A trainable can report from
+    a background thread it does not wait for (every worker-thread test
+    above uses exactly this shape; here evaluation_function() just does not
+    join() it before returning), and run()'s own sequential loop calls
+    runner.stop_trial(trial_to_run) immediately after evaluation_function()
+    returns, whether or not that straggling report has finished.
+
+    Forced deterministically, with events rather than a sleep:
+    Trial.update_last_result() (called from inside process_trial_result(),
+    itself inside the admission lock) is patched to signal it has been
+    entered and then block. Once that signal arrives, stop_trial() is
+    called directly from a separate thread, not through run()'s own loop:
+    doing it through the loop would block the driving thread on the very
+    lock this test needs to release the worker to unblock, deadlocking the
+    test itself rather than exercising the race. Before the fix,
+    stop_trial() had nothing to wait on: it read trial.last_result while
+    the straggling report's update_last_result() was still paused mid-write
+    (last_result still the trial's pre-report default), and handed that
+    stale value to the search algorithm's on_trial_complete() as the
+    trial's supposedly final result. After the fix, stop_trial() blocks on
+    the same per-trial lock until the report's entire critical section has
+    completed, so it always sees the trial's real last_result.
+    """
+    worker_in_update = threading.Event()
+    release_worker = threading.Event()
+    orig_update_last_result = Trial.update_last_result
+
+    def gated_update_last_result(self, result):
+        worker_in_update.set()
+        assert release_worker.wait(timeout=5), "test never released the in-flight report"
+        return orig_update_last_result(self, result)
+
+    class RecordingSearchAlg:
+        """Minimal search_alg double: suggests exactly one trial, records
+        every result stop_trial() hands its on_trial_complete().
+        """
+
+        def __init__(self):
+            self._suggested = False
+            self.complete_calls = []
+
+        def set_search_properties(self, metric=None, mode=None, config=None, **spec):
+            return True
+
+        def suggest(self, trial_id):
+            if self._suggested:
+                return None
+            self._suggested = True
+            return {"x": 0.5}
+
+        def on_trial_result(self, trial_id, result):
+            pass
+
+        def on_trial_complete(self, trial_id, result=None, error=False):
+            self.complete_calls.append(dict(result) if result else result)
+
+    search_alg = RecordingSearchAlg()
+    worker_errors = []
+
+    def eval_fire_and_forget(config):
+        ctx = tune.get_run_context()
+        trial = ctx.running_trial
+        runner = ctx.runner
+
+        def worker():
+            try:
+                with tune.use_run_context(ctx):
+                    tune.report(metric=1.0)
+            except StopIteration:
+                pass
+            except Exception as exc:  # pragma: no cover - failure diagnostics only
+                worker_errors.append(exc)
+
+        report_thread = threading.Thread(target=worker, name="STRAGGLER")
+        report_thread.start()
+        assert worker_in_update.wait(timeout=5), "worker never reached update_last_result"
+
+        stop_started = threading.Event()
+
+        def call_stop_trial():
+            stop_started.set()
+            runner.stop_trial(trial)
+
+        stop_thread = threading.Thread(target=call_stop_trial, name="STOPPER")
+        stop_thread.start()
+        assert stop_started.wait(timeout=5), "stop_trial() thread never started"
+        release_worker.set()
+        report_thread.join(timeout=5)
+        stop_thread.join(timeout=5)
+        return None  # run()'s own post-eval stop_trial() call becomes a harmless no-op
+
+    with mock.patch.object(Trial, "update_last_result", gated_update_last_result):
+        analysis = tune.run(
+            eval_fire_and_forget,
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            search_alg=search_alg,
+            verbose=0,
+        )
+
+    assert not worker_errors, f"straggling report thread raised: {worker_errors}"
+    trial = analysis.trials[0]
+    assert trial.last_result is not None and trial.last_result.get("metric") == 1.0
+    assert search_alg.complete_calls, "stop_trial() never called on_trial_complete"
+    assert search_alg.complete_calls[0] is not None and search_alg.complete_calls[0].get("metric") == 1.0, (
+        "stop_trial() handed the search algorithm a stale/incomplete last_result while the "
+        f"straggling report's update_last_result() was still in flight; got {search_alg.complete_calls[0]}"
+    )
+
+
+def test_training_iteration_allocated_inside_admission_lock():
+    """Follow-up to #996, sixth review point 3: training_iteration used to
+    be allocated (_next_training_iteration()) BEFORE the per-trial
+    admission lock (_admission_lock_for) was acquired, not inside it. Two
+    truly concurrent reports for the same trial could then be handed
+    iteration numbers in one order and reach runner.process_trial_result(),
+    which is what a scheduler/searcher that orders trials by
+    training_iteration (ASHA and similar) actually sees, in the OTHER
+    order, if the thread that allocated the LATER number happened to reach
+    the lock first.
+
+    Rather than trying to force that exact reordering (which the fix makes
+    impossible to construct at all, since allocation now only happens while
+    already holding the lock), this proves the mechanism directly: a
+    report's iteration allocation is patched to pause mid-call, and a
+    second, independent attempt to enter the SAME trial's admission section
+    is made concurrently. If allocation and admission share one critical
+    section, that second attempt must block for as long as allocation is
+    paused; if they are two separate critical sections (the bug), the
+    second attempt sails through immediately, since nothing is held during
+    allocation.
+    """
+    allocating = threading.Event()
+    release_allocation = threading.Event()
+    orig_next_iteration = tune.tune._next_training_iteration
+
+    def gated_next_iteration(trial_obj):
+        allocating.set()
+        assert release_allocation.wait(timeout=5), "test never released the paused allocation"
+        return orig_next_iteration(trial_obj)
+
+    def eval_probe(config):
+        ctx = tune.get_run_context()
+        trial = ctx.running_trial
+
+        def worker():
+            with tune.use_run_context(ctx):
+                tune.report(metric=1.0)
+
+        report_thread = threading.Thread(target=worker, name="ALLOCATOR")
+        report_thread.start()
+        assert allocating.wait(timeout=5), "worker never reached iteration allocation"
+
+        probe_acquired = threading.Event()
+
+        def probe():
+            with tune.tune._admission_lock_for(trial):
+                probe_acquired.set()
+
+        probe_thread = threading.Thread(target=probe, name="PROBE")
+        probe_thread.start()
+        acquired_while_allocation_paused = probe_acquired.wait(timeout=0.5)
+
+        release_allocation.set()
+        report_thread.join(timeout=5)
+        probe_thread.join(timeout=5)
+
+        assert not acquired_while_allocation_paused, (
+            "a second, independent attempt to admit a report for the same trial acquired "
+            "the admission lock while training_iteration allocation for an in-flight report "
+            "was still paused: allocation is not happening inside the same critical section "
+            "as process_trial_result(), so a concurrent report can be allocated a later "
+            "iteration and still be admitted first"
+        )
+        return None
+
+    with mock.patch("flaml.tune.tune._next_training_iteration", side_effect=gated_next_iteration):
+        tune.run(
+            eval_probe,
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            verbose=0,
+        )
+
+
+def test_logger_level_restored_as_inherited_not_explicit():
+    """Follow-up to #996, sixth review point 4: _logger_level_enter() saved
+    logger.getEffectiveLevel(), the RESOLVED level after walking up the
+    logger hierarchy when this logger has no level of its own (logger.level
+    == logging.NOTSET), and _logger_level_exit() restored that resolved
+    number via logger.setLevel(). That gives the logger a permanent
+    explicit level it never had before: a logger that was inheriting must
+    go back to inheriting once every active run has exited, not end up
+    pinned to whatever the ancestor chain resolved to during the run.
+
+    Not a contrived setup: flaml/__init__.py sets the "flaml" logger to
+    INFO at import time, so flaml.tune.logger's own getEffectiveLevel()
+    already resolves to INFO (via that ancestor) in any unconfigured
+    process. No level manipulation beyond resetting flaml.tune.logger's own
+    level to NOTSET is needed to construct "this logger is inheriting", the
+    precondition the fix is about; the assertion just below confirms it.
+    """
+    saved_level = logger.level
+    try:
+        logger.setLevel(logging.NOTSET)  # construct the precondition: inheriting, not explicit
+        assert logger.getEffectiveLevel() != logging.NOTSET, (
+            "test assumes an ancestor logger (flaml/__init__.py sets 'flaml' to INFO) resolves "
+            "to a non-NOTSET effective level here"
+        )
+
+        tune.run(
+            lambda config: {"metric": 1.0},
+            config={"x": tune.uniform(0, 1)},
+            metric="metric",
+            mode="min",
+            num_samples=1,
+            verbose=1,
+        )
+
+        assert logger.level == logging.NOTSET, (
+            "tune.run() left flaml.tune's logger pinned to an explicit level instead of "
+            f"restoring it to NOTSET (inheriting); got {logging.getLevelName(logger.level)}"
+        )
+    finally:
+        logger.setLevel(saved_level)
