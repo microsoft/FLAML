@@ -27,6 +27,7 @@ is NumPy.
 from __future__ import annotations
 
 import inspect
+import numbers
 
 import numpy as np
 
@@ -246,6 +247,12 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         ):
             if getattr(self, name) not in allowed:
                 raise ValueError(f"{name} must be one of {allowed}, got {getattr(self, name)!r}")
+        for name, positive in (("eps", True), ("threshold_shift", False)):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, numbers.Real) or not np.isfinite(value):
+                raise ValueError(f"{name} must be a finite number, got {value!r}")
+            if positive and value <= 0:
+                raise ValueError(f"{name} must be positive, got {value!r}")
 
     @staticmethod
     def _check_sample_weight(sample_weight, n_samples):
@@ -301,6 +308,10 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         if self.spread_ is None:
             self._check_non_negative(X, "when scaling='none'")
             return X
+        if issparse(X) and self.offset_ is not None and np.any(self.offset_):
+            # fitted on dense data with a nonzero minimum: subtracting it densifies
+            # the input anyway, and skipping it would score sparse input differently
+            X = X.toarray()
         if issparse(X):
             # multiply() keeps the matrix sparse; dividing by a dense row would not
             X = X.multiply(1.0 / self.spread_).tocsr()

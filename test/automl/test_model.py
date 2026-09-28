@@ -228,6 +228,18 @@ def test_sefr_invalid_sample_weight():
         SEFRClassifier().fit(X, y, sample_weight=np.full(len(y), np.nan))
 
 
+def test_sefr_invalid_params():
+    X, y = make_classification(200, 8, random_state=0)
+    for eps in (0, -1e-7, np.nan, np.inf, "1e-7", True):
+        with pytest.raises(ValueError, match="eps must be"):
+            SEFRClassifier(eps=eps).fit(X, y)
+    for shift in (np.nan, np.inf, -np.inf, "0.5", None):
+        with pytest.raises(ValueError, match="threshold_shift must be"):
+            SEFRClassifier(threshold_shift=shift).fit(X, y)
+    # numpy scalars, which FLAML's search passes, are accepted
+    SEFRClassifier(eps=np.float64(1e-6), threshold_shift=np.float64(-0.3)).fit(X, y)
+
+
 def test_sefr_multiclass_and_proba():
     X, y = make_classification(300, 8, n_classes=3, n_informative=5, random_state=0)
     for calibration in ("sigmoid", "platt"):
@@ -339,6 +351,15 @@ def test_sefr_sparse():
     sparse = SEFRClassifier().fit(scipy.sparse.csr_matrix(X), y)
     np.testing.assert_allclose(dense.coef_, sparse.coef_)
     np.testing.assert_allclose(dense.decision_function(X), sparse.decision_function(scipy.sparse.csr_matrix(X)))
+
+    # a model fitted on dense data scores dense and sparse input identically, both
+    # when its fitted minimum is zero and when it is not
+    for data in (X, X + 1.0):
+        fitted = SEFRClassifier().fit(data, y)
+        for probe in (data, data - 0.5, data * 2):
+            np.testing.assert_allclose(
+                fitted.decision_function(scipy.sparse.csr_matrix(probe)), fitted.decision_function(probe)
+            )
 
     # sparse input cannot be shifted into [0, 1] without densifying, so negatives are rejected
     signed = scipy.sparse.csr_matrix(np.where(y[:, None] == 1, X, -X))
