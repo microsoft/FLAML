@@ -339,6 +339,12 @@ class TestExtraModel(unittest.TestCase):
         _test_regular_models("lassolars", "regression")
         _test_forecast("lassolars")
 
+    def test_sefr(self):
+        _test_regular_models("sefr", "classification")
+
+    def test_sefr_boost(self):
+        _test_regular_models("sefr_boost", "classification")
+
     def test_seasonal_naive(self):
         _test_forecast("snaive")
 

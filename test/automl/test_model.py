@@ -1,13 +1,18 @@
+import inspect
 import platform
 import sys
 from datetime import datetime
 
 import numpy as np
 import pytest
+import scipy.sparse
 from pandas import DataFrame
 from sklearn.datasets import make_classification
+from sklearn.metrics import log_loss
+from sklearn.utils.estimator_checks import check_estimator
 
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
+from flaml.automl.contrib.sefr import SEFRBoostEstimator, SEFRClassifier, SEFREstimator
 from flaml.automl.model import (
     BaseEstimator,
     CatBoostEstimator,
@@ -146,6 +151,263 @@ def test_prep():
     lgbm.predict(X[:2])
     print(lgbm.feature_names_in_)
     print(lgbm.feature_importances_)
+
+
+def test_sefr_matches_closed_form():
+    """SEFR is a closed form; check the fitted model against it directly."""
+    X, y = make_classification(200, 8, random_state=0)
+    X = np.abs(X)
+    clf = SEFRClassifier(scaling="none").fit(X, y)
+
+    avg_pos = X[y == 1].mean(axis=0)
+    avg_neg = X[y == 0].mean(axis=0)
+    expected_coef = (avg_pos - avg_neg) / (avg_pos + avg_neg + 1e-7)
+    scores = X @ expected_coef
+    n_pos, n_neg = int((y == 1).sum()), int((y == 0).sum())
+    expected_bias = (n_neg * scores[y == 1].mean() + n_pos * scores[y == 0].mean()) / (n_pos + n_neg)
+
+    np.testing.assert_allclose(clf.coef_.ravel(), expected_coef)
+    np.testing.assert_allclose(clf.intercept_[0], expected_bias)
+    # a binary head is n_features + 1 floats
+    assert clf.coef_.size + clf.intercept_.size == 9
+
+
+def test_sefr_multiclass_matches_one_vs_rest():
+    """The one-pass multiclass fit equals fitting each one-vs-rest head separately."""
+    X, y = make_classification(300, 8, n_classes=4, n_informative=6, random_state=0)
+    X = np.abs(X)
+    w = np.random.RandomState(0).uniform(0.1, 3.0, len(y))
+    clf = SEFRClassifier(scaling="none", threshold_shift=0.3).fit(X, y, sample_weight=w)
+    for k in range(4):
+        pos, neg = y == k, y != k
+        avg_pos = np.average(X[pos], axis=0, weights=w[pos])
+        avg_neg = np.average(X[neg], axis=0, weights=w[neg])
+        coef = (avg_pos - avg_neg) / (avg_pos + avg_neg + 1e-7)
+        scores = X @ coef
+        w_pos, w_neg = w[pos].sum(), w[neg].sum()
+        bias = (w_neg * np.average(scores[pos], weights=w[pos]) + w_pos * np.average(scores[neg], weights=w[neg])) / (
+            w_pos + w_neg
+        )
+        std = np.sqrt(np.average((scores - np.average(scores, weights=w)) ** 2, weights=w))
+        np.testing.assert_allclose(clf.coef_[k], coef)
+        np.testing.assert_allclose(clf.intercept_[k], bias + 0.3 * std)
+
+
+def test_sefr_sample_weight():
+    X, y = make_classification(200, 8, random_state=0)
+    for calibration in ("sigmoid", "platt"):
+        base = SEFRClassifier(calibration=calibration).fit(X, y)
+        uniform = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=np.full(len(y), 3.0))
+        # a constant weight rescales both class means identically, so it is a no-op
+        np.testing.assert_allclose(base.coef_, uniform.coef_)
+        np.testing.assert_allclose(base.intercept_, uniform.intercept_)
+
+        weights = np.random.RandomState(0).uniform(0.1, 5.0, len(y))
+        weighted = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=weights)
+        assert not np.allclose(base.coef_, weighted.coef_)
+        # the weights reach the calibration too, not only the SEFR head
+        assert base.calibration_scale_ != weighted.calibration_scale_
+
+        # a zero weight is the same as dropping the sample, feature range included
+        weights[:50] = 0
+        zeroed = SEFRClassifier(calibration=calibration).fit(X, y, sample_weight=weights)
+        dropped = SEFRClassifier(calibration=calibration).fit(X[50:], y[50:], sample_weight=weights[50:])
+        np.testing.assert_allclose(zeroed.coef_, dropped.coef_)
+        np.testing.assert_allclose(zeroed.calibration_scale_, dropped.calibration_scale_, rtol=1e-5)
+
+
+def test_sefr_invalid_sample_weight():
+    X, y = make_classification(200, 8, random_state=0)
+    weights = np.ones(len(y))
+    weights[y == 0] = 0
+    with pytest.raises(ValueError, match="sum to zero"):
+        SEFRClassifier(class_weight="balanced").fit(X, y, sample_weight=weights)
+    with pytest.raises(ValueError, match="non-negative"):
+        SEFRClassifier().fit(X, y, sample_weight=-np.ones(len(y)))
+    with pytest.raises(ValueError, match="finite"):
+        SEFRClassifier().fit(X, y, sample_weight=np.full(len(y), np.nan))
+
+
+def test_sefr_invalid_params():
+    X, y = make_classification(200, 8, random_state=0)
+    for eps in (0, -1e-7, np.nan, np.inf, "1e-7", True):
+        with pytest.raises(ValueError, match="eps must be"):
+            SEFRClassifier(eps=eps).fit(X, y)
+    for shift in (np.nan, np.inf, -np.inf, "0.5", None):
+        with pytest.raises(ValueError, match="threshold_shift must be"):
+            SEFRClassifier(threshold_shift=shift).fit(X, y)
+    # numpy scalars, which FLAML's search passes, are accepted
+    SEFRClassifier(eps=np.float64(1e-6), threshold_shift=np.float64(-0.3)).fit(X, y)
+
+
+def test_sefr_multiclass_and_proba():
+    X, y = make_classification(300, 8, n_classes=3, n_informative=5, random_state=0)
+    for calibration in ("sigmoid", "platt"):
+        clf = SEFRClassifier(calibration=calibration).fit(X, y)
+        assert clf.coef_.shape == (3, 8)
+        proba = clf.predict_proba(X)
+        assert proba.shape == (300, 3)
+        np.testing.assert_allclose(proba.sum(axis=1), 1.0)
+        np.testing.assert_array_equal(clf.classes_[proba.argmax(axis=1)], clf.predict(X))
+        np.testing.assert_array_equal(clf.decision_function(X).argmax(axis=1), proba.argmax(axis=1))
+
+
+def test_sefr_multiclass_calibration():
+    X, y = make_classification(600, 8, n_classes=4, n_informative=6, weights=[0.55, 0.25, 0.15], random_state=0)
+    closed = SEFRClassifier().fit(X, y)
+    fitted = SEFRClassifier(calibration="platt").fit(X, y)
+    # the closed form uses the log class prior as the per-class bias
+    prior = np.bincount(y) / len(y)
+    np.testing.assert_allclose(closed.calibration_bias_, np.log(prior))
+    # maximum likelihood starts from the closed form, so it can only improve on it
+    assert log_loss(y, fitted.predict_proba(X)) < log_loss(y, closed.predict_proba(X))
+    assert fitted.calibration_scale_ > 0
+
+    # sample weights reach the fitted biases
+    weights = np.where(y == 0, 5.0, 1.0)
+    weighted = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=weights)
+    assert weighted.calibration_bias_[0] - weighted.calibration_bias_[1] > (
+        fitted.calibration_bias_[0] - fitted.calibration_bias_[1]
+    )
+
+
+def test_sefr_binary_platt_intercept():
+    """Binary Platt fits a slope and an intercept, like a (nearly unregularized) logistic regression."""
+    from sklearn.linear_model import LogisticRegression
+
+    # noisy labels keep the data far from separable, where the weak penalty is negligible
+    X, y = make_classification(5000, 8, weights=[0.8], flip_y=0.2, class_sep=0.5, random_state=0)
+    w = np.random.RandomState(0).uniform(0.1, 3.0, len(y))
+    closed = SEFRClassifier().fit(X, y, sample_weight=w)
+    fitted = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=w)
+    margins = (closed.decision_function(X) / closed.calibration_scale_).reshape(-1, 1)
+    reference = LogisticRegression(C=1e12, tol=1e-10, max_iter=10000).fit(margins, y, sample_weight=w)
+    # the only difference is the weak pull of the slope towards the closed form
+    np.testing.assert_allclose(fitted.calibration_scale_, reference.coef_[0, 0], rtol=5e-3)
+    np.testing.assert_allclose(fitted.calibration_bias_[0], reference.intercept_[0], rtol=5e-3, atol=1e-3)
+    assert fitted.calibration_bias_[0] != 0
+    # rescaling the weights (AdaBoost normalizes them) does not change the calibration
+    rescaled = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=w / w.sum())
+    np.testing.assert_allclose(rescaled.calibration_scale_, fitted.calibration_scale_, rtol=1e-6)
+    np.testing.assert_allclose(rescaled.calibration_bias_, fitted.calibration_bias_, rtol=1e-6, atol=1e-8)
+    # predict follows the calibrated score, which includes the intercept
+    np.testing.assert_array_equal(fitted.predict(X), fitted.classes_[(fitted.decision_function(X) > 0).astype(int)])
+
+
+def test_sefr_class_weight():
+    X, y = make_classification(600, 8, weights=[0.8], random_state=0)
+    base = SEFRClassifier().fit(X, y)
+    costly = SEFRClassifier(class_weight={0: 1.0, 1: 4.0}).fit(X, y)
+    # class weights cancel in the class means, and act as costs on the calibrated logit
+    np.testing.assert_allclose(costly.coef_, base.coef_)
+    np.testing.assert_allclose(costly.decision_function(X), base.decision_function(X) + np.log(4.0))
+    assert (costly.predict(X) == 1).sum() > (base.predict(X) == 1).sum()
+
+    # "balanced" favours the minority class, with either calibration
+    for calibration in ("sigmoid", "platt"):
+        plain = SEFRClassifier(calibration=calibration).fit(X, y)
+        balanced = SEFRClassifier(calibration=calibration, class_weight="balanced").fit(X, y)
+        recall = lambda clf: (clf.predict(X)[y == 1] == 1).mean()  # noqa: E731
+        assert recall(balanced) > recall(plain)
+
+    # multiclass: the closed-form bias is the log of the cost-weighted prior
+    X, y = make_classification(600, 8, n_classes=3, n_informative=6, random_state=0)
+    costs = {0: 2.0, 1: 1.0, 2: 0.5}
+    clf = SEFRClassifier(class_weight=costs).fit(X, y)
+    weighted = np.bincount(y) * np.array([2.0, 1.0, 0.5])
+    np.testing.assert_allclose(clf.calibration_bias_, np.log(weighted / weighted.sum()))
+    with pytest.raises(ValueError, match="sum to zero"):
+        SEFRClassifier(class_weight={0: 0.0}).fit(X, y)
+
+
+def test_sefr_calibration_subsample(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    X, y = make_classification(2000, 8, n_classes=4, n_informative=6, random_state=0)
+    full = SEFRClassifier(calibration="platt").fit(X, y)
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 1000)
+    sub = SEFRClassifier(calibration="platt").fit(X, y)
+    np.testing.assert_allclose(full.coef_, sub.coef_)
+    assert np.all(np.isfinite(sub.calibration_bias_))
+    assert abs(log_loss(y, sub.predict_proba(X)) - log_loss(y, full.predict_proba(X))) < 0.05
+
+    # rows on the subsample grid, and the first row of every class, all weigh zero:
+    # the subsample must still reach a positive-weight row of every class
+    rows = np.arange(len(y))
+    weights = np.ones(len(y))
+    weights[rows % 8 == 0] = 0
+    weights[[np.flatnonzero(y == k)[0] for k in range(4)]] = 0
+    zeroed = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=weights)
+    assert np.all(np.isfinite(zeroed.calibration_bias_))
+    picked = zeroed._calibration_rows(len(y), y, weights)
+    assert all(weights[picked][y[picked] == k].sum() > 0 for k in range(4))
+
+
+def test_sefr_sparse():
+    X, y = make_classification(200, 8, random_state=0)
+    X = np.where(np.abs(X) > 0.5, np.abs(X), 0.0)
+    # every column holds a zero, so dense min-max scaling and sparse max scaling agree
+    dense = SEFRClassifier().fit(X, y)
+    sparse = SEFRClassifier().fit(scipy.sparse.csr_matrix(X), y)
+    np.testing.assert_allclose(dense.coef_, sparse.coef_)
+    np.testing.assert_allclose(dense.decision_function(X), sparse.decision_function(scipy.sparse.csr_matrix(X)))
+
+    # a model fitted on dense data scores dense and sparse input identically, both
+    # when its fitted minimum is zero and when it is not
+    for data in (X, X + 1.0):
+        fitted = SEFRClassifier().fit(data, y)
+        for probe in (data, data - 0.5, data * 2):
+            np.testing.assert_allclose(
+                fitted.decision_function(scipy.sparse.csr_matrix(probe)), fitted.decision_function(probe)
+            )
+
+    # sparse input cannot be shifted into [0, 1] without densifying, so negatives are rejected
+    signed = scipy.sparse.csr_matrix(np.where(y[:, None] == 1, X, -X))
+    with pytest.raises(ValueError, match="Negative values"):
+        SEFRClassifier().fit(signed, y)
+    with pytest.raises(ValueError, match="Negative values"):
+        SEFRClassifier(scaling="none").fit(-X, y)
+    # out-of-range values at prediction time are clipped into [0, 1]
+    assert np.all(sparse._scale(-signed).data >= 0)
+    assert np.all(dense._scale(X * 3 - 1) >= 0) and np.all(dense._scale(X * 3 - 1) <= 1)
+
+
+def test_sefr_sklearn_estimator_checks():
+    for estimator in (SEFRClassifier(), SEFRClassifier(calibration="platt")):
+        if "on_fail" in inspect.signature(check_estimator).parameters:  # scikit-learn >= 1.6
+            results = check_estimator(estimator, on_fail=None)
+            failed = [r["check_name"] for r in results if r["status"] == "failed"]
+        else:
+            failed = []
+            for est, check in check_estimator(estimator, generate_only=True):
+                try:
+                    check(est)
+                except Exception:
+                    failed.append(getattr(check, "func", check).__name__)
+        assert not failed, failed
+    # sparse support is declared to scikit-learn < 1.6 too
+    assert "sparse" in SEFRClassifier()._more_tags()["X_types"]
+
+
+def test_sefr_estimators():
+    X, y = make_classification(200, 8, random_state=0)
+    assert set(SEFREstimator.search_space()) == {
+        "class_weight",
+        "threshold",
+        "threshold_shift",
+        "calibration",
+    }
+    assert "n_estimators" in SEFRBoostEstimator.search_space(data_size=(200, 8))
+
+    sefr = SEFREstimator(task="binary")
+    sefr.fit(X, y)
+    assert sefr.predict(X).shape == (200,)
+    assert sefr.predict_proba(X).shape == (200, 2)
+    assert sefr.feature_importances_ is not None
+
+    boost = SEFRBoostEstimator(task="binary", n_estimators=4)
+    boost.fit(X, y)
+    assert boost.predict_proba(X).shape == (200, 2)
 
 
 if __name__ == "__main__":
