@@ -397,9 +397,11 @@ class TimeSeriesTask(Task):
                 X = pd.DataFrame(
                     dict(
                         [
-                            (transformer._str_columns[idx], X[idx])
-                            if isinstance(X[0], List)
-                            else (transformer._str_columns[idx], [X[idx]])
+                            (
+                                (transformer._str_columns[idx], X[idx])
+                                if isinstance(X[0], List)
+                                else (transformer._str_columns[idx], [X[idx]])
+                            )
                             for idx in range(len(X))
                         ]
                     )
@@ -432,7 +434,9 @@ class TimeSeriesTask(Task):
             y_aligned = y.reindex(X.index)
             # If reindexing introduced NaNs that were not originally present, indexes do not match
             orig_nan_count = int(y.isna().sum().sum() if isinstance(y, pd.DataFrame) else y.isna().sum())
-            new_nan_count = int(y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum())
+            new_nan_count = int(
+                y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum()
+            )
             if new_nan_count > orig_nan_count:
                 raise ValueError("Target index labels do not match feature index labels.")
             y = y_aligned

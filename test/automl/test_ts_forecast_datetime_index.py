@@ -193,8 +193,6 @@ def test_validation_with_reordered_dataframe_target_aligns_by_label():
     automl = AutoML()
     _fit(automl, dataframe=df_train, X_val=X_val, y_val=y_val)
 
-    # First row of validation data in pre_data must correspond to val_idx[0]
-    expected_val_first = y_val.loc[val_idx[0], "y"]
     preds = automl.predict(X_val)
     assert len(preds) == 20
     assert automl._state.eval_method == "holdout"
