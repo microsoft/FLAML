@@ -547,8 +547,35 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
                 index=X_train_all.index,
             )
         elif isinstance(y_train_all, pd.Series):
-            y_train_all = pd.DataFrame(y_train_all)
-            y_train_all.index = X_train_all.index
+            if isinstance(X_train_all.index, pd.DatetimeIndex) and isinstance(y_train_all.index, pd.DatetimeIndex):
+                if not y_train_all.index.equals(X_train_all.index):
+                    y_aligned = y_train_all.reindex(X_train_all.index)
+                    if y_aligned.isna().sum() > y_train_all.isna().sum():
+                        raise ValueError("Target index labels do not match feature index labels.")
+                    y_train_all = y_aligned
+                y_train_all = pd.DataFrame(y_train_all)
+            else:
+                y_train_all = pd.DataFrame(y_train_all)
+                y_train_all.index = X_train_all.index
+        elif isinstance(y_train_all, pd.DataFrame):
+            if isinstance(X_train_all.index, pd.DatetimeIndex) and isinstance(y_train_all.index, pd.DatetimeIndex):
+                if not y_train_all.index.equals(X_train_all.index):
+                    y_aligned = y_train_all.reindex(X_train_all.index)
+                    if y_aligned.isna().sum().sum() > y_train_all.isna().sum().sum():
+                        raise ValueError("Target index labels do not match feature index labels.")
+                    y_train_all = y_aligned
+            elif (
+                isinstance(X_train_all.index, pd.DatetimeIndex)
+                and isinstance(y_train_all.index, pd.RangeIndex)
+                and len(y_train_all) == len(X_train_all)
+            ):
+                y_train_all = y_train_all.copy()
+                y_train_all.index = X_train_all.index
+            elif not y_train_all.index.equals(X_train_all.index):
+                y_aligned = y_train_all.reindex(X_train_all.index)
+                if y_aligned.isna().sum().sum() > y_train_all.isna().sum().sum():
+                    raise ValueError("Target index labels do not match feature index labels.")
+                y_train_all = y_aligned
 
         dataframe = pd.concat([X_train_all, y_train_all], axis=1)
 
