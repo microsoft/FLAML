@@ -25,7 +25,7 @@ colorlog==6.12.0
 comm==0.2.3
 contourpy==1.4.0
 convertdate==2.5.1
-coverage==7.16.1
+coverage==7.16.2
 cryptography==46.0.3
 cycler==0.12.1
 databricks-sdk==0.143.0
@@ -37,14 +37,14 @@ executing==2.2.1
 fastapi==0.141.1
 fastjsonschema==2.22.2
 filelock==4.0.1
--e git+https://github.com/microsoft/FLAML@1a4604dd824ebf47080f95b4253362fcc53832ab#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@61d07f71fcbe2966900d542d80c139fdfd52c021#egg=FLAML
 fonttools==4.66.0
 formulaic==1.2.2
-fqdn==1.5.1
+fqdn==1.6.0
 fsspec==2026.9.0
 gitdb==4.0.12
 GitPython==3.1.62
-google-auth==2.58.1
+google-auth==2.59.0
 h11==0.16.0
 hcrystalball==0.1.12
 httpcore==1.0.9
@@ -141,7 +141,7 @@ pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
-regex==2026.9.10
+regex==2026.9.29
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
