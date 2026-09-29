@@ -161,3 +161,52 @@ def test_predict_with_datetime_index():
     future_df = pd.DataFrame(index=future_index)
     preds = automl.predict(future_df)
     assert len(preds) == 12
+
+
+def test_training_with_reordered_dataframe_target_aligns_by_label():
+    """Verify that when y_train is passed with shuffled timestamps, values align by label rather than position."""
+    train_idx = pd.date_range("2018-01-01", periods=60, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(60, dtype=float)}, index=train_idx)
+    # Shuffled index for y_train
+    shuffled_idx = train_idx[::-1]
+    y_values = np.sin(np.arange(60)[::-1] / 6) * 10 + 50
+    y_train = pd.DataFrame({"y": y_values}, index=shuffled_idx)
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train)
+
+    # When y_train is reordered, AutoML must correctly align y by index rather than crashing or distorting data
+    preds = automl.predict(X_train.tail(12))
+    assert len(preds) == 12
+    assert automl._state.task.time_col == "ds"
+
+
+def test_validation_with_reordered_dataframe_target_aligns_by_label():
+    """Verify that when y_val is passed with shuffled timestamps, values align by label rather than position."""
+    df_train = _make_train_df(periods=80)
+    val_idx = pd.date_range("2024-09-01", periods=20, freq="MS")
+    X_val = pd.DataFrame(index=val_idx)
+    # Shuffled index for y_val
+    shuffled_val_idx = val_idx[::-1]
+    y_val = pd.DataFrame({"y": (np.arange(20)[::-1] + 100.0)}, index=shuffled_val_idx)
+
+    automl = AutoML()
+    _fit(automl, dataframe=df_train, X_val=X_val, y_val=y_val)
+
+    # First row of validation data in pre_data must correspond to val_idx[0]
+    expected_val_first = y_val.loc[val_idx[0], "y"]
+    preds = automl.predict(X_val)
+    assert len(preds) == 20
+    assert automl._state.eval_method == "holdout"
+
+
+def test_mismatched_target_index_raises_value_error():
+    """Verify that passing targets with non-matching labels raises ValueError instead of silent corruption."""
+    train_idx = pd.date_range("2018-01-01", periods=60, freq="MS")
+    mismatched_idx = pd.date_range("2019-01-01", periods=60, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(60, dtype=float)}, index=train_idx)
+    y_train = pd.DataFrame({"y": np.arange(60, dtype=float)}, index=mismatched_idx)
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="Target index labels do not match feature index labels"):
+        _fit(automl, X_train=X_train, y_train=y_train)

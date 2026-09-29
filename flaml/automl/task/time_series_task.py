@@ -144,6 +144,7 @@ class TimeSeriesTask(Task):
                 assert y_train_all is not None, "If X_train_all is not None, y_train_all must also be"
                 assert dataframe is None, "If X_train_all is provided, dataframe must be None"
                 if isinstance(X_train_all, pd.DataFrame):
+                    X_train_all, y_train_all = self._align_y_to_X_and_promote(X_train_all, y_train_all)
                     X_train_all, promoted_time_col = self._promote_datetime_index_if_needed(
                         X_train_all,
                         time_col=self.time_col,
@@ -151,10 +152,8 @@ class TimeSeriesTask(Task):
                     )
                     if promoted_time_col is not None:
                         self.time_col = promoted_time_col
-                if isinstance(y_train_all, (pd.DataFrame, pd.Series)) and isinstance(X_train_all, pd.DataFrame):
-                    if not y_train_all.index.equals(X_train_all.index):
-                        y_train_all = y_train_all.copy()
-                        y_train_all.index = X_train_all.index
+                        if isinstance(y_train_all, (pd.DataFrame, pd.Series)):
+                            y_train_all = y_train_all.reset_index(drop=True)
                 dataframe = TimeSeriesDataset.to_dataframe(X_train_all, y_train_all, target_names, self.time_col)
 
             elif dataframe is not None:
@@ -184,15 +183,15 @@ class TimeSeriesTask(Task):
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 if isinstance(X_val, pd.DataFrame):
-                    X_val, _ = self._promote_datetime_index_if_needed(
+                    X_val, y_val = self._align_y_to_X_and_promote(X_val, y_val)
+                    X_val, promoted_time_col_val = self._promote_datetime_index_if_needed(
                         X_val,
                         time_col=self.time_col,
                         is_inferred=False,
                     )
-                if isinstance(y_val, (pd.DataFrame, pd.Series)) and isinstance(X_val, pd.DataFrame):
-                    if not y_val.index.equals(X_val.index):
-                        y_val = y_val.copy()
-                        y_val.index = X_val.index
+                    if promoted_time_col_val is not None:
+                        if isinstance(y_val, (pd.DataFrame, pd.Series)):
+                            y_val = y_val.reset_index(drop=True)
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
                 val_len = len(val_df)
             else:
@@ -416,6 +415,29 @@ class TimeSeriesTask(Task):
         if transformer:
             X = transformer.transform(X)
         return X
+
+    @staticmethod
+    def _align_y_to_X_and_promote(X, y):
+        """Align y to X by label before index promotion or resetting.
+
+        If X and y are both pandas objects with indexes, align y to X.index by label.
+        If non-matching labels introduce new missing values, raise ValueError.
+        If X has a DatetimeIndex that gets promoted and reset to a RangeIndex,
+        y's index is also reset to RangeIndex to maintain position-level parity.
+        """
+        if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
+            return X, y
+
+        if not y.index.equals(X.index):
+            y_aligned = y.reindex(X.index)
+            # If reindexing introduced NaNs that were not originally present, indexes do not match
+            orig_nan_count = int(y.isna().sum().sum() if isinstance(y, pd.DataFrame) else y.isna().sum())
+            new_nan_count = int(y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum())
+            if new_nan_count > orig_nan_count:
+                raise ValueError("Target index labels do not match feature index labels.")
+            y = y_aligned
+
+        return X, y
 
     @staticmethod
     def _promote_datetime_index_if_needed(df, time_col=None, is_inferred=False):
