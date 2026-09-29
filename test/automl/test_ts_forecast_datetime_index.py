@@ -208,3 +208,67 @@ def test_mismatched_target_index_raises_value_error():
     automl = AutoML()
     with pytest.raises(ValueError, match="Target index labels do not match feature index labels"):
         _fit(automl, X_train=X_train, y_train=y_train)
+
+
+def test_training_with_range_index_series_target():
+    """Verify positional pairing when X_train has DatetimeIndex and y_train is a RangeIndex Series."""
+    train_idx = pd.date_range("2018-01-01", periods=60, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(60, dtype=float)}, index=train_idx)
+    y_train = pd.Series(np.sin(np.arange(60) / 6) * 10 + 50, name="y")  # Default RangeIndex
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train)
+
+    assert automl._state.task.time_col == "ds"
+    assert automl._state.data_size[0] == len(X_train)
+    preds = automl.predict(X_train.tail(12))
+    assert len(preds) == 12
+
+
+def test_validation_with_range_index_series_target():
+    """Verify positional pairing when validation data has DatetimeIndex X_val and RangeIndex Series y_val."""
+    df_train = _make_train_df(periods=80)
+    val_idx = pd.date_range("2024-09-01", periods=20, freq="MS")
+    X_val = pd.DataFrame({"feat": np.arange(80, 100, dtype=float)}, index=val_idx)
+    y_val = pd.Series(np.sin(np.arange(80, 100) / 6) * 10 + 50, name="y")  # Default RangeIndex
+
+    automl = AutoML()
+    _fit(automl, dataframe=df_train, X_val=X_val, y_val=y_val)
+
+    assert automl._state.eval_method == "holdout"
+    preds = automl.predict(X_val)
+    assert len(preds) == 20
+
+
+def test_training_and_validation_with_range_index_series_targets():
+    """Verify positional pairing when both training and validation targets are RangeIndex Series."""
+    train_idx = pd.date_range("2018-01-01", periods=80, freq="MS")
+    val_idx = pd.date_range("2024-09-01", periods=20, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(80, dtype=float)}, index=train_idx)
+    y_train = pd.Series(np.sin(np.arange(80) / 6) * 10 + 50, name="y")
+    X_val = pd.DataFrame({"feat": np.arange(80, 100, dtype=float)}, index=val_idx)
+    y_val = pd.Series(np.sin(np.arange(80, 100) / 6) * 10 + 50, name="y")
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val)
+
+    assert automl._state.task.time_col == "ds"
+    assert automl._state.eval_method == "holdout"
+    preds = automl.predict(X_val)
+    assert len(preds) == 20
+
+
+def test_training_with_reordered_series_target_aligns_by_label():
+    """Verify that when y_train is a Series with shuffled timestamps, values align by label."""
+    train_idx = pd.date_range("2018-01-01", periods=60, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(60, dtype=float)}, index=train_idx)
+    shuffled_idx = train_idx[::-1]
+    y_values = np.sin(np.arange(60)[::-1] / 6) * 10 + 50
+    y_train = pd.Series(y_values, index=shuffled_idx, name="y")
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train)
+
+    preds = automl.predict(X_train.tail(12))
+    assert len(preds) == 12
+    assert automl._state.task.time_col == "ds"

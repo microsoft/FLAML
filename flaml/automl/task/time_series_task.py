@@ -422,13 +422,26 @@ class TimeSeriesTask(Task):
     def _align_y_to_X_and_promote(X, y):
         """Align y to X by label before index promotion or resetting.
 
-        If X and y are both pandas objects with indexes, align y to X.index by label.
-        If non-matching labels introduce new missing values, raise ValueError.
-        If X has a DatetimeIndex that gets promoted and reset to a RangeIndex,
-        y's index is also reset to RangeIndex to maintain position-level parity.
+        If X has a DatetimeIndex and y has a positional RangeIndex (or non-DatetimeIndex
+        Series), preserve positional pairing by assigning X.index to y.
+        Otherwise, if y has a DatetimeIndex or both are pandas objects with indexes,
+        align y to X.index by label. If non-matching labels introduce new missing
+        values, raise ValueError.
         """
         if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
             return X, y
+
+        if isinstance(X.index, pd.DatetimeIndex):
+            if isinstance(y, pd.Series) and not isinstance(y.index, pd.DatetimeIndex):
+                if len(y) == len(X):
+                    y = y.copy()
+                    y.index = X.index
+                    return X, y
+            elif isinstance(y, pd.DataFrame) and isinstance(y.index, pd.RangeIndex):
+                if len(y) == len(X):
+                    y = y.copy()
+                    y.index = X.index
+                    return X, y
 
         if not y.index.equals(X.index):
             y_aligned = y.reindex(X.index)
