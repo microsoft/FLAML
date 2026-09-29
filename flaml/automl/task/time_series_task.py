@@ -422,37 +422,50 @@ class TimeSeriesTask(Task):
     def _align_y_to_X_and_promote(X, y):
         """Align y to X by label before index promotion or resetting.
 
-        If X has a DatetimeIndex and y has a positional RangeIndex (or non-DatetimeIndex
-        Series), preserve positional pairing by assigning X.index to y.
-        Otherwise, if y has a DatetimeIndex or both are pandas objects with indexes,
-        align y to X.index by label. If non-matching labels introduce new missing
+        Only perform datetime-label alignment when X itself has a matching DatetimeIndex
+        and y also has a DatetimeIndex. If non-matching labels introduce new missing
         values, raise ValueError.
+        Otherwise (e.g. X has a DatetimeIndex and y has a RangeIndex, or X has a
+        RangeIndex and y is a Series with DatetimeIndex or RangeIndex), preserve
+        the positional Series contract by assigning X.index to y.
         """
         if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
             return X, y
 
-        if isinstance(X.index, pd.DatetimeIndex):
-            if isinstance(y, pd.Series) and not isinstance(y.index, pd.DatetimeIndex):
-                if len(y) == len(X):
-                    y = y.copy()
-                    y.index = X.index
-                    return X, y
-            elif isinstance(y, pd.DataFrame) and isinstance(y.index, pd.RangeIndex):
-                if len(y) == len(X):
-                    y = y.copy()
-                    y.index = X.index
-                    return X, y
+        # Only perform datetime-label alignment when both X and y have a DatetimeIndex
+        if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
+            if not y.index.equals(X.index):
+                y_aligned = y.reindex(X.index)
+                orig_nan_count = int(y.isna().sum().sum() if isinstance(y, pd.DataFrame) else y.isna().sum())
+                new_nan_count = int(
+                    y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum()
+                )
+                if new_nan_count > orig_nan_count:
+                    raise ValueError("Target index labels do not match feature index labels.")
+                y = y_aligned
+            return X, y
 
-        if not y.index.equals(X.index):
-            y_aligned = y.reindex(X.index)
-            # If reindexing introduced NaNs that were not originally present, indexes do not match
-            orig_nan_count = int(y.isna().sum().sum() if isinstance(y, pd.DataFrame) else y.isna().sum())
-            new_nan_count = int(
-                y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum()
-            )
-            if new_nan_count > orig_nan_count:
-                raise ValueError("Target index labels do not match feature index labels.")
-            y = y_aligned
+        # Positional pairing: when X has DatetimeIndex and y is a Series without DatetimeIndex (or RangeIndex DataFrame),
+        # or when X has RangeIndex and y is a Series (even if y has a DatetimeIndex).
+        if isinstance(y, pd.Series):
+            if len(y) == len(X):
+                y = y.copy()
+                y.index = X.index
+                return X, y
+        elif isinstance(y, pd.DataFrame):
+            if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.RangeIndex):
+                if len(y) == len(X):
+                    y = y.copy()
+                    y.index = X.index
+                    return X, y
+            elif not y.index.equals(X.index):
+                # When neither is DatetimeIndex, standard label alignment if indexes differ
+                y_aligned = y.reindex(X.index)
+                orig_nan_count = int(y.isna().sum().sum())
+                new_nan_count = int(y_aligned.isna().sum().sum())
+                if new_nan_count > orig_nan_count:
+                    raise ValueError("Target index labels do not match feature index labels.")
+                y = y_aligned
 
         return X, y
 

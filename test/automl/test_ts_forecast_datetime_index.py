@@ -272,3 +272,35 @@ def test_training_with_reordered_series_target_aligns_by_label():
     preds = automl.predict(X_train.tail(12))
     assert len(preds) == 12
     assert automl._state.task.time_col == "ds"
+
+
+def test_training_with_range_index_x_datetime_col_and_datetime_index_series_target():
+    """Verify positional pairing when X_train is RangeIndex with a datetime column and y_train is DatetimeIndex Series."""
+    dates = pd.date_range("2020-01-01", periods=60, freq="MS")
+    X_train = pd.DataFrame({"ds": dates, "feat": np.arange(60, dtype=float)})
+    y_train = pd.Series(np.sin(np.arange(60) / 6) * 10 + 50, index=dates, name="y")
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, time_col="ds")
+
+    assert automl._state.task.time_col == "ds"
+    assert automl._state.data_size[0] == len(X_train)
+    preds = automl.predict(X_train.tail(12))
+    assert len(preds) == 12
+
+
+def test_validation_with_range_index_x_datetime_col_and_datetime_index_series_target():
+    """Verify positional pairing when X_val is RangeIndex with a datetime column and y_val is DatetimeIndex Series."""
+    train_dates = pd.date_range("2018-01-01", periods=80, freq="MS")
+    val_dates = pd.date_range("2024-09-01", periods=20, freq="MS")
+    X_train = pd.DataFrame({"ds": train_dates, "feat": np.arange(80, dtype=float)})
+    y_train = pd.Series(np.sin(np.arange(80) / 6) * 10 + 50, name="y")
+    X_val = pd.DataFrame({"ds": val_dates, "feat": np.arange(80, 100, dtype=float)})
+    y_val = pd.Series(np.sin(np.arange(80, 100) / 6) * 10 + 50, index=val_dates, name="y")
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, time_col="ds")
+
+    assert automl._state.eval_method == "holdout"
+    preds = automl.predict(X_val)
+    assert len(preds) == 20
