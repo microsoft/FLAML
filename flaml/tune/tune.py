@@ -2,10 +2,15 @@
 #  * Copyright (c) FLAML authors. All rights reserved.
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
+import concurrent.futures
+import contextlib
+import contextvars
 import datetime
 import os
 import sys
+import threading
 import time
+import weakref
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -41,13 +46,479 @@ except ImportError:
     internal_mlflow = False
 
 
-_use_ray = True
-_runner = None
-_verbose = 0
-_running_trial = None
-_training_iteration = 0
+class _TuneState(threading.local):
+    """Per-thread run() state.
+
+    report()/run() coordinate through this state (use_ray, runner, verbose,
+    log_run_id) on the thread that is actually driving a tune.run() call. A
+    plain module global here is shared by every thread, so two threads
+    calling tune.run() concurrently overwrite each other's runner/trial
+    bookkeeping mid-flight (#996). threading.local's __init__ re-runs on
+    each thread's first access, so every thread starts from these same
+    defaults without an explicit per-thread init call.
+
+    Being per-thread means a thread that a trainable spawns on its own (a
+    worker/callback thread that later calls tune.report()) starts from
+    these defaults too, with runner=None: report() then falls back to
+    _propagated_context below rather than this thread's own (empty) state.
+    running_trial/training_iteration used to live here too; see
+    _RunContext and _next_training_iteration for where that bookkeeping
+    went and why (#996 follow-up, second review points 1 and 2).
+    """
+
+    def __init__(self):
+        self.use_ray = True
+        self.runner = None
+        self.verbose = 0
+        self.log_run_id = None
+
+
+_state = _TuneState()
 
 INCUMBENT_RESULT = "__incumbent_result__"
+
+
+class _RunScopedFilter(logging.Filter):
+    """Passes only log records emitted while the emitting thread is "inside"
+    the run() call that owns this filter.
+
+    Concurrent/nested tune.run() calls each add their own Handler to the
+    shared `flaml.tune.logger` logger instead of replacing `logger.handlers`
+    wholesale, so one run's handler is never wiped out by another's setup or
+    teardown (#996 follow-up: the shared logger was still corrupted the same
+    way the five state globals used to be). This filter is what keeps one
+    run's records out of another's handler: matching is against thread-local
+    `_state.log_run_id`, so a nested run on the SAME thread resolves to
+    "innermost run wins" (the same behavior the old module-global design
+    had), while two DIFFERENT threads never see each other's records at all,
+    since `_state` is thread-local and Python's logging dispatch runs
+    synchronously on the emitting thread.
+
+    An earlier version of this filter let a record carrying
+    `record.flaml_tune_unscoped = True` bypass the match, reaching every
+    active run's handler regardless of which thread emitted it (#996
+    follow-up, seventh review), for the one caller that has no run of its
+    own to match against: the context-less-report warning below. That
+    bypass is gone (#996 follow-up, eighth review point 3): it put an
+    unattributed diagnostic into every OTHER concurrently active run's log
+    file too, which is a different, self-inflicted instance of the same
+    misattribution class this whole filter exists to prevent. The warning
+    now goes through `_diagnostics_logger` below instead, a logger this
+    filter is never attached to, so it needs no bypass here at all.
+    """
+
+    def __init__(self, run_id):
+        super().__init__()
+        self._run_id = run_id
+
+    def filter(self, record):
+        return _state.log_run_id is self._run_id
+
+
+# Bookkeeping for the shared logger's OWN level (logger.setLevel), which is a
+# single process-global value distinct from any one run's Handler.setLevel().
+# Each concurrently active run() contributes its desired level; the logger is
+# kept at the most permissive (lowest) of those so no run's handler is
+# starved by another run's stricter request, and it is restored to its
+# pre-any-run value once the last active run exits. _logger_state_lock only
+# ever guards this short bookkeeping section, never a run's full duration.
+_logger_state_lock = threading.Lock()
+_active_log_levels: List[int] = []
+_logger_pristine_level: Optional[int] = None
+
+
+def _logger_level_enter(level: int) -> None:
+    """Raise (numerically lower) the shared logger's level for the duration
+    of at least one active run, remembering the level to restore it to once
+    none are left.
+
+    Saves `logger.level`, the logger's OWN unresolved level (0/NOTSET when
+    the logger has never had `setLevel()` called on it and is inheriting
+    from its ancestors), not `logger.getEffectiveLevel()` (#996 follow-up,
+    sixth review point 4). The two read the same value only by coincidence,
+    whenever the logger already had an explicit level of its own; a fresh
+    `flaml.tune` logger has none, so `getEffectiveLevel()` resolves up to
+    whatever the root logger happens to be at (commonly WARNING) and
+    `_logger_level_exit()` used to bake that RESOLVED number back in as an
+    explicit `logger.level` via `setLevel()`, which is a different, and
+    permanent, configuration: the logger would no longer follow a later
+    change to the root logger's level the way NOTSET inheritance does.
+    `logger.level` is exactly the value `setLevel()` needs to reproduce the
+    original state, inheritance included.
+    """
+    global _logger_pristine_level
+    with _logger_state_lock:
+        if not _active_log_levels:
+            _logger_pristine_level = logger.level
+        _active_log_levels.append(level)
+        logger.setLevel(min(_active_log_levels))
+
+
+def _logger_level_exit(level: int) -> None:
+    with _logger_state_lock:
+        _active_log_levels.remove(level)
+        logger.setLevel(min(_active_log_levels) if _active_log_levels else _logger_pristine_level)
+
+
+class _RunContext:
+    """Snapshot of one tune.run() call's active state (#996 follow-up).
+
+    Invariant: there is one active run-context per concurrent tune.run()
+    call, and it must be visible to that run's own worker/callback threads,
+    and invisible to any other concurrent run()'s threads.
+
+    `tune.report()` reports against `_state.runner`, which is thread-local.
+    If a trainable spawns its own worker/callback thread and that thread
+    calls `tune.report()`, the worker thread has no runner attached (its
+    `_TuneState` just initialized to defaults) and the report used to be
+    silently dropped, same as calling tune.report() outside of tune.run()
+    entirely (#996 follow-up, second review point 1). run() now sets
+    _propagated_context (below) around every evaluation_function() call it
+    makes on its own driving thread, and a plain threading.Thread started
+    from inside that call automatically inherits it, see
+    _install_thread_context_propagation(). get_run_context()/
+    use_run_context() remain the explicit escape hatch for handoffs that
+    patch can't reach (a persistent thread-pool executor whose worker
+    threads outlive any single submitted task, for instance).
+
+    training_iteration does NOT live here (it used to, see
+    _next_training_iteration for why that broke synchronization).
+
+    log_run_id (#996 follow-up, third review point 4) is the same value
+    _RunScopedFilter matches against `_state.log_run_id`; carrying it here
+    means the one propagation mechanism below (thread or executor) also
+    covers "this worker's log records belong in the run log", not just
+    report() routing.
+    """
+
+    __slots__ = ("use_ray", "runner", "verbose", "running_trial", "log_run_id")
+
+    def __init__(self, use_ray, runner, verbose, running_trial, log_run_id=None):
+        self.use_ray = use_ray
+        self.runner = runner
+        self.verbose = verbose
+        self.running_trial = running_trial
+        self.log_run_id = log_run_id
+
+
+# Ambient propagation channel report() consults when its own thread's
+# _state.runner is None (#996 follow-up, second review point 1). Set by
+# use_run_context() for the duration of its `with` block, and by run()
+# around each evaluation_function() call on the sequential (non-ray,
+# non-spark) path. A bare threading.Thread does NOT inherit a
+# contextvars.ContextVar value the way an asyncio Task does: CPython
+# gives every new OS thread its own empty top-level Context, so this by
+# itself only reaches use_run_context() callers, not a worker thread a
+# trainable spawns on its own with no FLAML-specific code. Pairing it with
+# _install_thread_context_propagation() and
+# _install_executor_context_propagation() below is what makes that second,
+# more common case ("existing trainables ... unless callers adopt the new
+# context API", per review) work with no trainable-side change.
+_propagated_context: "contextvars.ContextVar[Optional[_RunContext]]" = contextvars.ContextVar(
+    "flaml_tune_propagated_context", default=None
+)
+
+
+def _install_thread_context_propagation() -> None:
+    """Make a plain threading.Thread inherit the calling thread's active
+    _RunContext, process-wide, once.
+
+    Without this, `_propagated_context` set on the thread driving
+    tune.run() is invisible to a `threading.Thread(...)` a trainable spawns
+    from inside its own evaluation_function. contextvars are per-OS-thread
+    in CPython by default, same as threading.local, and only asyncio Task
+    creation (or an explicit Context.run()) copies the parent's bindings.
+
+    Two changes from the first version of this patch (#996 follow-up, third
+    review):
+
+    - Captures and restores only `_propagated_context`'s own _RunContext
+      value (plus setting `_state.log_run_id` from it), never
+      `contextvars.copy_context()`. The full-context copy dragged every
+      ambient application ContextVar into every new thread process-wide,
+      including ones with nothing to do with tuning (third review point
+      3); this only ever touches the one FLAML-owned value.
+    - Wraps `Thread._bootstrap_inner` instead of `Thread.run`.
+      `_bootstrap_inner` is what CPython's Thread._bootstrap() actually
+      calls, and it invokes `self.run()` internally regardless of which
+      `run()` that resolves to, so a Thread SUBCLASS overriding `run()`
+      (idiomatic and common) is still covered; the original patch replaced
+      only the base class's `run` attribute, which a subclass's own `run`
+      shadows and the patch then never runs (third review point 2).
+
+    A thread started outside any tune.run() call captures no context and
+    behaves exactly as before. Idempotent: a second import/call is a no-op.
+    Does not help a persistent thread pool's already-running worker
+    threads; see _install_executor_context_propagation() for that case.
+    """
+    if getattr(threading.Thread, "_flaml_tune_context_propagation", False):
+        return
+    _orig_start = threading.Thread.start
+    _orig_bootstrap_inner = threading.Thread._bootstrap_inner
+
+    def _start(self, *args, **kwargs):
+        self._flaml_tune_ctx = _propagated_context.get()
+        return _orig_start(self, *args, **kwargs)
+
+    def _bootstrap_inner(self, *args, **kwargs):
+        ctx = getattr(self, "_flaml_tune_ctx", None)
+        if ctx is None:
+            return _orig_bootstrap_inner(self, *args, **kwargs)
+        token = _propagated_context.set(ctx)
+        _state.log_run_id = ctx.log_run_id
+        try:
+            return _orig_bootstrap_inner(self, *args, **kwargs)
+        finally:
+            _propagated_context.reset(token)
+
+    threading.Thread.start = _start
+    threading.Thread._bootstrap_inner = _bootstrap_inner
+    threading.Thread._flaml_tune_context_propagation = True
+
+
+def _install_executor_context_propagation() -> None:
+    """Make concurrent.futures.ThreadPoolExecutor.submit() propagate the
+    submitting thread's active _RunContext to the task it submits (#996
+    follow-up, third review point 1, "pre-warmed and cross-trial executor
+    reuse").
+
+    A pool's worker threads call Thread.start() once, when the pool spins
+    them up, not once per submitted task, so _install_thread_context_
+    propagation()'s capture-at-start() never sees a context for a task
+    submitted to an already-running worker: that worker's start() ran (if
+    at all) before this task's context existed. Verified directly:
+    ThreadPoolExecutor.submit() does not propagate a plain
+    contextvars.ContextVar to an already-warmed-up worker either (CPython
+    does not give submit() the automatic inheritance asyncio Task creation
+    gets), so this is not reachable by patching Thread at any capture
+    point; submit() itself has to be the interception point, applied once
+    per task rather than once per worker thread.
+
+    Wraps the submitted callable rather than the worker thread: the same
+    worker thread runs many tasks across its lifetime, each potentially
+    from a different tune.run() call (or none), so the context has to be
+    attached and detached per task, not once for the thread. Idempotent:
+    a second import/call is a no-op. map() is covered for free, since
+    concurrent.futures.Executor.map() calls self.submit() per item.
+    """
+    if getattr(concurrent.futures.ThreadPoolExecutor, "_flaml_tune_context_propagation", False):
+        return
+    _orig_submit = concurrent.futures.ThreadPoolExecutor.submit
+
+    def _submit(self, fn, *args, **kwargs):
+        ctx = _propagated_context.get()
+        if ctx is None:
+            return _orig_submit(self, fn, *args, **kwargs)
+
+        def _flaml_tune_wrapped(*a, **kw):
+            token = _propagated_context.set(ctx)
+            prior_log_run_id = _state.log_run_id
+            _state.log_run_id = ctx.log_run_id
+            try:
+                return fn(*a, **kw)
+            finally:
+                _propagated_context.reset(token)
+                _state.log_run_id = prior_log_run_id
+
+        return _orig_submit(self, _flaml_tune_wrapped, *args, **kwargs)
+
+    concurrent.futures.ThreadPoolExecutor.submit = _submit
+    concurrent.futures.ThreadPoolExecutor._flaml_tune_context_propagation = True
+
+
+_install_thread_context_propagation()
+_install_executor_context_propagation()
+
+# Per-trial training_iteration bookkeeping (#996 follow-up, second review
+# point 2). See _next_training_iteration for the invariant this maintains.
+_trial_iteration_lock = threading.Lock()
+_trial_iteration: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+# Per-trial admission lock (#996 follow-up, fifth review point 2). See
+# _admission_lock_for for the invariant this maintains. A separate lock from
+# _trial_iteration_lock above: _next_training_iteration() is called from
+# inside report() while this lock may already be held, and reusing one
+# process-wide lock for both would self-deadlock a non-reentrant
+# threading.Lock the first time a report actually reaches that call.
+_admission_locks_guard = threading.Lock()
+_admission_locks: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
+def _admission_lock_for(trial) -> threading.Lock:
+    """Return the one lock guarding admission of a report into `trial`.
+
+    report()'s is_finished() check (whether to bother building a result at
+    all) and its actual admission (runner.process_trial_result(), which is
+    what can transition the trial to finished) used to be two unsynchronized
+    steps: a second, concurrent report() for the SAME trial could read
+    is_finished() as False, then have the FIRST report's scheduler decision
+    finish the trial before the second one reached process_trial_result(),
+    which still wrote through and silently replaced the trial's real final
+    result with the stale one (#996 follow-up, fifth review point 2). This
+    lock makes the re-check immediately before process_trial_result()
+    atomic with the write, so a report that loses that race is dropped
+    instead of admitted.
+
+    Keyed per trial (a WeakKeyDictionary, same pattern as
+    _trial_iteration above) rather than one global lock, so reports for
+    different trials never serialize against each other.
+    """
+    with _admission_locks_guard:
+        lock = _admission_locks.get(trial)
+        if lock is None:
+            lock = threading.Lock()
+            _admission_locks[trial] = lock
+        return lock
+
+
+# Every currently active SEQUENTIAL (non-ray) run's runner, keyed to its own
+# log_run_id/verbose (#996 follow-up, eighth review point 1). A
+# WeakKeyDictionary: an entry is dropped once its run() call restores
+# _state.runner and nothing else references the old runner, so this needs no
+# separate cleanup beyond the explicit .pop() run() does on the way out
+# (belt-and-suspenders against a runner outliving its run() call some other
+# way). Guarded by its own lock, never held across a report() call's own
+# work, only the lookup.
+_active_runners_lock = threading.Lock()
+_active_runners: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
+def _resolve_unambiguous_active_runner():
+    """Return the sole active sequential run's (runner, log_run_id, verbose),
+    or (None, None, None) if none are active.
+
+    Only called for a context-less report() (#996 follow-up, eighth review
+    point 1): no thread-local runner and no propagated/explicit _RunContext,
+    the shape a generic queue/callback worker started before tune.run()
+    exists has, unchanged, and never calling get_run_context()/
+    use_run_context() itself. Automatic per-dispatch propagation for such a
+    worker is still not being added (SequentialTrialRunner.step() reassigns
+    running_trial every step, so a live-resolved trial can still be the
+    WRONG one if this same run has already moved past the trial the report
+    was actually produced for by the time it is handled (see report()'s
+    own docstring). What changed: when exactly one sequential tune.run() is
+    active anywhere in the process, a context-less report can only mean
+    that one run, which is exactly the fallback the pre-#996 module-global
+    design gave every caller unconditionally (report() read whichever
+    runner the one shared global held, live, with the same delayed-item
+    risk this still carries within that single run). Restoring it for this
+    one unambiguous case preserves the working common shape (a single
+    tune.run() call, one worker draining a queue produced during it) instead
+    of dropping it outright.
+
+    Raises RuntimeError when two or more sequential runs are active at
+    once: which one a context-less report belongs to is then genuinely
+    undecidable (there is no signal on the reporting thread that says
+    which), and silently guessing would attribute one run's metric to a
+    different run's trial, worse than dropping it. Callers who need this
+    to work under real concurrent runs must capture get_run_context() where
+    the work is produced and attach it with use_run_context() where it is
+    processed; that path already works today and is unaffected by this.
+    """
+    with _active_runners_lock:
+        candidates = list(_active_runners.items())
+    if not candidates:
+        return None, None, None
+    if len(candidates) > 1:
+        raise RuntimeError(
+            "tune.report() was called from a thread with no active run attached to it "
+            "(not the thread driving tune.run(), and no context was propagated or "
+            "explicitly attached), and more than one tune.run() call is concurrently "
+            "active in this process right now, so which run this report belongs to "
+            "cannot be determined safely. Capture get_run_context() in the code that "
+            "queues the work and attach it with use_run_context() where the item is "
+            "processed."
+        )
+    runner, (log_run_id, verbose) = candidates[0]
+    return runner, log_run_id, verbose
+
+
+def _next_training_iteration(trial) -> int:
+    """Return trial's next training_iteration, as a counter shared by every
+    thread that reports for this trial, whichever thread that is.
+
+    training_iteration used to be a plain int on _RunContext: a snapshot
+    get_run_context() took of _state.training_iteration, copied onto the
+    receiving thread's own _state by use_run_context(), and discarded (via
+    _state restore) when that thread's `with` block exited. The driving
+    thread's own copy was never updated by a worker thread's reports, so
+    every get_run_context() call handed out the same stale snapshot the
+    driving thread's own copy still held, 0 if the driving thread never
+    reports directly itself, which is the common case when a worker thread
+    does the reporting instead. Every one of those propagated reports then
+    repeated the SAME training_iteration (verified: 0, for three separate
+    handoffs in a row), instead of the trial's count going up, which is
+    what a scheduler/searcher that orders trials by training_iteration
+    (ASHA and similar) needs to see.
+
+    The trial object itself is the one thing every one of those threads
+    already holds a reference to in common (_state.runner.running_trial on
+    the driving thread, ctx.running_trial on a propagated one), so keying
+    the counter on the trial, instead of copying it through whichever
+    thread or context happens to be reporting, makes it actually shared.
+    The lock makes the read-increment-write atomic across threads; the
+    WeakKeyDictionary drops a trial's entry once nothing else references
+    it, so finished trials need no separate cleanup.
+    """
+    with _trial_iteration_lock:
+        iteration = _trial_iteration.get(trial, -1) + 1
+        _trial_iteration[trial] = iteration
+        return iteration
+
+
+def get_run_context() -> Optional["_RunContext"]:
+    """Snapshot the calling thread's active tune.run() state.
+
+    Call this from the thread tune.run() is driving the trainable on (e.g.
+    at the top of the trainable, before spawning a helper thread). Returns
+    None if this thread is not currently inside a tune.run() call, in which
+    case there is nothing to propagate.
+
+    Existing trainables do not need to call this: a plain worker thread, or
+    a task submitted to a ThreadPoolExecutor, already gets a context
+    automatically, via _propagated_context and
+    _install_thread_context_propagation()/
+    _install_executor_context_propagation(). This (and use_run_context())
+    stay as the explicit form for the cases neither patch can reach (a
+    Thread subclass that also overrides _bootstrap_inner itself, for
+    instance, or a non-stdlib executor).
+    """
+    if _state.runner is None:
+        return None
+    return _RunContext(_state.use_ray, _state.runner, _state.verbose, _state.runner.running_trial, _state.log_run_id)
+
+
+@contextlib.contextmanager
+def use_run_context(ctx: Optional["_RunContext"]):
+    """Attach a context captured by get_run_context() to the calling thread.
+
+    `tune.report()` calls made inside the `with` block report against the
+    run `ctx` was captured from, as if they were made on the driving thread.
+    `ctx=None` is accepted and is a no-op, so callers do not need to special
+    case "this thread never got a context".
+
+    Also attaches ctx.log_run_id to this thread's _state for the duration,
+    so log records emitted inside the `with` block land in the owning run's
+    log the same way a report() call routes to the owning trial (#996
+    follow-up, third review point 4).
+
+    Note this only propagates report() bookkeeping (which runner, which
+    trial) and log routing; it does not add any locking around the shared
+    TrialRunner, so this is meant for a single worker thread computing a
+    result and handing it off (report(), then join), not for multiple
+    threads reporting against the same trial truly concurrently.
+    """
+    if ctx is None:
+        yield
+        return
+    token = _propagated_context.set(ctx)
+    prior_log_run_id = _state.log_run_id
+    _state.log_run_id = ctx.log_run_id
+    try:
+        yield
+    finally:
+        _propagated_context.reset(token)
+        _state.log_run_id = prior_log_run_id
 
 
 class ExperimentAnalysis(EA):
@@ -150,6 +621,67 @@ class ExperimentAnalysis(EA):
         return None
 
 
+# Dedicated to a diagnostic that cannot be attributed to any one active run
+# (#996 follow-up, eighth review point 3): a distinct logger, in its own
+# branch of the hierarchy ("flaml.tune.diagnostics", a sibling of
+# "flaml.tune.logger"/`logger` below, never "flaml.tune.logger" itself), so
+# run() never attaches a run-owned FileHandler/StreamHandler to it and an
+# unattributed record is never written into one of those files, which the
+# `flaml_tune_unscoped` bypass this replaced did exactly (see
+# _RunScopedFilter above). Left at its default `propagate=True`, unlike
+# `logger`, so a record still reaches somewhere: up to "flaml.tune", then
+# "flaml" (INFO by default, flaml/__init__.py), then root, landing on
+# whatever handler the caller's own logging config has there, or on
+# Python's `logging.lastResort` (stderr) if none. Verified directly: a
+# handler with no run-scoped filter on it at all would have worked too, but
+# would need run() to manage its lifecycle the same way it manages
+# run-owned handlers, which is the coupling this is meant to avoid.
+_diagnostics_logger = logging.getLogger("flaml.tune.diagnostics")
+
+# Guards the warning below (#996 follow-up, seventh and eighth review). A
+# generic queue/callback worker started before any tune.run() call exists
+# captures no _propagated_context at Thread.start() time (that mechanism
+# only reaches a thread started AFTER a run is already active) and never
+# calls get_run_context()/use_run_context() itself, so a report() it makes
+# while no run is active anywhere in the process, or while more than one
+# is (see _resolve_unambiguous_active_runner, which raises for that second
+# case instead of reaching here), lands on the "no trial to attribute this
+# to" branch below. That branch can run once per dequeued item on a hot
+# worker loop, so this is scoped to fire at most once per call to run(),
+# not once per report(): run() resets the flag at the top of every call
+# (#996 follow-up, eighth review point 2), so a LATER run that hits the
+# same unsupported shape warns again instead of staying silent forever
+# after the first affected run in the process. A nested tune.run() call on
+# the same thread also resets it, which can make an outer run's own
+# warning fire twice across one process lifetime; that is the direction to
+# fail in, not the reverse.
+_context_less_report_warned = False
+_context_less_report_warned_lock = threading.Lock()
+
+
+def _warn_context_less_report_once() -> None:
+    global _context_less_report_warned
+    if _context_less_report_warned:
+        return
+    with _context_less_report_warned_lock:
+        if _context_less_report_warned:
+            return
+        _context_less_report_warned = True
+        _diagnostics_logger.warning(
+            "tune.report() was called from a thread with no active run to attribute it "
+            "to (not the thread driving tune.run(), and no context was propagated or "
+            "explicitly attached), and no tune.run() call is active in this process "
+            "right now either, so there is nothing to attribute it to even by "
+            "inference. The report is dropped, not recorded against any trial, and "
+            "this will not be logged again for this run. A worker thread started "
+            "before tune.run() is called, such as a persistent queue consumer, whose "
+            "items are processed while exactly one tune.run() call is active, is "
+            "handled automatically; this warning means that was not the case here. "
+            "Capture get_run_context() in the code that queues the work and attach it "
+            "with use_run_context() where the item is processed.",
+        )
+
+
 def report(_metric=None, **kwargs):
     """A function called by the HPO application to report final or intermediate
     results.
@@ -188,48 +720,181 @@ def report(_metric=None, **kwargs):
             A StopIteration exception is raised if the trial has been signaled to stop.
         SystemExit (when using ray):
             A SystemExit exception is raised if the trial has been signaled to stop by ray.
+
+    A worker/callback thread a trainable spawns during evaluation can call
+    this too, with no change on the trainable's part: this thread's own
+    _state.runner is None (a fresh thread never ran tune.run() itself), so
+    the active run's runner/trial is read from _propagated_context instead
+    (#996 follow-up, second review point 1). See _RunContext.
+
+    A thread started before tune.run() is called, such as a persistent
+    queue/callback worker that never calls get_run_context()/
+    use_run_context() itself, is attributed automatically when exactly one
+    tune.run() call is active anywhere in the process right now (#996
+    follow-up, eighth review point 1): there is only one run it could mean,
+    so it is resolved the same way the pre-#996 module-global design
+    resolved every caller, unconditionally. When zero are active, the
+    report has nothing to attribute to and is dropped, with a one-time
+    (per run(), see _warn_context_less_report_once) warning pointing at
+    get_run_context()/use_run_context(). When two or more are active at
+    once, which run the report belongs to is genuinely undecidable and this
+    raises RuntimeError instead of guessing or silently dropping; see
+    _resolve_unambiguous_active_runner. Either way, this fallback is only
+    ever a live resolution of "whichever trial this run happens to be
+    running right now": a worker slow enough to still be draining an item
+    from an EARLIER trial after its single active run has already moved on
+    to a later one can still land on the wrong trial, the same risk the
+    pre-#996 code carried for this exact shape. Callers who need reporting
+    pinned to the trial that actually produced the item, not whichever one
+    happens to be current when it is handled, should still capture
+    get_run_context() where the work is produced and attach it with
+    use_run_context() where it is processed; that path is unaffected by
+    this fallback and carries no such risk.
     """
-    global _use_ray
-    global _verbose
-    global _running_trial
-    global _training_iteration
-    if _use_ray:
-        try:
-            from ray import __version__ as ray_version
+    use_ray = _state.use_ray
+    runner = _state.runner
+    verbose = _state.verbose
+    running_trial = None
+    # True only for the exact precondition the docstring above and
+    # _warn_context_less_report_once() describe: no thread-local runner and
+    # no propagated/explicit _RunContext at all (#996 follow-up, seventh
+    # review). Computed once, before deciding whether to even try ray,
+    # because it also has to cover the ImportError branch just below: a
+    # context-less thread's _state.use_ray defaults to True (_TuneState),
+    # not to whatever the real active run's use_ray actually is, so this
+    # exact caller shape reaches the ImportError return, not the "no
+    # trial" one, whenever ray is not installed. Verified directly while
+    # building this fix: an unchanged pre-started queue worker's report
+    # never reached the "no trial" branch at all in that environment.
+    context_less = runner is None
+    # Guards the finally below: only the fallback branch just below ever
+    # sets this True, so _state.log_run_id is only ever touched (and only
+    # ever restored) for exactly the one call that used it.
+    _restore_log_run_id = False
+    _prior_log_run_id = None
+    if runner is None:
+        ctx = _propagated_context.get()
+        if ctx is not None:
+            context_less = False
+            use_ray = ctx.use_ray
+            runner = ctx.runner
+            verbose = ctx.verbose
+            running_trial = ctx.running_trial
+        else:
+            # No thread-local runner, no propagated/explicit context: try
+            # the single-active-sequential-run fallback (#996 follow-up,
+            # eighth review point 1) before falling through to the
+            # use_ray branch below, which would otherwise act on
+            # _state.use_ray's misleading default (see the comment above)
+            # instead of the real active run's own backend. Raises
+            # RuntimeError here, uncaught, when two or more sequential
+            # runs are active at once, deliberately not folded into the
+            # try/except ImportError below, which is about ray being
+            # unavailable, not about ownership being ambiguous.
+            fallback_runner, fallback_log_run_id, fallback_verbose = _resolve_unambiguous_active_runner()
+            if fallback_runner is not None:
+                context_less = False
+                use_ray = False
+                runner = fallback_runner
+                verbose = fallback_verbose
+                # Scoped to this one report() call only (restored in the
+                # finally below), the same as use_run_context() scopes it
+                # to its `with` block: this thread is not "in" the
+                # resolved run the way a use_run_context() caller
+                # declares itself to be, only this one dispatch is.
+                _prior_log_run_id = _state.log_run_id
+                _state.log_run_id = fallback_log_run_id
+                _restore_log_run_id = True
+    try:
+        if use_ray:
+            try:
+                from ray import __version__ as ray_version
 
-            if ray_version.startswith("1."):
-                from ray import tune
+                if ray_version.startswith("1."):
+                    from ray import tune
 
-                return tune.report(_metric, **kwargs)
-            else:  # ray>=2
-                from ray.air import session
+                    return tune.report(_metric, **kwargs)
+                else:  # ray>=2
+                    from ray.air import session
 
-                return session.report(metrics={"metric": _metric, **kwargs})
-        except ImportError:
-            # calling tune.report() outside tune.run()
-            return
-    result = kwargs
-    if _metric is not None:
-        result[DEFAULT_METRIC] = _metric
-    trial = getattr(_runner, "running_trial", None)
-    if not trial:
-        return None
-    if _running_trial == trial:
-        _training_iteration += 1
-    else:
-        _training_iteration = 0
-        _running_trial = trial
-    result["training_iteration"] = _training_iteration
-    result["config"] = trial.config
-    if INCUMBENT_RESULT in result["config"]:
-        del result["config"][INCUMBENT_RESULT]
-    for key, value in trial.config.items():
-        result["config/" + key] = value
-    _runner.process_trial_result(trial, result)
-    if _verbose > 2:
-        logger.info(f"result: {result}")
-    if trial.is_finished():
-        raise StopIteration
+                    return session.report(metrics={"metric": _metric, **kwargs})
+            except ImportError:
+                # calling tune.report() outside tune.run(), or (#996 follow-up,
+                # seventh review) a context-less caller that defaulted here
+                # instead of to the "no trial" branch below, per the comment
+                # above. Ray missing means there is nowhere else this call
+                # could reach either way, so warn under the same condition.
+                if context_less:
+                    _warn_context_less_report_once()
+                return
+        result = kwargs
+        if _metric is not None:
+            result[DEFAULT_METRIC] = _metric
+        # running_trial is the trial a propagated context pinned this report to;
+        # otherwise (the thread actually driving run()'s own loop) resolve it
+        # live off the runner, which is always the trial that loop is currently
+        # stepping.
+        trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
+        if not trial:
+            # No thread-local runner and no propagated/explicit context, and
+            # (see above) no single unambiguous active run to fall back to
+            # either: this call cannot be attributed to a trial (see the
+            # docstring above), so it is dropped rather than guessed at.
+            # context_less can be False here too (a context was found but
+            # its running_trial had not been resolved yet), which is a
+            # different, pre-existing edge case this warning is not about,
+            # so it only fires on the one this review names.
+            if context_less:
+                _warn_context_less_report_once()
+            return None
+        if trial.is_finished():
+            # A late report from a background thread or executor task whose
+            # captured _RunContext outlived its trial (#996 follow-up, fourth
+            # review point 2): the trial's final result is already recorded,
+            # and process_trial_result() would overwrite it with this stale
+            # value, plus the is_finished() check below would then raise
+            # StopIteration into a caller that never expected it (unlike the
+            # trainable's own control-flow loop, which does). Drop it instead.
+            # This is a fast-path check only, not the admission decision: a
+            # concurrent report for this same trial can still finish it between
+            # this line and the lock below, which is what that lock is for.
+            return None
+        result["config"] = trial.config
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT]
+        for key, value in trial.config.items():
+            result["config/" + key] = value
+        with _admission_lock_for(trial):
+            # Re-check under the lock (#996 follow-up, fifth review point 2):
+            # the fast-path check above and this admission are not the same
+            # instant, and a second, truly concurrent report for this trial
+            # (a trainable's own worker threads reporting for the trial they
+            # share, for instance) can legitimately finish it in between. This
+            # is the only check whose result process_trial_result() actually
+            # acts on.
+            if trial.is_finished():
+                return None
+            # Allocated inside this same critical section, immediately before
+            # the write it orders (#996 follow-up, sixth review point 3):
+            # _next_training_iteration() used to run before this lock was
+            # taken, so two truly concurrent reports for this trial could be
+            # handed iterations in one order (A=5, B=6) and then reach
+            # process_trial_result() in the OTHER order if B's thread happened
+            # to acquire the lock first, handing the scheduler/searcher a
+            # decreasing training_iteration for the trial they track. Locking
+            # allocation and admission together makes the two always agree:
+            # whichever report acquires the lock first is both the one that
+            # gets the lower iteration number and the one process_trial_result()
+            # sees first.
+            result["training_iteration"] = _next_training_iteration(trial)
+            runner.process_trial_result(trial, result)
+            if verbose > 2:
+                logger.info(f"result: {result}")
+            if trial.is_finished():
+                raise StopIteration
+    finally:
+        if _restore_log_run_id:
+            _state.log_run_id = _prior_log_run_id
 
 
 def run(
@@ -478,204 +1143,261 @@ def run(
         **ray_args: keyword arguments to pass to ray.tune.run().
             Only valid when use_ray=True.
     """
-    global _use_ray
-    global _verbose
-    global _running_trial
-    global _training_iteration
     global internal_mlflow
-    old_use_ray = _use_ray
-    old_verbose = _verbose
-    old_running_trial = _running_trial
-    old_training_iteration = _training_iteration
+    old_use_ray = _state.use_ray
+    old_verbose = _state.verbose
+    old_runner = _state.runner
+    old_log_run_id = _state.log_run_id
+    _run_handler = None
+    _internal_mlflow = False
+    mlflow_integration = None
 
-    if log_file_name:
-        dir_name = os.path.dirname(log_file_name)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
-    elif local_dir and verbose > 0:
-        os.makedirs(local_dir, exist_ok=True)
-        log_file_name = os.path.join(local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log")
-    if use_ray and use_spark:
-        raise ValueError("use_ray and use_spark cannot be both True.")
-    if not use_ray:
-        _use_ray = False
-        _verbose = verbose
-        old_handlers = logger.handlers
-        old_level = logger.getEffectiveLevel()
-        logger.handlers = []
-        global _runner
-        old_runner = _runner
-        assert not ray_args, "ray_args is only valid when use_ray=True"
-        if (
-            old_handlers
-            and isinstance(old_handlers[0], logging.StreamHandler)
-            and not isinstance(old_handlers[0], logging.FileHandler)
-        ):
-            # Add the console handler.
-            logger.addHandler(old_handlers[0])
-        if verbose > 0:
-            if log_file_name:
-                logger.addHandler(logging.FileHandler(log_file_name))
-            elif not logger.hasHandlers():
-                # Add the console handler.
-                _ch = logging.StreamHandler(stream=sys.stdout)
-                _ch.setFormatter(logger_formatter)
-                logger.addHandler(_ch)
-            if verbose <= 2:
-                logger.setLevel(logging.INFO)
-            else:
-                logger.setLevel(logging.DEBUG)
+    # Reset once per run() call, not once per process (#996 follow-up,
+    # eighth review point 2): see the comment above
+    # _context_less_report_warned's definition for why once-per-run, not
+    # once-per-report, and why a nested run() on the same thread resetting
+    # it early is an accepted, safe imprecision.
+    global _context_less_report_warned
+    with _context_less_report_warned_lock:
+        _context_less_report_warned = False
+
+    def _restore_tune_state():
+        """Undo every mutation this call made to shared/thread-local state.
+
+        Called from the except clause wrapping the common setup section,
+        AND from the single outer try/finally that wraps every backend
+        branch (ray/spark/sequential) below it, so a setup or execution
+        failure anywhere in this call restores state exactly like a normal
+        return does, instead of leaking a mutated _state/logger into
+        whatever run() this thread resumes next. Backend init (the spark
+        session, `check_spark()`) and the sequential scheduler setup used
+        to run outside any restoration guard; both are inside the outer
+        try/finally now (#996 follow-up, second review point 3).
+        """
+        _state.use_ray = old_use_ray
+        _state.verbose = old_verbose
+        if not use_ray:
+            this_runner = _state.runner
+            _state.runner = old_runner
+            _state.log_run_id = old_log_run_id
+            if this_runner is not None:
+                # Deregister from the single-active-run fallback a
+                # context-less report() can resolve to (#996 follow-up,
+                # eighth review point 1): once this call is done restoring
+                # state, no report anywhere should be able to reach this
+                # runner anymore, through the fallback or otherwise. Safe
+                # even if this_runner was never registered (setup failed
+                # before the SequentialTrialRunner was constructed, or the
+                # ray/spark branch never touches _active_runners at all).
+                with _active_runners_lock:
+                    _active_runners.pop(this_runner, None)
+            if _run_handler is not None:
+                logger.removeHandler(_run_handler)
+                _logger_level_exit(_run_handler.level)
+            if _internal_mlflow:
+                mlflow_integration.adopt_children()
+
+    try:
+        if log_file_name:
+            dir_name = os.path.dirname(log_file_name)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+        elif local_dir and verbose > 0:
+            os.makedirs(local_dir, exist_ok=True)
+            log_file_name = os.path.join(local_dir, "tune_" + str(datetime.datetime.now()).replace(":", "-") + ".log")
+        if use_ray and use_spark:
+            raise ValueError("use_ray and use_spark cannot be both True.")
+        if not use_ray:
+            _state.use_ray = False
+            _state.verbose = verbose
+            assert not ray_args, "ray_args is only valid when use_ray=True"
+            _log_run_id = object()
+            _state.log_run_id = _log_run_id
+            if verbose > 0:
+                if log_file_name:
+                    _run_handler = logging.FileHandler(log_file_name)
+                else:
+                    _run_handler = logging.StreamHandler(stream=sys.stdout)
+                    _run_handler.setFormatter(logger_formatter)
+                # Filter + addHandler (never `logger.handlers = [...]`) so a
+                # concurrently active run's handler is never wiped out, and a
+                # per-run level (not a shared logger.setLevel by itself) so one
+                # run's verbosity can never silence or tighten another's (#996
+                # follow-up: the logger was still a corruptible sixth piece of
+                # shared state after the five _TuneState fields were fixed).
+                _run_handler.addFilter(_RunScopedFilter(_log_run_id))
+                _run_handler.setLevel(logging.DEBUG if verbose > 2 else logging.INFO)
+                logger.addHandler(_run_handler)
+                _logger_level_enter(_run_handler.level)
+            # verbose == 0 intentionally adds no handler and touches no shared
+            # state: the old code called logger.setLevel(logging.CRITICAL) here,
+            # which silenced every OTHER concurrently active run's logging too,
+            # the same corruption class this whole block now avoids.
+
+        if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
+            mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
+            evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
+            _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
         else:
-            logger.setLevel(logging.CRITICAL)
+            _internal_mlflow = False
 
-    if internal_mlflow and not automl_info and (mlflow.active_run() or is_autolog_enabled()):
-        mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
-        evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
-        _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
-    else:
-        _internal_mlflow = False
+        from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
-    from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
+        if lexico_objectives is not None:
+            if "modes" not in lexico_objectives.keys():
+                lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
+            for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
+                if t_metric not in lexico_objectives["tolerances"].keys():
+                    lexico_objectives["tolerances"][t_metric] = 0
+                if t_metric not in lexico_objectives["targets"].keys():
+                    lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
+        if search_alg is None or isinstance(search_alg, str):
+            if isinstance(search_alg, str):
+                assert search_alg in [
+                    "BlendSearch",
+                    "CFO",
+                    "CFOCat",
+                    "RandomSearch",
+                ], f"search_alg={search_alg} is not recognized. 'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
 
-    if lexico_objectives is not None:
-        if "modes" not in lexico_objectives.keys():
-            lexico_objectives["modes"] = ["min"] * len(lexico_objectives["metrics"])
-        for t_metric, t_mode in zip(lexico_objectives["metrics"], lexico_objectives["modes"]):
-            if t_metric not in lexico_objectives["tolerances"].keys():
-                lexico_objectives["tolerances"][t_metric] = 0
-            if t_metric not in lexico_objectives["targets"].keys():
-                lexico_objectives["targets"][t_metric] = -float("inf") if t_mode == "min" else float("inf")
-    if search_alg is None or isinstance(search_alg, str):
-        if isinstance(search_alg, str):
-            assert search_alg in [
-                "BlendSearch",
-                "CFO",
-                "CFOCat",
-                "RandomSearch",
-            ], f"search_alg={search_alg} is not recognized. 'BlendSearch', 'CFO', 'CFOcat' and 'RandomSearch' are supported."
-
-        flaml_scheduler_resource_attr = (
-            flaml_scheduler_min_resource
-        ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
-        if scheduler in (None, "flaml"):
-            # when scheduler is set 'flaml' or None, we will use a scheduler that is
-            # authentic to the search algorithms in flaml. After setting up
-            # the search algorithm accordingly, we need to set scheduler to
-            # None in case it is later used in the trial runner.
-            flaml_scheduler_resource_attr = resource_attr
-            flaml_scheduler_min_resource = min_resource
-            flaml_scheduler_max_resource = max_resource
-            flaml_scheduler_reduction_factor = reduction_factor
-            scheduler = None
-        if lexico_objectives:
-            # TODO: Modify after supporting BlendSearch in lexicographic optimization
-            SearchAlgorithm = CFO
-            logger.info(
-                f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
-            )
-            metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
-        else:
-            if not search_alg or search_alg == "BlendSearch":
-                try:
-                    import optuna as _
-
-                    SearchAlgorithm = BlendSearch
-                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
-                except ImportError:
-                    if search_alg == "BlendSearch":
-                        raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
-                    else:
-                        SearchAlgorithm = CFO
-                        logger.warning("Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]")
-            else:
-                SearchAlgorithm = locals()[search_alg]
-                logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
-            metric = metric or DEFAULT_METRIC
-        search_alg = SearchAlgorithm(
-            metric=metric,
-            mode=mode,
-            space=config,
-            points_to_evaluate=points_to_evaluate,
-            evaluated_rewards=evaluated_rewards,
-            low_cost_partial_config=low_cost_partial_config,
-            cat_hp_cost=cat_hp_cost,
-            time_budget_s=time_budget_s,
-            num_samples=num_samples,
-            resource_attr=flaml_scheduler_resource_attr,
-            min_resource=flaml_scheduler_min_resource,
-            max_resource=flaml_scheduler_max_resource,
-            reduction_factor=flaml_scheduler_reduction_factor,
-            config_constraints=config_constraints,
-            metric_constraints=metric_constraints,
-            use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
-            lexico_objectives=lexico_objectives,
-            cost_attr=cost_attr,
-            cost_budget=cost_budget,
-        )
-    else:
-        if metric is None or mode is None:
+            flaml_scheduler_resource_attr = (
+                flaml_scheduler_min_resource
+            ) = flaml_scheduler_max_resource = flaml_scheduler_reduction_factor = None
+            if scheduler in (None, "flaml"):
+                # when scheduler is set 'flaml' or None, we will use a scheduler that is
+                # authentic to the search algorithms in flaml. After setting up
+                # the search algorithm accordingly, we need to set scheduler to
+                # None in case it is later used in the trial runner.
+                flaml_scheduler_resource_attr = resource_attr
+                flaml_scheduler_min_resource = min_resource
+                flaml_scheduler_max_resource = max_resource
+                flaml_scheduler_reduction_factor = reduction_factor
+                scheduler = None
             if lexico_objectives:
-                metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
-                mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+                # TODO: Modify after supporting BlendSearch in lexicographic optimization
+                SearchAlgorithm = CFO
+                logger.info(
+                    f"Using search algorithm {SearchAlgorithm.__name__} for lexicographic optimization. Note that when providing other search algorithms, we use CFO instead temporarily."
+                )
+                metric = lexico_objectives["metrics"][0] or DEFAULT_METRIC
             else:
-                metric = metric or search_alg.metric or DEFAULT_METRIC
-                mode = mode or search_alg.mode
-        if ray_available and use_ray:
-            if ray_version.startswith("1."):
-                from ray.tune.suggest import ConcurrencyLimiter
+                if not search_alg or search_alg == "BlendSearch":
+                    try:
+                        import optuna as _
+
+                        SearchAlgorithm = BlendSearch
+                        logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
+                    except ImportError:
+                        if search_alg == "BlendSearch":
+                            raise ValueError("To use BlendSearch, run: pip install flaml[blendsearch]")
+                        else:
+                            SearchAlgorithm = CFO
+                            logger.warning(
+                                "Using CFO for search. To use BlendSearch, run: pip install flaml[blendsearch]"
+                            )
+                else:
+                    SearchAlgorithm = locals()[search_alg]
+                    logger.info(f"Using search algorithm {SearchAlgorithm.__name__}.")
+                metric = metric or DEFAULT_METRIC
+            search_alg = SearchAlgorithm(
+                metric=metric,
+                mode=mode,
+                space=config,
+                points_to_evaluate=points_to_evaluate,
+                evaluated_rewards=evaluated_rewards,
+                low_cost_partial_config=low_cost_partial_config,
+                cat_hp_cost=cat_hp_cost,
+                time_budget_s=time_budget_s,
+                num_samples=num_samples,
+                resource_attr=flaml_scheduler_resource_attr,
+                min_resource=flaml_scheduler_min_resource,
+                max_resource=flaml_scheduler_max_resource,
+                reduction_factor=flaml_scheduler_reduction_factor,
+                config_constraints=config_constraints,
+                metric_constraints=metric_constraints,
+                use_incumbent_result_in_evaluation=use_incumbent_result_in_evaluation,
+                lexico_objectives=lexico_objectives,
+                cost_attr=cost_attr,
+                cost_budget=cost_budget,
+            )
+        else:
+            if metric is None or mode is None:
+                if lexico_objectives:
+                    metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
+                    mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+                else:
+                    metric = metric or search_alg.metric or DEFAULT_METRIC
+                    mode = mode or search_alg.mode
+            if ray_available and use_ray:
+                if ray_version.startswith("1."):
+                    from ray.tune.suggest import ConcurrencyLimiter
+                else:
+                    from ray.tune.search import ConcurrencyLimiter
             else:
-                from ray.tune.search import ConcurrencyLimiter
-        else:
-            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
-        if (
-            search_alg.__class__.__name__
-            in [
-                "BlendSearch",
-                "CFO",
-                "CFOCat",
-            ]
-            and use_incumbent_result_in_evaluation is not None
-        ):
-            search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
-        searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
-        if lexico_objectives:
-            # TODO: Modify after supporting BlendSearch in lexicographic optimization
-            assert search_alg.__class__.__name__ in [
-                "CFO",
-            ], "If lexico_objectives is not None, the search_alg must be CFO for now."
-            search_alg.lexico_objective = lexico_objectives
+                from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+            if (
+                search_alg.__class__.__name__
+                in [
+                    "BlendSearch",
+                    "CFO",
+                    "CFOCat",
+                ]
+                and use_incumbent_result_in_evaluation is not None
+            ):
+                search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
+            searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
+            if lexico_objectives:
+                # TODO: Modify after supporting BlendSearch in lexicographic optimization
+                assert search_alg.__class__.__name__ in [
+                    "CFO",
+                ], "If lexico_objectives is not None, the search_alg must be CFO for now."
+                search_alg.lexico_objective = lexico_objectives
 
-        if isinstance(searcher, BlendSearch):
-            setting = {}
-            if time_budget_s:
-                setting["time_budget_s"] = time_budget_s
-            if num_samples > 0:
-                setting["num_samples"] = num_samples
-            searcher.set_search_properties(metric, mode, config, **setting)
-        else:
-            searcher.set_search_properties(metric, mode, config)
-    if scheduler in ("asha", "asynchyperband", "async_hyperband"):
-        params = {}
-        # scheduler resource_dimension=resource_attr
-        if resource_attr:
-            params["time_attr"] = resource_attr
-        if max_resource:
-            params["max_t"] = max_resource
-        if min_resource:
-            params["grace_period"] = min_resource
-        if reduction_factor:
-            params["reduction_factor"] = reduction_factor
-        if ray_available:
-            from ray.tune.schedulers import ASHAScheduler
+            if isinstance(searcher, BlendSearch):
+                setting = {}
+                if time_budget_s:
+                    setting["time_budget_s"] = time_budget_s
+                if num_samples > 0:
+                    setting["num_samples"] = num_samples
+                searcher.set_search_properties(metric, mode, config, **setting)
+            else:
+                searcher.set_search_properties(metric, mode, config)
+        if scheduler in ("asha", "asynchyperband", "async_hyperband"):
+            params = {}
+            # scheduler resource_dimension=resource_attr
+            if resource_attr:
+                params["time_attr"] = resource_attr
+            if max_resource:
+                params["max_t"] = max_resource
+            if min_resource:
+                params["grace_period"] = min_resource
+            if reduction_factor:
+                params["reduction_factor"] = reduction_factor
+            if ray_available:
+                from ray.tune.schedulers import ASHAScheduler
 
-            scheduler = ASHAScheduler(**params)
-    if use_ray:
-        try:
-            from ray import tune
-        except ImportError:
-            raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
-        _use_ray = True
-        try:
+                scheduler = ASHAScheduler(**params)
+    except Exception:
+        _restore_tune_state()
+        raise
+
+    # One outer try/finally for every backend branch below (ray, spark,
+    # sequential): Spark/backend initialization (check_spark(), the
+    # SparkSession, register_spark()) and the sequential path's scheduler
+    # setup used to run before any of these branches' own try/finally
+    # started, so a failure there raised straight out of run() without
+    # calling _restore_tune_state() at all, leaking the earlier setup
+    # section's _state/logger mutations into whatever this thread runs
+    # next, nested tune.run() call or caught-and-retried one alike (#996
+    # follow-up, second review point 3). Wrapping from here means every
+    # setup step and every execution branch shares the one guard.
+    try:
+        if use_ray:
+            try:
+                from ray import tune
+            except ImportError:
+                raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
+            _state.use_ray = True
             analysis = tune.run(
                 evaluation_function,
                 metric=metric,
@@ -694,72 +1416,66 @@ def run(
                     for trial in analysis.trials:
                         f.write(f"result: {trial.last_result}\n")
             return analysis
-        finally:
-            _use_ray = old_use_ray
-            _verbose = old_verbose
-            _running_trial = old_running_trial
-            _training_iteration = old_training_iteration
 
-    if use_spark:
-        # parallel run with spark
-        spark_available, spark_error_msg = check_spark()
-        if not spark_available:
-            raise spark_error_msg
-        try:
-            from joblib import Parallel, delayed, parallel_backend
-            from joblibspark import register_spark
-            from pyspark.sql import SparkSession
-        except ImportError as e:
-            raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
-        from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+        if use_spark:
+            # parallel run with spark
+            spark_available, spark_error_msg = check_spark()
+            if not spark_available:
+                raise spark_error_msg
+            try:
+                from joblib import Parallel, delayed, parallel_backend
+                from joblibspark import register_spark
+                from pyspark.sql import SparkSession
+            except ImportError as e:
+                raise ImportError(f"{e}. Try pip install flaml[spark] or set use_spark=False.")
+            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
 
-        from .trial_runner import SparkTrialRunner
+            from .trial_runner import SparkTrialRunner
 
-        register_spark()
-        spark = SparkSession.builder.getOrCreate()
-        sc = spark._jsc.sc()
-        num_executors = len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
-        """
-        By default, the number of executors is the number of VMs in the cluster. And we can
-        launch one trial per executor. However, sometimes we can launch more trials than
-        the number of executors (e.g., local mode). In this case, we can set the environment
-        variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
+            register_spark()
+            spark = SparkSession.builder.getOrCreate()
+            sc = spark._jsc.sc()
+            num_executors = len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
+            """
+            By default, the number of executors is the number of VMs in the cluster. And we can
+            launch one trial per executor. However, sometimes we can launch more trials than
+            the number of executors (e.g., local mode). In this case, we can set the environment
+            variable `FLAML_MAX_CONCURRENT` to override the detected `num_executors`.
 
-        `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
-        `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
-        is not an instance of `ConcurrencyLimiter`.
+            `max_concurrent` is the maximum number of concurrent trials defined by `search_alg`,
+            `FLAML_MAX_CONCURRENT` will also be used to override `max_concurrent` if `search_alg`
+            is not an instance of `ConcurrencyLimiter`.
 
-        The final number of concurrent trials is the minimum of `max_concurrent` and
-        `num_executors` if `n_concurrent_trials<=0` (default, automl cases), otherwise the
-        minimum of `max_concurrent` and `n_concurrent_trials` (tuning cases).
-        """
-        time_start = time.time()
-        try:
-            FLAML_MAX_CONCURRENT = int(os.getenv("FLAML_MAX_CONCURRENT", 0))
-        except ValueError:
-            FLAML_MAX_CONCURRENT = 0
-        num_executors = max(num_executors, FLAML_MAX_CONCURRENT, 1)
-        max_spark_parallelism = max(spark.sparkContext.defaultParallelism, FLAML_MAX_CONCURRENT)
-        if scheduler:
-            scheduler.set_search_properties(metric=metric, mode=mode)
-        if isinstance(search_alg, ConcurrencyLimiter):
-            max_concurrent = max(1, search_alg.max_concurrent)
-        else:
-            max_concurrent = max(1, max_spark_parallelism)
-        passed_in_n_concurrent_trials = max(n_concurrent_trials, max_concurrent)
-        n_concurrent_trials = min(
-            n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
-            max_concurrent,
-        )
-        if n_concurrent_trials < passed_in_n_concurrent_trials:
-            logger.warning(
-                f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
-                f"variable `FLAML_MAX_CONCURRENT` to '{passed_in_n_concurrent_trials}' to override the detected num of executors."
+            The final number of concurrent trials is the minimum of `max_concurrent` and
+            `num_executors` if `n_concurrent_trials<=0` (default, automl cases), otherwise the
+            minimum of `max_concurrent` and `n_concurrent_trials` (tuning cases).
+            """
+            time_start = time.time()
+            try:
+                FLAML_MAX_CONCURRENT = int(os.getenv("FLAML_MAX_CONCURRENT", 0))
+            except ValueError:
+                FLAML_MAX_CONCURRENT = 0
+            num_executors = max(num_executors, FLAML_MAX_CONCURRENT, 1)
+            max_spark_parallelism = max(spark.sparkContext.defaultParallelism, FLAML_MAX_CONCURRENT)
+            if scheduler:
+                scheduler.set_search_properties(metric=metric, mode=mode)
+            if isinstance(search_alg, ConcurrencyLimiter):
+                max_concurrent = max(1, search_alg.max_concurrent)
+            else:
+                max_concurrent = max(1, max_spark_parallelism)
+            passed_in_n_concurrent_trials = max(n_concurrent_trials, max_concurrent)
+            n_concurrent_trials = min(
+                n_concurrent_trials if n_concurrent_trials > 0 else num_executors,
+                max_concurrent,
             )
-        with parallel_backend("spark"):
-            with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
-                try:
-                    _runner = SparkTrialRunner(
+            if n_concurrent_trials < passed_in_n_concurrent_trials:
+                logger.warning(
+                    f"The actual concurrent trials is {n_concurrent_trials}. You can set the environment "
+                    f"variable `FLAML_MAX_CONCURRENT` to '{passed_in_n_concurrent_trials}' to override the detected num of executors."
+                )
+            with parallel_backend("spark"):
+                with Parallel(n_jobs=n_concurrent_trials, verbose=max(0, (verbose - 1) * 50)) as parallel:
+                    _state.runner = SparkTrialRunner(
                         search_alg=search_alg,
                         scheduler=scheduler,
                         metric=metric,
@@ -779,9 +1495,9 @@ def run(
                         if automl_info and automl_info[1] == "all" and automl_info[0] > 0 and time_budget_s < np.inf:
                             time_budget_s -= automl_info[0] * n_concurrent_trials
                             logger.debug(f"Remaining time budget with mlflow log latency: {time_budget_s} seconds.")
-                        while len(_runner.running_trials) < n_concurrent_trials:
+                        while len(_state.runner.running_trials) < n_concurrent_trials:
                             # suggest trials for spark
-                            trial_next = _runner.step()
+                            trial_next = _state.runner.step()
                             if trial_next:
                                 num_trials += 1
                             else:
@@ -789,13 +1505,13 @@ def run(
                                 logger.debug(f"consecutive failures is {num_failures}")
                                 if num_failures >= upperbound_num_failures:
                                     break
-                        trials_to_run = _runner.running_trials
+                        trials_to_run = _state.runner.running_trials
                         if not trials_to_run:
                             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
                             break
                         logger.info(
-                            f"Number of trials: {num_trials}/{num_samples}, {len(_runner.running_trials)} RUNNING,"
-                            f" {len(_runner._trials) - len(_runner.running_trials)} TERMINATED"
+                            f"Number of trials: {num_trials}/{num_samples}, {len(_state.runner.running_trials)} RUNNING,"
+                            f" {len(_state.runner._trials) - len(_state.runner.running_trials)} TERMINATED"
                         )
                         logger.debug(
                             f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
@@ -817,7 +1533,7 @@ def run(
                         while results:
                             result = results.pop(0)
                             trial_to_run = trials_to_run[0]
-                            _runner.running_trial = trial_to_run
+                            _state.runner.running_trial = trial_to_run
                             if result is not None:
                                 if _internal_mlflow:
                                     mlflow_integration.record_trial(result, trial_to_run, metric)
@@ -832,10 +1548,10 @@ def run(
                                 else:
                                     logger.info("Brief result: {metric: result}")
                                     report(_metric=result)
-                            _runner.stop_trial(trial_to_run)
+                            _state.runner.stop_trial(trial_to_run)
                         num_failures = 0
                     analysis = ExperimentAnalysis(
-                        _runner.get_trials(),
+                        _state.runner.get_trials(),
                         metric=metric,
                         mode=mode,
                         lexico_objectives=lexico_objectives,
@@ -855,33 +1571,28 @@ def run(
                         #     )
 
                     return analysis
-                finally:
-                    # recover the global variables in case of nested run
-                    _use_ray = old_use_ray
-                    _verbose = old_verbose
-                    _running_trial = old_running_trial
-                    _training_iteration = old_training_iteration
-                    if not use_ray:
-                        _runner = old_runner
-                        logger.handlers = old_handlers
-                        logger.setLevel(old_level)
-                    if _internal_mlflow:
-                        mlflow_integration.adopt_children()
 
-    # simple sequential run without using tune.run() from ray
-    time_start = time.time()
-    _use_ray = False
-    if scheduler:
-        scheduler.set_search_properties(metric=metric, mode=mode)
-    from .trial_runner import SequentialTrialRunner
+        # simple sequential run without using tune.run() from ray
+        time_start = time.time()
+        _state.use_ray = False
+        if scheduler:
+            scheduler.set_search_properties(metric=metric, mode=mode)
+        from .trial_runner import SequentialTrialRunner
 
-    try:
-        _runner = SequentialTrialRunner(
+        _state.runner = SequentialTrialRunner(
             search_alg=search_alg,
             scheduler=scheduler,
             metric=metric,
             mode=mode,
         )
+        # Registers this run as the (so far) sole candidate a context-less
+        # report() can fall back to (#996 follow-up, eighth review point
+        # 1); see _resolve_unambiguous_active_runner. Deregistered in
+        # _restore_tune_state() above, which every exit path from here
+        # (normal return, break, or an exception caught by the outer
+        # try/finally) runs.
+        with _active_runners_lock:
+            _active_runners[_state.runner] = (_state.log_run_id, verbose)
         num_trials = 0
         if time_budget_s is None:
             time_budget_s = np.inf
@@ -892,14 +1603,31 @@ def run(
             and (num_samples < 0 or num_trials < num_samples)
             and num_failures < upperbound_num_failures
         ):
-            trial_to_run = _runner.step()
+            trial_to_run = _state.runner.step()
             if trial_to_run:
                 num_trials += 1
                 if verbose:
                     logger.info(f"trial {num_trials} config: {trial_to_run.config}")
                 result = None
-                with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
-                    result = evaluation_function(trial_to_run.config)
+                # Pin this evaluation call's runner/trial/log_run_id in
+                # _propagated_context so a worker thread evaluation_function
+                # spawns on its own (or a task it submits to a
+                # ThreadPoolExecutor) can call tune.report() and land on the
+                # right trial, with its log records landing in the right
+                # run log, with no trainable-side change (#996 follow-up,
+                # second review point 1; log_run_id: third review point 4).
+                # _install_thread_context_propagation() and
+                # _install_executor_context_propagation() are what make a
+                # plain threading.Thread or executor task started inside
+                # this call see it.
+                _prop_token = _propagated_context.set(
+                    _RunContext(_state.use_ray, _state.runner, _state.verbose, trial_to_run, _state.log_run_id)
+                )
+                try:
+                    with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
+                        result = evaluation_function(trial_to_run.config)
+                finally:
+                    _propagated_context.reset(_prop_token)
                 logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
                     if _internal_mlflow:
@@ -913,7 +1641,7 @@ def run(
                             trial_to_run.set_status(Trial.ERROR)
                     else:
                         report(_metric=result)
-                _runner.stop_trial(trial_to_run)
+                _state.runner.stop_trial(trial_to_run)
                 num_failures = 0
                 if trial_to_run.last_result is None:
                     # application stops tuning by returning None
@@ -925,7 +1653,7 @@ def run(
         if num_failures == upperbound_num_failures:
             logger.warning(f"fail to sample a trial for {max_failure} times in a row, stopping.")
         analysis = ExperimentAnalysis(
-            _runner.get_trials(),
+            _state.runner.get_trials(),
             metric=metric,
             mode=mode,
             lexico_objectives=lexico_objectives,
@@ -945,17 +1673,9 @@ def run(
 
         return analysis
     finally:
-        # recover the global variables in case of nested run
-        _use_ray = old_use_ray
-        _verbose = old_verbose
-        _running_trial = old_running_trial
-        _training_iteration = old_training_iteration
-        if not use_ray:
-            _runner = old_runner
-            logger.handlers = old_handlers
-            logger.setLevel(old_level)
-        if _internal_mlflow:
-            mlflow_integration.adopt_children()
+        # recover the global/shared state in case of nested run, or a
+        # failure anywhere in the block above (#996 follow-up point 3)
+        _restore_tune_state()
 
 
 class Tuner:
