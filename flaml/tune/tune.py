@@ -94,19 +94,17 @@ class _RunScopedFilter(logging.Filter):
     since `_state` is thread-local and Python's logging dispatch runs
     synchronously on the emitting thread.
 
-    A record carrying `record.flaml_tune_unscoped = True` bypasses the
-    match and reaches every active run's handler regardless of which
-    thread emitted it (#996 follow-up, seventh review). This exists for
-    exactly one caller, the context-less-report warning below: a record
-    warning that FLAML could not attribute a report to any run has no run
-    of its own to match against, and Python's logging module only falls
-    back to printing a record nobody's handler wants (`logging.lastResort`)
-    when a logger has NO handler at all, not when every handler's filter
-    happens to reject it, so without this the warning would be silently
-    swallowed the same way the report it describes is, any time a run is
-    active with verbose > 0. Verified directly: a filtered handler present
-    on the logger suppresses lastResort with zero output anywhere, even
-    though the handler never actually emitted the record.
+    An earlier version of this filter let a record carrying
+    `record.flaml_tune_unscoped = True` bypass the match, reaching every
+    active run's handler regardless of which thread emitted it (#996
+    follow-up, seventh review), for the one caller that has no run of its
+    own to match against: the context-less-report warning below. That
+    bypass is gone (#996 follow-up, eighth review point 3): it put an
+    unattributed diagnostic into every OTHER concurrently active run's log
+    file too, which is a different, self-inflicted instance of the same
+    misattribution class this whole filter exists to prevent. The warning
+    now goes through `_diagnostics_logger` below instead, a logger this
+    filter is never attached to, so it needs no bypass here at all.
     """
 
     def __init__(self, run_id):
@@ -114,7 +112,7 @@ class _RunScopedFilter(logging.Filter):
         self._run_id = run_id
 
     def filter(self, record):
-        return getattr(record, "flaml_tune_unscoped", False) or _state.log_run_id is self._run_id
+        return _state.log_run_id is self._run_id
 
 
 # Bookkeeping for the shared logger's OWN level (logger.setLevel), which is a
@@ -373,6 +371,68 @@ def _admission_lock_for(trial) -> threading.Lock:
         return lock
 
 
+# Every currently active SEQUENTIAL (non-ray) run's runner, keyed to its own
+# log_run_id/verbose (#996 follow-up, eighth review point 1). A
+# WeakKeyDictionary: an entry is dropped once its run() call restores
+# _state.runner and nothing else references the old runner, so this needs no
+# separate cleanup beyond the explicit .pop() run() does on the way out
+# (belt-and-suspenders against a runner outliving its run() call some other
+# way). Guarded by its own lock, never held across a report() call's own
+# work, only the lookup.
+_active_runners_lock = threading.Lock()
+_active_runners: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
+def _resolve_unambiguous_active_runner():
+    """Return the sole active sequential run's (runner, log_run_id, verbose),
+    or (None, None, None) if none are active.
+
+    Only called for a context-less report() (#996 follow-up, eighth review
+    point 1): no thread-local runner and no propagated/explicit _RunContext,
+    the shape a generic queue/callback worker started before tune.run()
+    exists has, unchanged, and never calling get_run_context()/
+    use_run_context() itself. Automatic per-dispatch propagation for such a
+    worker is still not being added (SequentialTrialRunner.step() reassigns
+    running_trial every step, so a live-resolved trial can still be the
+    WRONG one if this same run has already moved past the trial the report
+    was actually produced for by the time it is handled (see report()'s
+    own docstring). What changed: when exactly one sequential tune.run() is
+    active anywhere in the process, a context-less report can only mean
+    that one run, which is exactly the fallback the pre-#996 module-global
+    design gave every caller unconditionally (report() read whichever
+    runner the one shared global held, live, with the same delayed-item
+    risk this still carries within that single run). Restoring it for this
+    one unambiguous case preserves the working common shape (a single
+    tune.run() call, one worker draining a queue produced during it) instead
+    of dropping it outright.
+
+    Raises RuntimeError when two or more sequential runs are active at
+    once: which one a context-less report belongs to is then genuinely
+    undecidable (there is no signal on the reporting thread that says
+    which), and silently guessing would attribute one run's metric to a
+    different run's trial, worse than dropping it. Callers who need this
+    to work under real concurrent runs must capture get_run_context() where
+    the work is produced and attach it with use_run_context() where it is
+    processed; that path already works today and is unaffected by this.
+    """
+    with _active_runners_lock:
+        candidates = list(_active_runners.items())
+    if not candidates:
+        return None, None, None
+    if len(candidates) > 1:
+        raise RuntimeError(
+            "tune.report() was called from a thread with no active run attached to it "
+            "(not the thread driving tune.run(), and no context was propagated or "
+            "explicitly attached), and more than one tune.run() call is concurrently "
+            "active in this process right now, so which run this report belongs to "
+            "cannot be determined safely. Capture get_run_context() in the code that "
+            "queues the work and attach it with use_run_context() where the item is "
+            "processed."
+        )
+    runner, (log_run_id, verbose) = candidates[0]
+    return runner, log_run_id, verbose
+
+
 def _next_training_iteration(trial) -> int:
     """Return trial's next training_iteration, as a counter shared by every
     thread that reports for this trial, whichever thread that is.
@@ -561,16 +621,40 @@ class ExperimentAnalysis(EA):
         return None
 
 
-# Guards the one-time warning below (#996 follow-up, seventh review). A
+# Dedicated to a diagnostic that cannot be attributed to any one active run
+# (#996 follow-up, eighth review point 3): a distinct logger, in its own
+# branch of the hierarchy ("flaml.tune.diagnostics", a sibling of
+# "flaml.tune.logger"/`logger` below, never "flaml.tune.logger" itself), so
+# run() never attaches a run-owned FileHandler/StreamHandler to it and an
+# unattributed record is never written into one of those files, which the
+# `flaml_tune_unscoped` bypass this replaced did exactly (see
+# _RunScopedFilter above). Left at its default `propagate=True`, unlike
+# `logger`, so a record still reaches somewhere: up to "flaml.tune", then
+# "flaml" (INFO by default, flaml/__init__.py), then root, landing on
+# whatever handler the caller's own logging config has there, or on
+# Python's `logging.lastResort` (stderr) if none. Verified directly: a
+# handler with no run-scoped filter on it at all would have worked too, but
+# would need run() to manage its lifecycle the same way it manages
+# run-owned handlers, which is the coupling this is meant to avoid.
+_diagnostics_logger = logging.getLogger("flaml.tune.diagnostics")
+
+# Guards the warning below (#996 follow-up, seventh and eighth review). A
 # generic queue/callback worker started before any tune.run() call exists
 # captures no _propagated_context at Thread.start() time (that mechanism
 # only reaches a thread started AFTER a run is already active) and never
-# calls get_run_context()/use_run_context() itself, so every report() it
-# makes lands on the "no trial to attribute this to" branch below. That
-# branch can run once per dequeued item on a hot worker loop, so the
-# warning fires once per process rather than once per call: the message is
-# the same regardless of which call produced it, and a caller stuck in
-# that state needs to see it once, not on every iteration.
+# calls get_run_context()/use_run_context() itself, so a report() it makes
+# while no run is active anywhere in the process, or while more than one
+# is (see _resolve_unambiguous_active_runner, which raises for that second
+# case instead of reaching here), lands on the "no trial to attribute this
+# to" branch below. That branch can run once per dequeued item on a hot
+# worker loop, so this is scoped to fire at most once per call to run(),
+# not once per report(): run() resets the flag at the top of every call
+# (#996 follow-up, eighth review point 2), so a LATER run that hits the
+# same unsupported shape warns again instead of staying silent forever
+# after the first affected run in the process. A nested tune.run() call on
+# the same thread also resets it, which can make an outer run's own
+# warning fire twice across one process lifetime; that is the direction to
+# fail in, not the reverse.
 _context_less_report_warned = False
 _context_less_report_warned_lock = threading.Lock()
 
@@ -583,18 +667,18 @@ def _warn_context_less_report_once() -> None:
         if _context_less_report_warned:
             return
         _context_less_report_warned = True
-        logger.warning(
+        _diagnostics_logger.warning(
             "tune.report() was called from a thread with no active run to attribute it "
             "to (not the thread driving tune.run(), and no context was propagated or "
-            "explicitly attached). The report is dropped, not recorded against any "
-            "trial, and this will not be logged again. A worker thread started before "
-            "tune.run() is called, such as a persistent queue consumer, cannot be "
-            "attributed to a trial automatically, since resolving it live would risk "
-            "attributing the report to whichever trial happens to be running by the "
-            "time it is handled, not the one it was produced for. Capture "
-            "get_run_context() in the code that queues the work and attach it with "
-            "use_run_context() where the item is processed.",
-            extra={"flaml_tune_unscoped": True},
+            "explicitly attached), and no tune.run() call is active in this process "
+            "right now either, so there is nothing to attribute it to even by "
+            "inference. The report is dropped, not recorded against any trial, and "
+            "this will not be logged again for this run. A worker thread started "
+            "before tune.run() is called, such as a persistent queue consumer, whose "
+            "items are processed while exactly one tune.run() call is active, is "
+            "handled automatically; this warning means that was not the case here. "
+            "Capture get_run_context() in the code that queues the work and attach it "
+            "with use_run_context() where the item is processed.",
         )
 
 
@@ -644,19 +728,28 @@ def report(_metric=None, **kwargs):
     (#996 follow-up, second review point 1). See _RunContext.
 
     A thread started before tune.run() is called, such as a persistent
-    queue/callback worker, is a case this cannot cover automatically and
-    is unsupported by design, not an oversight: such a thread has no
-    _propagated_context (that value did not exist yet when the thread
-    started) and made no get_run_context()/use_run_context() call of its
-    own, so there is nothing here that says which trial its report
-    belongs to. Guessing from the runner's current trial would attribute
-    the report to whichever trial happens to be running by the time it is
-    handled, which is very likely not the trial the report was actually
-    for (#996 follow-up, fourth, fifth and sixth review rounds). The
-    report is dropped instead, and this logs a one-time warning pointing
-    at get_run_context()/use_run_context() as the fix. Callers who need
-    this to work should capture get_run_context() where the work is
-    produced and attach it with use_run_context() where it is processed.
+    queue/callback worker that never calls get_run_context()/
+    use_run_context() itself, is attributed automatically when exactly one
+    tune.run() call is active anywhere in the process right now (#996
+    follow-up, eighth review point 1): there is only one run it could mean,
+    so it is resolved the same way the pre-#996 module-global design
+    resolved every caller, unconditionally. When zero are active, the
+    report has nothing to attribute to and is dropped, with a one-time
+    (per run(), see _warn_context_less_report_once) warning pointing at
+    get_run_context()/use_run_context(). When two or more are active at
+    once, which run the report belongs to is genuinely undecidable and this
+    raises RuntimeError instead of guessing or silently dropping; see
+    _resolve_unambiguous_active_runner. Either way, this fallback is only
+    ever a live resolution of "whichever trial this run happens to be
+    running right now": a worker slow enough to still be draining an item
+    from an EARLIER trial after its single active run has already moved on
+    to a later one can still land on the wrong trial, the same risk the
+    pre-#996 code carried for this exact shape. Callers who need reporting
+    pinned to the trial that actually produced the item, not whichever one
+    happens to be current when it is handled, should still capture
+    get_run_context() where the work is produced and attach it with
+    use_run_context() where it is processed; that path is unaffected by
+    this fallback and carries no such risk.
     """
     use_ray = _state.use_ray
     runner = _state.runner
@@ -674,6 +767,11 @@ def report(_metric=None, **kwargs):
     # building this fix: an unchanged pre-started queue worker's report
     # never reached the "no trial" branch at all in that environment.
     context_less = runner is None
+    # Guards the finally below: only the fallback branch just below ever
+    # sets this True, so _state.log_run_id is only ever touched (and only
+    # ever restored) for exactly the one call that used it.
+    _restore_log_run_id = False
+    _prior_log_run_id = None
     if runner is None:
         ctx = _propagated_context.get()
         if ctx is not None:
@@ -682,91 +780,121 @@ def report(_metric=None, **kwargs):
             runner = ctx.runner
             verbose = ctx.verbose
             running_trial = ctx.running_trial
-    if use_ray:
-        try:
-            from ray import __version__ as ray_version
+        else:
+            # No thread-local runner, no propagated/explicit context: try
+            # the single-active-sequential-run fallback (#996 follow-up,
+            # eighth review point 1) before falling through to the
+            # use_ray branch below, which would otherwise act on
+            # _state.use_ray's misleading default (see the comment above)
+            # instead of the real active run's own backend. Raises
+            # RuntimeError here, uncaught, when two or more sequential
+            # runs are active at once, deliberately not folded into the
+            # try/except ImportError below, which is about ray being
+            # unavailable, not about ownership being ambiguous.
+            fallback_runner, fallback_log_run_id, fallback_verbose = _resolve_unambiguous_active_runner()
+            if fallback_runner is not None:
+                context_less = False
+                use_ray = False
+                runner = fallback_runner
+                verbose = fallback_verbose
+                # Scoped to this one report() call only (restored in the
+                # finally below), the same as use_run_context() scopes it
+                # to its `with` block: this thread is not "in" the
+                # resolved run the way a use_run_context() caller
+                # declares itself to be, only this one dispatch is.
+                _prior_log_run_id = _state.log_run_id
+                _state.log_run_id = fallback_log_run_id
+                _restore_log_run_id = True
+    try:
+        if use_ray:
+            try:
+                from ray import __version__ as ray_version
 
-            if ray_version.startswith("1."):
-                from ray import tune
+                if ray_version.startswith("1."):
+                    from ray import tune
 
-                return tune.report(_metric, **kwargs)
-            else:  # ray>=2
-                from ray.air import session
+                    return tune.report(_metric, **kwargs)
+                else:  # ray>=2
+                    from ray.air import session
 
-                return session.report(metrics={"metric": _metric, **kwargs})
-        except ImportError:
-            # calling tune.report() outside tune.run(), or (#996 follow-up,
-            # seventh review) a context-less caller that defaulted here
-            # instead of to the "no trial" branch below, per the comment
-            # above. Ray missing means there is nowhere else this call
-            # could reach either way, so warn under the same condition.
+                    return session.report(metrics={"metric": _metric, **kwargs})
+            except ImportError:
+                # calling tune.report() outside tune.run(), or (#996 follow-up,
+                # seventh review) a context-less caller that defaulted here
+                # instead of to the "no trial" branch below, per the comment
+                # above. Ray missing means there is nowhere else this call
+                # could reach either way, so warn under the same condition.
+                if context_less:
+                    _warn_context_less_report_once()
+                return
+        result = kwargs
+        if _metric is not None:
+            result[DEFAULT_METRIC] = _metric
+        # running_trial is the trial a propagated context pinned this report to;
+        # otherwise (the thread actually driving run()'s own loop) resolve it
+        # live off the runner, which is always the trial that loop is currently
+        # stepping.
+        trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
+        if not trial:
+            # No thread-local runner and no propagated/explicit context, and
+            # (see above) no single unambiguous active run to fall back to
+            # either: this call cannot be attributed to a trial (see the
+            # docstring above), so it is dropped rather than guessed at.
+            # context_less can be False here too (a context was found but
+            # its running_trial had not been resolved yet), which is a
+            # different, pre-existing edge case this warning is not about,
+            # so it only fires on the one this review names.
             if context_less:
                 _warn_context_less_report_once()
-            return
-    result = kwargs
-    if _metric is not None:
-        result[DEFAULT_METRIC] = _metric
-    # running_trial is the trial a propagated context pinned this report to;
-    # otherwise (the thread actually driving run()'s own loop) resolve it
-    # live off the runner, which is always the trial that loop is currently
-    # stepping.
-    trial = running_trial if running_trial is not None else getattr(runner, "running_trial", None)
-    if not trial:
-        # No thread-local runner and no propagated/explicit context: this
-        # call cannot be attributed to a trial (see the docstring above),
-        # so it is dropped rather than guessed at. context_less can be
-        # False here too (a context was found but its running_trial had
-        # not been resolved yet), which is a different, pre-existing edge
-        # case this warning is not about, so it only fires on the one
-        # this review names.
-        if context_less:
-            _warn_context_less_report_once()
-        return None
-    if trial.is_finished():
-        # A late report from a background thread or executor task whose
-        # captured _RunContext outlived its trial (#996 follow-up, fourth
-        # review point 2): the trial's final result is already recorded,
-        # and process_trial_result() would overwrite it with this stale
-        # value, plus the is_finished() check below would then raise
-        # StopIteration into a caller that never expected it (unlike the
-        # trainable's own control-flow loop, which does). Drop it instead.
-        # This is a fast-path check only, not the admission decision: a
-        # concurrent report for this same trial can still finish it between
-        # this line and the lock below, which is what that lock is for.
-        return None
-    result["config"] = trial.config
-    if INCUMBENT_RESULT in result["config"]:
-        del result["config"][INCUMBENT_RESULT]
-    for key, value in trial.config.items():
-        result["config/" + key] = value
-    with _admission_lock_for(trial):
-        # Re-check under the lock (#996 follow-up, fifth review point 2):
-        # the fast-path check above and this admission are not the same
-        # instant, and a second, truly concurrent report for this trial
-        # (a trainable's own worker threads reporting for the trial they
-        # share, for instance) can legitimately finish it in between. This
-        # is the only check whose result process_trial_result() actually
-        # acts on.
-        if trial.is_finished():
             return None
-        # Allocated inside this same critical section, immediately before
-        # the write it orders (#996 follow-up, sixth review point 3):
-        # _next_training_iteration() used to run before this lock was
-        # taken, so two truly concurrent reports for this trial could be
-        # handed iterations in one order (A=5, B=6) and then reach
-        # process_trial_result() in the OTHER order if B's thread happened
-        # to acquire the lock first, handing the scheduler/searcher a
-        # decreasing training_iteration for the trial they track. Locking
-        # allocation and admission together makes the two always agree:
-        # whichever report acquires the lock first is both the one that
-        # gets the lower iteration number and the one process_trial_result()
-        # sees first.
-        result["training_iteration"] = _next_training_iteration(trial)
-        runner.process_trial_result(trial, result)
-        if verbose > 2:
-            logger.info(f"result: {result}")
         if trial.is_finished():
-            raise StopIteration
+            # A late report from a background thread or executor task whose
+            # captured _RunContext outlived its trial (#996 follow-up, fourth
+            # review point 2): the trial's final result is already recorded,
+            # and process_trial_result() would overwrite it with this stale
+            # value, plus the is_finished() check below would then raise
+            # StopIteration into a caller that never expected it (unlike the
+            # trainable's own control-flow loop, which does). Drop it instead.
+            # This is a fast-path check only, not the admission decision: a
+            # concurrent report for this same trial can still finish it between
+            # this line and the lock below, which is what that lock is for.
+            return None
+        result["config"] = trial.config
+        if INCUMBENT_RESULT in result["config"]:
+            del result["config"][INCUMBENT_RESULT]
+        for key, value in trial.config.items():
+            result["config/" + key] = value
+        with _admission_lock_for(trial):
+            # Re-check under the lock (#996 follow-up, fifth review point 2):
+            # the fast-path check above and this admission are not the same
+            # instant, and a second, truly concurrent report for this trial
+            # (a trainable's own worker threads reporting for the trial they
+            # share, for instance) can legitimately finish it in between. This
+            # is the only check whose result process_trial_result() actually
+            # acts on.
+            if trial.is_finished():
+                return None
+            # Allocated inside this same critical section, immediately before
+            # the write it orders (#996 follow-up, sixth review point 3):
+            # _next_training_iteration() used to run before this lock was
+            # taken, so two truly concurrent reports for this trial could be
+            # handed iterations in one order (A=5, B=6) and then reach
+            # process_trial_result() in the OTHER order if B's thread happened
+            # to acquire the lock first, handing the scheduler/searcher a
+            # decreasing training_iteration for the trial they track. Locking
+            # allocation and admission together makes the two always agree:
+            # whichever report acquires the lock first is both the one that
+            # gets the lower iteration number and the one process_trial_result()
+            # sees first.
+            result["training_iteration"] = _next_training_iteration(trial)
+            runner.process_trial_result(trial, result)
+            if verbose > 2:
+                logger.info(f"result: {result}")
+            if trial.is_finished():
+                raise StopIteration
+    finally:
+        if _restore_log_run_id:
+            _state.log_run_id = _prior_log_run_id
 
 
 def run(
@@ -1024,6 +1152,15 @@ def run(
     _internal_mlflow = False
     mlflow_integration = None
 
+    # Reset once per run() call, not once per process (#996 follow-up,
+    # eighth review point 2): see the comment above
+    # _context_less_report_warned's definition for why once-per-run, not
+    # once-per-report, and why a nested run() on the same thread resetting
+    # it early is an accepted, safe imprecision.
+    global _context_less_report_warned
+    with _context_less_report_warned_lock:
+        _context_less_report_warned = False
+
     def _restore_tune_state():
         """Undo every mutation this call made to shared/thread-local state.
 
@@ -1040,8 +1177,20 @@ def run(
         _state.use_ray = old_use_ray
         _state.verbose = old_verbose
         if not use_ray:
+            this_runner = _state.runner
             _state.runner = old_runner
             _state.log_run_id = old_log_run_id
+            if this_runner is not None:
+                # Deregister from the single-active-run fallback a
+                # context-less report() can resolve to (#996 follow-up,
+                # eighth review point 1): once this call is done restoring
+                # state, no report anywhere should be able to reach this
+                # runner anymore, through the fallback or otherwise. Safe
+                # even if this_runner was never registered (setup failed
+                # before the SequentialTrialRunner was constructed, or the
+                # ray/spark branch never touches _active_runners at all).
+                with _active_runners_lock:
+                    _active_runners.pop(this_runner, None)
             if _run_handler is not None:
                 logger.removeHandler(_run_handler)
                 _logger_level_exit(_run_handler.level)
@@ -1436,6 +1585,14 @@ def run(
             metric=metric,
             mode=mode,
         )
+        # Registers this run as the (so far) sole candidate a context-less
+        # report() can fall back to (#996 follow-up, eighth review point
+        # 1); see _resolve_unambiguous_active_runner. Deregistered in
+        # _restore_tune_state() above, which every exit path from here
+        # (normal return, break, or an exception caught by the outer
+        # try/finally) runs.
+        with _active_runners_lock:
+            _active_runners[_state.runner] = (_state.log_run_id, verbose)
         num_trials = 0
         if time_budget_s is None:
             time_budget_s = np.inf

@@ -1077,24 +1077,32 @@ def test_logger_level_restored_as_inherited_not_explicit():
         logger.setLevel(saved_level)
 
 
-def test_context_less_report_from_unchanged_legacy_queue_worker_warns_without_corrupting(tmp_path):
-    """Follow-up to #996, seventh review: a generic queue/callback worker
-    started before any tune.run() call exists, that never calls
+def test_tune_report_from_unchanged_legacy_queue_worker_preserves_reporting_when_unambiguous(tmp_path):
+    """Follow-up to #996, eighth review point 1: a generic queue/callback
+    worker started before any tune.run() call exists, that never calls
     get_run_context()/use_run_context() itself (an unchanged legacy
-    caller), still has its tune.report() silently dropped: automatic
-    attribution is not being added, for the same reason given in the
-    fourth, fifth and sixth review rounds (SequentialTrialRunner.step()
-    reassigns running_trial every step, so a live-resolved fallback would
-    attribute a delayed report to whichever trial happens to be running by
-    the time it is handled, not the one it was produced for).
+    caller), used to have its tune.report() unconditionally dropped
+    (seventh review), with only a one-time warning to show for it. The
+    eighth review objected to that: the new regression test for it
+    asserted the drop (`last_result is None`) as the goal, codifying
+    backward-incompatible data loss instead of preserving the caller that
+    genuinely worked before #996. The pre-#996 module-global design
+    attributed exactly this caller shape correctly whenever only one
+    tune.run() call was active at a time, which is also the common real
+    case for this pattern (one long-lived worker draining a queue one run
+    at a time). This restores that: when exactly one sequential
+    tune.run() call is active anywhere in the process,
+    _resolve_unambiguous_active_runner lets a context-less report()
+    resolve to it automatically, with no change on the caller's part.
+    (Two or more concurrently active runs is a different, genuinely
+    ambiguous case; see
+    test_context_less_report_raises_when_multiple_runs_are_concurrently_active
+    below.)
 
-    What changed this round: the drop is no longer silent. It logs once,
-    and the message survives even while a verbose run is active with its
-    own log-file handler attached, which is the exact case
-    _RunScopedFilter would otherwise swallow it in (a handler whose filter
-    rejects a record still counts toward Python's `found` handler count,
-    so `logging.lastResort` never fires either; verified directly while
-    building this fix).
+    Reused, unmodified, across TWO separate trials (points_to_evaluate),
+    to prove this is a real per-dispatch resolution, landing each trial's
+    own report on that trial, not an accident of only ever having tried it
+    once.
     """
     work_queue = queue.Queue()
     stop = object()
@@ -1113,43 +1121,172 @@ def test_context_less_report_from_unchanged_legacy_queue_worker_warns_without_co
 
     def eval_via_legacy_queue(config):
         work_queue.put(config["x"])
-        work_queue.join()  # wait for the pre-started worker to (fail to) report it
+        work_queue.join()  # wait for the pre-started worker to drain this trial's item
         return None
 
     log_path = str(tmp_path / "legacy_worker.log")
     worker_thread = threading.Thread(target=worker)
     try:
         worker_thread.start()  # started before any tune.run() call exists
-        with mock.patch.object(tune_module, "_context_less_report_warned", False):
-            analysis = tune.run(
-                eval_via_legacy_queue,
-                config={"x": tune.uniform(0, 1)},
-                points_to_evaluate=[{"x": 5.0}],
-                metric="metric",
-                mode="min",
-                num_samples=1,
-                verbose=1,
-                log_file_name=log_path,
-            )
+        analysis = tune.run(
+            eval_via_legacy_queue,
+            config={"x": tune.uniform(0, 1)},
+            points_to_evaluate=[{"x": 11.0}, {"x": 22.0}],
+            metric="metric",
+            mode="min",
+            num_samples=2,
+            verbose=1,
+            log_file_name=log_path,
+        )
     finally:
-        # Put `stop` and join unconditionally, including if the mock.patch
-        # setup itself raised (as it does against a tune.py that predates
-        # this fix, which has no `_context_less_report_warned` attribute to
-        # patch): the worker thread is a plain non-daemon Thread blocked on
-        # queue.get() with nothing else able to release it, and leaving it
-        # running hangs the whole interpreter at process exit.
+        # Put `stop` and join unconditionally: the worker thread is a plain
+        # non-daemon Thread blocked on queue.get() with nothing else able
+        # to release it, and leaving it running hangs the whole
+        # interpreter at process exit.
         work_queue.put(stop)
         worker_thread.join(timeout=5)
 
-    assert analysis.trials[0].last_result is None, (
-        "the context-less report should have been dropped, leaving the trial's result "
-        f"untouched (None), not corrupted with a value; got {analysis.trials[0].last_result!r}"
+    reported = sorted(t.last_result.get("metric") for t in analysis.trials if t.last_result is not None)
+    assert reported == [
+        11.0,
+        22.0,
+    ], (
+        "an unchanged legacy queue worker, with the single active run this process had "
+        f"at the time, should have had both trials' reports preserved; got {reported}"
     )
 
     log_text = open(log_path).read()
+    assert "no active run to attribute it to" not in log_text, (
+        "the context-less-report warning fired even though the report was successfully "
+        f"attributed and preserved: {log_text!r}"
+    )
+
+
+def test_context_less_report_raises_when_multiple_runs_are_concurrently_active():
+    """Follow-up to #996, eighth review point 1: the single-active-run
+    fallback above is only safe because there is exactly one run it could
+    mean. With two tune.run() calls concurrently active, a context-less
+    report (no thread-local runner, no propagated/explicit context)
+    cannot be attributed to either one safely: guessing would silently
+    write one run's metric onto a different run's trial, worse than
+    dropping it. _resolve_unambiguous_active_runner raises RuntimeError
+    in this case instead.
+
+    Forced deterministically, same pause/release shape as
+    test_concurrent_tune_run_does_not_corrupt_state: both driving threads
+    are paused inside their own evaluation function, so both runs are
+    genuinely active at once, then a THIRD, independent thread with no
+    context of its own (started from the test thread, never from inside
+    either run's evaluation_function(), so it inherits no propagated
+    context from either) calls tune.report() while both are paused.
+    """
+    a_paused = threading.Event()
+    b_paused = threading.Event()
+    release_a = threading.Event()
+    release_b = threading.Event()
+
+    def eval_a(config):
+        a_paused.set()
+        assert release_a.wait(timeout=5), "thread A was never released"
+        return {"metric": 1.0}
+
+    def eval_b(config):
+        b_paused.set()
+        assert release_b.wait(timeout=5), "thread B was never released"
+        return {"metric": 2.0}
+
+    def run_a():
+        tune.run(eval_a, config={"x": tune.uniform(0, 1)}, metric="metric", mode="min", num_samples=1, verbose=0)
+
+    def run_b():
+        tune.run(eval_b, config={"x": tune.uniform(0, 1)}, metric="metric", mode="min", num_samples=1, verbose=0)
+
+    thread_a = threading.Thread(target=run_a)
+    thread_b = threading.Thread(target=run_b)
+    thread_a.start()
+    assert a_paused.wait(timeout=5), "thread A never reached its evaluation function"
+    thread_b.start()
+    assert b_paused.wait(timeout=5), "thread B never reached its evaluation function"
+
+    outcome = {}
+
+    def context_less_reporter():
+        try:
+            tune.report(metric=99.0)
+        except Exception as e:  # noqa: BLE001 (captured for the assertion below)
+            outcome["result"] = ("error", e)
+        else:
+            outcome["result"] = ("ok", None)
+
+    try:
+        reporter_thread = threading.Thread(target=context_less_reporter)
+        reporter_thread.start()
+        reporter_thread.join(timeout=5)
+    finally:
+        release_a.set()
+        release_b.set()
+        thread_a.join(timeout=5)
+        thread_b.join(timeout=5)
+
+    status, err = outcome.get("result", (None, None))
+    assert status == "error", (
+        f"a context-less report with two runs concurrently active should have raised "
+        f"instead of silently dropping or guessing; got {outcome.get('result')}"
+    )
+    assert isinstance(err, RuntimeError), f"expected RuntimeError, got {type(err).__name__}: {err}"
+
+
+def test_context_less_report_warns_and_drops_when_no_run_is_active(caplog):
+    """Follow-up to #996, eighth review points 1 and 3: with no tune.run()
+    call active anywhere in the process, a context-less report has
+    nothing to attribute to even by inference (contrast the
+    single-active-run fallback above), and is still dropped, with a
+    one-time-per-run warning. The warning now goes through a dedicated
+    logger, `flaml.tune.diagnostics`, never a run-scoped one (eighth
+    review point 3), so it is captured here the way it actually surfaces:
+    propagated up to the root logger, not read out of any run's own log
+    file (there is no active run in this test for one to belong to).
+    """
+    with mock.patch.object(tune_module, "_context_less_report_warned", False):
+        with caplog.at_level(logging.WARNING, logger="flaml.tune.diagnostics"):
+            result = tune.report(metric=1.0)
+    assert result is None, "a context-less report with no active run should be dropped, not raise or record"
     assert (
-        "no active run to attribute it to" in log_text
-    ), f"expected the context-less-report warning in the run's own log file, got: {log_text!r}"
+        "no active run to attribute it to" in caplog.text
+    ), f"expected the context-less-report warning, got: {caplog.text!r}"
+
+
+def test_diagnostics_warning_never_reaches_a_run_owned_log_file(tmp_path):
+    """Follow-up to #996, eighth review point 3: the `flaml_tune_unscoped`
+    bypass this replaced sent an unattributed warning to EVERY
+    concurrently active run's own log handler (via _RunScopedFilter), so
+    an unrelated diagnostic from one caller could land inside a DIFFERENT
+    run's log file. `_diagnostics_logger` (used by the context-less-report
+    warning) replaces that: verified directly against the logging
+    mechanism itself, not just today's call sites, so a future caller of
+    `_diagnostics_logger` inherits the same guarantee. Even with a real
+    run active and its own FileHandler attached, a record emitted on
+    `_diagnostics_logger` does not appear in that run's log file.
+    """
+    log_path = str(tmp_path / "run.log")
+    seen = threading.Event()
+
+    def eval_and_emit(config):
+        tune_module._diagnostics_logger.warning("MARKER_DIAGNOSTICS_ONLY")
+        seen.set()
+        return {"metric": 1.0}
+
+    tune.run(
+        eval_and_emit,
+        config={"x": tune.uniform(0, 1)},
+        metric="metric",
+        mode="min",
+        num_samples=1,
+        verbose=2,
+        log_file_name=log_path,
+    )
+    assert seen.is_set(), "the evaluation function never ran"
+    log_text = open(log_path).read()
     assert (
-        log_text.count("no active run to attribute it to") == 1
-    ), "the warning should fire once per process, not once per dropped report"
+        "MARKER_DIAGNOSTICS_ONLY" not in log_text
+    ), f"a _diagnostics_logger record leaked into a run-owned log file: {log_text!r}"
