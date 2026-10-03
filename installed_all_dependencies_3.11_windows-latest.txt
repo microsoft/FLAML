@@ -32,7 +32,7 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.144.0
+databricks-sdk==0.146.0
 datasets==5.0.1
 debugpy==1.8.22
 defusedxml==0.7.1
@@ -42,8 +42,8 @@ evaluate==0.4.6
 executing==2.2.1
 fastapi==0.142.2
 fastjsonschema==2.22.2
-filelock==4.0.7
--e git+https://github.com/microsoft/FLAML@4e2dd932a246e728e6c6c295d7ed48b31dd584f7#egg=FLAML
+filelock==4.0.9
+-e git+https://github.com/microsoft/FLAML@bdcd11f13819163ac3aed6dbcb27087ade8f826a#egg=FLAML
 fonttools==4.66.1
 formulaic==1.2.2
 fqdn==1.6.0
@@ -99,7 +99,7 @@ lightning-utilities==0.15.3
 lunardate==0.3.0
 Mako==1.4.3
 markdown-it-py==4.2.0
-MarkupSafe==3.0.3
+MarkupSafe==3.0.4
 matplotlib==3.11.2
 matplotlib-inline==0.2.2
 mdurl==0.1.2
@@ -183,7 +183,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
 soupsieve==2.10
-SQLAlchemy==2.1.1
+SQLAlchemy==2.1.3
 sqlparse==0.6.0
 stack-data==0.6.3
 starlette==1.7.0
@@ -209,7 +209,7 @@ tzdata==2026.4
 uri-template==1.3.0
 urllib3==2.8.0
 uvicorn==0.54.0
-virtualenv==21.14.1
+virtualenv==21.14.5
 wcwidth==0.9.1
 webcolors==25.10.0
 webencodings==0.6.1
