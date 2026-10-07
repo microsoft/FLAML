@@ -189,40 +189,36 @@ def spark_metric_loss_score(
     elif "ndcg" in metric_name:
         # TODO: check if spark.ml ranker has the same format with
         # synapseML ranker, may need to adjust the format of df
-        if "@" in metric_name:
-            k = int(metric_name.split("@", 1)[-1])
-            if groups is None:
+        k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
+        if groups is None:
+            evaluator = RankingEvaluator(
+                metricName="ndcgAtK",
+                labelCol=label_col,
+                predictionCol=prediction_col,
+                **({} if k is None else {"k": k}),
+            )
+            df = _process_df(df, label_col, prediction_col)
+            score = 1 - evaluator.evaluate(df)
+        else:
+            # average the NDCG of each query group, as in sklearn_metric_loss_score
+            counts = ps_group_counts(groups)
+            score = 0
+            psum = 0
+            for c in counts:
+                y_true_ = y_true[psum : psum + c]
+                y_predict_ = y_predict[psum : psum + c]
+                df = y_true_.to_frame().join(y_predict_).to_spark()
+                df = _process_df(df, label_col, prediction_col)
                 evaluator = RankingEvaluator(
                     metricName="ndcgAtK",
                     labelCol=label_col,
                     predictionCol=prediction_col,
-                    k=k,
+                    k=c if k is None else k,
                 )
-                df = _process_df(df, label_col, prediction_col)
-                score = 1 - evaluator.evaluate(df)
-            else:
-                counts = ps_group_counts(groups)
-                score = 0
-                psum = 0
-                for c in counts:
-                    y_true_ = y_true[psum : psum + c]
-                    y_predict_ = y_predict[psum : psum + c]
-                    df = y_true_.to_frame().join(y_predict_).to_spark()
-                    df = _process_df(df, label_col, prediction_col)
-                    evaluator = RankingEvaluator(
-                        metricName="ndcgAtK",
-                        labelCol=label_col,
-                        predictionCol=prediction_col,
-                        k=k,
-                    )
-                    score -= evaluator.evaluate(df)
-                    psum += c
-                score /= len(counts)
-                score += 1
-        else:
-            evaluator = RankingEvaluator(metricName="ndcgAtK", labelCol=label_col, predictionCol=prediction_col)
-            df = _process_df(df, label_col, prediction_col)
-            score = 1 - evaluator.evaluate(df)
+                score -= evaluator.evaluate(df)
+                psum += c
+            score /= len(counts)
+            score += 1
         return score
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")

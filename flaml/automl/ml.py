@@ -282,11 +282,16 @@ def sklearn_metric_loss_score(
             score = 0
             psum = 0
             for c in counts:
-                score -= ndcg_score(
-                    np.asarray([y_true[psum : psum + c]]),
-                    np.asarray([y_predict[psum : psum + c]]),
-                    k=k,
-                )
+                if c == 1:
+                    # a query with one document is always ranked perfectly, and
+                    # ndcg_score raises for it
+                    score -= 1
+                else:
+                    score -= ndcg_score(
+                        np.asarray([y_true[psum : psum + c]]),
+                        np.asarray([y_predict[psum : psum + c]]),
+                        k=k,
+                    )
                 psum += c
             score /= len(counts)
             score += 1

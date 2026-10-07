@@ -19,3 +19,12 @@ def test_ndcg_averages_over_query_groups(metric):
 def test_ndcg_without_groups_uses_one_query(metric, k):
     expected = 1 - ndcg_score([Y_TRUE], [Y_PRED], k=k)
     assert sklearn_metric_loss_score(metric, Y_PRED, Y_TRUE) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("metric", ["ndcg", "ndcg@3"])
+def test_ndcg_query_with_one_document(metric):
+    # a query with a single document is ranked perfectly and must not raise
+    y_true = np.append(Y_TRUE, 2)
+    y_pred = np.append(Y_PRED, 5)
+    groups = np.append(GROUPS, 2)
+    assert sklearn_metric_loss_score(metric, y_pred, y_true, groups=groups) == pytest.approx(0.0)

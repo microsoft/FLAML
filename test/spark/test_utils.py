@@ -273,6 +273,22 @@ def test_iloc_pandas_on_spark():
     assert iloc_pandas_on_spark(psds, [0, 3]).tolist() == [1, 3]
 
 
+def test_spark_ndcg_query_groups():
+    spark = SparkSession.builder.getOrCreate()
+    # every row of the first query has prediction == label, none of the second one
+    dataset = spark.createDataFrame(
+        [(1.0, 1.0), (2.0, 2.0), (3.0, 3.0), (1.0, 2.0), (2.0, 1.0)], ["prediction", "label"]
+    )
+    dataset = to_pandas_on_spark(dataset)
+    groups = pd.Series([0, 0, 0, 1, 1])
+    # without groups, the rows are scored together; with groups, each query
+    # counts the same, for both ndcg and ndcg@k
+    assert spark_metric_loss_score("ndcg", dataset["prediction"], dataset["label"]) == pytest.approx(0.4)
+    for metric in ["ndcg", "ndcg@3"]:
+        loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"], groups=groups)
+        assert loss == pytest.approx(0.5)
+
+
 def test_spark_metric_loss_score():
     spark = SparkSession.builder.getOrCreate()
     scoreAndLabels = map(
