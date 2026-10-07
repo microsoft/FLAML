@@ -273,8 +273,11 @@ def sklearn_metric_loss_score(
     elif "ap" == metric_name:
         score = 1 - average_precision_score(y_true, y_predict, sample_weight=sample_weight)
     elif "ndcg" in metric_name:
-        if "@" in metric_name:
-            k = int(metric_name.split("@", 1)[-1])
+        k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
+        if groups is None:
+            score = 1 - ndcg_score([y_true], [y_predict], k=k)
+        else:
+            # average the NDCG of each query group
             counts = group_counts(groups)
             score = 0
             psum = 0
@@ -287,8 +290,6 @@ def sklearn_metric_loss_score(
                 psum += c
             score /= len(counts)
             score += 1
-        else:
-            score = 1 - ndcg_score([y_true], [y_predict])
     return score
 
 
