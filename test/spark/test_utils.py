@@ -275,18 +275,36 @@ def test_iloc_pandas_on_spark():
 
 def test_spark_ndcg_query_groups():
     spark = SparkSession.builder.getOrCreate()
-    # every row of the first query has prediction == label, none of the second one
-    dataset = spark.createDataFrame(
-        [(1.0, 1.0), (2.0, 2.0), (3.0, 3.0), (1.0, 2.0), (2.0, 1.0)], ["prediction", "label"]
-    )
-    dataset = to_pandas_on_spark(dataset)
-    groups = pd.Series([0, 0, 0, 1, 1])
-    # without groups, the rows are scored together; with groups, each query
-    # counts the same, for both ndcg and ndcg@k
-    assert spark_metric_loss_score("ndcg", dataset["prediction"], dataset["label"]) == pytest.approx(0.4)
-    for metric in ["ndcg", "ndcg@3"]:
-        loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"], groups=groups)
-        assert loss == pytest.approx(0.5)
+
+    def loss_pair(metric, predictions, labels, groups=None):
+        dataset = to_pandas_on_spark(spark.createDataFrame(list(zip(predictions, labels)), ["prediction", "label"]))
+        spark_loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"], groups=groups)
+        sklearn_loss = sklearn_metric_loss_score(
+            metric, np.array(predictions), np.array(labels), groups=None if groups is None else groups.to_numpy()
+        )
+        return spark_loss, sklearn_loss
+
+    # a perfectly ordered query whose predictions differ from the labels, and a
+    # query with a single document, have no loss
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss, sklearn_loss = loss_pair(
+            metric, [10.0, 9.0, -1.0, 5.0], [3.0, 2.0, 0.0, 2.0], pd.Series([0, 0, 0, 1])
+        )
+        assert spark_loss == pytest.approx(0)
+        assert sklearn_loss == pytest.approx(0)
+
+    # with a badly ordered query added, each query counts the same, as in sklearn
+    predictions = [10.0, 9.0, -1.0, 5.0, 1.0, 5.0]
+    labels = [3.0, 2.0, 0.0, 0.0, 2.0, 2.0]
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions, labels, pd.Series([0, 0, 0, 1, 1, 2]))
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # without groups, all rows are ranked as one query
+    spark_loss, sklearn_loss = loss_pair("ndcg", predictions, labels)
+    assert 0 < spark_loss < 1
+    assert spark_loss == pytest.approx(sklearn_loss)
 
 
 def test_spark_metric_loss_score():

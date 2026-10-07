@@ -22,12 +22,6 @@ def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:
     return c[np.argsort(i)].tolist()
 
 
-def _process_df(df, label_col, prediction_col):
-    df = df.withColumn(label_col, F.array([df[label_col]]))
-    df = df.withColumn(prediction_col, F.array([df[prediction_col]]))
-    return df
-
-
 def _compute_label_from_probability(df, probability_col, prediction_col):
     # array_max finds the maximum value in the 'probability' array
     # array_position finds the index of the maximum value in the 'probability' array
@@ -187,38 +181,26 @@ def spark_metric_loss_score(
             predictionCol=prediction_col,
         )
     elif "ndcg" in metric_name:
-        # TODO: check if spark.ml ranker has the same format with
-        # synapseML ranker, may need to adjust the format of df
+        # RankingEvaluator compares arrays of ranked and relevant item ids, not
+        # prediction scores and graded relevance labels, so rank the documents of
+        # each query by score here, the same way as sklearn_metric_loss_score
+        from sklearn.metrics import ndcg_score
+
         k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
-        if groups is None:
-            evaluator = RankingEvaluator(
-                metricName="ndcgAtK",
-                labelCol=label_col,
-                predictionCol=prediction_col,
-                **({} if k is None else {"k": k}),
-            )
-            df = _process_df(df, label_col, prediction_col)
-            score = 1 - evaluator.evaluate(df)
-        else:
-            # average the NDCG of each query group, as in sklearn_metric_loss_score
-            counts = ps_group_counts(groups)
-            score = 0
-            psum = 0
-            for c in counts:
-                y_true_ = y_true[psum : psum + c]
-                y_predict_ = y_predict[psum : psum + c]
-                df = y_true_.to_frame().join(y_predict_).to_spark()
-                df = _process_df(df, label_col, prediction_col)
-                evaluator = RankingEvaluator(
-                    metricName="ndcgAtK",
-                    labelCol=label_col,
-                    predictionCol=prediction_col,
-                    k=c if k is None else k,
-                )
-                score -= evaluator.evaluate(df)
-                psum += c
-            score /= len(counts)
-            score += 1
+        y_true = y_true.to_numpy()
+        y_predict = y_predict.to_numpy()
+        counts = [len(y_true)] if groups is None else ps_group_counts(groups)
+        score = 0
+        psum = 0
+        for c in counts:
+            if c == 1:
+                # a query with one document is always ranked perfectly
+                score -= 1
+            else:
+                score -= ndcg_score([y_true[psum : psum + c]], [y_predict[psum : psum + c]], k=k)
+            psum += c
+        score /= len(counts)
+        score += 1
         return score
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")
