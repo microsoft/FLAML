@@ -261,7 +261,7 @@ def sklearn_metric_loss_score(
         score = log_loss(y_true, y_predict, labels=labels, sample_weight=sample_weight)
     elif "mape" == metric_name:
         try:
-            score = mean_absolute_percentage_error(y_true, y_predict)
+            score = mean_absolute_percentage_error(y_true, y_predict, sample_weight=sample_weight)
         except ValueError:
             return np.inf
     elif "micro_f1" == metric_name:
