@@ -36,8 +36,8 @@ distlib==0.4.3
 executing==2.2.1
 fastapi==0.142.4
 fastjsonschema==2.22.2
-filelock==4.0.10
--e git+https://github.com/microsoft/FLAML@bd628f8d22d23fba0bf8ccb55a36d00a70318c26#egg=FLAML
+filelock==4.0.3
+-e git+https://github.com/microsoft/FLAML@93c6082e0a616758b6962aab6aadc98e5baaf682#egg=FLAML
 fonttools==4.66.1
 formulaic==1.2.2
 fqdn==1.6.0
@@ -64,7 +64,7 @@ jedi==0.20.0
 Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
-json5==0.15.0
+json5==0.16.0
 jsonpointer==3.2.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
@@ -113,8 +113,8 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==12.3.0
-pipx==1.17.11
-platformdirs==4.12.3
+pipx==1.17.6
+platformdirs==4.11.12
 pluggy==1.6.0
 pre_commit==4.6.2
 prometheus_client==0.26.0
