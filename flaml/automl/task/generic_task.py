@@ -46,6 +46,7 @@ class GenericTask(Task):
         if self._estimators is None:
             # put this into a function to avoid circular dependency
             from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
+            from flaml.automl.contrib.sefr import SEFRBoostEstimator, SEFREstimator
             from flaml.automl.model import (
                 CatBoostEstimator,
                 ElasticNetEstimator,
@@ -87,6 +88,8 @@ class GenericTask(Task):
                 "transformer": TransformersEstimator,
                 "transformer_ms": TransformersEstimatorModelSelection,
                 "histgb": HistGradientBoostingEstimator,
+                "sefr": SEFREstimator,
+                "sefr_boost": SEFRBoostEstimator,
                 "svc": SVCEstimator,
                 "sgd": SGDEstimator,
                 "nb_spark": SparkNaiveBayesEstimator,
