@@ -38,4 +38,4 @@ torchvision==0.29.1
 transformers==5.19.0
 xgboost==3.4.1
 xgboost==3.4.1
-Current commit hash: 8a2ab9c43e7773a77341f67cf63d2e646c7dea93
+Current commit hash: 040e44059941216dfc1b9818fbaf06a82a9b1b3b
