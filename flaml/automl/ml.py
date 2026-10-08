@@ -293,7 +293,20 @@ def sklearn_metric_loss_score(
 
 
 def get_y_pred(estimator, X, eval_metric, task: Task, **pred_kwargs):
-    if eval_metric in ["roc_auc", "ap", "roc_auc_weighted"] and task.is_binary():
+    if (
+        eval_metric
+        in [
+            "roc_auc",
+            "ap",
+            "roc_auc_weighted",
+            "roc_auc_ovr",
+            "roc_auc_ovo",
+            "roc_auc_ovr_weighted",
+            "roc_auc_ovo_weighted",
+        ]
+        and task.is_binary()
+    ):
+        # for a binary task, every roc_auc variant takes the positive-class probability
         y_pred_classes = estimator.predict_proba(X, **pred_kwargs)
         if isinstance(y_pred_classes, (psSeries, psDataFrame)):
             y_pred = y_pred_classes
