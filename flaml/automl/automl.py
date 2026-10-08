@@ -92,6 +92,10 @@ def size(learner_classes: dict, config: dict) -> float:
     return learner_class.size(config)
 
 
+# metrics that sklearn only computes for binary targets
+BINARY_ONLY_METRICS = ("roc_auc", "roc_auc_weighted", "ap", "f1")
+
+
 class AutoML(BaseEstimator):
     """The AutoML class.
     Example:
@@ -2545,6 +2549,12 @@ class AutoML(BaseEstimator):
         self._validate_metric_parameter(metric, allow_auto=True)
 
         metric = task.default_metric(metric)
+        if isinstance(metric, str) and task.is_multiclass() and metric in BINARY_ONLY_METRICS:
+            # these metrics raise for multiclass labels, which would make every trial's loss inf
+            raise ValueError(
+                f"metric='{metric}' only supports binary classification, but the labels have more than "
+                "two classes. Use e.g. 'roc_auc_ovr', 'roc_auc_ovo', 'micro_f1', 'macro_f1' or 'log_loss' instead."
+            )
         self._state.metric = metric
 
         # TODO pull this to task
