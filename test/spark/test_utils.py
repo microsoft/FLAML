@@ -320,6 +320,17 @@ def test_spark_ndcg_query_groups():
         assert 0 < spark_loss < 1
         assert spark_loss == pytest.approx(sklearn_loss)
 
+    # array-like groups of a fold follow its rows by position, not by index
+    dataset = to_pandas_on_spark(
+        spark.createDataFrame(
+            list(zip([1.0, 1.0, 0.0, 10.0, 9.0, 8.0], [0.0, 0.0, 3.0, 2.0, 1.0, 0.0])), ["prediction", "label"]
+        )
+    )
+    fold = dataset.loc[rows]
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=np.array([0, 1, 1, 1]))
+        assert spark_loss == pytest.approx(0)
+
     # a larger set with many queries
     rng = np.random.RandomState(0)
     groups = np.repeat(np.arange(300), rng.randint(1, 10, size=300))

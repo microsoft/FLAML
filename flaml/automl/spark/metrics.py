@@ -194,7 +194,11 @@ def spark_metric_loss_score(
             # match the groups to the rows by index, since they can cover more rows
             # than y_true, e.g. the training loss of a cross-validation fold
             if not isinstance(groups, psSeries):
-                groups = ps.Series(groups)
+                groups = np.asarray(groups)
+                # array-like groups for the rows of y_true follow them by position,
+                # whatever their index; longer ones use the default 0-based index
+                index = y_true.index.to_numpy() if len(groups) == len(y_true) else None
+                groups = ps.Series(groups, index=index)
             df = y_predict.to_frame().join(y_true).join(groups.rename(group_col)).to_spark()
 
         def query_ndcg(pdf):
