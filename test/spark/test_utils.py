@@ -306,6 +306,29 @@ def test_spark_ndcg_query_groups():
     assert 0 < spark_loss < 1
     assert spark_loss == pytest.approx(sklearn_loss)
 
+    # the groups of all rows are matched to the rows of a fold by index, as for
+    # the training loss in cross-validation
+    dataset = to_pandas_on_spark(spark.createDataFrame(list(zip(predictions, labels)), ["prediction", "label"]))
+    rows = [2, 3, 4, 5]
+    fold = dataset.loc[rows]
+    groups = ps.Series([0, 0, 1, 1, 2, 2])
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=groups)
+        sklearn_loss = sklearn_metric_loss_score(
+            metric, np.array(predictions)[rows], np.array(labels)[rows], groups=groups.to_numpy()[rows]
+        )
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # a larger set with many queries
+    rng = np.random.RandomState(0)
+    groups = np.repeat(np.arange(300), rng.randint(1, 10, size=300))
+    labels = rng.randint(0, 4, size=len(groups)).astype(float)
+    predictions = rng.rand(len(groups))
+    for metric in ["ndcg", "ndcg@3"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions.tolist(), labels.tolist(), pd.Series(groups))
+        assert spark_loss == pytest.approx(sklearn_loss)
+
 
 def test_spark_metric_loss_score():
     spark = SparkSession.builder.getOrCreate()

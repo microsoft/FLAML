@@ -10,7 +10,7 @@ from pyspark.ml.evaluation import (
     RegressionEvaluator,
 )
 
-from flaml.automl.spark import F, T, psDataFrame, psSeries, sparkDataFrame
+from flaml.automl.spark import F, T, ps, psDataFrame, psSeries, sparkDataFrame
 
 
 def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:
@@ -183,25 +183,33 @@ def spark_metric_loss_score(
     elif "ndcg" in metric_name:
         # RankingEvaluator compares arrays of ranked and relevant item ids, not
         # prediction scores and graded relevance labels, so rank the documents of
-        # each query by score here, the same way as sklearn_metric_loss_score
-        from sklearn.metrics import ndcg_score
-
+        # each query by score here, the same way as sklearn_metric_loss_score.
+        # Each query is scored on the executors, only the mean reaches the driver.
         k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
-        y_true = y_true.to_numpy()
-        y_predict = y_predict.to_numpy()
-        counts = [len(y_true)] if groups is None else ps_group_counts(groups)
-        score = 0
-        psum = 0
-        for c in counts:
-            if c == 1:
+        group_col = "group"
+        if groups is None:
+            # all rows are one query
+            df = df.withColumn(group_col, F.lit(0))
+        else:
+            # match the groups to the rows by index, since they can cover more rows
+            # than y_true, e.g. the training loss of a cross-validation fold
+            if not isinstance(groups, psSeries):
+                groups = ps.Series(groups)
+            df = y_predict.to_frame().join(y_true).join(groups.rename(group_col)).to_spark()
+
+        def query_ndcg(pdf):
+            import pandas as pd
+            from sklearn.metrics import ndcg_score
+
+            if len(pdf) == 1:
                 # a query with one document is always ranked perfectly
-                score -= 1
+                score = 1.0
             else:
-                score -= ndcg_score([y_true[psum : psum + c]], [y_predict[psum : psum + c]], k=k)
-            psum += c
-        score /= len(counts)
-        score += 1
-        return score
+                score = ndcg_score([pdf[label_col].to_numpy()], [pdf[prediction_col].to_numpy()], k=k)
+            return pd.DataFrame({"ndcg": [score]})
+
+        ndcg = df.groupBy(group_col).applyInPandas(query_ndcg, schema="ndcg double")
+        return 1 - ndcg.agg(F.avg("ndcg")).first()[0]
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")
 
