@@ -331,6 +331,19 @@ def test_spark_ndcg_query_groups():
         spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=np.array([0, 1, 1, 1]))
         assert spark_loss == pytest.approx(0)
 
+    # array-like groups of all rows cannot be matched to the rows of a fold whose
+    # data has a nonzero index, so they are rejected; a Series with that index works
+    dataset = to_pandas_on_spark(
+        pd.DataFrame({"prediction": [1.0, 10.0, 9.0, 0.0], "label": [3.0, 2.0, 1.0, 0.0]}, index=[10, 11, 12, 13])
+    )
+    fold = dataset.loc[[10, 11, 12]]
+    with pytest.raises(ValueError, match="groups has 4 entries but there are 3 rows"):
+        spark_metric_loss_score("ndcg", fold["prediction"], fold["label"], groups=np.array([0, 1, 1, 1]))
+    groups = ps.Series([0, 1, 1, 1], index=[10, 11, 12, 13])
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=groups)
+        assert spark_loss == pytest.approx(0)
+
     # a larger set with many queries
     rng = np.random.RandomState(0)
     groups = np.repeat(np.arange(300), rng.randint(1, 10, size=300))

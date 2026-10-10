@@ -195,10 +195,14 @@ def spark_metric_loss_score(
             # than y_true, e.g. the training loss of a cross-validation fold
             if not isinstance(groups, psSeries):
                 groups = np.asarray(groups)
-                # array-like groups for the rows of y_true follow them by position,
-                # whatever their index; longer ones use the default 0-based index
-                index = y_true.index.to_numpy() if len(groups) == len(y_true) else None
-                groups = ps.Series(groups, index=index)
+                # array-like groups follow the rows of y_true by position; longer
+                # ones carry no index to find the rows of y_true in them
+                if len(groups) != len(y_true):
+                    raise ValueError(
+                        f"groups has {len(groups)} entries but there are {len(y_true)} rows. "
+                        "Pass one group per row, or a pandas-on-Spark Series indexed like the data."
+                    )
+                groups = ps.Series(groups, index=y_true.index.to_numpy())
             df = y_predict.to_frame().join(y_true).join(groups.rename(group_col)).to_spark()
 
         def query_ndcg(pdf):
