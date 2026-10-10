@@ -354,6 +354,45 @@ def test_spark_ndcg_query_groups():
         assert spark_loss == pytest.approx(sklearn_loss)
 
 
+def test_spark_ndcg_without_groups(monkeypatch):
+    from pyspark.sql import GroupedData
+
+    spark = SparkSession.builder.getOrCreate()
+
+    # without groups, all rows are one query; they are ranked with Spark's sort
+    # instead of being loaded into a single pandas group
+    def fail(*args, **kwargs):
+        raise AssertionError("all rows were loaded into one pandas group")
+
+    monkeypatch.setattr(GroupedData, "applyInPandas", fail)
+
+    def loss_pair(metric, predictions, labels):
+        df = spark.createDataFrame(list(zip(predictions.tolist(), labels.tolist())), ["prediction", "label"])
+        dataset = to_pandas_on_spark(df)
+        spark_loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"])
+        sklearn_loss = sklearn_metric_loss_score(metric, predictions, labels)
+        return spark_loss, sklearn_loss
+
+    # many tied predictions, which share their gains as in sklearn, and cutoffs
+    # inside groups of ties
+    rng = np.random.RandomState(0)
+    labels = rng.randint(0, 4, size=2000).astype(float)
+    predictions = rng.randint(0, 50, size=2000).astype(float)
+    for metric in ["ndcg", "ndcg@10", "ndcg@301"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions, labels)
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # a perfectly ordered query whose predictions differ from the labels
+    spark_loss, _ = loss_pair("ndcg", np.array([10.0, 9.0, 5.0, -1.0]), np.array([3.0, 2.0, 2.0, 0.0]))
+    assert spark_loss == pytest.approx(0)
+
+    # a query without relevant documents scores 0, as in sklearn
+    spark_loss, sklearn_loss = loss_pair("ndcg", np.array([1.0, 2.0, 3.0]), np.zeros(3))
+    assert spark_loss == pytest.approx(1)
+    assert sklearn_loss == pytest.approx(1)
+
+
 def test_spark_metric_loss_score():
     spark = SparkSession.builder.getOrCreate()
     scoreAndLabels = map(

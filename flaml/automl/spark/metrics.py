@@ -31,6 +31,36 @@ def _compute_label_from_probability(df, probability_col, prediction_col):
     return df
 
 
+def _with_rank_discounts(df, sort_col, k=None):
+    """Rank the rows of df by sort_col, highest first, with Spark's distributed sort and
+    add the DCG discount of each row's position (0 from position k on)."""
+    ranked = df.orderBy(F.desc(sort_col)).rdd.zipWithIndex().map(lambda row: (*row[0], row[1]))
+    ranked = ranked.toDF(T.StructType(df.schema.fields + [T.StructField("position", T.LongType())]))
+    discount = 1 / F.log2(F.col("position") + 2)
+    if k is not None:
+        discount = F.when(F.col("position") < k, discount).otherwise(0.0)
+    return ranked.withColumn("discount", discount)
+
+
+def _ndcg_single_query(df, label_col, prediction_col, k=None):
+    """NDCG of all rows of df as one query, computed like sklearn's ndcg_score, where rows
+    with tied predictions share the mean of their gains, without loading the rows in one place."""
+    df = df.select(label_col, prediction_col)
+    if df.count() == 1:
+        # a query with one document is always ranked perfectly
+        return 1.0
+    dcg = (
+        _with_rank_discounts(df, prediction_col, k)
+        .groupBy(prediction_col)
+        .agg((F.avg(label_col) * F.sum("discount")).alias("dcg"))
+        .agg(F.sum("dcg"))
+        .first()[0]
+    )
+    ideal_dcg = _with_rank_discounts(df, label_col, k).agg(F.sum(F.col(label_col) * F.col("discount"))).first()[0]
+    # like sklearn, a query without relevant documents scores 0
+    return dcg / ideal_dcg if ideal_dcg else 0.0
+
+
 def string_to_array(s):
     try:
         return json.loads(s)
@@ -188,8 +218,8 @@ def spark_metric_loss_score(
         k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
         group_col = "group"
         if groups is None:
-            # all rows are one query
-            df = df.withColumn(group_col, F.lit(0))
+            # all rows are one query, which can be too large for one pandas group
+            return 1 - _ndcg_single_query(df, label_col, prediction_col, k)
         else:
             # match the groups to the rows by index, since they can cover more rows
             # than y_true, e.g. the training loss of a cross-validation fold
