@@ -273,6 +273,126 @@ def test_iloc_pandas_on_spark():
     assert iloc_pandas_on_spark(psds, [0, 3]).tolist() == [1, 3]
 
 
+def test_spark_ndcg_query_groups():
+    spark = SparkSession.builder.getOrCreate()
+
+    def loss_pair(metric, predictions, labels, groups=None):
+        dataset = to_pandas_on_spark(spark.createDataFrame(list(zip(predictions, labels)), ["prediction", "label"]))
+        spark_loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"], groups=groups)
+        sklearn_loss = sklearn_metric_loss_score(
+            metric, np.array(predictions), np.array(labels), groups=None if groups is None else groups.to_numpy()
+        )
+        return spark_loss, sklearn_loss
+
+    # a perfectly ordered query whose predictions differ from the labels, and a
+    # query with a single document, have no loss
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss, sklearn_loss = loss_pair(
+            metric, [10.0, 9.0, -1.0, 5.0], [3.0, 2.0, 0.0, 2.0], pd.Series([0, 0, 0, 1])
+        )
+        assert spark_loss == pytest.approx(0)
+        assert sklearn_loss == pytest.approx(0)
+
+    # with a badly ordered query added, each query counts the same, as in sklearn
+    predictions = [10.0, 9.0, -1.0, 5.0, 1.0, 5.0]
+    labels = [3.0, 2.0, 0.0, 0.0, 2.0, 2.0]
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions, labels, pd.Series([0, 0, 0, 1, 1, 2]))
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # without groups, all rows are ranked as one query
+    spark_loss, sklearn_loss = loss_pair("ndcg", predictions, labels)
+    assert 0 < spark_loss < 1
+    assert spark_loss == pytest.approx(sklearn_loss)
+
+    # the groups of all rows are matched to the rows of a fold by index, as for
+    # the training loss in cross-validation
+    dataset = to_pandas_on_spark(spark.createDataFrame(list(zip(predictions, labels)), ["prediction", "label"]))
+    rows = [2, 3, 4, 5]
+    fold = dataset.loc[rows]
+    groups = ps.Series([0, 0, 1, 1, 2, 2])
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=groups)
+        sklearn_loss = sklearn_metric_loss_score(
+            metric, np.array(predictions)[rows], np.array(labels)[rows], groups=groups.to_numpy()[rows]
+        )
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # array-like groups of a fold follow its rows by position, not by index
+    dataset = to_pandas_on_spark(
+        spark.createDataFrame(
+            list(zip([1.0, 1.0, 0.0, 10.0, 9.0, 8.0], [0.0, 0.0, 3.0, 2.0, 1.0, 0.0])), ["prediction", "label"]
+        )
+    )
+    fold = dataset.loc[rows]
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=np.array([0, 1, 1, 1]))
+        assert spark_loss == pytest.approx(0)
+
+    # array-like groups of all rows cannot be matched to the rows of a fold whose
+    # data has a nonzero index, so they are rejected; a Series with that index works
+    dataset = to_pandas_on_spark(
+        pd.DataFrame({"prediction": [1.0, 10.0, 9.0, 0.0], "label": [3.0, 2.0, 1.0, 0.0]}, index=[10, 11, 12, 13])
+    )
+    fold = dataset.loc[[10, 11, 12]]
+    with pytest.raises(ValueError, match="groups has 4 entries but there are 3 rows"):
+        spark_metric_loss_score("ndcg", fold["prediction"], fold["label"], groups=np.array([0, 1, 1, 1]))
+    groups = ps.Series([0, 1, 1, 1], index=[10, 11, 12, 13])
+    for metric in ["ndcg", "ndcg@2"]:
+        spark_loss = spark_metric_loss_score(metric, fold["prediction"], fold["label"], groups=groups)
+        assert spark_loss == pytest.approx(0)
+
+    # a larger set with many queries
+    rng = np.random.RandomState(0)
+    groups = np.repeat(np.arange(300), rng.randint(1, 10, size=300))
+    labels = rng.randint(0, 4, size=len(groups)).astype(float)
+    predictions = rng.rand(len(groups))
+    for metric in ["ndcg", "ndcg@3"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions.tolist(), labels.tolist(), pd.Series(groups))
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+
+def test_spark_ndcg_without_groups(monkeypatch):
+    from pyspark.sql import GroupedData
+
+    spark = SparkSession.builder.getOrCreate()
+
+    # without groups, all rows are one query; they are ranked with Spark's sort
+    # instead of being loaded into a single pandas group
+    def fail(*args, **kwargs):
+        raise AssertionError("all rows were loaded into one pandas group")
+
+    monkeypatch.setattr(GroupedData, "applyInPandas", fail)
+
+    def loss_pair(metric, predictions, labels):
+        df = spark.createDataFrame(list(zip(predictions.tolist(), labels.tolist())), ["prediction", "label"])
+        dataset = to_pandas_on_spark(df)
+        spark_loss = spark_metric_loss_score(metric, dataset["prediction"], dataset["label"])
+        sklearn_loss = sklearn_metric_loss_score(metric, predictions, labels)
+        return spark_loss, sklearn_loss
+
+    # many tied predictions, which share their gains as in sklearn, and cutoffs
+    # inside groups of ties
+    rng = np.random.RandomState(0)
+    labels = rng.randint(0, 4, size=2000).astype(float)
+    predictions = rng.randint(0, 50, size=2000).astype(float)
+    for metric in ["ndcg", "ndcg@10", "ndcg@301"]:
+        spark_loss, sklearn_loss = loss_pair(metric, predictions, labels)
+        assert 0 < spark_loss < 1
+        assert spark_loss == pytest.approx(sklearn_loss)
+
+    # a perfectly ordered query whose predictions differ from the labels
+    spark_loss, _ = loss_pair("ndcg", np.array([10.0, 9.0, 5.0, -1.0]), np.array([3.0, 2.0, 2.0, 0.0]))
+    assert spark_loss == pytest.approx(0)
+
+    # a query without relevant documents scores 0, as in sklearn
+    spark_loss, sklearn_loss = loss_pair("ndcg", np.array([1.0, 2.0, 3.0]), np.zeros(3))
+    assert spark_loss == pytest.approx(1)
+    assert sklearn_loss == pytest.approx(1)
+
+
 def test_spark_metric_loss_score():
     spark = SparkSession.builder.getOrCreate()
     scoreAndLabels = map(
