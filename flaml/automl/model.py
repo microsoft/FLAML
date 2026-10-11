@@ -98,24 +98,72 @@ def limit_resource(memory_limit, time_limit):
                 # According to https://bugs.python.org/issue40518, it's a mac-specific error.
                 pass
     alarm_set = False
-    if time_limit is not None and threading.current_thread() is threading.main_thread():
-        try:
-            signal.signal(signal.SIGALRM, TimeoutHandler)
-            signal.alarm(int(time_limit) or 1)
-            alarm_set = True
-        except ValueError:
-            pass
-
     try:
+        if time_limit is not None and threading.current_thread() is threading.main_thread():
+            timeout = int(time_limit) or 1
+            if timeout < 0:
+                raise OverflowError("time_limit must not be negative")
+            previous_handler = signal.getsignal(signal.SIGALRM)
+            previous_timer = signal.getitimer(signal.ITIMER_REAL)
+            started = time.monotonic()
+            deadline = started + timeout
+            previous_deadline = started + previous_timer[0] if previous_timer[0] else None
+
+            def arm_timer():
+                next_deadline = min(deadline, previous_deadline) if previous_deadline is not None else deadline
+                signal.setitimer(signal.ITIMER_REAL, max(next_deadline - time.monotonic(), 1e-6))
+
+            def handle_alarm(sig, frame):
+                nonlocal previous_deadline, previous_timer
+                if previous_deadline is not None and previous_deadline <= deadline:
+                    if previous_timer[1]:
+                        previous_deadline += previous_timer[1]
+                    else:
+                        previous_deadline = None
+                    signal.setitimer(
+                        signal.ITIMER_REAL,
+                        max(previous_deadline - time.monotonic(), 1e-6) if previous_deadline is not None else 0,
+                        previous_timer[1],
+                    )
+                    try:
+                        if callable(previous_handler):
+                            previous_handler(sig, frame)
+                        elif previous_handler == signal.SIG_DFL:
+                            signal.signal(sig, previous_handler)
+                            signal.raise_signal(sig)
+                    finally:
+                        # A previous handler (including an outer limit_resource) may rearm its timer.
+                        previous_timer = signal.getitimer(signal.ITIMER_REAL)
+                        previous_deadline = time.monotonic() + previous_timer[0] if previous_timer[0] else None
+                        arm_timer()
+                else:
+                    TimeoutHandler(sig, frame)
+
+            try:
+                signal.signal(signal.SIGALRM, handle_alarm)
+            except ValueError:
+                pass
+            else:
+                alarm_set = True
+                arm_timer()
+
         yield
     finally:
         if alarm_set:
-            signal.alarm(0)
-        if memory_limit > 0:
-            try:
-                resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
-            except ValueError:
-                pass
+            signal.setitimer(signal.ITIMER_REAL, 0)
+        try:
+            if memory_limit > 0:
+                try:
+                    resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+                except ValueError:
+                    pass
+        finally:
+            if alarm_set:
+                signal.signal(signal.SIGALRM, previous_handler)
+                if previous_deadline is not None:
+                    signal.setitimer(
+                        signal.ITIMER_REAL, max(previous_deadline - time.monotonic(), 1e-6), previous_timer[1]
+                    )
 
 
 class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
