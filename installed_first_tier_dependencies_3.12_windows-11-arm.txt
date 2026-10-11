@@ -10,7 +10,7 @@ mlflow-skinny==2.22.1
 nbconvert==7.17.1
 nbformat==5.11.1
 nltk==3.10.3
-numpy==2.5.3
+numpy==2.5.4
 optuna==3.6.1
 packaging==24.2
 pandas==3.0.6
@@ -26,4 +26,4 @@ statsmodels==0.15.0
 tensorboardX==2.6.5
 transformers==5.19.0
 xgboost==3.4.1
-Current commit hash: 12aaa0f88e83ca44aaff9499813bed33fd5b6658
+Current commit hash: d582e3188cbda9431f838f4635b9c6a6e63b8645
