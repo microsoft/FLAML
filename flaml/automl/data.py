@@ -256,10 +256,9 @@ def add_time_idx_col(X):
         # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
         # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
         # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        timestamps = unique_dates.astype("int64")
+        freq = int(timestamps.diff().mode().iloc[0])
+        X["time_idx"] = (X[TS_TIMESTAMP_COL].astype("int64") - timestamps.min()) // freq
     return X
 
 
