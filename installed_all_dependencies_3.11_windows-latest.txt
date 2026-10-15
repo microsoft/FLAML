@@ -32,7 +32,7 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.151.0
+databricks-sdk==0.152.0
 datasets==5.1.0
 debugpy==1.8.22
 defusedxml==0.7.1
@@ -40,17 +40,17 @@ dill==0.4.1
 distlib==0.4.3
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.143.0
+fastapi==0.143.1
 fastjsonschema==2.22.2
-filelock==4.1.1
--e git+https://github.com/microsoft/FLAML@86486927818add95ecb3dece01373004cf7a697c#egg=FLAML
-fonttools==4.66.1
+filelock==4.2.0
+-e git+https://github.com/microsoft/FLAML@e46f964256ecb6490d63dddc3409a628d713b0d1#egg=FLAML
+fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
 frozenlist==1.8.0
 fsspec==2026.7.0
 gitdb==4.0.12
-GitPython==3.2.0
+GitPython==3.2.1
 google-auth==2.62.0
 graphviz==0.21
 h11==0.16.0
@@ -148,7 +148,7 @@ pyarrow==26.0.0
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==3.24.1
+pycryptodome==4.0.0
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
@@ -188,7 +188,7 @@ soupsieve==3.0.3
 SQLAlchemy==2.1.4
 sqlparse==0.6.0
 stack-data==0.6.3
-starlette==1.7.0
+starlette==1.8.0
 statsmodels==0.15.0
 sympy==1.14.0
 tensorboardX==2.6.5
@@ -219,7 +219,7 @@ webencodings==0.6.1
 websocket-client==1.9.2
 widgetsnbextension==4.0.16
 workalendar==17.0.0
-wrapt==2.5.0
+wrapt==2.5.1
 xgboost==3.2.0
 xmltodict==1.0.4
 xxhash==4.0.1
