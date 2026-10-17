@@ -48,6 +48,8 @@ spark = [
 test = [
     "numpy>=1.17,<2.0.0; python_version<'3.13' and (sys_platform!='win32' or platform_machine!='ARM64')",
     "numpy>=1.17; python_version>='3.13' or (sys_platform=='win32' and platform_machine=='ARM64')",
+    # PyArrow 26 requires NumPy 2 at runtime; keep the NumPy 1.x test profile compatible.
+    "pyarrow<26; python_version<'3.13' and (sys_platform!='win32' or platform_machine!='ARM64')",
     "jupyter",
     "lightgbm>=2.3.1",
     "xgboost>=0.90,<2.0.0; python_version<'3.11'",

@@ -351,6 +351,22 @@ remain environment-limited; hosted Linux/runtime results must be reported
 separately. Final post-gate fixes are validated driver changes, not a new
 independent review attempt.
 
+### Hosted CI follow-up after publication
+
+The reviewed source and all 24 reports were published in
+`44cd4cd2e06636784baf36ce7c350668dfbb9449`. Public installed-package jobs,
+formatting, and documentation checks passed. Build run `39073896919`
+exposed a dependency-resolution failure before test collection in the
+Python 3.11/3.12 NumPy-1.x profiles: PyArrow 26 requires NumPy 2 at runtime,
+while the established test profile intentionally selects NumPy 1.26.4.
+
+The follow-up caps PyArrow below 26 only where the test extra selects NumPy
+1.x. It does not add Arrow to the core/AutoML profiles or change the
+Python 3.13/Windows ARM64 dependency paths. An isolated Python 3.12
+environment imported NumPy 1.26.4, PyArrow 25.0.1, and the same hosted
+Datasets 5.1.0 release and created a dataset successfully. Metadata marker
+tests passed across the affected Linux/Windows Python profiles.
+
 Stage 2 will use a new source snapshot after the 282-test suite, expanded
 28-test pipeline checks, and successful wheel/source builds. Later clean stages
 cannot erase the inherited unresolved findings or relabel stage 1 as clean.

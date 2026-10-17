@@ -9,13 +9,13 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 
-def requirements_for(extra, python_version="3.13", machine="AMD64"):
+def requirements_for(extra, python_version="3.13", machine="AMD64", platform="win32"):
     environment = {
         **default_environment(),
         "extra": canonicalize_name(extra),
         "python_version": python_version,
         "python_full_version": python_version + ".0",
-        "sys_platform": "win32",
+        "sys_platform": platform,
         "platform_machine": machine,
     }
     requirements = [Requirement(value) for value in requires("FLAML")]
@@ -35,6 +35,22 @@ def test_autofe_extra_declares_its_import_dependencies():
     dependencies = requirements_for("autofe")
     assert {"pandas", "scikit-learn", "xgboost"} <= dependencies.keys()
     assert not {"mlflow", "mlflow-skinny", "pyspark", "synapseml"} & dependencies.keys()
+
+
+@pytest.mark.parametrize("python_version", ["3.10", "3.11", "3.12"])
+@pytest.mark.parametrize("platform,machine", [("linux", "x86_64"), ("win32", "AMD64")])
+def test_numpy_one_test_profile_uses_a_compatible_arrow_release(python_version, platform, machine):
+    dependencies = requirements_for("test", python_version, machine, platform)
+    assert "1.26.4" in dependencies["numpy"].specifier
+    assert "2.0.0" not in dependencies["numpy"].specifier
+    assert "25.0.1" in dependencies["pyarrow"].specifier
+    assert "26.0.0" not in dependencies["pyarrow"].specifier
+
+
+def test_arrow_compatibility_cap_does_not_expand_other_profiles():
+    assert "pyarrow" not in requirements_for("test", "3.13")
+    assert "pyarrow" not in requirements_for("test", "3.12", "ARM64")
+    assert "pyarrow" not in requirements_for("automl", "3.12")
 
 
 def test_fabric_notebooks_do_not_install_internal_release_wheels():
