@@ -534,7 +534,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
         params = super().config2params(config)
         params.pop("n_jobs", None)
         base_params = {key: params.pop(key) for key in ("scaling", "class_weight", "calibration") if key in params}
-        params[_adaboost_estimator_param()] = SEFRClassifier(**base_params)
+        params.setdefault(_adaboost_estimator_param(), SEFRClassifier(**base_params))
         if "random_state" not in params:
             params["random_state"] = 24092023
         return params
