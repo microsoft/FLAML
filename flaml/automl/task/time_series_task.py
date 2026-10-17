@@ -131,10 +131,12 @@ class TimeSeriesTask(Task):
                 time_col_inferred = True
                 if isinstance(X_train_all, pd.DataFrame):
                     assert dataframe is None, "One of dataframe and X arguments must be None"
-                    self.time_col = X_train_all.columns[0]
+                    if len(X_train_all.columns) > 0:
+                        self.time_col = X_train_all.columns[0]
                 elif dataframe is not None:
                     assert X_train_all is None, "One of dataframe and X arguments must be None"
-                    self.time_col = dataframe.columns[0]
+                    if len(dataframe.columns) > 0:
+                        self.time_col = dataframe.columns[0]
                 else:
                     self.time_col = "ds"
 
@@ -149,6 +151,7 @@ class TimeSeriesTask(Task):
                         X_train_all,
                         time_col=self.time_col,
                         is_inferred=time_col_inferred,
+                        reserved_cols=target_names,
                     )
                     if promoted_time_col is not None:
                         self.time_col = promoted_time_col
@@ -167,9 +170,13 @@ class TimeSeriesTask(Task):
                 dataframe,
                 time_col=self.time_col,
                 is_inferred=time_col_inferred,
+                reserved_cols=target_names,
             )
             if promoted_time_col is not None:
                 self.time_col = promoted_time_col
+
+            if self.time_col is None:
+                self.time_col = "ds"
 
             try:
                 dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
@@ -188,6 +195,7 @@ class TimeSeriesTask(Task):
                         X_val,
                         time_col=self.time_col,
                         is_inferred=False,
+                        reserved_cols=target_names,
                     )
                     if promoted_time_col_val is not None:
                         if isinstance(y_val, (pd.DataFrame, pd.Series)):
@@ -432,6 +440,9 @@ class TimeSeriesTask(Task):
         if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
             return X, y
 
+        if len(X) != len(y):
+            raise ValueError(f"Target length ({len(y)}) does not match feature length ({len(X)}).")
+
         # Only perform datetime-label alignment when both X and y have a DatetimeIndex
         if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
             if not y.index.equals(X.index):
@@ -470,13 +481,14 @@ class TimeSeriesTask(Task):
         return X, y
 
     @staticmethod
-    def _promote_datetime_index_if_needed(df, time_col=None, is_inferred=False):
+    def _promote_datetime_index_if_needed(df, time_col=None, is_inferred=False, reserved_cols=None):
         """Promote a DatetimeIndex to a guaranteed-unique column if needed.
 
         Args:
             df: A pandas DataFrame.
             time_col: The current timestamp column name (if known).
             is_inferred: Whether time_col was inferred rather than explicitly specified.
+            reserved_cols: Additional column names to avoid colliding with (e.g. target names).
 
         Returns:
             Tuple of (df_processed, promoted_col_name or None).
@@ -498,17 +510,18 @@ class TimeSeriesTask(Task):
         if not needs_promotion:
             return df, None
 
-        base_name = df.index.name or "ds"
-        promoted_col = base_name if not is_inferred and time_col else base_name
-        if not is_inferred and time_col:
-            promoted_col = time_col
-
-        # Guarantee unique column name avoiding collisions with existing columns
-        target_col = promoted_col
-        i = 1
-        while target_col in df.columns:
-            target_col = f"{promoted_col}_{i}"
-            i += 1
+        if is_inferred:
+            base_name = df.index.name or "ds"
+            promoted_col = base_name
+            # Guarantee unique column name avoiding collisions with existing columns and reserved names
+            reserved = set(reserved_cols) if reserved_cols else set()
+            target_col = promoted_col
+            i = 1
+            while target_col in df.columns or target_col in reserved:
+                target_col = f"{promoted_col}_{i}"
+                i += 1
+        else:
+            target_col = time_col
 
         df_out = df.copy()
         df_out.insert(0, target_col, df.index)
@@ -522,6 +535,7 @@ class TimeSeriesTask(Task):
                 X,
                 time_col=self.time_col,
                 is_inferred=False,
+                reserved_cols=self.target_names,
             )
         if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
             X = normalize_ts_data(X.copy(), self.target_names, self.time_col)

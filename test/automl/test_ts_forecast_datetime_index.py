@@ -304,3 +304,60 @@ def test_validation_with_range_index_x_datetime_col_and_datetime_index_series_ta
     assert automl._state.eval_method == "holdout"
     preds = automl.predict(X_val)
     assert len(preds) == 20
+
+
+def test_index_only_training_input_with_separate_target():
+    """Verify that X_train with 0 feature columns and DatetimeIndex promotes correctly without IndexError."""
+    dates = pd.date_range("2018-01-01", periods=120, freq="MS")
+    X_train = pd.DataFrame(index=dates)
+    y_train = pd.Series(np.sin(np.arange(120) / 6) * 10 + 50, index=dates, name="y")
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train)
+    assert automl._state.task.time_col == "ds"
+    assert len(automl.predict(X_train.tail(12))) == 12
+
+
+def test_length_mismatch_raises_value_error():
+    """Verify that when X has fewer rows than y, extra rows in y are NOT silently truncated."""
+    train_idx = pd.date_range("2018-01-01", periods=60, freq="MS")
+    extra_idx = pd.date_range("2018-01-01", periods=61, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(60, dtype=float)}, index=train_idx)
+    y_train = pd.Series(np.arange(61, dtype=float), index=extra_idx, name="y")
+    automl = AutoML()
+    with pytest.raises(ValueError, match="does not match feature length"):
+        _fit(automl, X_train=X_train, y_train=y_train)
+
+
+def test_validation_length_mismatch_raises_value_error():
+    """Verify that validation data with mismatched X_val and y_val raises ValueError."""
+    df_train = _make_train_df(periods=80)
+    val_idx = pd.date_range("2024-09-01", periods=20, freq="MS")
+    val_extra_idx = pd.date_range("2024-09-01", periods=21, freq="MS")
+    X_val = pd.DataFrame(index=val_idx)
+    y_val = pd.Series(np.arange(21, dtype=float), index=val_extra_idx, name="y")
+    automl = AutoML()
+    with pytest.raises(ValueError, match="does not match feature length"):
+        _fit(automl, dataframe=df_train, X_val=X_val, y_val=y_val)
+
+
+def test_unnamed_datetime_index_colliding_with_target_named_ds():
+    """Verify that when target is named 'ds', an unnamed index promotes to 'ds_1' to avoid duplicate columns."""
+    dates = pd.date_range("2018-01-01", periods=120, freq="MS")
+    X_train = pd.DataFrame({"feat": np.arange(120, dtype=float)}, index=dates)
+    y_train = pd.Series(np.sin(np.arange(120) / 6) * 10 + 50, index=dates, name="ds")
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, label="ds")
+    assert automl._state.task.time_col == "ds_1"
+    assert len(automl.predict(X_train.tail(12))) == 12
+
+
+def test_named_datetime_index_colliding_with_target_named_y():
+    """Verify that when index and target are both named 'y', index promotes to 'y_1' to avoid duplicate columns."""
+    dates = pd.date_range("2018-01-01", periods=120, freq="MS")
+    dates.name = "y"
+    X_train = pd.DataFrame({"feat": np.arange(120, dtype=float)}, index=dates)
+    y_train = pd.Series(np.sin(np.arange(120) / 6) * 10 + 50, index=dates, name="y")
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, label="y")
+    assert automl._state.task.time_col == "y_1"
+    assert len(automl.predict(X_train.tail(12))) == 12
