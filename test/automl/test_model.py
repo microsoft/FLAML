@@ -13,11 +13,38 @@ from flaml.automl.model import (
     CatBoostEstimator,
     KNeighborsEstimator,
     LGBMEstimator,
+    LRL1Classifier,
     LRL2Classifier,
     RandomForestEstimator,
     XGBoostEstimator,
 )
 from flaml.automl.time_series import ARIMA, LGBM_TS, Prophet, TimeSeriesDataset
+
+
+def test_lrl1():
+    BaseEstimator.search_space(1, "")
+    assert LRL1Classifier.limit_resource is True
+    X, y = make_classification(100, 10, random_state=0)
+    lr = LRL1Classifier()
+    lr.predict(X)
+    lr.fit(X, y, budget=1e-5)
+
+
+def test_lrl1_resource_limit_called(monkeypatch):
+    import flaml.automl.model as model_mod
+
+    called = []
+    orig = model_mod.limit_resource
+
+    def mock_limit_resource(*args, **kwargs):
+        called.append((args, kwargs))
+        return orig(*args, **kwargs)
+
+    monkeypatch.setattr(model_mod, "limit_resource", mock_limit_resource)
+    X, y = make_classification(50, 5, random_state=0)
+    lr = LRL1Classifier()
+    lr.fit(X, y, budget=1.0)
+    assert len(called) > 0, "limit_resource was not invoked for LRL1Classifier"
 
 
 def test_lrl2():
