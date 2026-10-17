@@ -341,7 +341,12 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             neg_sums, neg_totals = sums[[0]], class_totals[[0]]
         else:
             pos_sums, pos_totals = sums, class_totals
-            neg_sums, neg_totals = sums.sum(axis=0) - sums, class_totals.sum() - class_totals
+            neg_sums = np.zeros_like(sums)
+            neg_sums[1:] = np.cumsum(sums[:-1], axis=0)
+            neg_sums[:-1] += np.cumsum(sums[:0:-1], axis=0)[::-1]
+            neg_totals = np.zeros_like(class_totals)
+            neg_totals[1:] = np.cumsum(class_totals[:-1])
+            neg_totals[:-1] += np.cumsum(class_totals[:0:-1])[::-1]
         avg_pos = pos_sums / pos_totals[:, None]
         avg_neg = neg_sums / neg_totals[:, None]
         coef = (avg_pos - avg_neg) / (avg_pos + avg_neg + self.eps)
