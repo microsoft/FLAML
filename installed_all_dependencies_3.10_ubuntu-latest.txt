@@ -36,20 +36,20 @@ cuda-bindings==13.4.4
 cuda-pathfinder==1.8.3
 cuda-toolkit==13.0.3.0
 cycler==0.12.1
-databricks-sdk==0.152.0
+databricks-sdk==0.153.0
 datasets==5.1.0
 debugpy==1.8.22
 decorator==5.3.1
 defusedxml==0.7.1
 dill==0.4.1
-distlib==0.4.3
+distlib==0.4.4
 evaluate==0.4.6
 exceptiongroup==1.3.1
 executing==2.3.0
-fastapi==0.143.1
+fastapi==0.143.3
 fastjsonschema==2.22.2
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@4566d8f1ae2f8957545ecbd29da2ea1159d2a184#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@4e0383e4242764d76fefbfc418902711290c7dbb#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -159,7 +159,7 @@ pexpect==4.9.0
 pillow==12.3.0
 platformdirs==4.12.4
 plotly==7.1.0
-pluggy==1.6.0
+pluggy==1.7.0
 pre_commit==4.6.2
 prometheus_client==0.26.0
 prompt_toolkit==3.0.53
@@ -183,7 +183,7 @@ pyparsing==3.3.3
 pytest==9.1.1
 pytest-rerunfailures==16.7
 python-dateutil==2.9.0.post0
-python-discovery==1.6.2
+python-discovery==1.6.3
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.6
@@ -210,7 +210,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
 soupsieve==2.10
-SQLAlchemy==2.0.54
+SQLAlchemy==2.0.55
 sqlparse==0.6.0
 stack-data==0.6.3
 stanio==0.5.1
@@ -230,7 +230,7 @@ torchvision==0.29.1
 tornado==6.5.10
 tqdm==4.70.1
 traitlets==5.16.1
-transformers==5.19.0
+transformers==5.20.1
 triton==3.8.0
 truststore==0.10.5
 typer==0.27.3
