@@ -454,7 +454,7 @@ def test_sefr_estimators():
         "threshold_shift",
         "calibration",
     }
-    assert "n_estimators" in SEFRBoostEstimator.search_space(data_size=(200, 8))
+    assert set(SEFRBoostEstimator.search_space(data_size=(200, 8))) == {"n_estimators", "learning_rate", "calibration"}
 
     sefr = SEFREstimator(task="binary")
     sefr.fit(X, y)
@@ -472,6 +472,28 @@ def test_sefr_estimators():
     boost = SEFRBoostEstimator(task="binary", n_estimators=4, calibration="sigmoid", class_weight="balanced")
     base = clone(boost).params["estimator" if "estimator" in boost.params else "base_estimator"]
     assert (base.calibration, base.class_weight) == ("sigmoid", "balanced")
+
+
+def test_sefr_boost_first_round_worse_than_random():
+    from sklearn.ensemble import AdaBoostClassifier
+
+    # with balanced costs and the closed-form calibration, SEFR predicts the minority
+    # class almost everywhere on this imbalanced data: worse than chance for AdaBoost
+    X, y = make_classification(2000, 8, weights=[0.85], flip_y=0.1, class_sep=0.3, random_state=0)
+    base = SEFRClassifier(class_weight="balanced")
+    assert np.mean(base.fit(X, y).predict(X) != y) > 0.5
+
+    boost = SEFRBoostEstimator(task="binary", n_estimators=4, class_weight="balanced", calibration="sigmoid")
+    boost.fit(X, y)
+    if not isinstance(boost.model, AdaBoostClassifier):  # scikit-learn >= 1.6 cannot boost it
+        np.testing.assert_allclose(boost.predict_proba(X), base.predict_proba(X))
+    assert boost.predict_proba(X).shape == (2000, 2)
+
+    from flaml import AutoML
+
+    automl = AutoML()
+    automl.fit(X, y, task="binary", estimator_list=["sefr_boost"], time_budget=1, verbose=0)
+    assert automl.predict_proba(X).shape == (2000, 2)
 
 
 if __name__ == "__main__":

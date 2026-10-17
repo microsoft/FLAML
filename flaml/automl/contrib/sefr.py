@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import inspect
 import numbers
+import time
 import warnings
 
 import numpy as np
@@ -42,7 +43,7 @@ except ImportError:
 
 try:
     from sklearn.base import BaseEstimator as SKLearnBaseEstimator
-    from sklearn.base import ClassifierMixin
+    from sklearn.base import ClassifierMixin, clone
     from sklearn.ensemble import AdaBoostClassifier
     from sklearn.utils.multiclass import check_classification_targets
     from sklearn.utils.validation import check_is_fitted
@@ -564,8 +565,10 @@ class SEFRBoostEstimator(SKLearnEstimator):
             },
         }
         base_space = SEFREstimator.search_space(**params)
-        space["class_weight"] = base_space["class_weight"]
-        # AdaBoost's SAMME.R weights the base learners by their probabilities,
+        # no class_weight: AdaBoost reweights the rows itself and scores each base
+        # learner by its plain weighted error, which a cost-shifted decision can push
+        # past chance on imbalanced data (then the first round fails to fit).
+        # SAMME.R (scikit-learn < 1.6) weights the base learners by their probabilities,
         # so fitted calibration pays off more here than for a single SEFR model
         space["calibration"] = dict(base_space["calibration"], init_value="platt")
         return space
@@ -587,3 +590,16 @@ class SEFRBoostEstimator(SKLearnEstimator):
         super().__init__(task, **config)
         assert self._task.is_classification(), "SEFR is for classification tasks only"
         self.estimator_class = AdaBoostClassifier
+
+    def _fit(self, X_train, y_train, **kwargs):
+        start = time.time()
+        try:
+            return super()._fit(X_train, y_train, **kwargs)
+        except ValueError as e:
+            # SAMME (the only algorithm from scikit-learn 1.6) refuses a first base learner
+            # that is no better than chance; there is nothing to boost, so fit that learner
+            if "worse than random" not in str(e):
+                raise
+        base = clone(self.params[_adaboost_estimator_param()])
+        self._model = base.fit(self._preprocess(X_train), y_train, **kwargs)
+        return time.time() - start
