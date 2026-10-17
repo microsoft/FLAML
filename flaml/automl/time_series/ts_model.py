@@ -807,9 +807,9 @@ class SeasonalAverage(SimpleForecaster):
 
         self.season = kwargs.get("season", self.params.get("season", 1))  # seasonality period
         train_df, target_col = self.joint_preprocess(X_train, y_train)
-        # The lag order is selected up to the season, as far as the training rows allow: with a
-        # constant, statsmodels needs at least maxlag + 1 observations after dropping the first maxlag
-        maxlag = min(self.season, (len(train_df) - 1) // 2)
+        # The lag order is selected up to the season, as far as the training rows allow: after
+        # dropping the first maxlag rows, the maxlag lags and the constant need one residual degree of freedom
+        maxlag = min(self.season, (len(train_df) - 2) // 2)
         selection_res = ar_select_order(train_df[target_col], maxlag=maxlag)
 
         # Fit autoregressive model with optimal order

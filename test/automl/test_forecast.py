@@ -280,6 +280,17 @@ def test_seasonal_average_caps_lag_order_on_short_training_data():
     assert estimator.season == 6
 
 
+def test_seasonal_average_leaves_residual_degrees_of_freedom():
+    from flaml.automl.time_series import SeasonalAverage, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=5, freq="D"), "y": [0.0, 0.0, 1.0, 0.0, 0.0]})
+    estimator = SeasonalAverage(season=2)
+    # AR(2) on 5 rows would leave 3 observations for 2 lags and a constant, which order selection picks here
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    assert estimator._model.df_resid > 0
+
+
 @pytest.mark.parametrize("estimator", ["snaive", "savg"])
 @pytest.mark.parametrize("eval_method", ["holdout", "cv"])
 def test_seasonal_forecasters_fit_short_series(estimator, eval_method):
