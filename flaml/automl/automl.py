@@ -290,8 +290,10 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            append_log: boolean, default=False | Whetehr to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to directly append the log
+                records to the input log file if it exists. Runs sharing a log file
+                wait for its writer to close; this wait counts toward time_budget.
+                Use different log files for concurrent runs.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             resampler: object, default=None | An imbalanced-learn-compatible resampler
@@ -2118,8 +2120,10 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            append_log: boolean, default=False | Whetehr to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to directly append the log
+                records to the input log file if it exists. Runs sharing a log file
+                wait for its writer to close; this wait counts toward time_budget.
+                Use different log files for concurrent runs.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample

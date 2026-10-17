@@ -5,6 +5,7 @@
 
 import json
 import logging
+import os
 from contextlib import contextmanager
 from typing import IO
 
@@ -56,16 +57,43 @@ class TrainingLogWriter:
     def __init__(self, output_filename: str):
         self.output_filename = output_filename
         self.file = None
+        self._lock = None
         self.current_best_loss_record_id = None
         self.current_best_loss = float("+inf")
         self.current_sample_size = None
         self.current_record_id = 0
 
     def open(self):
-        self.file = open(self.output_filename, "w")
+        self._open(append=False)
 
     def append_open(self):
-        self.file = open(self.output_filename, "a")
+        self._open(append=True)
+
+    def _open(self, append):
+        from filelock import FileLock
+
+        self.close()
+        self._lock = FileLock(f"{os.path.realpath(self.output_filename)}.lock")
+        try:
+            self._lock.acquire()
+            if append:
+                try:
+                    with training_log_reader(self.output_filename) as reader:
+                        for record in reader.records():
+                            self.current_record_id = max(self.current_record_id, record.record_id + 1)
+                except FileNotFoundError:
+                    pass
+            self.file = open(self.output_filename, "a" if append else "w")
+            if append:
+                with open(self.output_filename, "rb") as existing:
+                    existing.seek(0, os.SEEK_END)
+                    if existing.tell():
+                        existing.seek(-1, os.SEEK_END)
+                        if existing.read(1) not in (b"\n", b"\r"):
+                            self.file.write("\n")
+        except BaseException:
+            self.close()
+            raise
 
     def append(
         self,
@@ -119,9 +147,14 @@ class TrainingLogWriter:
         self.file.flush()
 
     def close(self):
-        if self.file is not None:
-            self.file.close()
-        self.file = None  # for pickle
+        try:
+            if self.file is not None:
+                self.file.close()
+        finally:
+            self.file = None  # for pickle
+            lock, self._lock = self._lock, None
+            if lock is not None:
+                lock.release()
 
 
 class TrainingLogReader:
@@ -158,6 +191,7 @@ class TrainingLogReader:
 
 @contextmanager
 def training_log_writer(filename: str, append: bool = False):
+    """Open a training log, holding its sidecar file lock until the writer closes."""
     try:
         w = TrainingLogWriter(filename)
         if not append:
