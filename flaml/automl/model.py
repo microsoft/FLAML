@@ -87,8 +87,22 @@ def TimeoutHandler(sig, frame):
     raise TimeoutError(sig, frame)
 
 
+class _ResourceLimitTimeout(TimeoutError):
+    def __init__(self, sig, frame, owner):
+        super().__init__(sig, frame)
+        self.owner = owner
+
+
 @contextmanager
-def limit_resource(memory_limit, time_limit):
+def limit_resource(memory_limit, time_limit, _caller_exceptions=None):
+    """Preserve caller alarms while enforcing this context's resource limits.
+
+    Caller callbacks run synchronously. On return or failure, an expired budget
+    takes precedence over a callback exception; otherwise that exception is
+    propagated unchanged. Nested budget expirations retain their original owner.
+    """
+    if _caller_exceptions is None:
+        _caller_exceptions = []
     if memory_limit > 0:
         soft, hard = resource.getrlimit(resource.RLIMIT_AS)
         if soft < 0 and (hard < 0 or memory_limit <= hard) or memory_limit < soft:
@@ -108,16 +122,26 @@ def limit_resource(memory_limit, time_limit):
             started = time.monotonic()
             deadline = started + timeout
             previous_deadline = started + previous_timer[0] if previous_timer[0] else None
+            expired_timeout = None
 
             def arm_timer():
                 next_deadline = min(deadline, previous_deadline) if previous_deadline is not None else deadline
                 signal.setitimer(signal.ITIMER_REAL, max(next_deadline - time.monotonic(), 1e-6))
 
+            def raise_timeout(sig, frame):
+                nonlocal expired_timeout
+                if expired_timeout is None:
+                    expired_timeout = _ResourceLimitTimeout(sig, frame, _caller_exceptions)
+                raise expired_timeout
+
             def handle_alarm(sig, frame):
-                nonlocal previous_deadline, previous_timer
-                if previous_deadline is not None and previous_deadline <= deadline:
+                nonlocal previous_deadline, previous_timer, previous_handler, expired_timeout
+                now = time.monotonic()
+                if previous_deadline is not None and previous_deadline <= min(deadline, now):
                     if previous_timer[1]:
-                        previous_deadline += previous_timer[1]
+                        # Standard signals coalesce: skip missed ticks without shifting their phase.
+                        elapsed_ticks = int((now - previous_deadline) / previous_timer[1]) + 1
+                        previous_deadline += elapsed_ticks * previous_timer[1]
                     else:
                         previous_deadline = None
                     signal.setitimer(
@@ -125,19 +149,37 @@ def limit_resource(memory_limit, time_limit):
                         max(previous_deadline - time.monotonic(), 1e-6) if previous_deadline is not None else 0,
                         previous_timer[1],
                     )
+                    # In nested limits the installed dispatcher can belong to an inner context.
+                    installed_handler = signal.getsignal(signal.SIGALRM)
                     try:
                         if callable(previous_handler):
                             previous_handler(sig, frame)
                         elif previous_handler == signal.SIG_DFL:
                             signal.signal(sig, previous_handler)
                             signal.raise_signal(sig)
+                    except BaseException as exc:
+                        if isinstance(exc, _ResourceLimitTimeout):
+                            # An earlier outer deadline must not become this fit's fallback timeout.
+                            expired_timeout = exc
+                        else:
+                            _caller_exceptions.append(exc)
+                        raise
                     finally:
+                        handler = signal.getsignal(signal.SIGALRM)
+                        if handler != installed_handler:
+                            previous_handler = handler
+                        signal.signal(signal.SIGALRM, installed_handler)
                         # A previous handler (including an outer limit_resource) may rearm its timer.
                         previous_timer = signal.getitimer(signal.ITIMER_REAL)
                         previous_deadline = time.monotonic() + previous_timer[0] if previous_timer[0] else None
+                        if time.monotonic() >= deadline:
+                            raise_timeout(sig, frame)
                         arm_timer()
+                elif now >= deadline:
+                    raise_timeout(sig, frame)
                 else:
-                    TimeoutHandler(sig, frame)
+                    # An early or pending signal is not a budget expiration.
+                    arm_timer()
 
             try:
                 signal.signal(signal.SIGALRM, handle_alarm)
@@ -348,6 +390,7 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
         ):
             start_time = time.time()
             mem = psutil.virtual_memory() if psutil is not None else None
+            caller_exceptions = []
             try:
                 with limit_resource(
                     (
@@ -356,9 +399,14 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
                         else -1
                     ),
                     budget,
+                    _caller_exceptions=caller_exceptions,
                 ):
                     train_time = self._fit(X_train, y_train, **kwargs)
             except (MemoryError, TimeoutError) as e:
+                if isinstance(e, _ResourceLimitTimeout) and e.owner is not caller_exceptions:
+                    raise
+                if any(e is caller_exception for caller_exception in caller_exceptions):
+                    raise
                 logger.warning(f"{e.__class__} {e}")
                 if self._task.is_classification():
                     model = DummyClassifier()

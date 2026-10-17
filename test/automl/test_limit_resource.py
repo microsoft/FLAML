@@ -189,3 +189,237 @@ def test_restore_alarm_if_memory_cleanup_raises(monkeypatch):
     remaining, interval = signal.getitimer(signal.ITIMER_REAL)
     assert 0 < remaining <= 60
     assert interval == 5
+
+
+@pytest.fixture
+def caller_alarm(monkeypatch):
+    def install(handler, delay=0.02):
+        # Supply the entry snapshot without a live timer that can fire during test setup.
+        # All timers armed by the context and subsequent reads use the real OS timer.
+        signal.signal(signal.SIGALRM, handler)
+        getitimer = signal.getitimer
+        pending = True
+
+        def initial_timer(timer):
+            nonlocal pending
+            if pending:
+                pending = False
+                return delay, 0
+            return getitimer(timer)
+
+        monkeypatch.setattr(signal, "getitimer", initial_timer)
+
+    return install
+
+
+@pytest.mark.parametrize("exception_type", [TimeoutError, MemoryError])
+def test_fit_propagates_caller_exception(monkeypatch, exception_type, caller_alarm):
+    error = exception_type("caller deadline")
+
+    def handler(sig, frame):
+        raise error
+
+    caller_alarm(handler)
+    model = LRL2Classifier()
+    monkeypatch.setattr(model, "_fit", lambda *args, **kwargs: time.sleep(1))
+    with pytest.raises(exception_type) as caught:
+        model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=1)
+    assert caught.value is error
+    assert caught.traceback[-1].name == "handler"
+    assert model.model is None
+    assert signal.getitimer(signal.ITIMER_REAL) == (0, 0)
+
+
+def test_fit_propagates_outer_budget_timeout(monkeypatch):
+    model = LRL2Classifier()
+    monkeypatch.setattr(model, "_fit", lambda *args, **kwargs: time.sleep(2))
+    with pytest.raises(TimeoutError):
+        with limit_resource(-1, 1):
+            model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=30)
+    assert model.model is None
+
+
+def test_fit_still_handles_own_budget_timeout(monkeypatch):
+    from sklearn.dummy import DummyClassifier
+
+    model = LRL2Classifier()
+    monkeypatch.setattr(model, "_fit", lambda *args, **kwargs: time.sleep(2))
+    with limit_resource(-1, 30):
+        model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=1)
+        assert isinstance(model.model, DummyClassifier)
+        assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
+
+
+@pytest.mark.parametrize("replacement", ["SIG_IGN", "SIG_DFL"])
+def test_changed_caller_handler_does_not_disable_budget(replacement):
+    import subprocess
+    import sys
+
+    # Isolate SIG_DFL: a regression must fail the test, not terminate pytest.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"""
+import signal
+import time
+from flaml.automl.model import limit_resource
+replacement = signal.{replacement}
+def handler(sig, frame):
+    signal.signal(signal.SIGALRM, replacement)
+signal.signal(signal.SIGALRM, handler)
+getitimer = signal.getitimer
+pending = True
+def initial_timer(timer):
+    global pending
+    if pending:
+        pending = False
+        return 0.02, 0
+    return getitimer(timer)
+signal.getitimer = initial_timer
+try:
+    with limit_resource(-1, 1):
+        time.sleep(2)
+except TimeoutError:
+    assert signal.getsignal(signal.SIGALRM) == replacement
+    assert signal.getitimer(signal.ITIMER_REAL) == (0, 0)
+else:
+    raise AssertionError("training deadline was ignored")
+""",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_nested_limits_preserve_changed_caller_handler(caller_alarm):
+    calls = []
+
+    def replacement(sig, frame):
+        calls.append("replacement")
+
+    def handler(sig, frame):
+        calls.append("original")
+        signal.signal(signal.SIGALRM, replacement)
+        signal.setitimer(signal.ITIMER_REAL, 0.02)
+
+    caller_alarm(handler)
+    with limit_resource(-1, 30):
+        with limit_resource(-1, 10):
+            wait_deadline = time.monotonic() + 2
+            while len(calls) < 2 and time.monotonic() < wait_deadline:
+                time.sleep(0.01)
+    assert calls == ["original", "replacement"]
+    assert signal.getsignal(signal.SIGALRM) is replacement
+
+
+def test_delayed_repeating_alarm_keeps_phase(monkeypatch):
+    from types import SimpleNamespace
+
+    # A fake clock makes the phase check independent of scheduler delays in CI.
+    calls = []
+    state = SimpleNamespace(now=0.0, deadline=0.04, interval=0.2, handler=lambda *args: calls.append(state.now))
+
+    def getitimer(timer):
+        return (max(state.deadline - state.now, 0) if state.deadline else 0, state.interval)
+
+    def setitimer(timer, delay, interval=0):
+        state.deadline = state.now + delay if delay else None
+        state.interval = interval
+
+    def set_handler(sig, handler):
+        state.handler = handler
+
+    # Keep the real signal module intact for the alarm-restoration fixture.
+    monkeypatch.setattr(
+        "flaml.automl.model.signal",
+        SimpleNamespace(
+            SIGALRM=signal.SIGALRM,
+            SIG_DFL=signal.SIG_DFL,
+            ITIMER_REAL=signal.ITIMER_REAL,
+            getsignal=lambda sig: state.handler,
+            signal=set_handler,
+            getitimer=getitimer,
+            setitimer=setitimer,
+        ),
+    )
+    monkeypatch.setattr("flaml.automl.model.time", SimpleNamespace(monotonic=lambda: state.now))
+    with limit_resource(-1, 2):
+        state.now = 0.28
+        state.handler(signal.SIGALRM, None)
+        assert calls == [0.28]
+        assert state.deadline == pytest.approx(0.44)
+        state.now = 0.44
+        state.handler(signal.SIGALRM, None)
+        assert calls == [0.28, 0.44]
+        assert state.deadline == pytest.approx(0.64)
+    assert state.interval == 0.2
+
+
+def test_early_signal_does_not_expire_budget():
+    with limit_resource(-1, 30):
+        signal.raise_signal(signal.SIGALRM)
+        assert signal.getitimer(signal.ITIMER_REAL)[0] > 29
+
+
+def test_caught_caller_exception_does_not_disable_budget(caller_alarm):
+    error = RuntimeError("caller deadline")
+
+    def handler(sig, frame):
+        raise error
+
+    caller_alarm(handler)
+    with pytest.raises(TimeoutError):
+        with limit_resource(-1, 1):
+            try:
+                time.sleep(0.5)
+            except RuntimeError as caught:
+                assert caught is error
+            assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
+            time.sleep(1.2)
+
+
+@pytest.mark.parametrize("exception_type", [TimeoutError, MemoryError, RuntimeError])
+def test_expired_budget_takes_precedence_over_slow_caller(monkeypatch, exception_type, caller_alarm):
+    from sklearn.dummy import DummyClassifier
+
+    def handler(sig, frame):
+        time.sleep(1.05)
+        raise exception_type("late caller exception")
+
+    caller_alarm(handler)
+    model = LRL2Classifier()
+    monkeypatch.setattr(model, "_fit", lambda *args, **kwargs: time.sleep(2))
+    model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=1)
+    assert isinstance(model.model, DummyClassifier)
+
+
+def test_caught_late_caller_cannot_disable_expired_budget(caller_alarm):
+    def handler(sig, frame):
+        time.sleep(1.05)
+        raise RuntimeError("late caller exception")
+
+    caller_alarm(handler)
+    with pytest.raises(TimeoutError):
+        with limit_resource(-1, 1):
+            try:
+                time.sleep(2)
+            except RuntimeError:
+                pass
+            time.sleep(0.2)
+
+
+def test_overlapping_outer_budget_keeps_its_owner(monkeypatch, caller_alarm):
+    def handler(sig, frame):
+        time.sleep(1.05)
+        raise RuntimeError("late caller exception")
+
+    caller_alarm(handler)
+    model = LRL2Classifier()
+    monkeypatch.setattr(model, "_fit", lambda *args, **kwargs: time.sleep(2))
+    with pytest.raises(TimeoutError):
+        with limit_resource(-1, 1):
+            model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=1)
+    assert model.model is None
