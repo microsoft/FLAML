@@ -94,16 +94,39 @@ class BaseTrialRunner:
                 trial.set_status(Trial.PAUSED)
 
     def stop_trial(self, trial):
-        """Stops trial."""
-        if trial.status not in [Trial.ERROR, Trial.TERMINATED]:
-            if self._scheduler_alg:
-                self._scheduler_alg.on_trial_complete(self, trial.trial_id, trial.last_result)
-            self._search_alg.on_trial_complete(trial.trial_id, trial.last_result)
-            trial.set_status(Trial.TERMINATED)
-        elif self._scheduler_alg:
-            self._scheduler_alg.on_trial_remove(self, trial)
-            if trial.status == Trial.ERROR:
-                self._search_alg.on_trial_complete(trial.trial_id, trial.last_result, error=True)
+        """Stops trial.
+
+        Holds the same per-trial lock tune.py's report() takes before its
+        own admission (tune.py's `_admission_lock_for`), so this cannot run
+        at the same instant a report is inside its locked
+        process_trial_result() section for the SAME trial (#996 follow-up,
+        sixth review point 1). Before this, a straggling background
+        thread's report (see the propagation machinery in tune.py: a
+        trainable can hand a worker thread a run context and keep reporting
+        through it after evaluation_function() has already returned) could
+        be mutating `trial.last_result`/`trial.status` and calling into the
+        search_alg/scheduler for this trial via process_trial_result() at
+        the same time run()'s own loop called stop_trial() on it directly,
+        unsynchronized: the two paths shared a trial but not a lock. Local
+        import: trial_runner is only ever imported lazily from inside
+        tune.run() (or after `flaml.tune`'s own package init has already
+        finished), specifically so tune.py has no load-time dependency on
+        this module; importing back here only inside the call keeps that
+        one-directional at import time while both places key the same lock
+        off the same trial object.
+        """
+        from .tune import _admission_lock_for
+
+        with _admission_lock_for(trial):
+            if trial.status not in [Trial.ERROR, Trial.TERMINATED]:
+                if self._scheduler_alg:
+                    self._scheduler_alg.on_trial_complete(self, trial.trial_id, trial.last_result)
+                self._search_alg.on_trial_complete(trial.trial_id, trial.last_result)
+                trial.set_status(Trial.TERMINATED)
+            elif self._scheduler_alg:
+                self._scheduler_alg.on_trial_remove(self, trial)
+                if trial.status == Trial.ERROR:
+                    self._search_alg.on_trial_complete(trial.trial_id, trial.last_result, error=True)
 
 
 class SequentialTrialRunner(BaseTrialRunner):
