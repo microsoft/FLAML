@@ -27,16 +27,16 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==46.0.3
 cycler==0.12.1
-databricks-sdk==0.152.0
+databricks-sdk==0.153.0
 debugpy==1.8.22
 defusedxml==0.7.1
 dill==0.4.1
-distlib==0.4.3
+distlib==0.4.4
 executing==2.3.0
-fastapi==0.143.1
+fastapi==0.143.3
 fastjsonschema==2.22.2
 filelock==4.2.0
--e git+https://github.com/microsoft/FLAML@39951d7d9729bf636a368fbeb92068440acb4372#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@931a4f02203abd66793051f1767b8b70da1ae08b#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -115,9 +115,9 @@ pandas==3.0.6
 pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
-pillow==12.3.0
-platformdirs==4.13.0
-pluggy==1.6.0
+pillow==13.0.0
+platformdirs==4.13.3
+pluggy==1.7.0
 pre_commit==4.7.0
 prometheus_client==0.26.0
 prompt_toolkit==3.0.53
@@ -137,9 +137,9 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 pytest-rerunfailures==16.7
 python-dateutil==2.9.0.post0
-python-discovery==1.6.2
+python-discovery==1.6.3
 python-json-logger==4.2.0
-pywinpty==3.0.5
+pywinpty==3.1.0
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
@@ -161,7 +161,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
 soupsieve==3.0.3
-SQLAlchemy==2.1.4
+SQLAlchemy==2.1.5
 sqlparse==0.6.0
 stack-data==0.6.3
 starlette==1.8.0
@@ -174,7 +174,7 @@ tokenizers==0.23.3
 tornado==6.5.10
 tqdm==4.70.1
 traitlets==5.16.1
-transformers==5.19.0
+transformers==5.20.1
 truststore==0.10.5
 typer==0.27.3
 typing-inspection==0.4.4
