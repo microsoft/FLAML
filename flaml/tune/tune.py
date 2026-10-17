@@ -24,6 +24,8 @@ else:
 import logging
 
 from flaml.fabric import is_fabric_runtime
+from flaml.fabric.logger import init_kusto_logger
+from flaml.fabric.telemetry import log_telemetry
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
 from .logger import logger, logger_formatter
@@ -36,29 +38,14 @@ except ImportError:
     mlflow = None
 
 try:
-    from flaml.fabric.logger import init_kusto_logger
     from flaml.fabric.mlflow import MLflowIntegration, is_autolog_enabled
-    from flaml.fabric.telemetry import log_telemetry
 
     internal_mlflow = True
-    is_log_telemetry_tune = True
-    kusto_logger = init_kusto_logger("flaml.tune")
 except ImportError:
     internal_mlflow = False
-    is_log_telemetry_tune = False
 
-    class KustoLogger:
-        def info(self, *args, **kwargs):
-            pass
-
-        def warning(self, *args, **kwargs):
-            pass
-
-        def error(self, *args, **kwargs):
-            pass
-
-    kusto_logger = KustoLogger()
-
+is_log_telemetry_tune = True
+kusto_logger = init_kusto_logger("flaml.tune")
 _use_ray = True
 _runner = None
 _verbose = 0
@@ -515,7 +502,7 @@ def run(
         f"has_search_alg={search_alg is not None}, custom_metric={callable(metric)}, "
         f"use_ray={use_ray is True}, use_spark={use_spark is True}"
     )
-    if is_log_telemetry_tune and internal_mlflow and not automl_info:
+    if is_log_telemetry_tune and not automl_info:
         log_telemetry(activity_name="flaml-tune")
         is_log_telemetry_tune = False
     if log_file_name:
@@ -558,17 +545,13 @@ def run(
         else:
             logger.setLevel(logging.CRITICAL)
 
-    if (
-        internal_mlflow
-        and mlflow_logging
-        and not automl_info
-        and (is_fabric_runtime() or mlflow.active_run() is not None or is_autolog_enabled())
-    ):
-        mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag)
-        evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
-        _internal_mlflow = not automl_info  # True if mlflow_integration will be used for logging
-    else:
-        _internal_mlflow = False
+    _internal_mlflow = False
+    if internal_mlflow and mlflow_logging and not automl_info:
+        logging_active = mlflow.active_run() is not None or is_autolog_enabled()
+        if is_fabric_runtime() or logging_active:
+            mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag, only_history=not logging_active)
+            evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
+            _internal_mlflow = True
 
     from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
@@ -728,6 +711,7 @@ def run(
                 with open(log_file_name, "w") as f:
                     for trial in analysis.trials:
                         f.write(f"result: {trial.last_result}\n")
+            analysis.search_space = config
             return analysis
         finally:
             _use_ray = old_use_ray

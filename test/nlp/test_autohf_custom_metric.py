@@ -2,6 +2,7 @@ import os
 import platform
 import shutil
 import sys
+from test._artifact_paths import artifact_path
 
 import pytest
 from utils import get_automl_settings, get_toy_data_seqclassification
@@ -77,7 +78,7 @@ def test_custom_metric():
     automl_settings["max_iter"] = 3
     automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
     automl.score(X_val, y_val, **{"metric": custom_metric})
-    automl.pickle("automl.pkl")
+    automl.pickle(artifact_path(__file__, "automl.pkl"))
 
     del automl
 

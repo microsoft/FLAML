@@ -18,30 +18,28 @@ if is_fabric_runtime():
 
 _KUSTO_TABLE_NAME = "SynapseMLLogs"
 
-if no_synapse:
 
-    class KustoLogger:
-        def debug(self, *args, **kwargs):
-            pass
+class KustoLogger:
+    def debug(self, *args, **kwargs):
+        pass
 
-        def info(self, *args, **kwargs):
-            pass
+    def info(self, *args, **kwargs):
+        pass
 
-        def warning(self, *args, **kwargs):
-            pass
+    def warning(self, *args, **kwargs):
+        pass
 
-        def error(self, *args, **kwargs):
-            pass
+    def error(self, *args, **kwargs):
+        pass
 
-        def exception(self, *args, **kwargs):
-            pass
+    def exception(self, *args, **kwargs):
+        pass
 
-    kusto_logger = KustoLogger()
 
-    def init_kusto_logger(logger_name: str = ""):
-        return kusto_logger
+kusto_logger = KustoLogger()
 
-else:
+
+if not no_synapse:
 
     class ArtifactNameScrubber(IScrub):
         pattern = re.compile("Artifact \\S+", re.IGNORECASE)
@@ -50,11 +48,18 @@ else:
         def scrub(self, msg: str) -> str:
             return re.sub(self.pattern, self.mask, msg)
 
-    def init_kusto_logger(logger_name: str = ""):
-        if not logger_name:
-            logger_name = __name__
+
+def init_kusto_logger(logger_name: str = ""):
+    if no_synapse:
+        return kusto_logger
+    if not logger_name:
+        logger_name = __name__
+    try:
         return get_mds_logger(
             logger_name,
             tableName=_KUSTO_TABLE_NAME,
             scrubbers=[*default_scrubbers, ArtifactNameScrubber()],
         )
+    except Exception:
+        logging.getLogger(__name__).warning("Fabric diagnostic logger initialization failed.", exc_info=True)
+        return kusto_logger

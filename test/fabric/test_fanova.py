@@ -11,6 +11,32 @@ from flaml.fabric.fanova.evaluator import _expand_distribution
 from flaml.fabric.visualization import get_param_importance
 
 
+def test_fanova_does_not_patch_optuna_tree_globally():
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import pandas as pd
+        from optuna.importance._fanova._tree import _FanovaTree
+        from optuna.distributions import UniformDistribution
+        original = _FanovaTree._get_node_value
+        from flaml.fabric.fanova import FanovaImportanceEvaluator
+        evaluator = FanovaImportanceEvaluator(seed=0, n_trees=8)
+        result = evaluator.evaluate(
+            pd.DataFrame({"x": [0.0, 0.25, 0.5, 1.0]}),
+            [0.0, 0.2, 0.6, 1.0],
+            {"x": UniformDistribution(0.0, 1.0)},
+        )
+        assert result == {"x": 1.0}, result
+        assert _FanovaTree._get_node_value is original
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def objective(config):
     target = config["x"] ** 2 + config["y"] * config["eps"]
     if config["cat"] == "b":
@@ -46,6 +72,33 @@ def test_optuna_backed_evaluator():
 
     assert set(importance) == set(search_space)
     assert pytest.approx(1.0, abs=1e-4) == sum(importance.values())
+
+
+def test_fanova_preserves_explicit_none_category():
+    frame = pd.DataFrame({"class_weight": [None, "balanced"]}, dtype=object)
+    space = {"class_weight": CategoricalDistribution([None, "balanced"])}
+    assert FanovaImportanceEvaluator(seed=0).evaluate(frame, [0.0, 1.0], space) == {"class_weight": 1.0}
+
+
+def test_fanova_can_expand_to_an_observed_none_category():
+    frame = pd.DataFrame({"class_weight": [None, "balanced"]}, dtype=object)
+    space = {"class_weight": CategoricalDistribution(["balanced"])}
+    assert FanovaImportanceEvaluator(seed=0).evaluate(frame, [0.0, 1.0], space) == {"class_weight": 1.0}
+
+
+def test_fanova_distinguishes_none_choice_from_missing_parameter(monkeypatch):
+    frame = pd.DataFrame({"class_weight": [None, "balanced", pd.NA]}, dtype=object)
+    evaluator = FanovaImportanceEvaluator(seed=0)
+    observed = []
+
+    def inspect_trials(study, params):
+        observed.extend(study.trials)
+        return {"class_weight": 1.0}
+
+    monkeypatch.setattr(evaluator._evaluator, "evaluate", inspect_trials)
+    evaluator.evaluate(frame, [0.0, 1.0, 1000.0], {"class_weight": CategoricalDistribution([None, "balanced"])})
+    assert [trial.params["class_weight"] for trial in observed] == [None, "balanced"]
+    assert [trial.value for trial in observed] == [0.0, 1.0]
 
 
 def test_optuna_backed_evaluator_expands_space_to_observed_values():
@@ -141,6 +194,29 @@ def test_expand_distribution_preserves_legacy_integer_step(monkeypatch):
     assert isinstance(expanded, IntUniformDistribution)
     assert expanded.step == 5
     assert (expanded.low, expanded.high) == (0, 20)
+
+
+@pytest.mark.parametrize(
+    "name,kwargs,values,expected_log,expected_step",
+    [
+        ("LogUniformDistribution", {"low": 0.001, "high": 1.0}, [0.0001, 2.0], True, None),
+        ("IntLogUniformDistribution", {"low": 4, "high": 16}, [2, 32], True, 1),
+        ("DiscreteUniformDistribution", {"low": 0.1, "high": 0.9, "q": 0.2}, [-0.1, 1.1], False, 0.2),
+    ],
+)
+def test_legacy_numeric_replay_expansion(monkeypatch, name, kwargs, values, expected_log, expected_step):
+    monkeypatch.setattr(fanova_evaluator, "FloatDistribution", None)
+    monkeypatch.setattr(fanova_evaluator, "IntDistribution", None)
+    distribution = getattr(distributions, name)(**kwargs)
+    before = distribution.__dict__.copy()
+    expanded = _expand_distribution(distribution, values)
+    for value in values:
+        assert expanded._contains(expanded.to_internal_repr(value))
+    assert distribution.__dict__ == before
+    if expected_log:
+        assert "LogUniform" in type(expanded).__name__
+    if expected_step is not None:
+        assert getattr(expanded, "step", getattr(expanded, "q", None)) == expected_step
 
 
 def test_expand_categorical_distribution_preserves_original_choices():

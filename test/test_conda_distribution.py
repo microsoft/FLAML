@@ -1,4 +1,5 @@
 from pathlib import Path
+from test._artifact_paths import artifact_path
 
 import pytest
 from sklearn.datasets import load_iris
@@ -18,14 +19,14 @@ def test_package_minimum():
         "time_budget": 10,  # in seconds
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "iris.log",
+        "log_file_name": artifact_path(__file__, "iris.log"),
     }
     X_train, y_train = load_iris(return_X_y=True)
     # Train with labeled input data
     automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
     # Check that `best_config` is created, the log was created and best model is accessible
     assert hasattr(automl, "best_config")
-    assert Path("iris.log").exists()
+    assert Path(artifact_path(__file__, "iris.log")).exists()
     assert automl.model is not None
     print(automl.model)
     # Predict and check that the prediction shape is as expected

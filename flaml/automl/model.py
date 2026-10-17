@@ -229,6 +229,8 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             return self._model.feature_names_in_
         if hasattr(self._model, "feature_name_"):  # for lightgbm
             return self._model.feature_name_
+        if hasattr(self._model, "feature_names_"):  # for catboost
+            return self._model.feature_names_
         if hasattr(self._model, "feature_names"):  # for XGBoostEstimator
             return self._model.feature_names
         if hasattr(self._model, "get_booster"):

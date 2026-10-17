@@ -70,6 +70,15 @@ def test_explicit_featurization_precedes_environment(public_environment, monkeyp
     assert AutoML(featurization="off")._settings["featurization"] == "off"
 
 
+def test_unsupported_featurization_dict_fails_before_data_validation(public_environment, monkeypatch):
+    validation = Mock(side_effect=AssertionError("Invalid feature configuration reached training"))
+    monkeypatch.setattr("flaml.automl.task.generic_task.GenericTask.validate_data", validation)
+    automl = AutoML(featurization={"numerical": {"methods": "scaler_standard"}}, mlflow_logging=False)
+    with pytest.raises(ValueError, match="Expect featurization to be one of 'auto', 'off', 'force';"):
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    validation.assert_not_called()
+
+
 def test_automl_import_and_fit_without_mlflow(public_environment):
     code = textwrap.dedent(
         """
@@ -135,6 +144,358 @@ def test_automl_logging_policy(local_mlflow, monkeypatch, fabric):
         assert automl.mlflow_integration is None
 
 
+@pytest.mark.parametrize("experiment_type", ["automl", "tune"])
+def test_history_only_does_not_contact_services_or_change_autolog(local_mlflow, monkeypatch, experiment_type):
+    mlflow, module = local_mlflow
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    monkeypatch.setattr("flaml.tune.tune.is_autolog_enabled", lambda: False)
+    no_service = Mock(side_effect=AssertionError("History-only must remain local"))
+    monkeypatch.setattr(mlflow.tracking, "MlflowClient", no_service)
+    monkeypatch.setattr(mlflow, "set_experiment", no_service)
+    monkeypatch.setattr(mlflow, "get_experiment", no_service)
+    monkeypatch.setattr(mlflow, "autolog", no_service)
+    monkeypatch.setattr(module, "_get_notebook_name", no_service)
+    if experiment_type == "automl":
+        result = AutoML(max_iter=1, estimator_list=["rf"], n_jobs=1, verbose=0)
+        result.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+        assert result.mlflow_integration.only_history
+        assert result.mlflow_integration.infos
+    else:
+        result = tune.run(
+            lambda config: {"loss": 1.0},
+            config={"x": 1},
+            metric="loss",
+            mode="min",
+            num_samples=1,
+            use_ray=False,
+            verbose=0,
+        )
+        assert len(result.trials) == 1
+    no_service.assert_not_called()
+
+
+@pytest.mark.parametrize("active_run,log_models", [(False, True), (True, False), (True, True)])
+def test_parallel_latency_probe_respects_logging_intent(local_mlflow, monkeypatch, active_run, log_models):
+    mlflow, module = local_mlflow
+    automl_module = importlib.import_module("flaml.automl.automl")
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    monkeypatch.setattr(module, "AUTOLOGGING_INTEGRATIONS", {"mlflow": {"disable": True, "log_models": log_models}})
+
+    class ReachedParallelRunner(Exception):
+        pass
+
+    latency = Mock(return_value=0.0)
+    runner = Mock(side_effect=ReachedParallelRunner)
+    monkeypatch.setattr(automl_module, "get_mlflow_log_latency", latency)
+    monkeypatch.setattr(automl_module.tune, "run", runner)
+    monkeypatch.setattr(AutoML, "trainable", property(lambda self: Mock()))
+    automl = AutoML(estimator_list=["rf"], max_iter=2, n_jobs=1, verbose=0)
+    search = automl._search
+
+    def parallel_search(*args, **kwargs):
+        automl._use_spark = True
+        automl._n_concurrent_trials = 2
+        return search(*args, **kwargs)
+
+    monkeypatch.setattr(automl, "_search", parallel_search)
+    if active_run:
+        mlflow.start_run()
+    try:
+        with pytest.raises(ReachedParallelRunner):
+            automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+        runner.assert_called_once()
+        if active_run:
+            latency.assert_called_once_with(model_history=log_models)
+        else:
+            latency.assert_not_called()
+    finally:
+        mlflow.end_run()
+
+
+@pytest.mark.parametrize("constructor_settings", [{}, {"task": "classification", "time_budget": 60}])
+def test_configuration_metadata_tracks_each_fit(public_environment, constructor_settings):
+    automl = AutoML(**constructor_settings)
+    X = np.random.RandomState(7).normal(size=(60, 3))
+    settings = {"estimator_list": ["lgbm"], "max_iter": 1, "n_jobs": 1, "verbose": 0, "mlflow_logging": False}
+    automl.fit(X, X[:, 0], task="regression", time_budget=20, featurization="auto", **settings)
+    assert automl._automl_user_configurations["task"] == "regression"
+    assert automl._automl_user_configurations["time_budget"] == 20
+    assert automl._automl_user_configurations["featurization"] == "auto"
+    automl.fit(X, (X[:, 0] > 0).astype(int), task="classification", time_budget=30, featurization="off", **settings)
+    assert automl._automl_user_configurations["task"] in ("classification", "binary")
+    assert automl._automl_user_configurations["time_budget"] == 30
+    assert automl._automl_user_configurations["featurization"] == "off"
+
+
+def test_ensemble_reports_featurization_exclusion(public_environment, monkeypatch, caplog):
+    class ReachedSearch(Exception):
+        pass
+
+    automl = AutoML(
+        estimator_list=["rf", "extra_tree"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=2,
+        mlflow_logging=False,
+        ensemble=True,
+        featurization="force",
+    )
+    monkeypatch.setattr(automl, "_search", Mock(side_effect=ReachedSearch))
+    with pytest.raises(ReachedSearch):
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    assert automl._featurization == "off"
+    assert automl._automl_user_configurations["featurization"] == "off"
+    assert any("AutoFE" in record.message and "ensemble" in record.message for record in caplog.records)
+
+
+def test_missing_autofe_does_not_disable_ordinary_automl(public_environment):
+    code = textwrap.dedent(
+        """
+        import importlib.abc
+        import sys
+        import numpy as np
+
+        class BlockAutoFE(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "flaml.fabric.autofe":
+                    raise ModuleNotFoundError(fullname, name=fullname)
+        sys.meta_path.insert(0, BlockAutoFE())
+        import flaml
+        assert flaml.has_automl
+        automl = flaml.AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1,
+                            mlflow_logging=False, verbose=0)
+        X, y = np.arange(80).reshape(40, 2), np.tile([0, 1], 20)
+        automl.fit(X, y)
+        assert len(automl.predict(X[:2])) == 2
+        try:
+            automl.fit(X, y, featurization="auto")
+        except ImportError as error:
+            assert "flaml[autofe]" in str(error)
+        else:
+            raise AssertionError("Explicit AutoFE was silently skipped")
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_telemetry_is_independent_of_mlflow(public_environment):
+    code = textwrap.dedent(
+        """
+        import importlib
+        import importlib.abc
+        import sys
+        import numpy as np
+
+        class BlockMLflow(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname.split(".")[0] == "mlflow":
+                    raise ModuleNotFoundError(fullname, name=fullname)
+        sys.meta_path.insert(0, BlockMLflow())
+        from flaml import AutoML, tune
+        import flaml.fabric.telemetry as telemetry
+        from flaml.fabric.logger import init_kusto_logger
+        automl_module = importlib.import_module("flaml.automl.automl")
+        tune_module = importlib.import_module("flaml.tune.tune")
+        assert automl_module.kusto_logger is init_kusto_logger()
+        assert tune_module.kusto_logger is init_kusto_logger()
+        calls = []
+        telemetry.is_fabric_runtime = lambda: True
+        telemetry.report_usage_telemetry = lambda category, activity, **kwargs: calls.append(activity)
+        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0)
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+        tune.run(lambda config: {"loss": 1.0}, config={"x": 1}, metric="loss",
+                 mode="min", num_samples=1, use_ray=False, verbose=0)
+        assert set(calls) == {"flaml-automl", "flaml-tune"}, calls
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_file_store_corruption_is_not_silently_skipped(tmp_path):
+    pytest.importorskip("mlflow")
+    import yaml
+    from mlflow.store.tracking.file_store import FileStore
+
+    (tmp_path / "meta.yaml").write_text("broken: [1,\n", encoding="utf-8")
+    with pytest.raises(yaml.YAMLError):
+        FileStore._read_yaml(str(tmp_path), "meta.yaml", retries=0)
+
+
+def test_local_file_store_retains_every_logged_trial(local_mlflow, monkeypatch):
+    mlflow, module = local_mlflow
+    monkeypatch.setattr(module, "AUTOLOGGING_INTEGRATIONS", {"mlflow": {"disable": True, "log_models": False}})
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        model_history=False,
+        starting_points={"rf": [{"n_estimators": 4}, {"n_estimators": 8}]},
+    )
+    with mlflow.start_run() as parent:
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+        expected = automl.mlflow_integration.manual_run_ids
+        children = mlflow.tracking.MlflowClient().search_runs(
+            [parent.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+        )
+    assert len(automl.mlflow_integration.infos) == len(expected) == 2
+    assert {child.info.run_id for child in children} == set(expected)
+
+
+def test_restore_failure_does_not_replace_training_error(caplog):
+    import logging
+
+    from flaml.automl.automl import _restore_mlflow_after_fit, logger
+
+    caplog.set_level(logging.ERROR, logger=logger.name)
+
+    def fail_training(self):
+        raise ValueError("original training error")
+
+    instance = SimpleNamespace(
+        mlflow_integration=SimpleNamespace(resume_mlflow=Mock(side_effect=RuntimeError("restore failed")))
+    )
+    with pytest.raises(ValueError, match="original training error"):
+        _restore_mlflow_after_fit(fail_training)(instance)
+    assert any("restor" in record.message.lower() for record in caplog.records)
+
+
+def test_restore_failure_after_success_remains_visible():
+    from flaml.automl.automl import _restore_mlflow_after_fit
+
+    instance = SimpleNamespace(
+        mlflow_integration=SimpleNamespace(resume_mlflow=Mock(side_effect=RuntimeError("restore failed")))
+    )
+    with pytest.raises(RuntimeError, match="restore failed"):
+        _restore_mlflow_after_fit(lambda self: "trained")(instance)
+
+
+def test_usage_reporting_failure_is_nonfatal_and_visible(monkeypatch, caplog):
+    module = importlib.import_module("flaml.fabric.telemetry")
+    monkeypatch.setattr(module, "is_fabric_runtime", lambda: True)
+    monkeypatch.setattr(module, "report_usage_telemetry", Mock(side_effect=RuntimeError("telemetry offline")))
+    module.log_telemetry("test-activity")
+    assert any("telemetry" in record.message.lower() for record in caplog.records)
+
+
+def test_optional_diagnostic_logger_failure_is_nonfatal(monkeypatch, caplog):
+    module = importlib.import_module("flaml.fabric.logger")
+    factory = Mock(side_effect=RuntimeError("diagnostics offline"))
+    monkeypatch.setattr(module, "no_synapse", False)
+    monkeypatch.setattr(module, "get_mds_logger", factory, raising=False)
+    monkeypatch.setattr(module, "default_scrubbers", [], raising=False)
+    monkeypatch.setattr(module, "ArtifactNameScrubber", lambda: object(), raising=False)
+    assert module.init_kusto_logger("test") is module.kusto_logger
+    factory.assert_called_once()
+    assert any("diagnostic" in record.message.lower() for record in caplog.records)
+
+
+def test_signature_failure_diagnostics_do_not_include_sample_values(local_mlflow, monkeypatch):
+    _, module = local_mlflow
+    logger = Mock()
+    monkeypatch.setattr(module, "kusto_logger", logger)
+    monkeypatch.setattr(module.mlflow.models, "infer_signature", Mock(side_effect=ValueError("private-sample-value")))
+    assert module.infer_signature(X_train=np.arange(6).reshape(3, 2), y_train=np.arange(3)) is None
+    assert "private-sample-value" not in str(logger.mock_calls)
+
+
+def test_automl_diagnostics_do_not_format_caller_objects(monkeypatch):
+    from sklearn.model_selection import KFold
+
+    import flaml.automl.automl as module
+    from flaml.automl.model import RandomForestEstimator
+
+    class PrivateMetric:
+        def __repr__(self):
+            return "private-metric-payload"
+
+        def __call__(self, *args, **kwargs):
+            return 0.5, {}
+
+    class PrivateSplit(KFold):
+        def __repr__(self):
+            return "private-split-payload"
+
+    logger = Mock()
+    monkeypatch.setattr(module, "kusto_logger", logger)
+    automl = AutoML(
+        estimator_list=["private-learner-payload"],
+        metric=PrivateMetric(),
+        split_type=PrivateSplit(2),
+        eval_method="cv",
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        entrypoint="code-first",
+    )
+    automl.add_learner("private-learner-payload", RandomForestEstimator)
+    automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    assert "private-" not in str(logger.mock_calls)
+    with pytest.raises(ValueError, match="entrypoint"):
+        AutoML(entrypoint="private-entrypoint-payload")
+    assert "private-entrypoint-payload" not in str(logger.mock_calls)
+
+
+def test_telemetry_uses_normal_logging_without_an_extra_console_handler(public_environment):
+    code = textwrap.dedent(
+        """
+        import logging
+        from flaml.fabric import telemetry
+
+        assert not telemetry.logger.handlers
+        records = []
+        class Capture(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+        logging.getLogger().addHandler(Capture())
+        telemetry.is_fabric_runtime = lambda: True
+        def fail(*args, **kwargs):
+            raise RuntimeError("diagnostic failure")
+        telemetry.report_usage_telemetry = fail
+        telemetry.log_telemetry("test")
+        assert len([record for record in records if record.name == telemetry.logger.name]) == 1
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_rejected_feature_trial_keeps_mlflow_history_complete(local_mlflow, monkeypatch):
+    import pandas as pd
+    from sklearn.model_selection import KFold
+
+    mlflow, module = local_mlflow
+    monkeypatch.setattr(module, "AUTOLOGGING_INTEGRATIONS", {"mlflow": {"disable": True, "log_models": True}})
+    pipeline_log = Mock()
+    monkeypatch.setattr(module.MLflowIntegration, "pickle_and_log_automl_artifacts", pipeline_log)
+    monkeypatch.setattr(module.MLflowIntegration, "log_model", Mock())
+    frame = pd.DataFrame({"feature": [0.0] * 10 + [1.0] * 10})
+    settings = {"n_estimators": 4, "max_features": 1.0, "max_leaves": 4, "fe.extraction": "null"}
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        model_history=True,
+        featurization="auto",
+        auto_augment=False,
+        eval_method="cv",
+        split_type=KFold(2),
+        starting_points={"rf": [{**settings, "fe.selection": "variance"}, {**settings, "fe.selection": "null"}]},
+    )
+    with mlflow.start_run():
+        automl.fit(frame, np.tile([0, 1], 10))
+    integration = automl.mlflow_integration
+    assert len(integration.infos) == len(integration.manual_run_ids) == 2
+    assert np.isinf(integration.infos[0]["metrics"]["validation_loss"])
+    assert integration.best_run_id == integration.manual_run_ids[1]
+    assert pipeline_log.call_count
+    assert all(call.args[1] is not None for call in pipeline_log.call_args_list)
+
+
 @pytest.mark.parametrize("fabric", [False, True])
 def test_automl_logging_opt_out(local_mlflow, monkeypatch, fabric):
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric))
@@ -171,13 +532,21 @@ def test_tune_logging_policy(local_mlflow, monkeypatch, fabric, logging_enabled)
 
 
 @pytest.mark.parametrize("fabric,prefix", [(False, "flaml"), (True, "synapseml.flaml")])
-def test_mlflow_tag_namespace(local_mlflow, monkeypatch, fabric, prefix):
+@pytest.mark.parametrize("result,metric_tag", [({"loss": 0.1}, "['loss']"), (0.1, "loss")])
+def test_mlflow_tag_namespace(local_mlflow, monkeypatch, fabric, prefix, result, metric_tag):
+    from flaml.version import __version__
+
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric))
     integration = local_mlflow[1].MLflowIntegration("tune")
-    integration.record_trial({"loss": 0.1}, SimpleNamespace(config={"x": 1}), "loss")
-    assert f"{prefix}.version" in integration.infos[0]["tags"]
-    assert f"{prefix}.best_run" in integration.infos[0]["tags"]
-    assert all(key.startswith(prefix + ".") for key in integration.infos[0]["tags"])
+    integration.record_trial(result, SimpleNamespace(config={"x": 1}), "loss")
+    assert integration.infos[0]["tags"] == {
+        f"{prefix}.best_run": False,
+        f"{prefix}.iteration_number": 0,
+        f"{prefix}.version": __version__,
+        f"{prefix}.meric": metric_tag,
+        f"{prefix}.run_source": "flaml-tune",
+        f"{prefix}.log_type": integration.log_type,
+    }
 
 
 @pytest.mark.parametrize("fabric,prefix", [(False, "flaml"), (True, "synapseml.flaml")])
@@ -203,6 +572,86 @@ def test_active_runs_keep_logging_in_both_environments(local_mlflow, monkeypatch
         tags = mlflow.get_run(result.best_run_id).data.tags
         assert tags[f"{prefix}.best_run"] == "True"
         assert f"{prefix}.version" in tags
+        assert tags[f"{prefix}.meric"] == (result._state.metric if experiment_type == "automl" else "['loss']")
+        assert f"{prefix}.metric" not in tags
+
+
+def test_corruption_surfaces_through_flaml_logging_client_path(local_mlflow, tmp_path):
+    import yaml
+
+    mlflow, module = local_mlflow
+    with mlflow.start_run() as run:
+        mlflow.log_metric("loss", 0.1)
+        integration = module.MLflowIntegration("automl")
+    integration.manual_run_ids = [run.info.run_id]
+    metadata = tmp_path / "tracking" / run.info.experiment_id / run.info.run_id / "meta.yaml"
+    assert metadata.is_file()
+    metadata.write_text("broken: [1,\n", encoding="utf-8")
+    with pytest.raises(yaml.YAMLError):
+        integration.log_automl(SimpleNamespace(_best_iteration=0))
+
+
+@pytest.mark.parametrize("explicit_flavor", [False, True])
+@pytest.mark.parametrize("active_parent", [False, True])
+@pytest.mark.parametrize("training_failure", [False, True])
+def test_real_global_autolog_registry_roundtrip(
+    public_environment, tmp_path, explicit_flavor, active_parent, training_failure
+):
+    pytest.importorskip("mlflow")
+    code = textwrap.dedent(
+        """
+        import copy
+        import json
+        import sys
+        import mlflow
+        import mlflow.sklearn
+        import numpy as np
+        from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+        from flaml import AutoML
+
+        settings = json.loads(sys.argv[1])
+        mlflow.autolog(log_models=False, silent=True)
+        if settings["flavor"]:
+            mlflow.sklearn.autolog(log_models=False, silent=True, log_input_examples=False)
+        before = copy.deepcopy(AUTOLOGGING_INTEGRATIONS)
+        parent = mlflow.start_run() if settings["parent"] else None
+        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, model_history=True)
+        if settings["failure"]:
+            def fail():
+                raise RuntimeError("expected training failure")
+            automl._search = fail
+        try:
+            try:
+                automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+            except RuntimeError as error:
+                assert settings["failure"] and str(error) == "expected training failure"
+            else:
+                assert not settings["failure"]
+                integration = automl.mlflow_integration
+                assert integration.manual_run_ids
+                client = mlflow.tracking.MlflowClient()
+                for run_id in integration.manual_run_ids:
+                    child = client.get_run(run_id)
+                    if parent is not None:
+                        assert child.data.tags["mlflow.parentRunId"] == parent.info.run_id
+                    assert all(item.path != "model" for item in client.list_artifacts(run_id))
+                if parent is not None:
+                    assert all(item.path != "model" for item in client.list_artifacts(parent.info.run_id))
+            assert AUTOLOGGING_INTEGRATIONS == before, (before, AUTOLOGGING_INTEGRATIONS)
+        finally:
+            mlflow.end_run()
+        """
+    )
+    import json
+
+    environment = {**os.environ, "MLFLOW_TRACKING_URI": (tmp_path / "tracking").as_uri()}
+    environment.pop("MLFLOW_EXPERIMENT_ID", None)
+    environment.pop("MLFLOW_EXPERIMENT_NAME", None)
+    arguments = json.dumps({"flavor": explicit_flavor, "parent": active_parent, "failure": training_failure})
+    result = subprocess.run(
+        [sys.executable, "-c", code, arguments], env=environment, capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_best_run_tag_waits_for_trial_metadata(monkeypatch):
@@ -332,6 +781,33 @@ def test_automl_artifact_logging_respects_model_optout(monkeypatch):
     model = SimpleNamespace(autofe=None)
     assert integration.pickle_and_log_automl_artifacts(automl, model, "rf", run_id="parent") is None
     no_logging.assert_not_called()
+
+
+def test_disabled_global_autolog_preserves_artifact_optout(local_mlflow, monkeypatch):
+    mlflow, module = local_mlflow
+    monkeypatch.setattr(module, "AUTOLOGGING_INTEGRATIONS", {"mlflow": {"disable": True, "log_models": False}})
+    with mlflow.start_run():
+        integration = module.MLflowIntegration("automl")
+        assert integration.manual_log
+        assert not integration._do_log_model
+
+
+def test_automl_restores_autolog_when_search_raises(local_mlflow, monkeypatch):
+    mlflow, module = local_mlflow
+    settings = {"disable": False, "log_models": False, "silent": True}
+    monkeypatch.setattr(module, "AUTOLOGGING_INTEGRATIONS", {"mlflow": settings.copy()})
+    monkeypatch.setattr(module, "is_autolog_enabled", lambda: True)
+    monkeypatch.setattr("flaml.automl.automl.is_autolog_enabled", lambda: True)
+    autolog = Mock()
+    monkeypatch.setattr(mlflow, "autolog", autolog)
+    automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0)
+    monkeypatch.setattr(automl, "_search", Mock(side_effect=RuntimeError("training failed")))
+    with pytest.raises(RuntimeError, match="training failed"):
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    assert autolog.call_args_list == [
+        call(disable=True, silent=True, log_models=False),
+        call(**settings),
+    ]
 
 
 def test_flavor_autolog_and_registered_pipeline_roundtrip(public_environment, tmp_path):

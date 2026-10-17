@@ -2,6 +2,7 @@ import atexit
 import functools
 import json
 import logging
+import math
 import os
 import pickle
 import random
@@ -34,6 +35,7 @@ except ImportError:
 from sklearn.pipeline import Pipeline
 
 from flaml.automl.logger import logger
+from flaml.automl.pipeline import make_automl_pipeline
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.fabric import is_fabric_runtime
 from flaml.fabric.logger import init_kusto_logger
@@ -174,15 +176,13 @@ def infer_signature(X_train=None, y_train=None, dataframe=None, label=None):
             y_train = None
         try:
             signature = mlflow.models.infer_signature(X_train, y_train)
-            kusto_logger.info(f"Succeeded to infer signature from X_train {type(X_train)} and y_train {type(y_train)}")
+            kusto_logger.info("Signature inferred from feature/target inputs")
             return signature
         except (TypeError, MlflowException, Exception) as e:
             logger.debug(
                 f"Failed to infer signature from X_train {type(X_train)} and y_train {type(y_train)}, error: {e}"
             )
-            kusto_logger.info(
-                f"Failed to infer signature from X_train {type(X_train)} and y_train {type(y_train)}, error: {e}"
-            )
+            kusto_logger.info(f"Feature/target signature inference failed: {type(e).__name__}")
     else:
         if dataframe is not None and label is not None:
             X = dataframe.drop(columns=label)
@@ -192,15 +192,13 @@ def infer_signature(X_train=None, y_train=None, dataframe=None, label=None):
                 y = None
             try:
                 signature = mlflow.models.infer_signature(X, y)
-                kusto_logger.info(f"Succeeded to infer signature from dataframe {type(dataframe)} and label {label}")
+                kusto_logger.info("Signature inferred from dataframe input")
                 return signature
             except (TypeError, MlflowException, Exception) as e:
                 logger.debug(
                     f"Failed to infer signature from dataframe {type(dataframe)} and label {label}, error: {e}"
                 )
-                kusto_logger.info(
-                    f"Failed to infer signature from dataframe {type(dataframe)} and label {label}, error: {e}"
-                )
+                kusto_logger.info(f"Dataframe signature inference failed: {type(e).__name__}")
 
 
 def update_and_install_requirements(
@@ -317,13 +315,13 @@ def safe_json_dumps(obj):
 
 
 class MLflowIntegration:
-    def __init__(self, experiment_type="automl", mlflow_exp_name=None, extra_tag=None):
+    def __init__(self, experiment_type="automl", mlflow_exp_name=None, extra_tag=None, *, only_history=False):
         fabric_runtime = is_fabric_runtime()
         self._tag_prefix = "synapseml.flaml" if fabric_runtime else "flaml"
         self.driver_mlflow_env_config = None
         self._on_internal = False
         self._notebook_name = None
-        if fabric_runtime:
+        if fabric_runtime and not only_history:
             try:
                 from synapse.ml.mlflow import get_mlflow_env_config
             except ModuleNotFoundError as exc:
@@ -350,7 +348,7 @@ class MLflowIntegration:
         self.manual_run_ids = []
         self.has_summary = False
         self.has_model = False
-        self.only_history = False
+        self.only_history = only_history
         self._do_log_model = True
         self.futures = {}
         self.futures_log_model = {}
@@ -362,8 +360,11 @@ class MLflowIntegration:
         )
         self.start_time = time.time()
         self.experiment_type = experiment_type
-        self.update_autolog_state()
-
+        self.mlflow_client = None
+        self.experiment_id = None
+        self.experiment_name = mlflow_exp_name
+        if self.only_history:
+            return
         self.mlflow_client = mlflow.tracking.MlflowClient()
         parent_run_info = mlflow.active_run().info if mlflow.active_run() is not None else None
         if parent_run_info:
@@ -382,6 +383,7 @@ class MLflowIntegration:
                 mlflow.set_experiment(experiment_name=mlflow_exp_name)
             self.experiment_id = mlflow.tracking.fluent._active_experiment_id
         self.experiment_name = mlflow.get_experiment(self.experiment_id).name
+        self.update_autolog_state()
 
         if self.autolog:
             # only end user created parent run in autolog scenario
@@ -409,6 +411,8 @@ class MLflowIntegration:
                 pass
 
     def wrap_evaluation_function(self, evaluation_function):
+        if self.only_history:
+            return evaluation_function
         wrapped_evaluation_function = _mlflow_wrapper(
             evaluation_function, self.experiment_id, self.driver_mlflow_env_config, self.extra_tag, self.autolog
         )
@@ -427,7 +431,7 @@ class MLflowIntegration:
         # Currently we disable autologging for better control in AutoML
         _autolog = is_autolog_enabled()
         mlflow_autolog = AUTOLOGGING_INTEGRATIONS.get("mlflow", {})
-        self._do_log_model = all(
+        self._do_log_model = mlflow_autolog.get("log_models", True) and all(
             config.get("log_models", True)
             for config in AUTOLOGGING_INTEGRATIONS.values()
             if not config.get("disable", False)
@@ -576,7 +580,7 @@ class MLflowIntegration:
                 f"Error: Should log_model {estimator} to run_id {run_id}, but logged to run_id {run.info.run_id}"
             )
             logger.error(ret_message)
-            kusto_logger.error(ret_message)
+            kusto_logger.error("Model logging run-context mismatch")
         else:
             logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
@@ -623,7 +627,7 @@ class MLflowIntegration:
                 return True
             except Exception as e:
                 logger.debug(f"Failed to pickle and log {artifact_name}, error: {e}")
-                kusto_logger.warning(f"Failed to pickle and log {artifact_name}, error: {e}")
+                kusto_logger.warning(f"Artifact serialization/logging failed: {type(e).__name__}")
                 return False
 
     def _log_pipeline(self, pipeline, flavor_name, pipeline_name, signature, run_id, estimator=None):
@@ -643,7 +647,7 @@ class MLflowIntegration:
         elif run and run.info.run_id != run_id:
             ret_message = f"Error: Should _log_pipeline {flavor_name}:{pipeline_name}:{estimator} model to run_id {run_id}, but logged to run_id {run.info.run_id}"
             logger.error(ret_message)
-            kusto_logger.error(ret_message)
+            kusto_logger.error("Pipeline logging run-context mismatch")
         else:
             logger.debug(f"No active run, start run_id {run_id}")
             mlflow.start_run(run_id=run_id)
@@ -689,40 +693,14 @@ class MLflowIntegration:
         if estimator.endswith("_spark"):
             # spark pipeline is not supported yet
             return
-        feature_transformer = automl.feature_transformer
-        if isinstance(feature_transformer, Pipeline) and not estimator.endswith("_spark"):
-            pipeline = feature_transformer
-            pipeline.steps.append(("estimator", model))
-        elif isinstance(feature_transformer, SparkPipelineModel) and estimator.endswith("_spark"):
-            pipeline = feature_transformer
-            pipeline.stages.append(model)
-        elif not estimator.endswith("_spark"):
-            steps = [("feature_transformer", feature_transformer)]
-            if model.autofe is not None:
-                steps.append(("autofe", model.autofe))
-            steps.append(("estimator", model))
-            pipeline = Pipeline(steps)
-        else:
-            stages = []
-            if feature_transformer is not None:
-                stages.append(feature_transformer)
-            if model.autofe is not None:
-                stages.append(model.autofe)
-            stages.append(model)
-            pipeline = SparkPipelineModel(stages=stages)
-        if isinstance(pipeline, SparkPipelineModel):
-            logger.debug(f"logging spark pipeline {estimator}")
-            self._log_pipeline(pipeline, "spark", "model", signature, run_id, estimator)
-        else:
-            # Add a log named "model" to fit default settings
-            logger.debug(f"logging sklearn pipeline {estimator}")
-            self._log_pipeline(pipeline, "sklearn", "model", signature, run_id, estimator)
+        pipeline = make_automl_pipeline(automl, model)
+        self._log_pipeline(pipeline, "sklearn", "model", signature, run_id, estimator)
         return f"Successfully pickle_and_log_automl_artifacts {estimator} to run_id {run_id}"
 
     @time_it
     def record_state(self, automl, search_state, estimator, is_log_model=True):
         _st = time.time()
-        kusto_logger.info(f"start logging no {automl._track_iter} automl state {estimator} at timestamp {_st}")
+        kusto_logger.info(f"Trial-state logging started: iteration={automl._track_iter}, timestamp={_st}")
         automl_metric_name = (
             automl._state.metric if isinstance(automl._state.metric, str) else automl._state.error_metric
         )
@@ -804,7 +782,13 @@ class MLflowIntegration:
                 self.futures[future] = f"iter_{automl._track_iter}_log_info_to_run"
                 future = executor.submit(lambda: self._log_automl_configurations(child_run.info.run_id))
                 self.futures[future] = f"iter_{automl._track_iter}_log_automl_configurations"
-                if automl._state.model_history and is_log_model:
+                if (
+                    automl._state.model_history
+                    and is_log_model
+                    and self._do_log_model
+                    and search_state.trained_estimator is not None
+                    and math.isfinite(search_state.val_loss)
+                ):
                     if estimator.endswith("_spark"):
                         future = executor.submit(
                             lambda: self.log_model(
@@ -828,9 +812,7 @@ class MLflowIntegration:
                         self.futures_log_model[future] = f"record_state-pickle_and_log_automl_artifacts_{estimator}"
                 self.manual_run_ids.append(child_run.info.run_id)
             self.child_counter += 1
-        kusto_logger.info(
-            f"end logging no {automl._track_iter} automl state {estimator}, cost {time.time() - _st} seconds"
-        )
+        kusto_logger.info(f"Trial-state logging finished: iteration={automl._track_iter}, elapsed={time.time() - _st}")
         return f"Successfully record_state iteration {automl._track_iter}"
 
     @time_it
@@ -1120,7 +1102,7 @@ def register_automl_pipeline(automl, model_name=None, signature=None, artifact_p
         logger.warning("pipeline not found, cannot register it")
         return
     if model_name is None:
-        model_name = (automl._mlflow_exp_name or "flaml") + "_pipeline"
+        model_name = (getattr(automl, "_mlflow_exp_name", None) or "flaml") + "_pipeline"
     model_info = mlflow.sklearn.log_model(
         pipeline,
         artifact_path,

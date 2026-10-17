@@ -5,6 +5,7 @@ import unittest
 from tempfile import TemporaryDirectory
 
 from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
 
 from flaml import AutoML
 from flaml.automl.training_log import training_log_reader
@@ -31,14 +32,13 @@ class TestTrainingLog(unittest.TestCase):
                 # "ensemble": True,
                 "keep_search_state": True,
                 "estimator_list": estimator_list,
-                # Disable autofe so the two fits below produce identical models
-                # regardless of the FLAML_FEATURIZATION env var (set to "auto"
-                # in test/conftest.py). With "auto", featurization is re-run on
-                # the second fit and can pick a slightly different transformation,
-                # making the booster-equivalence assertion below flaky.
+                "seed": 42,
+                "custom_hp": {"xgboost": {"random_state": {"domain": 42, "init_value": 42}}},
+                # Keep model replay equivalence independent of feature-engineering choices.
                 "featurization": "off",
             }
-            X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
+            X, y = fetch_california_housing(return_X_y=True, data_home="test")
+            X_train, X_holdout, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
             # Check if the training log file is populated.
             self.assertTrue(os.path.exists(filename))
@@ -67,44 +67,22 @@ class TestTrainingLog(unittest.TestCase):
                     starting_points={estimator: config},
                     use_ray=use_ray,
                     featurization="off",
+                    custom_hp=automl_settings["custom_hp"],
                 )
                 print(automl.best_config)
-                # then the fitted model should be equivalent to model
-                #
-                # NOTE: this assertion is intentionally relaxed for xgboost.
-                #
-                # Historically the test compared str(model.estimator) and, for
-                # xgboost, fell through to model.estimator.get_dump() — but
-                # XGBRegressor (the sklearn wrapper) has never exposed
-                # `.get_dump()`, so on a true repr mismatch the test would
-                # AttributeError. It silently "passed" only because the str()
-                # branch short-circuited true on every prior CI run.
-                #
-                # With xgboost >= 3.x under pytest-xdist, the two fits can
-                # produce slightly different boosters even when starting from
-                # the same `config` (float-precision noise in hyperparams like
-                # min_child_weight, plus minor non-determinism in tree split
-                # selection). On California Housing (target range ~0.15..5.0)
-                # we observed max per-sample prediction diffs ~0.14 — i.e.
-                # functionally near-identical models but not bit-equal.
-                #
-                # We therefore (a) align eval_method/metric across the two
-                # fits to remove the major source of divergence and (b) for
-                # xgboost only, gate the equivalence check behind a generous
-                # tolerance that catches genuinely-broken models while
-                # tolerating xdist-induced precision noise.
                 import numpy as np
 
                 same_repr = str(model.estimator) == str(automl.model.estimator)
-                if estimator == "xgboost" and not same_repr:
-                    preds_a = model.estimator.predict(X_train)
-                    preds_b = automl.model.estimator.predict(X_train)
-                    max_abs = float(np.max(np.abs(preds_a - preds_b)))
+                if estimator == "xgboost":
                     y_range = float(np.ptp(y_train)) or 1.0
-                    # Allow up to 20% of the target range as max per-sample diff.
-                    assert max_abs <= 0.2 * y_range, (
-                        f"xgboost predictions diverge: max abs diff={max_abs} " f"exceeds 20% of y range {y_range}"
-                    )
+                    # Prior platform noise was about 0.14; check both partitions
+                    # regardless of repr equality, with a substantially tighter bound.
+                    tolerance = max(0.25, 0.05 * y_range)
+                    for partition in (X_train, X_holdout):
+                        preds_a = model.estimator.predict(partition)
+                        preds_b = automl.model.estimator.predict(partition)
+                        max_abs = float(np.max(np.abs(preds_a - preds_b)))
+                        assert max_abs <= tolerance, f"xgboost predictions diverge by {max_abs}, limit {tolerance}"
                 elif estimator == "catboost" and not same_repr:
                     assert str(model.estimator.get_all_params()) == str(automl.model.estimator.get_all_params())
                 else:

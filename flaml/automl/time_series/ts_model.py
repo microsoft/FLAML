@@ -347,7 +347,12 @@ class StatsModelsEstimator(TimeSeriesEstimator):
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
-        if isinstance(X, int) and not self.regressors and not hasattr(self._model, "get_forecast"):
+        if (
+            isinstance(X, int)
+            and not self.regressors
+            and not hasattr(self._model, "get_forecast")
+            and self.end_date == getattr(self, "train_end_date", None)
+        ):
             forecast = self._model.forecast(steps=X)
             forecast.name = self._target_name()
             return forecast
@@ -412,24 +417,23 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = forecast.iloc[positions]
             elif train_end_date is not None and end > train_end_date:
                 raise ValueError("Prediction timestamps cannot span both training and future periods.")
+            elif (
+                train_end_date is None
+                and getattr(getattr(self._model, "model", None), "_index_generated", False) is True
+            ):
+                # Legacy irregular models cannot resolve dates against a generated integer index.
+                forecast_kwargs = kwargs.copy()
+                if exog is not None:
+                    forecast_kwargs["exog"] = exog
+                if hasattr(self._model, "get_forecast"):
+                    forecast_kwargs.setdefault("index", pd.DatetimeIndex(X[self.time_col]))
+                    forecast = self._model.get_forecast(steps=len(X), **forecast_kwargs).predicted_mean
+                else:
+                    forecast = self._model.forecast(steps=len(X), **forecast_kwargs)
+            elif exog is not None:
+                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
-                try:
-                    if exog is not None:
-                        forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
-                    else:
-                        forecast = self._model.predict(start=start, end=end, **kwargs)
-                except KeyError:
-                    if train_end_date is not None:
-                        raise
-                    # Preserve step-based prediction for models saved without a training boundary.
-                    if hasattr(self._model, "get_forecast"):
-                        forecast_kwargs = kwargs.copy()
-                        forecast_kwargs.setdefault("index", pd.DatetimeIndex(X[self.time_col]))
-                        if exog is not None:
-                            forecast_kwargs["exog"] = exog
-                        forecast = self._model.get_forecast(steps=len(X), **forecast_kwargs).predicted_mean
-                    else:
-                        forecast = self._model.forecast(steps=len(X))
+                forecast = self._model.predict(start=start, end=end, **kwargs)
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"
@@ -715,6 +719,7 @@ class HoltWinters(StatsModelsEstimator):
             damped_trend=self.params["damped_trend"],
             seasonal=self.params["seasonal"],
             trend=self.params["trend"],
+            initialization_method="estimated",
         )
         with suppress_stdout_stderr():
             model = model.fit()

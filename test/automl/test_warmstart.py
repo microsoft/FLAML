@@ -1,6 +1,7 @@
 import platform
 import sys
 import unittest
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pytest
@@ -18,7 +19,7 @@ class TestWarmStart(unittest.TestCase):
             "metric": "accuracy",
             "task": "classification",
             "estimator_list": ["lgbm"],
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -87,7 +88,7 @@ class TestWarmStart(unittest.TestCase):
             "metric": "accuracy",
             "task": "classification",
             "estimator_list": [new_estimator_name],
-            "log_file_name": "test/iris_resume.log",
+            "log_file_name": artifact_path(__file__, "test/iris_resume.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,

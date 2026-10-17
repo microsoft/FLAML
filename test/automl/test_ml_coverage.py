@@ -177,12 +177,22 @@ class TestSklearnMetricLossScore:
 class TestMetricLossScore:
     """Cover metric_loss_score for huggingface fallback (lines 141-188)."""
 
-    def test_unknown_metric_raises(self):
-        """Cover lines 164-172: ImportError/ValueError for unknown metric."""
+    def test_unknown_metric_without_hf_has_actionable_error(self, monkeypatch):
+        import sys
+
         y_true = [0, 1]
         y_pred = [0, 1]
-        with pytest.raises((ValueError, Exception)):
+        monkeypatch.setitem(sys.modules, "datasets", None)
+        with pytest.raises(ValueError, match=r"\[hf\] is not installed"):
             metric_loss_score("totally_fake_metric_xyz_12345", y_true, y_pred)
+
+    def test_unknown_metric_with_hf_is_an_exact_unknown_name(self, monkeypatch):
+        import sys
+        from types import ModuleType
+
+        monkeypatch.setitem(sys.modules, "datasets", ModuleType("datasets"))
+        with pytest.raises(KeyError, match="totally_fake_metric_xyz_12345"):
+            metric_loss_score("totally_fake_metric_xyz_12345", [0, 1], [0, 1])
 
 
 class TestToNumpy:

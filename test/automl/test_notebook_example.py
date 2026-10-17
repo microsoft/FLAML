@@ -1,4 +1,5 @@
 import sys
+from test._artifact_paths import artifact_path
 
 import pytest
 
@@ -200,7 +201,7 @@ def test_mlflow_iris():
             "time_budget": 2,  # in seconds
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "iris.log",
+            "log_file_name": artifact_path(__file__, "iris.log"),
         }
         X_train, y_train = load_iris(return_X_y=True)
         automl.fit(X_train=X_train, y_train=y_train, **automl_settings)

@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.model_selection import TimeSeriesSplit
 
 from flaml import AutoML
 from flaml.automl.time_series.ts_data import TimeSeriesDataset, create_forward_frame
@@ -159,6 +160,7 @@ def test_statsmodels_legacy_boundary_and_empty_forecast():
     del estimator.train_end_date
     dates = pd.date_range("2026-01-01", periods=2)
     estimator._model = Mock()
+    estimator._model.model._index_generated = True
     estimator._model.predict.side_effect = KeyError("unsupported date index")
     estimator._model.get_forecast.return_value.predicted_mean = pd.Series([1.0, 2.0], index=dates)
 
@@ -172,6 +174,64 @@ def test_statsmodels_legacy_boundary_and_empty_forecast():
     empty = estimator.predict(pd.DataFrame({"ds": dates[:0]}))
     assert empty.empty
     assert empty.name == "sales_total"
+
+
+def test_legacy_forecast_does_not_hide_unrelated_key_errors():
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    estimator = StatsModelsEstimator()
+    estimator.time_col = "ds"
+    estimator.target_names = ["target"]
+    estimator.regressors = []
+    estimator.enrich = lambda frame: frame
+    del estimator.train_end_date
+    estimator._model = Mock()
+    estimator._model.model._index_generated = False
+    estimator._model.predict.side_effect = KeyError("unrelated model parameter")
+    with pytest.raises(KeyError, match="unrelated model parameter"):
+        estimator.predict(pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=2)}))
+    estimator._model.get_forecast.assert_not_called()
+
+
+def test_legacy_step_forecast_preserves_exogenous_values_and_kwargs():
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    estimator = StatsModelsEstimator()
+    estimator.time_col = "ds"
+    estimator.target_names = ["target"]
+    estimator.regressors = ["x"]
+    estimator.enrich = lambda frame: frame
+    estimator._preprocess = lambda frame: frame
+    del estimator.train_end_date
+    estimator._model = Mock(spec=["model", "predict", "forecast"])
+    estimator._model.model = Mock(_index_generated=True)
+    estimator._model.predict.side_effect = KeyError("unsupported date index")
+    estimator._model.forecast.return_value = pd.Series([1.0, 2.0])
+    frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=2), "x": [3.0, 4.0]})
+    estimator.predict(frame, custom_flag=True)
+    arguments = estimator._model.forecast.call_args.kwargs
+    np.testing.assert_array_equal(arguments["exog"], frame[["x"]].values)
+    assert arguments["custom_flag"] is True
+
+
+def test_holt_winters_integer_horizon_respects_attached_validation_boundary():
+    from unittest.mock import patch
+
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    from flaml.automl.time_series.ts_model import HoltWinters
+
+    frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=25), "target": np.arange(25.0)})
+    data = TimeSeriesDataset(frame.iloc[:20], "ds", "target", test_data=frame.iloc[20:])
+    estimator = HoltWinters(task="ts_forecast", seasonal_periods=7, seasonal=None, trend="add", damped_trend=False)
+    with patch("statsmodels.tsa.holtwinters.ExponentialSmoothing", wraps=ExponentialSmoothing) as constructor:
+        estimator.fit(data, None)
+    assert constructor.call_args.kwargs["initialization_method"] == "estimated"
+    future = pd.DataFrame({"ds": pd.date_range("2026-01-26", periods=3)})
+    by_count = estimator.predict(3)
+    by_dates = estimator.predict(future)
+    pd.testing.assert_index_equal(by_count.index, by_dates.index, check_names=False)
+    np.testing.assert_allclose(by_count, by_dates)
 
 
 @pytest.mark.parametrize("with_regressors", [False, True])
@@ -314,3 +374,62 @@ def test_create_forward_frame_uses_next_frequency_offset():
     pd.testing.assert_series_equal(
         quarterly_frame["ds"], pd.Series(pd.date_range("2020-06-30", periods=2, freq=quarter_end_freq), name="ds")
     )
+
+
+@pytest.mark.parametrize("period", [1, 4])
+@pytest.mark.parametrize("index_kind", ["default", "offset", "datetime"])
+def test_cv_folds_match_time_series_split(period, index_kind):
+    frame = pd.DataFrame({"ds": pd.date_range("2020-01-01", periods=24), "y": np.arange(24)})
+    if index_kind == "offset":
+        frame.index += 100
+    elif index_kind == "datetime":
+        frame.index = frame.ds
+    original = frame.copy(deep=True)
+    dataset = TimeSeriesDataset(frame, time_col="ds", target_names="y")
+    folds = list(dataset.cv_train_val_sets(n_splits=3, val_length=period, step_size=period))
+    reference = list(TimeSeriesSplit(n_splits=3, test_size=period).split(frame))
+
+    assert len(folds) == len(reference)
+    for fold, (train_indices, validation_indices) in zip(folds, reference):
+        pd.testing.assert_frame_equal(fold.train_data, frame.iloc[train_indices])
+        pd.testing.assert_frame_equal(fold.test_data, frame.iloc[validation_indices])
+    pd.testing.assert_frame_equal(dataset.train_data, original)
+    assert dataset.test_data.empty
+
+
+@pytest.mark.parametrize("step_size, expected_starts", [(2, [16, 18, 20]), (7, [6, 13, 20])])
+def test_cv_custom_step_sizes_end_at_latest_observation(step_size, expected_starts):
+    frame = pd.DataFrame({"ds": pd.date_range("2020-01-01", periods=24), "y": np.arange(24)})
+    dataset = TimeSeriesDataset(frame, time_col="ds", target_names="y")
+    folds = list(dataset.cv_train_val_sets(n_splits=3, val_length=4, step_size=step_size))
+
+    assert len(folds) == len(expected_starts)
+    for fold, start in zip(folds, expected_starts):
+        assert fold.test_data.y.tolist() == list(range(start, start + 4))
+        assert fold.train_data.y.tolist() == list(range(start))
+    assert folds[-1].test_data.ds.iloc[-1] == frame.ds.iloc[-1]
+
+
+def test_automl_cv_scores_latest_observation():
+    pytest.importorskip("statsmodels")
+    frame = pd.DataFrame({"ds": pd.date_range("2020-01-01", periods=60), "y": np.zeros(60)})
+    frame.loc[59, "y"] = 100.0
+    automl = AutoML()
+    automl.fit(
+        dataframe=frame,
+        label="y",
+        task="ts_forecast",
+        period=5,
+        estimator_list=["avg"],
+        eval_method="cv",
+        n_splits=3,
+        metric="mae",
+        max_iter=2,
+        time_budget=30,
+        retrain_full=False,
+        verbose=0,
+    )
+
+    # Every training fold contains only zeros. The final validation observation
+    # must contribute its error to the mean across all three five-row folds.
+    assert automl.best_loss == pytest.approx(100.0 / 15)

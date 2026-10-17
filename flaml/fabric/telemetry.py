@@ -1,7 +1,5 @@
 import logging
-import sys
 
-from flaml.automl.logger import logger_formatter
 from flaml.fabric import is_fabric_runtime
 from flaml.version import __version__
 
@@ -16,19 +14,17 @@ if is_fabric_runtime():
 
 
 logger = logging.getLogger(__name__)
-if not logger.handlers:
-    # Add the console handler.
-    _ch = logging.StreamHandler(stream=sys.stdout)
-    _ch.setFormatter(logger_formatter)
-    logger.addHandler(_ch)
 
 
 def log_telemetry(activity_name: str = ""):
     if is_fabric_runtime() and report_usage_telemetry:
-        report_usage_telemetry(
-            "PyLibraryImport",
-            activity_name,
-            attributes={"version": __version__, "ImportType": "EXPLICIT_IMPORTED_BY_USER"},
-        )
+        try:
+            report_usage_telemetry(
+                "PyLibraryImport",
+                activity_name,
+                attributes={"version": __version__, "ImportType": "EXPLICIT_IMPORTED_BY_USER"},
+            )
+        except Exception:
+            logger.warning("Fabric usage telemetry failed for %s.", activity_name, exc_info=True)
     else:
         logger.debug("Fabric telemetry unavailable for %s", activity_name)

@@ -4,41 +4,70 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-import plotly
-import plotly.express as px
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
+
+try:
+    import plotly
+    import plotly.express as px
+    import plotly.graph_objs as go
+    from plotly.subplots import make_subplots
+except ModuleNotFoundError as exc:
+    if exc.name is not None and exc.name.split(".")[0] == "plotly":
+        raise ImportError("Visualization requires Plotly. Install flaml[fabric_python] to enable plotting.") from exc
+    raise
 
 from flaml.automl import AutoML
 from flaml.automl.logger import logger
 from flaml.automl.training_log import training_log_reader
 from flaml.fabric.logger import init_kusto_logger
-from flaml.tune.sample import Categorical, Domain, Float, Integer
-from flaml.tune.tune import ExperimentAnalysis
+from flaml.tune.trial import flatten_dict
+from flaml.tune.tune import EA as ExperimentAnalysis
 
 kusto_logger = init_kusto_logger("flaml.visualization")
+_AUTOML_SCORE_MODE = "max"
+
+__all__ = [
+    "get_hp_df",
+    "optuna_space",
+    "get_param_importance",
+    "plot",
+    "plot_optimization_history",
+    "plot_feature_importance",
+    "plot_parallel_coordinate",
+    "plot_contour",
+    "plot_edf",
+    "plot_timeline",
+    "plot_slice",
+    "plot_param_importance",
+]
 
 
 def _get_tune_df(analysis: ExperimentAnalysis):
     metric = analysis.default_metric
     df = pd.DataFrame(analysis.results).T
     conf_cols = [col for col in df.columns if col.startswith("config/")]
-    rename = {}
-    rename[metric] = "score"
-    df = df.rename(columns=rename)
+    if metric != "score":
+        df["score"] = df.pop(metric)
+    starts = {trial.trial_id: getattr(trial, "start_time", None) for trial in analysis.trials}
+    timing = [starts.get(trial_id) for trial_id in df.index]
     df = df.reset_index().drop(columns=conf_cols + ["index"])
+    df.attrs["trial_start_times"] = timing
     return df
 
 
 def _get_aml_df(aml: AutoML):
-    history = aml.mlflow_integration.infos
+    integration = getattr(aml, "mlflow_integration", None)
+    history = getattr(integration, "infos", None)
+    if not history:
+        raise ValueError(
+            "No trial history was collected for this AutoML result. Enable MLflow logging with an active run "
+            "or autologging, or use Fabric history collection, before requesting a history-based plot."
+        )
     metrics_history = [h["metrics"] for h in history]
     params_history = [h["params"] for h in history]
     metrics_df = pd.DataFrame(metrics_history)
     params_df = pd.DataFrame(params_history)
     metrics_df["config"] = params_df.to_dict("records")
-    metrics_df.rename(columns={"validation_loss": "score"}, inplace=True)
-    metrics_df["score"] = -metrics_df["score"] + 1
+    metrics_df["score"] = 1 - metrics_df.pop("validation_loss")
     metrics_df["learner"] = params_df["learner"]
     return metrics_df
 
@@ -55,10 +84,17 @@ def get_hp_df(result, learner=None, params=None):
     else:
         raise TypeError(f"`result` must be an instance of AutoML or ExperimentAnalysis, get {type(result)}")
 
-    hp_df = df["config"].apply(pd.Series)
-    hp_df.dropna(axis=1, how="all", inplace=True)
-    if "ml" in hp_df.columns:
-        hp_df = hp_df["ml"].apply(pd.Series)
+    configurations = []
+    for config in df["config"]:
+        if isinstance(result, AutoML) and isinstance(config.get("ml"), dict):
+            config = config["ml"]
+        configurations.append(flatten_dict(config, prevent_delimiter=True))
+    hp_df = pd.DataFrame(configurations, index=df.index)
+    for name in hp_df.columns:
+        if any(name in config and config[name] is None for config in configurations):
+            hp_df[name] = pd.Series(
+                [config.get(name, pd.NA) for config in configurations], index=df.index, dtype=object
+            )
 
     if params is not None:
         hp_df = hp_df[params]
@@ -67,35 +103,18 @@ def get_hp_df(result, learner=None, params=None):
 
 
 def optuna_space(result, learner=None, params=None):
-    from optuna.distributions import CategoricalDistribution, IntUniformDistribution, UniformDistribution
+    from flaml.tune.searcher.suggestion import OptunaSearch
 
     if isinstance(result, AutoML):
         if learner is None:
             learner = result.best_estimator
-        src_space = result._state.learner_classes[learner].search_space(
-            data_size=result._state.data_size,
-            task=result._state.task,
-        )
+        src_space = result._search_states[learner].search_space
     elif isinstance(result, ExperimentAnalysis):
-        src_space = {k: {"domain": v} for k, v in result.search_space.items()}
+        src_space = result.search_space
     else:
         raise TypeError(f"`result` must be an instance of AutoML or ExperimentAnalysis, get {type(result)}")
-    optuna_space = {}
-    for param, config in src_space.items():
-        if params is not None and param not in params:
-            continue
-        domain = config["domain"]
-        if isinstance(domain, Domain):
-            if isinstance(domain, Categorical):
-                optuna_space[param] = CategoricalDistribution(domain.categories)
-            elif isinstance(domain, Integer):
-                optuna_space[param] = IntUniformDistribution(domain.lower, domain.upper)
-            elif isinstance(domain, Float):
-                optuna_space[param] = UniformDistribution(domain.lower, domain.upper)
-            else:
-                warnings.warn(f"Unsupported domain: {domain}")
-
-    return optuna_space
+    converted = OptunaSearch.convert_search_space(src_space)
+    return {name: domain for name, domain in converted.items() if params is None or name in params}
 
 
 def get_param_importance(result, learner=None, params=None):
@@ -177,7 +196,6 @@ def plot(
     Returns:
         A `plotly.graph_objs.Figure()` object.
     """
-    kusto_logger.info(f"plot: result={type(result)}, fig_type={fig_type}, kwargs={kwargs}")
     plot_func_map = {
         "optimization_history": plot_optimization_history,
         "feature_importance": plot_feature_importance,
@@ -188,6 +206,8 @@ def plot(
         "slice": plot_slice,
         "param_importance": plot_param_importance,
     }
+    plot_kind = fig_type if fig_type in plot_func_map else "unsupported"
+    kusto_logger.info(f"Plot requested: type={plot_kind}, option_count={len(kwargs)}")
     try:
         plot_func = plot_func_map[fig_type]
     except KeyError:
@@ -209,22 +229,26 @@ def plot_optimization_history(result) -> go.Figure:
     kusto_logger.info(f"plot_optimization_history: result={type(result)}")
     if isinstance(result, AutoML):
         df = _get_aml_df(result)
-        comp = min
+        comp = max if _AUTOML_SCORE_MODE == "max" else min
+        y_title = "Score (1 - validation loss)"
     elif isinstance(result, ExperimentAnalysis):
         df = _get_tune_df(result)
         comp = min if result.default_mode == "min" else max
+        y_title = result.default_metric
     else:
         raise TypeError(f"result must be an instance of AutoML or ExperimentAnalysis, get {type(result)}")
 
     scores = df["score"]
-    best_scores = [comp(scores[: i + 1]) for i in range(len(scores))]
+    valid_scores = pd.Series(scores, dtype=float)
+    valid_scores = valid_scores.where(np.isfinite(valid_scores))
+    best_scores = (valid_scores.cummax() if comp is max else valid_scores.cummin()).ffill()
 
     loss_fig = go.Scatter(x=df.index, y=df["score"], name="score", mode="markers")
     best_loss_fig = go.Scatter(x=df.index, y=best_scores, name="best_score", mode="lines")
     layout = go.Layout(
         title="Optimization History Plot",
         xaxis={"title": "Trial"},
-        yaxis={"title": "Loss Value", "range": [0, 1]},
+        yaxis={"title": y_title},
     )
     fig = go.Figure(data=[loss_fig, best_loss_fig], layout=layout)
     return fig
@@ -266,9 +290,15 @@ def plot_feature_importance(result) -> go.Figure:
             showarrow=False,
         )
         return fig
+    feat_importance = np.asarray(feat_importance)
     if len(feat_importance.shape) == 2:
         feat_importance = np.sqrt(np.sum(feat_importance**2, axis=0))
-    fig = px.bar(x=feat_importance, y=result.feature_names_in_, orientation="h")
+    feature_names = result.feature_names_in_
+    if feature_names is None:
+        feature_names = [f"feature_{index}" for index in range(len(feat_importance))]
+    if len(feature_names) != len(feat_importance):
+        raise ValueError("Feature importance values do not match the fitted feature schema.")
+    fig = px.bar(x=feat_importance, y=feature_names, orientation="h")
     layout = go.Layout(
         title="Feature Importance",
         xaxis={"title": "Feature Importance"},
@@ -294,9 +324,9 @@ def plot_parallel_coordinate(
     Returns:
         A `plotly.graph_objs.Figure()` object.
     """
-    kusto_logger.info(f"plot_parallel_coordinate: result={type(result)}, learner={learner}, params={params}")
+    kusto_logger.info("Parallel-coordinate plot requested")
     if isinstance(result, AutoML):
-        better = "min"
+        better = _AUTOML_SCORE_MODE
     elif isinstance(result, ExperimentAnalysis):
         learner = "Tuning"
         better = result.default_mode
@@ -304,7 +334,10 @@ def plot_parallel_coordinate(
         raise TypeError(f"result must be an instance of AutoML or ExperimentAnalysis, get {type(result)}")
 
     hp_df, score = get_hp_df(result, learner, params)
-    hp_df["score"] = score
+    objective_column = "Objective"
+    while objective_column in hp_df.columns:
+        objective_column = "_" + objective_column
+    hp_df[objective_column] = np.asarray(score, dtype=float)
     if better == "max":
         cspace = plotly.colors.sequential.Emrld
     else:
@@ -313,7 +346,7 @@ def plot_parallel_coordinate(
     if learner is None:
         learner = result.best_estimator
 
-    fig = px.parallel_coordinates(hp_df, color="score", color_continuous_scale=cspace)
+    fig = px.parallel_coordinates(hp_df, color=objective_column, color_continuous_scale=cspace)
     layout = go.Layout(
         title={
             "text": f"Parallel Coordinate Plot for {learner}",
@@ -341,9 +374,9 @@ def plot_contour(
     Returns:
         A `plotly.graph_objs.Figure()` object.
     """
-    kusto_logger.info(f"plot_contour: result={type(result)}, learner={learner}, params={params}")
+    kusto_logger.info("Contour plot requested")
     if isinstance(result, AutoML):
-        better = "min"
+        better = _AUTOML_SCORE_MODE
     elif isinstance(result, ExperimentAnalysis):
         learner = "Tuning"
         better = result.default_mode
@@ -399,6 +432,7 @@ def plot_contour(
             else:
                 contour, scatter = _get_contour_scatter(combo)
                 fig.add_trace(contour, col=param_loc[combo[0]], row=param_loc[combo[1]])
+                fig.add_trace(scatter, col=param_loc[combo[0]], row=param_loc[combo[1]])
             if yloc != 1:
                 fig.update_yaxes(showticklabels=False, row=xloc, col=yloc)
             else:
@@ -491,10 +525,24 @@ def plot_timeline(result) -> go.Figure:
             fig.add_trace(trace)
     elif isinstance(result, ExperimentAnalysis):
         df = _get_tune_df(result)
+        starts = df.attrs["trial_start_times"]
+        recorded = all(isinstance(value, (int, float, np.number)) and np.isfinite(value) for value in starts)
+        if recorded and starts:
+            starts = np.asarray(starts, dtype=float)
+            bases = starts - starts.min()
+            timing = "recorded"
+        else:
+            bases = df["time_total_s"].cumsum() - df["time_total_s"]
+            timing = "approximate"
         trace = go.Bar(
-            x=df["time_total_s"], y=df.index, base=df["time_total_s"].cumsum() - df["time_total_s"], orientation="h"
+            x=df["time_total_s"],
+            y=df.index,
+            base=bases,
+            orientation="h",
+            name="Trials" if timing == "recorded" else "Estimated sequence (timing unavailable)",
         )
         fig.add_trace(trace)
+        fig.update_layout(meta={"timing": timing})
     else:
         raise TypeError(f"result must be an instance of AutoML or ExperimentAnalysis, get {type(result)}")
 
@@ -520,7 +568,7 @@ def plot_slice(result, learner=None, params=None) -> go.Figure:
     Returns:
         A `plotly.graph_objs.Figure()` object.
     """
-    kusto_logger.info(f"plot_slice: result={type(result)}, learner={learner}, params={params}")
+    kusto_logger.info("Slice plot requested")
     hp_df, scores = get_hp_df(result, learner, params)
 
     params = hp_df.columns.tolist()
@@ -528,8 +576,14 @@ def plot_slice(result, learner=None, params=None) -> go.Figure:
 
     for i, param in enumerate(params):
         hp = hp_df[param]
-        counts = hp.value_counts()
-        color_count = hp.apply(lambda x: counts[x])
+        if hp.isna().any():
+            missing_label = "<missing>"
+            present_labels = {str(value) for value in hp.dropna()}
+            while missing_label in present_labels:
+                missing_label = "_" + missing_label
+            hp = hp.astype(object).where(hp.notna(), missing_label)
+        counts = hp.value_counts(dropna=False)
+        color_count = hp.map(counts)
         trace = go.Scatter(
             x=hp,
             y=scores,
@@ -545,9 +599,10 @@ def plot_slice(result, learner=None, params=None) -> go.Figure:
             },
         )
         if i != 0:
-            fig.update_yaxes(showticklabels=False, row=1, col=i + 1, range=[0, 1])
+            fig.update_yaxes(showticklabels=False, row=1, col=i + 1)
         else:
-            fig.update_yaxes(title_text="Score(1-loss)", row=1, col=i + 1, range=[0, 1])
+            y_title = "Score (1 - validation loss)" if isinstance(result, AutoML) else result.default_metric
+            fig.update_yaxes(title_text=y_title, row=1, col=i + 1)
         fig.update_xaxes(title_text=param, row=1, col=i + 1)
         fig.add_trace(trace, col=i + 1, row=1)
 
@@ -571,7 +626,7 @@ def plot_param_importance(result, learner=None, params=None) -> go.Figure:
     Returns:
         A `plotly.graph_objs.Figure()` object.
     """
-    kusto_logger.info(f"plot_param_importance: result={type(result)}, learner={learner}, params={params}")
+    kusto_logger.info("Parameter-importance plot requested")
     importance = get_param_importance(result, learner, params)
 
     if not importance:

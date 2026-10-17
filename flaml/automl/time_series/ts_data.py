@@ -51,6 +51,8 @@ class TimeSeriesDataset:
         time_idx: str = "time_idx",
         test_data: Optional[pd.DataFrame] = None,
     ):
+        if not train_data[time_col].is_monotonic_increasing:
+            train_data = train_data.iloc[train_data[time_col].array.argsort(kind="stable")]
         self.train_data = train_data
         self.time_col = time_col
         self.time_idx = time_idx
@@ -247,10 +249,10 @@ class TimeSeriesDataset:
     def cv_train_val_sets(
         self, n_splits: int, val_length: int, step_size: int
     ) -> Generator["TimeSeriesDataset", None, None]:
-        max_index = len(self.train_data) - 1
+        num_samples = len(self.train_data)
         for i in range(n_splits):
             out = copy.copy(self)
-            val_start = max_index - (n_splits - i - 1) * step_size - val_length
+            val_start = num_samples - (n_splits - i - 1) * step_size - val_length
             out.train_data = self.train_data[:val_start]
             out.test_data = self.train_data[val_start : val_start + val_length]
             yield out
@@ -419,7 +421,7 @@ class DataTransformerTS:
     def _drop(self):
         return len(self.drop_columns)
 
-    def fit(self, X: Union[DataFrame, np.array], y):
+    def fit(self, X: Union[DataFrame, np.array], y, *, transform_features=True, preserve_features=False):
         """Fit transformer.
 
         Args:
@@ -433,10 +435,19 @@ class DataTransformerTS:
         assert isinstance(X, DataFrame)
         X = X.copy()
         n = X.shape[0]
+        self._skip_feature_transform = not transform_features
+        self._column_mapping = {}
+        if preserve_features:
+            from flaml.automl.data import _make_column_name_mapping
+
+            self._column_mapping = _make_column_name_mapping(X.columns)
+            self._column_mapping.pop(self.time_col, None)
+            self._column_mapping.pop(self.time_idx, None)
+            X = X.rename(columns=self._column_mapping)
 
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
 
-        for column in X.columns:
+        for column in X.columns if transform_features else []:
             # Never treat the time column as a feature for sklearn preprocessing
             if column == self.time_col:
                 continue
@@ -448,7 +459,7 @@ class DataTransformerTS:
 
             # sklearn/utils/validation.py needs int/float values
             if X[column].dtype.name in ("object", "category", "string", "str"):
-                if (
+                if not preserve_features and (
                     # drop columns where all values are the same
                     X[column].nunique() == 1
                     # this drops UID-type cols
@@ -457,7 +468,7 @@ class DataTransformerTS:
                     self.drop_columns.append(column)
                 elif column != self.time_idx:
                     self.cat_columns.append(column)
-            elif X[column].nunique(dropna=True) < 2:
+            elif not preserve_features and X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
             elif X[column].dtype.name in ["datetime64[ns]", "datetime64[s]"]:
                 pass  # these will be processed at model level,
@@ -466,11 +477,12 @@ class DataTransformerTS:
                 self.num_columns.append(column)
 
         if self.num_columns:
+            imputer_kwargs = {"keep_empty_features": True} if preserve_features else {}
             self.transformer = ColumnTransformer(
                 [
                     (
                         "continuous",
-                        SimpleImputer(missing_values=np.nan, strategy="median"),
+                        SimpleImputer(missing_values=np.nan, strategy="median", **imputer_kwargs),
                         self.num_columns,
                     )
                 ]
@@ -498,6 +510,8 @@ class DataTransformerTS:
             self.label_transformer = None
 
     def transform(self, X: Union[DataFrame, np.array], y=None):
+        if getattr(self, "_column_mapping", None):
+            X = X.rename(columns=self._column_mapping)
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         if self.label_transformer is not None and y is not None:
             if isinstance(y, pd.DataFrame):
@@ -536,8 +550,8 @@ class DataTransformerTS:
             return X
         return X, y
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y):
-        self.fit(X, y)
+    def fit_transform(self, X: Union[DataFrame, np.array], y, **fit_params):
+        self.fit(X, y, **fit_params)
         return self.transform(X, y)
 
 

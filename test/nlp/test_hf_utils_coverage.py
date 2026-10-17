@@ -32,15 +32,57 @@ def _make_hf_args(**kwargs):
     return SimpleNamespace(**defaults)
 
 
-def _get_tokenizer():
-    from transformers import AutoTokenizer
-
-    return AutoTokenizer.from_pretrained("bert-base-uncased")
-
-
 @pytest.fixture(scope="module")
-def tokenizer():
-    return _get_tokenizer()
+def tokenizer(tmp_path_factory):
+    from transformers import BertTokenizerFast
+
+    vocabulary = [
+        "[PAD]",
+        "[UNK]",
+        "[CLS]",
+        "[SEP]",
+        "[MASK]",
+        "john",
+        "lives",
+        "in",
+        "paris",
+        "hello",
+        "world",
+        "foo",
+        "bar",
+        "a",
+        "man",
+        "is",
+        "eating",
+        "food",
+        "sleeping",
+        "running",
+        "swimming",
+        "this",
+        "test",
+        "sentence",
+        "another",
+        "summary",
+        "one",
+        "two",
+        ".",
+        ":",
+        "summarize",
+    ]
+    vocab_file = tmp_path_factory.mktemp("tokenizer") / "vocab.txt"
+    vocab_file.write_text("\n".join(vocabulary) + "\n", encoding="utf-8")
+    result = BertTokenizerFast(vocab_file=str(vocab_file), do_lower_case=True)
+    assert result.is_fast
+    return result
+
+
+@pytest.fixture(autouse=True)
+def local_sentence_tokenizer(monkeypatch):
+    import nltk
+    from nltk.tokenize import PunktSentenceTokenizer
+
+    monkeypatch.setattr(nltk, "download", MagicMock())
+    monkeypatch.setattr(nltk, "sent_tokenize", PunktSentenceTokenizer().tokenize)
 
 
 # ==============================================================================
@@ -344,7 +386,8 @@ class TestPostprocessPredictionAndTrue:
         # Simulate logits: 2 samples, 5 tokens, vocab_size
         vocab_size = tokenizer.vocab_size
         y_pred_logits = np.random.rand(2, 5, vocab_size)
-        y_true = np.array([[101, 2023, 2003, 102, -100], [101, 1037, 3231, 102, -100]])
+        y_true = np.array(tokenizer(["this is", "a test"], padding="max_length", max_length=5)["input_ids"])
+        y_true[:, -1] = -100
         result, y_true_out = postprocess_prediction_and_true(
             SUMMARIZATION, (y_pred_logits,), tokenizer, hf_args, y_true=y_true
         )
@@ -358,7 +401,7 @@ class TestPostprocessPredictionAndTrue:
 
         hf_args = _make_hf_args()
         # y_pred as raw token ids (not tuple)
-        y_pred = np.array([[101, 2023, 2003, 102, 0], [101, 1037, 3231, 102, 0]])
+        y_pred = np.array(tokenizer(["this is", "a test"], padding="max_length", max_length=5)["input_ids"])
         result, y_true_out = postprocess_prediction_and_true(SUMMARIZATION, y_pred, tokenizer, hf_args, y_true=None)
         assert isinstance(result, list)
         assert y_true_out is None

@@ -1,4 +1,5 @@
 import pickle
+from test._artifact_paths import artifact_path
 
 import mlflow
 import mlflow.entities
@@ -131,7 +132,7 @@ class TestMLFlowLoggingParam:
             "time_budget": 5,  # in seconds
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "iris.log",
+            "log_file_name": artifact_path(__file__, "iris.log"),
         }
 
 
@@ -141,7 +142,7 @@ if __name__ == "__main__":
         "time_budget": 5,  # in seconds
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "iris.log",
+        "log_file_name": artifact_path(__file__, "iris.log"),
     }
     s.test_should_start_new_run_by_default(automl_settings)
     s.test_should_start_new_run_when_mlflow_logging_set_to_true_in_fit(automl_settings)

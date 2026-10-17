@@ -2,7 +2,6 @@
 branch = True
 source =
   flaml
-  !flaml/autogen
 concurrency = multiprocessing
 parallel = true
 omit =
@@ -13,4 +12,3 @@ omit =
   */flaml/tune/scheduler/online_scheduler.py
   */flaml/tune/searcher/online_searcher.py
   */flaml/tune/searcher/cfo_cat.py
-  */flaml/automl/nlp/*

@@ -2,6 +2,7 @@ import platform
 import sys
 import unittest
 from datetime import datetime
+from test._artifact_paths import artifact_path
 from test.conftest import evaluate_cv_folds_with_underlying_model
 
 import numpy as np
@@ -271,7 +272,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 3,
             "metric": "ap",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["xgboost"],
             "log_type": "all",
             "n_jobs": 1,
@@ -340,7 +341,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 10,
             "metric": "ap",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["xgboost"],
             "log_type": "all",
             "n_jobs": 1,
@@ -373,7 +374,7 @@ class TestClassification(unittest.TestCase):
         automl_settings = {
             "time_budget": 2,
             "task": "classification",
-            "log_file_name": "test/sparse_classification_oom.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification_oom.log"),
             "estimator_list": ["large_lgbm"],
             "log_type": "all",
             "n_jobs": 1,
@@ -401,7 +402,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 3,
             "metric": "f1",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["lrl1", "lrl2"],
             "log_type": "all",
             "n_jobs": 1,

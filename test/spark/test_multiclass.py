@@ -1,5 +1,6 @@
 import os
 import unittest
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pytest
@@ -121,7 +122,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 4,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -256,7 +257,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 2,
             "metric": "auto",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "split_type": "uniform",
             "n_jobs": 1,
             "model_history": True,
@@ -335,7 +336,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 3,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -361,7 +362,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 2,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris_resume.log",
+            "log_file_name": artifact_path(__file__, "test/iris_resume.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -385,7 +386,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 3,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,

@@ -1,5 +1,6 @@
 import os
 import sys
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pytest
@@ -61,7 +62,7 @@ def _test_spark_synapseml_lightgbm(spark=None, task="classification"):
         "task": task,
         "estimator_list": ["lgbm_spark"],
         "log_training_metric": True,
-        "log_file_name": "test_spark_synapseml.log",
+        "log_file_name": artifact_path(__file__, "test_spark_synapseml.log"),
         "model_history": True,
         "verbose": 5,
     }
@@ -153,7 +154,7 @@ def test_spark_input_df_and_pickle():
         "time_budget": 30,  # total running time in seconds
         "metric": "roc_auc",
         "task": "classification",  # task type
-        "log_file_name": "flaml_experiment.log",  # flaml log file
+        "log_file_name": artifact_path(__file__, "flaml_experiment.log"),  # flaml log file
         "seed": 7654321,  # random seed
         "eval_method": "holdout",
         "estimator_list": estimator_list,  # TODO: remove once SynapseML supports spark 4+
@@ -167,14 +168,11 @@ def test_spark_input_df_and_pickle():
         **settings,
     )
 
-    # test pickle and load_pickle, should work for vizualization and prediction
-    automl.pickle("automl_spark.pkl")
-    automl_loaded = AutoML().load_pickle("automl_spark.pkl", load_spark_models=False)
+    # Metadata-only visualization load; native model restoration is covered in test_persistence_contracts.py.
+    automl.pickle(artifact_path(__file__, "automl_spark.pkl"))
+    automl_loaded = AutoML().load_pickle(artifact_path(__file__, "automl_spark.pkl"), load_spark_models=False)
     assert automl_loaded.best_estimator == automl.best_estimator
     assert automl_loaded.best_loss == automl.best_loss
-    # automl_loaded.predict(df)
-    # automl_loaded.model.estimator.transform(test_data)
-
     fig1 = fviz.plot_optimization_history(automl)
     fig2 = fviz.plot_optimization_history(automl_loaded)
     assert fig1.to_json() == fig2.to_json()

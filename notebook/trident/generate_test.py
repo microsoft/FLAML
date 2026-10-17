@@ -13,9 +13,7 @@ all_notebooks = [
     "notebook/automl_time_series_forecast.ipynb",
 ]
 merged_notebook = nbformat.v4.new_notebook()
-pkgs = {
-    '"flaml[synapse,automl,ts_forecast]@https://automlsaeastus.blob.core.windows.net/releases/FLAML-latest-py3-none-any.whl"'
-}
+pkgs = {'"flaml[synapse,automl,ts_forecast]@git+https://github.com/microsoft/FLAML.git@main"'}
 for notebook_name in all_notebooks:
     with open(notebook_name, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
@@ -24,6 +22,7 @@ for notebook_name in all_notebooks:
     for cell in notebook.cells:
         if cell["cell_type"] == "code":
             cell.outputs = []
+            cell.execution_count = None
             if "%pip install" in cell.source:
                 package_line = cell.source.split("\n")[0]  # 只考虑单元格的第一行
                 packages = package_line.split(" ")[2:]
@@ -37,7 +36,7 @@ for notebook_name in all_notebooks:
     merged_notebook.cells.extend(code_cells)
 
 # add install packages
-pip_install_cell = nbformat.v4.new_code_cell(f"%pip install {' '.join(pkgs)}")
+pip_install_cell = nbformat.v4.new_code_cell(f"%pip install {' '.join(sorted(pkgs))}")
 merged_notebook.cells.insert(0, pip_install_cell)
 
 with open("notebook/trident/all_in_one_test.ipynb", "w", encoding="utf-8") as f:

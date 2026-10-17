@@ -51,7 +51,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test installed core and AutoML without Fabric dependencies
+      - name: Test isolated core, AutoML, and AutoFE installations
         shell: python
         run: |
           import os
@@ -60,17 +60,21 @@ jobs:
           from pathlib import Path
 
           checkout = Path.cwd()
-          environment = Path(os.environ["RUNNER_TEMP"]) / "flaml-public-install"
-          venv.create(environment, with_pip=True)
-          python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
           smoke_test = checkout / "test" / "check_public_install.py"
-          for extra in ("", "[automl]"):
+          for profile, extra, flags in (
+              ("core", "", []),
+              ("automl", "[automl]", ["--automl"]),
+              ("autofe", "[autofe]", ["--autofe"]),
+          ):
+              environment = Path(os.environ["RUNNER_TEMP"]) / f"flaml-public-install-{profile}"
+              venv.create(environment, with_pip=True)
+              python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
               subprocess.run(
                   [str(python), "-m", "pip", "install", str(checkout) + extra],
                   check=True, cwd=environment,
               )
               subprocess.run(
-                  [str(python), str(smoke_test)] + (["--automl"] if extra else []),
+                  [str(python), str(smoke_test)] + flags,
                   check=True, cwd=environment,
               )
 
@@ -130,26 +134,24 @@ jobs:
           SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
           echo "import coverage; coverage.process_startup()" > "$SITE_PACKAGES/coverage_subprocess.pth"
           echo "Wrote $SITE_PACKAGES/coverage_subprocess.pth"
-      # pyspark doesn't yet support pandas 3.0, so cap pandas where pyspark
-      # is installed (only Ubuntu in this matrix). The py3.10 carve-out is
-      # kept because pyspark 3.5.x already pulls in pandas<3 transitively
-      # there, so an explicit pin is unnecessary.
+      # Only Spark jobs need this compatibility cap. Non-Spark jobs should
+      # exercise the current pandas version allowed by their dependencies.
       - name: On Ubuntu with pyspark, pin pandas<3 (pyspark doesn't support pandas 3.0 yet)
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
+        if: matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
         run: |
           pip install "pandas>=2.0,<3"
       - name: On Ubuntu python 3.11, install pyspark 3.5.1
-        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
         run: |
           pip install pyspark==3.5.1
           pip list | grep "pyspark"
       - name: On Ubuntu python 3.12, install pyspark 4.0.1
-        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
         run: |
           pip install pyspark==4.0.1
           pip list | grep "pyspark"
       - name: On Ubuntu python 3.13, install pyspark 4.1.0
-        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
         run: |
           pip install pyspark==4.1.0
           pip list | grep "pyspark"
@@ -229,28 +231,51 @@ jobs:
             --ignore=test/spark/test_internal_mlflow.py \
             --reruns 2 --reruns-delay 10 \
             -m "spark"
+      - name: Test offline NLP utilities and classification heads
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' && matrix.test-type == 'notspark'
+        timeout-minutes: 30
+        shell: bash
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+          HF_DATASETS_OFFLINE: "1"
+          TOKENIZERS_PARALLELISM: "false"
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+        run: |
+          coverage run -m pytest \
+            test/nlp/test_hf_utils_coverage.py \
+            test/nlp/test_autohf_classificationhead.py \
+            --reruns 2 --reruns-delay 10
       # .coveragerc enables `parallel = true`, so each subprocess writes its
       # own .coverage.<host>.<pid>.<rand> shard. Combine them into a single
       # per-job .coverage file so one artifact = one job's coverage.
       - name: Combine per-job coverage data
         if: always() && matrix.os == 'ubuntu-latest'
         shell: bash
+        env:
+          TEST_JOB_RESULT: ${{ job.status }}
         run: |
           set -e
           shopt -s nullglob
-          shards=( .coverage .coverage.* )
-          if [ ${#shards[@]} -eq 0 ]; then
-            echo "No coverage shards produced; skipping combine."
+          shards=( .coverage.* )
+          if [ ! -f .coverage ] && [ ${#shards[@]} -eq 0 ]; then
+            if [ "${TEST_JOB_RESULT:-success}" = "success" ]; then
+              echo "::error::Successful Ubuntu tests produced no coverage data."
+              exit 1
+            fi
+            echo "No coverage data after an unsuccessful test job; skipping combine."
             exit 0
           fi
-          coverage combine
+          if [ ${#shards[@]} -gt 0 ]; then
+            coverage combine
+          fi
       - name: Upload coverage data artifact
         if: always() && matrix.os == 'ubuntu-latest' && hashFiles('.coverage') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-data-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.test-type }}
           path: .coverage
-          if-no-files-found: ignore
+          if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
       - name: Save dependencies
@@ -298,6 +323,8 @@ jobs:
           pattern: coverage-data-*
       - name: Combine coverage data and produce XML
         shell: bash
+        env:
+          BUILD_MATRIX_RESULT: ${{ needs.build.result }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -308,7 +335,11 @@ jobs:
             cp "$f" "combined/.coverage.$i"
           done
           if [ "$i" -eq 0 ]; then
-            echo "No coverage data files were uploaded by build jobs."
+            if [ "${BUILD_MATRIX_RESULT:-success}" = "success" ]; then
+              echo "::error::Successful build jobs uploaded no coverage data."
+              exit 1
+            fi
+            echo "No coverage data after unsuccessful build jobs; skipping aggregation."
             exit 0
           fi
           echo "Combining $i coverage data files..."
@@ -318,7 +349,7 @@ jobs:
           coverage report -m || true
       - name: Upload combined coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@0b35c9ecc4f0529d0eb674914510c22f85b196b4 # v7.1.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           # Use the repository upload token from Codecov's settings page
           # (added as the CODECOV_TOKEN repo secret). This is what reliably
@@ -335,12 +366,8 @@ jobs:
       # Codecov's own codecov-commenter is currently silent on this
       # repo (uploads still go to the Codecov dashboard above for trend
       # tracking, but the in-PR comment uses this action instead).
-      # We feed it the cobertura coverage.xml directly via
-      # `pytest-xml-coverage-path` -- our `coverage report -m` text
-      # output (which we tee'd into pytest-coverage.txt) is missing
-      # the pytest test-session summary line that MishaKav parses for
-      # "passed"/"failed"/"skipped" counts, so the action would
-      # otherwise refuse the file with "bad format or wrong data".
+      # Build the comment from the Cobertura coverage.xml artifact via
+      # `pytest-xml-coverage-path`; no pytest text-summary file is produced.
       - name: Post coverage comment to PR
         if: hashFiles('coverage.xml') != '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: MishaKav/pytest-coverage-comment@637da55541a2c0e160cbe17c914b92c6a7a3ee67

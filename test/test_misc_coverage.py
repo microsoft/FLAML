@@ -16,7 +16,7 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# 1. flaml/__init__.py – ImportError branches for automl and fabric.telemetry
+# 1. flaml/__init__.py – AutoML and optional telemetry import behavior
 #    Run in subprocesses to avoid corrupting the main process module cache.
 # ---------------------------------------------------------------------------
 class TestFlamlInit:
@@ -33,17 +33,20 @@ class TestFlamlInit:
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30)
         assert "OK" in result.stdout, result.stderr
 
-    def test_telemetry_import_error_branch(self):
-        """Cover lines 18-19: ImportError when flaml.fabric.telemetry is unavailable."""
+    def test_optional_telemetry_reporter_can_be_unavailable(self):
+        """An unavailable optional Synapse reporter must not disable the package."""
         code = (
-            "import sys; "
-            "sys.modules['flaml.fabric.telemetry'] = None; "
+            "import os, sys; "
+            "os.environ['FLAML_FABRIC_RUNTIME'] = 'true'; "
+            "sys.modules['synapse'] = None; "
             "import flaml; "
-            "assert not flaml.is_log_telemetry; "
+            "from flaml.fabric.telemetry import report_usage_telemetry; "
+            "assert report_usage_telemetry is None; "
             "assert flaml.has_automl; "
             "print('OK')"
         )
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
         assert "OK" in result.stdout, result.stderr
 
     def test_import_flaml_does_not_start_spark(self):
@@ -66,6 +69,21 @@ class TestFlamlInit:
         )
         result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
         assert "OK" in result.stdout, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+
+    @pytest.mark.spark
+    def test_installed_spark_import_does_not_start_jvm(self):
+        code = (
+            "import importlib.util; "
+            "assert importlib.util.find_spec('pyspark') is not None, 'Spark CI must install PySpark'; "
+            "from pyspark import SparkContext; "
+            "assert SparkContext._active_spark_context is None; "
+            "import flaml; "
+            "assert SparkContext._active_spark_context is None; "
+            "print('OK')"
+        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "OK" in result.stdout
 
 
 # ---------------------------------------------------------------------------

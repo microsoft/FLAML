@@ -1,4 +1,5 @@
 import os
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pytest
@@ -37,7 +38,7 @@ def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
         "time_budget": 30,
         "metric": "ap",
         "task": "classification",
-        "log_file_name": "test/sparse_classification.log",
+        "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
         "estimator_list": ["xgboost"],
         "log_type": "all",
         "n_jobs": 1,
@@ -57,8 +58,8 @@ def test_parallel_xgboost_and_pickle(hpo_method=None, data_size=1000):
     print(automl_experiment.best_estimator)
 
     # test pickle and load_pickle, should work for vizualization and prediction
-    automl_experiment.pickle("automl_xgboost_spark.pkl")
-    automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
+    automl_experiment.pickle(artifact_path(__file__, "automl_xgboost_spark.pkl"))
+    automl_loaded = AutoML().load_pickle(artifact_path(__file__, "automl_xgboost_spark.pkl"))
     assert automl_loaded.best_estimator == automl_experiment.best_estimator
     assert automl_loaded.best_loss == automl_experiment.best_loss
     automl_loaded.predict(X_train)
@@ -96,7 +97,7 @@ def test_custom_learner(data_size=1000):
     automl_settings = {
         "time_budget": 2,
         "task": "classification",
-        "log_file_name": "test/sparse_classification_oom.log",
+        "log_file_name": artifact_path(__file__, "test/sparse_classification_oom.log"),
         "estimator_list": ["large_lgbm"],
         "log_type": "all",
         "n_jobs": 1,

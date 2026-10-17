@@ -1,6 +1,7 @@
 import platform
 import sys
 import unittest
+from test._artifact_paths import artifact_path
 from test.conftest import evaluate_cv_folds_with_underlying_model
 
 import numpy as np
@@ -44,7 +45,7 @@ class TestRegression(unittest.TestCase):
         automl_settings = {
             "time_budget": 2,
             "task": "regression",
-            "log_file_name": "test/california.log",
+            "log_file_name": artifact_path(__file__, "test/california.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -113,7 +114,7 @@ class TestRegression(unittest.TestCase):
             "time_budget": 2,
             "metric": "mae",
             "task": "regression",
-            "log_file_name": "test/sparse_regression.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_regression.log"),
             "n_jobs": 1,
             "model_history": True,
             "keep_search_state": True,
@@ -153,7 +154,7 @@ class TestRegression(unittest.TestCase):
         automl_settings = {
             "time_budget": 10,
             "task": "regression",
-            "log_file_name": "test/california.log",
+            "log_file_name": artifact_path(__file__, "test/california.log"),
             "log_type": "all",
             "n_jobs": 1,
             "n_concurrent_trials": 10,
@@ -172,8 +173,8 @@ class TestRegression(unittest.TestCase):
             return
 
         # test pickle and load_pickle, should work for vizualization and prediction
-        automl_experiment.pickle("automl_xgboost_spark.pkl")
-        automl_loaded = AutoML().load_pickle("automl_xgboost_spark.pkl")
+        automl_experiment.pickle(artifact_path(__file__, "automl_xgboost_spark.pkl"))
+        automl_loaded = AutoML().load_pickle(artifact_path(__file__, "automl_xgboost_spark.pkl"))
         assert automl_loaded.best_estimator == automl_experiment.best_estimator
         assert automl_loaded.best_loss == automl_experiment.best_loss
         automl_loaded.predict(X_train)
@@ -197,7 +198,7 @@ class TestRegression(unittest.TestCase):
             "time_budget": 1,
             "eval_method": "holdout",
             "task": "regression",
-            "log_file_name": "test/sparse_regression.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_regression.log"),
             "n_jobs": 1,
             "model_history": True,
             "metric": "mse",
@@ -224,7 +225,7 @@ class TestRegression(unittest.TestCase):
             "time_budget": 2,
             "estimator_list": ["my_xgb1", "my_xgb2"],
             "task": "regression",
-            "log_file_name": "test/regression_xgboost.log",
+            "log_file_name": artifact_path(__file__, "test/regression_xgboost.log"),
             "n_jobs": 1,
             "model_history": True,
             "keep_search_state": True,

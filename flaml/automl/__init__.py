@@ -1,7 +1,14 @@
 from flaml.automl.automl import AutoML, size
 from flaml.automl.logger import logger_formatter
 from flaml.automl.state import AutoMLState, SearchState
-from flaml.fabric.autofe import Featurization
+
+
+def __getattr__(name):
+    if name == "Featurization":
+        from flaml.fabric.autofe import Featurization
+
+        return Featurization
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def register_automl_pipeline(automl, model_name=None, signature=None, artifact_path="model"):

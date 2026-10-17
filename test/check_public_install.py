@@ -8,13 +8,14 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--automl", action="store_true")
+    parser.add_argument("--autofe", action="store_true")
     args = parser.parse_args()
 
     import flaml
     from flaml import tune
 
     assert not Path(flaml.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
-    assert flaml.has_automl is args.automl
+    assert flaml.has_automl is (args.automl or args.autofe)
     assert importlib.util.find_spec("mlflow") is None
     assert importlib.util.find_spec("pyspark") is None
     analysis = tune.run(
@@ -42,6 +43,16 @@ def main():
         assert len(automl.predict(X[:3])) == 3
         assert automl.mlflow_integration is None
         assert callable(register_automl_pipeline)
+
+    if args.autofe:
+        import numpy as np
+        import pandas as pd
+
+        from flaml.automl import Featurization
+
+        data = pd.DataFrame({"feature": [1.0, 2.0, 3.0]})
+        features = Featurization(params={"fe.numerical": "scaler_standard"}).fit_transform(data)
+        np.testing.assert_allclose(features["feature"], [-1.22474487, 0.0, 1.22474487])
 
 
 if __name__ == "__main__":

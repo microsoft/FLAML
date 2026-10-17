@@ -734,8 +734,7 @@ class TestAutoConvertDtypesPandas:
         assert result["td"].iloc[2] == pd.Timedelta(days=21)
 
     def test_sample_ratio_caps_inference_but_preserves_full_data(self):
-        """``sample_ratio`` bounds the cost of the inference heuristics
-        on large frames while still applying conversion to every row."""
+        """Sampling bounds later heuristics; numeric decisions and output still cover every row."""
         n = 50_000
         df = pd.DataFrame(
             {
