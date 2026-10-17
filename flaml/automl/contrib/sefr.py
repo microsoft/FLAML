@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import inspect
 import numbers
+import warnings
 
 import numpy as np
 
@@ -62,8 +63,9 @@ from flaml.automl.task import Task
 
 _EPS = 1e-7
 # Platt calibration fits n_classes + 1 parameters on the training margins. Past
-# this many margin entries it uses a deterministic row subsample, which bounds its
-# memory (two float64 arrays of this size) and barely changes the fit.
+# this many margin entries it uses a reproducible stratified row subsample, which
+# bounds its memory (two float64 arrays of this size) and barely changes the fit;
+# with too many classes for even one row each, it keeps the sigmoid calibration.
 _CALIBRATION_MAX_ENTRIES = 10_000_000
 # Strength of the pull of the Platt slope (relative to the closed form) towards the
 # closed form, against the weighted mean log loss; keeps separable data finite.
@@ -363,18 +365,33 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             second += sample_weight[start : start + chunk] @ (centered * centered)
         return np.sqrt(second / sample_weight.sum())
 
-    def _calibration_rows(self, n_samples, y_index, weights):
-        """All rows, or a deterministic subsample that keeps a positive-weight row of every class."""
-        n_logits = 2 if self.classes_.size == 2 else self.classes_.size
-        if n_samples * n_logits <= _CALIBRATION_MAX_ENTRIES:
-            return np.arange(n_samples)
-        stride = -(-n_samples * n_logits // _CALIBRATION_MAX_ENTRIES)
+    def _calibration_sample(self, y_index, weights):
+        """All rows, or a reproducible stratified subsample that keeps every class's weight total.
+
+        Returns ``(rows, weights)``, or ``(None, None)`` when one row per class is
+        already past ``_CALIBRATION_MAX_ENTRIES``.
+        """
+        n_classes = self.classes_.size
+        max_rows = _CALIBRATION_MAX_ENTRIES // (2 if n_classes == 2 else n_classes)
+        if y_index.size <= max_rows:
+            return np.arange(y_index.size), weights
+        if max_rows < n_classes:
+            return None, None
         positive = np.flatnonzero(weights > 0)
-        first_positive = positive[np.unique(y_index[positive], return_index=True)[1]]
-        rows = np.union1d(np.arange(0, n_samples, stride), first_positive)
-        # a class without weight in the subsample would drive its bias to -inf
-        self._class_totals(y_index[rows], weights[rows])
-        return rows
+        counts = np.bincount(y_index[positive], minlength=n_classes)
+        # every class keeps its share of the rows and at least one, max_rows in all
+        quota = np.maximum(1, counts * (max_rows - n_classes) // positive.size)
+        # positive-weight rows grouped by class, in random order within a class
+        rng = np.random.default_rng(0)
+        order = positive[np.lexsort((rng.random(positive.size), y_index[positive]))]
+        y_order = y_index[order]
+        rank = np.arange(order.size) - (np.cumsum(counts) - counts)[y_order]
+        rows = np.sort(order[rank < quota[y_order]])
+        # scale each class's sampled weights back up to its full total
+        y_rows = y_index[rows]
+        totals = np.bincount(y_index, weights=weights, minlength=n_classes)
+        sampled = np.bincount(y_rows, weights=weights[rows], minlength=n_classes)
+        return rows, weights[rows] * (totals / sampled)[y_rows]
 
     def _fit_calibration(self, X, y_index, sample_weight, costs, score_mean, score_std):
         """Return the scale ``a`` and per-head biases ``b`` of the calibrated logits."""
@@ -390,11 +407,18 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         if self.calibration == "sigmoid":
             return scale, bias
 
-        rows = self._calibration_rows(X.shape[0], y_index, weights)
+        rows, row_weights = self._calibration_sample(y_index, weights)
+        if rows is None:
+            warnings.warn(
+                f"Platt calibration of {self.classes_.size} classes exceeds _CALIBRATION_MAX_ENTRIES "
+                "with one row per class; using sigmoid calibration instead",
+                UserWarning,
+            )
+            return scale, bias
         margins = np.asarray(X[rows] @ self.coef_.T) - self.intercept_
         if self.classes_.size == 2:
-            return _fit_binary(margins[:, 0], y_index[rows] == 1, weights[rows], scale, bias[0])
-        return _fit_multinomial(margins, y_index[rows], weights[rows], scale, bias)
+            return _fit_binary(margins[:, 0], y_index[rows] == 1, row_weights, scale, bias[0])
+        return _fit_multinomial(margins, y_index[rows], row_weights, scale, bias)
 
     def fit(self, X, y, sample_weight=None):
         self._check_params()

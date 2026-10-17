@@ -331,16 +331,40 @@ def test_sefr_calibration_subsample(monkeypatch):
     assert np.all(np.isfinite(sub.calibration_bias_))
     assert abs(log_loss(y, sub.predict_proba(X)) - log_loss(y, full.predict_proba(X))) < 0.05
 
-    # rows on the subsample grid, and the first row of every class, all weigh zero:
-    # the subsample must still reach a positive-weight row of every class
-    rows = np.arange(len(y))
+    # the first row of every class and every other row weigh zero: the subsample
+    # must still reach a positive-weight row of every class, and keep class totals
     weights = np.ones(len(y))
-    weights[rows % 8 == 0] = 0
+    weights[::2] = 0
     weights[[np.flatnonzero(y == k)[0] for k in range(4)]] = 0
     zeroed = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=weights)
     assert np.all(np.isfinite(zeroed.calibration_bias_))
-    picked = zeroed._calibration_rows(len(y), y, weights)
-    assert all(weights[picked][y[picked] == k].sum() > 0 for k in range(4))
+    picked, picked_weights = zeroed._calibration_sample(y, weights)
+    assert len(picked) * 4 <= 1000 and np.all(weights[picked] > 0)
+    np.testing.assert_allclose(np.bincount(y[picked], weights=picked_weights), np.bincount(y, weights=weights))
+
+
+def test_sefr_calibration_subsample_periodic_labels(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    # labels cycling in order would alias with a fixed-stride subsample, which then
+    # keeps every even-class row and a single odd-class row
+    rng = np.random.default_rng(0)
+    X, y = rng.random((4000, 8)), np.arange(4000) % 4
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 8000)
+    model = SEFRClassifier(calibration="platt").fit(X, y)
+    np.testing.assert_allclose(model.predict_proba(X).mean(axis=0), 0.25, atol=0.02)
+
+
+def test_sefr_calibration_too_many_classes(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    X, y = make_classification(300, 8, n_classes=4, n_informative=6, random_state=0)
+    sigmoid = SEFRClassifier(calibration="sigmoid").fit(X, y)
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 12)
+    with pytest.warns(UserWarning, match="sigmoid calibration"):
+        platt = SEFRClassifier(calibration="platt").fit(X, y)
+    np.testing.assert_allclose(platt.calibration_scale_, sigmoid.calibration_scale_)
+    np.testing.assert_allclose(platt.calibration_bias_, sigmoid.calibration_bias_)
 
 
 def test_sefr_sparse():
@@ -408,6 +432,13 @@ def test_sefr_estimators():
     boost = SEFRBoostEstimator(task="binary", n_estimators=4)
     boost.fit(X, y)
     assert boost.predict_proba(X).shape == (200, 2)
+
+    # stacking clones the wrapper, which must keep its configured base learner
+    from sklearn.base import clone
+
+    boost = SEFRBoostEstimator(task="binary", n_estimators=4, calibration="sigmoid", class_weight="balanced")
+    base = clone(boost).params["estimator" if "estimator" in boost.params else "base_estimator"]
+    assert (base.calibration, base.class_weight) == ("sigmoid", "balanced")
 
 
 if __name__ == "__main__":
