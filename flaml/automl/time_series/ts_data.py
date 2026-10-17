@@ -540,9 +540,7 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
         return X_train_all
     else:
         if len(y_train_all) != len(X_train_all):
-            raise ValueError(
-                f"Target length ({len(y_train_all)}) does not match feature length ({len(X_train_all)})."
-            )
+            raise ValueError(f"Target length ({len(y_train_all)}) does not match feature length ({len(X_train_all)}).")
         if isinstance(y_train_all, np.ndarray):
             # TODO: will need to revisit this when doing multivariate y
             y_train_all = pd.DataFrame(
