@@ -343,6 +343,39 @@ def test_sefr_calibration_subsample(monkeypatch):
     np.testing.assert_allclose(np.bincount(y[picked], weights=picked_weights), np.bincount(y, weights=weights))
 
 
+def test_sefr_calibration_subsample_heavy_rows(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    # one heavy row per class carries most of its weight; the subsample must keep it,
+    # and its calibration must match the full-data fit on the weighted log loss
+    y = np.arange(1000) % 2
+    X = (1 - y).astype(float).reshape(-1, 1)
+    X[:2, 0] = y[:2]
+    w = np.ones(1000)
+    w[:2] = 10000.0
+    full = SEFRClassifier(calibration="platt", scaling="none").fit(X, y, sample_weight=w)
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 200)
+    sub = SEFRClassifier(calibration="platt", scaling="none").fit(X, y, sample_weight=w)
+    rows, row_weights = sub._calibration_sample(y, w)
+    assert {0, 1} <= set(rows) and len(rows) * 2 <= 200
+    np.testing.assert_allclose(np.bincount(y[rows], weights=row_weights), np.bincount(y, weights=w))
+    full_loss = log_loss(y, full.predict_proba(X), sample_weight=w)
+    assert log_loss(y, sub.predict_proba(X), sample_weight=w) < full_loss + 0.02
+
+    # heterogeneous weights: the subsample's weighted mean margin tracks the full data's
+    rng = np.random.default_rng(1)
+    X, y = make_classification(4000, 8, n_classes=3, n_informative=5, random_state=0)
+    w = rng.lognormal(sigma=2.0, size=len(y))
+    model = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=w)
+    rows, row_weights = model._calibration_sample(y, w)
+    margins = model._scale(X) @ model.coef_.T - model.intercept_
+    np.testing.assert_allclose(
+        np.average(margins[rows], axis=0, weights=row_weights),
+        np.average(margins, axis=0, weights=w),
+        atol=0.05 * margins.std(),
+    )
+
+
 def test_sefr_calibration_subsample_periodic_labels(monkeypatch):
     import flaml.automl.contrib.sefr as sefr
 

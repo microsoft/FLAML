@@ -63,7 +63,7 @@ from flaml.automl.task import Task
 
 _EPS = 1e-7
 # Platt calibration fits n_classes + 1 parameters on the training margins. Past
-# this many margin entries it uses a reproducible stratified row subsample, which
+# this many margin entries it uses a reproducible weighted stratified row subsample, which
 # bounds its memory (two float64 arrays of this size) and barely changes the fit;
 # with too many classes for even one row each, it keeps the sigmoid calibration.
 _CALIBRATION_MAX_ENTRIES = 10_000_000
@@ -371,8 +371,11 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         return np.sqrt(second / sample_weight.sum())
 
     def _calibration_sample(self, y_index, weights):
-        """All rows, or a reproducible stratified subsample that keeps every class's weight total.
+        """All rows, or a reproducible stratified subsample of the weighted training rows.
 
+        Within each class, rows are drawn by systematic sampling proportional to their
+        weight, and each draw carries an equal share of the class's total weight, so the
+        subsample represents the weighted rows of every class and keeps its total.
         Returns ``(rows, weights)``, or ``(None, None)`` when one row per class is
         already past ``_CALIBRATION_MAX_ENTRIES``.
         """
@@ -384,19 +387,31 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             return None, None
         positive = np.flatnonzero(weights > 0)
         counts = np.bincount(y_index[positive], minlength=n_classes)
-        # every class keeps its share of the rows and at least one, max_rows in all
+        # every class gets its share of the draws and at least one, max_rows in all
         quota = np.maximum(1, counts * (max_rows - n_classes) // positive.size)
-        # positive-weight rows grouped by class, in random order within a class
+        # positive-weight rows grouped by class, in random order within a class so that
+        # the evenly spaced draws cannot alias with the order of the rows
         rng = np.random.default_rng(0)
         order = positive[np.lexsort((rng.random(positive.size), y_index[positive]))]
-        y_order = y_index[order]
-        rank = np.arange(order.size) - (np.cumsum(counts) - counts)[y_order]
-        rows = np.sort(order[rank < quota[y_order]])
-        # scale each class's sampled weights back up to its full total
-        y_rows = y_index[rows]
-        totals = np.bincount(y_index, weights=weights, minlength=n_classes)
-        sampled = np.bincount(y_rows, weights=weights[rows], minlength=n_classes)
-        return rows, weights[rows] * (totals / sampled)[y_rows]
+        offsets = rng.random(n_classes)
+        hits = np.zeros(order.size, dtype=np.int64)
+        totals = np.empty(n_classes)
+        end = 0
+        for k in range(n_classes):
+            start, end = end, end + counts[k]
+            # the draws sit at offsets[k] + 0, 1, ..., quota[k] - 1 on the class's
+            # cumulative weight scaled to [0, quota[k]]; a row is hit once per draw in
+            # its interval, so a row heavier than one draw's share is always kept
+            edges = np.cumsum(weights[order[start:end]])
+            totals[k] = edges[-1]
+            edges *= quota[k] / edges[-1]
+            edges[-1] = quota[k]
+            hits[start:end] = np.diff(np.floor(edges - offsets[k]), prepend=np.floor(-offsets[k]))
+        picked = hits > 0
+        rows, hits = order[picked], hits[picked]
+        row_weights = hits * (totals / quota)[y_index[rows]]
+        by_row = np.argsort(rows)
+        return rows[by_row], row_weights[by_row]
 
     def _fit_calibration(self, X, y_index, sample_weight, costs, score_mean, score_std):
         """Return the scale ``a`` and per-head biases ``b`` of the calibrated logits."""
