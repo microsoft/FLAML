@@ -283,7 +283,7 @@ def test_seasonal_average_caps_lag_order_on_short_training_data():
 @pytest.mark.parametrize("estimator", ["snaive", "savg"])
 @pytest.mark.parametrize("eval_method", ["holdout", "cv"])
 def test_seasonal_forecasters_fit_short_series(estimator, eval_method):
-    # 36 rows with period 6 leave 11 training rows in the first cross-validation fold
+    # 36 rows with period 6 leave 12 training rows in the first cross-validation fold, too few for 6 lags
     n = 36
     data = pd.DataFrame(
         {"ds": pd.date_range("2024-01-01", periods=n, freq="D"), "y": 10 + np.sin(np.arange(n)) + 0.01 * np.arange(n)}
