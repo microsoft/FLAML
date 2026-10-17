@@ -100,6 +100,11 @@ def limit_resource(memory_limit, time_limit, _caller_exceptions=None):
     Caller callbacks run synchronously. On return or failure, an expired budget
     takes precedence over a callback exception; otherwise that exception is
     propagated unchanged. Nested budget expirations retain their original owner.
+    Takeover coordinates kernel-pending SIGALRM on this thread. Other threads
+    must also block SIGALRM to exclude delivery through CPython during takeover;
+    an already queued Python callback cannot be made atomic by this context.
+    The capture timestamp is sampled conservatively before disarming: a scheduling
+    pause between those operations can shorten, but cannot extend, the caller delay.
     """
     if _caller_exceptions is None:
         _caller_exceptions = []
@@ -117,77 +122,100 @@ def limit_resource(memory_limit, time_limit, _caller_exceptions=None):
             timeout = int(time_limit) or 1
             if timeout < 0:
                 raise OverflowError("time_limit must not be negative")
-            previous_handler = signal.getsignal(signal.SIGALRM)
-            previous_timer = signal.getitimer(signal.ITIMER_REAL)
-            started = time.monotonic()
-            deadline = started + timeout
-            previous_deadline = started + previous_timer[0] if previous_timer[0] else None
-            expired_timeout = None
-
-            def arm_timer():
-                next_deadline = min(deadline, previous_deadline) if previous_deadline is not None else deadline
-                signal.setitimer(signal.ITIMER_REAL, max(next_deadline - time.monotonic(), 1e-6))
-
-            def raise_timeout(sig, frame):
-                nonlocal expired_timeout
-                if expired_timeout is None:
-                    expired_timeout = _ResourceLimitTimeout(sig, frame, _caller_exceptions)
-                raise expired_timeout
-
-            def handle_alarm(sig, frame):
-                nonlocal previous_deadline, previous_timer, previous_handler, expired_timeout
-                now = time.monotonic()
-                if previous_deadline is not None and previous_deadline <= min(deadline, now):
-                    if previous_timer[1]:
-                        # Standard signals coalesce: skip missed ticks without shifting their phase.
-                        elapsed_ticks = int((now - previous_deadline) / previous_timer[1]) + 1
-                        previous_deadline += elapsed_ticks * previous_timer[1]
-                    else:
-                        previous_deadline = None
-                    signal.setitimer(
-                        signal.ITIMER_REAL,
-                        max(previous_deadline - time.monotonic(), 1e-6) if previous_deadline is not None else 0,
-                        previous_timer[1],
-                    )
-                    # In nested limits the installed dispatcher can belong to an inner context.
-                    installed_handler = signal.getsignal(signal.SIGALRM)
-                    try:
-                        if callable(previous_handler):
-                            previous_handler(sig, frame)
-                        elif previous_handler == signal.SIG_DFL:
-                            signal.signal(sig, previous_handler)
-                            signal.raise_signal(sig)
-                    except BaseException as exc:
-                        if isinstance(exc, _ResourceLimitTimeout):
-                            # An earlier outer deadline must not become this fit's fallback timeout.
-                            expired_timeout = exc
-                        else:
-                            _caller_exceptions.append(exc)
-                        raise
-                    finally:
-                        handler = signal.getsignal(signal.SIGALRM)
-                        if handler != installed_handler:
-                            previous_handler = handler
-                        signal.signal(signal.SIGALRM, installed_handler)
-                        # A previous handler (including an outer limit_resource) may rearm its timer.
-                        previous_timer = signal.getitimer(signal.ITIMER_REAL)
-                        previous_deadline = time.monotonic() + previous_timer[0] if previous_timer[0] else None
-                        if time.monotonic() >= deadline:
-                            raise_timeout(sig, frame)
-                        arm_timer()
-                elif now >= deadline:
-                    raise_timeout(sig, frame)
-                else:
-                    # An early or pending signal is not a budget expiration.
-                    arm_timer()
-
+            previous_timer = None
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
             try:
+                previous_handler = signal.getsignal(signal.SIGALRM)
+                started = time.monotonic()
+                # Disarm and capture in one operation; a consumed one-shot returns zero.
+                previous_timer = signal.setitimer(signal.ITIMER_REAL, 0)
+                deadline = started + timeout
+                previous_deadline = started + previous_timer[0] if previous_timer[0] else None
+                pending_caller_alarm = signal.SIGALRM in signal.sigpending()
+                expired_timeout = None
+
+                def arm_timer():
+                    # The kernel will deliver this tick on unmask; do not manufacture a second signal.
+                    if pending_caller_alarm:
+                        return
+                    next_deadline = min(deadline, previous_deadline) if previous_deadline is not None else deadline
+                    signal.setitimer(signal.ITIMER_REAL, max(next_deadline - time.monotonic(), 1e-6))
+
+                def raise_timeout(sig, frame):
+                    nonlocal expired_timeout
+                    if expired_timeout is None:
+                        expired_timeout = _ResourceLimitTimeout(sig, frame, _caller_exceptions)
+                    raise expired_timeout
+
+                def handle_alarm(sig, frame):
+                    nonlocal previous_deadline, previous_timer, previous_handler, expired_timeout, pending_caller_alarm
+                    now = time.monotonic()
+                    if pending_caller_alarm or (
+                        previous_deadline is not None and previous_deadline <= min(deadline, now)
+                    ):
+                        pending_caller_alarm = False
+                        if previous_deadline is not None and previous_deadline > now:
+                            # A pending periodic tick is separate from its next future tick.
+                            pass
+                        elif previous_timer[1] and previous_deadline is not None:
+                            # Standard signals coalesce: skip missed ticks without shifting their phase.
+                            elapsed_ticks = int((now - previous_deadline) / previous_timer[1]) + 1
+                            previous_deadline += elapsed_ticks * previous_timer[1]
+                        else:
+                            previous_deadline = None
+                        signal.setitimer(
+                            signal.ITIMER_REAL,
+                            max(previous_deadline - time.monotonic(), 1e-6) if previous_deadline is not None else 0,
+                            previous_timer[1],
+                        )
+                        # In nested limits the installed dispatcher can belong to an inner context.
+                        installed_handler = signal.getsignal(signal.SIGALRM)
+                        try:
+                            if callable(previous_handler):
+                                previous_handler(sig, frame)
+                            elif previous_handler == signal.SIG_DFL:
+                                signal.signal(sig, previous_handler)
+                                signal.raise_signal(sig)
+                        except BaseException as exc:
+                            if isinstance(exc, _ResourceLimitTimeout):
+                                # An earlier outer deadline must not become this fit's fallback timeout.
+                                expired_timeout = exc
+                            else:
+                                _caller_exceptions.append(exc)
+                            raise
+                        finally:
+                            handler = signal.getsignal(signal.SIGALRM)
+                            if handler != installed_handler:
+                                previous_handler = handler
+                            signal.signal(signal.SIGALRM, installed_handler)
+                            # A previous handler (including an outer limit_resource) may rearm its timer.
+                            previous_timer = signal.getitimer(signal.ITIMER_REAL)
+                            previous_deadline = time.monotonic() + previous_timer[0] if previous_timer[0] else None
+                            if time.monotonic() >= deadline:
+                                raise_timeout(sig, frame)
+                            arm_timer()
+                    elif now >= deadline:
+                        raise_timeout(sig, frame)
+                    else:
+                        # An early or pending signal is not a budget expiration.
+                        arm_timer()
+
                 signal.signal(signal.SIGALRM, handle_alarm)
-            except ValueError:
-                pass
-            else:
                 alarm_set = True
                 arm_timer()
+            except BaseException:
+                # Roll back every failure after capture, including pending-state queries.
+                alarm_set = False
+                if previous_timer is not None:
+                    signal.signal(signal.SIGALRM, previous_handler)
+                    signal.setitimer(
+                        signal.ITIMER_REAL,
+                        max(started + previous_timer[0] - time.monotonic(), 1e-6) if previous_timer[0] else 0,
+                        previous_timer[1],
+                    )
+                raise
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
 
         yield
     finally:

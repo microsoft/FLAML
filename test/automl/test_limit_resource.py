@@ -22,6 +22,13 @@ def restore_alarm():
         signal.setitimer(signal.ITIMER_REAL, *timer)
 
 
+def wait_for_calls(calls, target):
+    deadline = time.monotonic() + 2
+    while len(calls) < target and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert len(calls) >= target
+
+
 @pytest.mark.parametrize("raises", [False, True])
 def test_restore_caller_alarm(raises):
     def handler(sig, frame):
@@ -80,7 +87,7 @@ def test_repeating_caller_alarm_remains_active():
     signal.signal(signal.SIGALRM, handler)
     signal.setitimer(signal.ITIMER_REAL, 0.02, 0.02)
     with limit_resource(-1, 30):
-        time.sleep(0.07)
+        wait_for_calls(calls, 2)
     assert len(calls) >= 2
     assert signal.getsignal(signal.SIGALRM) is handler
     remaining, interval = signal.getitimer(signal.ITIMER_REAL)
@@ -128,9 +135,10 @@ def test_nested_limits_preserve_repeating_caller_alarm():
     signal.setitimer(signal.ITIMER_REAL, 0.02, 0.02)
     with limit_resource(-1, 30):
         with limit_resource(-1, 10):
-            time.sleep(0.07)
-        time.sleep(0.04)
-    assert len(calls) >= 4
+            wait_for_calls(calls, 2)
+        inner_count = len(calls)
+        wait_for_calls(calls, inner_count + 2)
+    assert len(calls) >= inner_count + 2
     assert signal.getsignal(signal.SIGALRM) is handler
     remaining, interval = signal.getitimer(signal.ITIMER_REAL)
     assert 0 < remaining <= 0.02
@@ -197,17 +205,17 @@ def caller_alarm(monkeypatch):
         # Supply the entry snapshot without a live timer that can fire during test setup.
         # All timers armed by the context and subsequent reads use the real OS timer.
         signal.signal(signal.SIGALRM, handler)
-        getitimer = signal.getitimer
+        setitimer = signal.setitimer
         pending = True
 
-        def initial_timer(timer):
+        def initial_timer(timer, value, interval=0):
             nonlocal pending
             if pending:
                 pending = False
                 return delay, 0
-            return getitimer(timer)
+            return setitimer(timer, value, interval)
 
-        monkeypatch.setattr(signal, "getitimer", initial_timer)
+        monkeypatch.setattr(signal, "setitimer", initial_timer)
 
     return install
 
@@ -268,15 +276,15 @@ replacement = signal.{replacement}
 def handler(sig, frame):
     signal.signal(signal.SIGALRM, replacement)
 signal.signal(signal.SIGALRM, handler)
-getitimer = signal.getitimer
+setitimer = signal.setitimer
 pending = True
-def initial_timer(timer):
+def initial_timer(timer, value, interval=0):
     global pending
     if pending:
         pending = False
         return 0.02, 0
-    return getitimer(timer)
-signal.getitimer = initial_timer
+    return setitimer(timer, value, interval)
+signal.setitimer = initial_timer
 try:
     with limit_resource(-1, 1):
         time.sleep(2)
@@ -326,8 +334,10 @@ def test_delayed_repeating_alarm_keeps_phase(monkeypatch):
         return (max(state.deadline - state.now, 0) if state.deadline else 0, state.interval)
 
     def setitimer(timer, delay, interval=0):
+        old_timer = getitimer(timer)
         state.deadline = state.now + delay if delay else None
         state.interval = interval
+        return old_timer
 
     def set_handler(sig, handler):
         state.handler = handler
@@ -338,6 +348,10 @@ def test_delayed_repeating_alarm_keeps_phase(monkeypatch):
         SimpleNamespace(
             SIGALRM=signal.SIGALRM,
             SIG_DFL=signal.SIG_DFL,
+            SIG_BLOCK=signal.SIG_BLOCK,
+            SIG_SETMASK=signal.SIG_SETMASK,
+            pthread_sigmask=lambda *args: set(),
+            sigpending=lambda: set(),
             ITIMER_REAL=signal.ITIMER_REAL,
             getsignal=lambda sig: state.handler,
             signal=set_handler,
@@ -423,3 +437,197 @@ def test_overlapping_outer_budget_keeps_its_owner(monkeypatch, caller_alarm):
         with limit_resource(-1, 1):
             model.fit(np.array([[0], [1]]), np.array([0, 1]), budget=1)
     assert model.model is None
+
+
+@pytest.fixture
+def takeover_clock(monkeypatch):
+    from types import SimpleNamespace
+
+    state = SimpleNamespace(now=10.0, deadline=10.3, interval=0, calls=[], pending=set(), mask=set(), pause=0)
+    state.handler = lambda *args: state.calls.append(state.now)
+    state.original_handler = state.handler
+
+    def getitimer(timer):
+        return (max(state.deadline - state.now, 0) if state.deadline is not None else 0, state.interval)
+
+    def setitimer(timer, value, interval=0):
+        if getattr(state, "fail_capture", False) and value == 0:
+            raise OSError("cannot capture timer")
+        if getattr(state, "fail_arm", False) and state.handler is not state.original_handler:
+            raise OSError("cannot arm dispatcher")
+        old = getitimer(timer)
+        state.deadline = state.now + value if value else None
+        state.interval = interval
+        if state.pause:
+            state.now += state.pause
+            state.pause = 0
+        return old
+
+    def set_handler(sig, handler):
+        if getattr(state, "fail_install", False) and handler is not state.original_handler:
+            raise ValueError("cannot install dispatcher")
+        state.handler = handler
+
+    def sigpending():
+        if getattr(state, "fail_pending", False):
+            raise OSError("cannot query pending signals")
+        return state.pending.copy()
+
+    def mask(how, signals):
+        old = state.mask.copy()
+        state.mask = state.mask | signals if how == signal.SIG_BLOCK else set(signals)
+        if signal.SIGALRM in state.pending and signal.SIGALRM not in state.mask:
+            state.pending.clear()
+            state.handler(signal.SIGALRM, None)
+        return old
+
+    monkeypatch.setattr(
+        "flaml.automl.model.signal",
+        SimpleNamespace(
+            SIGALRM=signal.SIGALRM,
+            SIG_DFL=signal.SIG_DFL,
+            SIG_BLOCK=signal.SIG_BLOCK,
+            SIG_SETMASK=signal.SIG_SETMASK,
+            ITIMER_REAL=signal.ITIMER_REAL,
+            getsignal=lambda sig: state.handler,
+            signal=set_handler,
+            getitimer=getitimer,
+            setitimer=setitimer,
+            pthread_sigmask=mask,
+            sigpending=sigpending,
+        ),
+    )
+    monkeypatch.setattr("flaml.automl.model.time", SimpleNamespace(monotonic=lambda: state.now))
+    return state
+
+
+def test_takeover_does_not_shift_captured_deadline(takeover_clock):
+    state = takeover_clock
+    state.pause = 0.1  # Descheduled after atomic capture, before installation.
+    with limit_resource(-1, 2):
+        assert state.deadline == pytest.approx(10.3)
+    assert state.deadline == pytest.approx(10.3)
+
+
+def test_takeover_does_not_replay_consumed_one_shot(takeover_clock):
+    state = takeover_clock
+    state.handler(signal.SIGALRM, None)
+    state.deadline = None  # Already consumed before the atomic capture.
+    with limit_resource(-1, 2):
+        state.now = 10.4
+        state.handler(signal.SIGALRM, None)  # An unrelated early signal is not a caller tick.
+    assert state.calls == [10.0]
+    assert state.deadline is None
+
+
+@pytest.mark.parametrize("periodic", [False, True])
+def test_takeover_delivers_pending_caller_once(takeover_clock, periodic):
+    state = takeover_clock
+    state.deadline = 10.3 if periodic else None
+    state.interval = 0.3 if periodic else 0
+    state.pending.add(signal.SIGALRM)
+    with limit_resource(-1, 2):
+        assert state.calls == [10.0]
+        if periodic:
+            assert state.deadline == pytest.approx(10.3)
+            state.now = 10.3
+            state.handler(signal.SIGALRM, None)
+            assert state.calls == [10.0, 10.3]
+            assert state.deadline == pytest.approx(10.6)
+        else:
+            assert state.deadline == pytest.approx(12)
+    assert state.mask == set()
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_takeover_setup_failure_restores_alarm_and_mask(takeover_clock, pending):
+    state = takeover_clock
+    state.interval = 0.3
+    state.pause = 0.1
+    state.fail_install = True
+    if pending:
+        state.pending.add(signal.SIGALRM)
+    with pytest.raises(ValueError, match="cannot install dispatcher"):
+        with limit_resource(-1, 2):
+            pytest.fail("setup must fail")
+    assert state.handler is state.original_handler
+    assert state.deadline == pytest.approx(10.3)
+    assert state.interval == 0.3
+    assert state.mask == set()
+    assert len(state.calls) == int(pending)
+
+
+@pytest.mark.parametrize("periodic", [False, True])
+def test_takeover_preserves_real_pending_signal_and_incoming_mask(periodic):
+    calls = []
+    signal.signal(signal.SIGALRM, lambda *args: calls.append(True))
+    original_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+    try:
+        if periodic:
+            signal.setitimer(signal.ITIMER_REAL, 60, 60)
+        # Target this blocked thread rather than relying on another thread's mask.
+        signal.pthread_kill(threading.get_ident(), signal.SIGALRM)
+        assert signal.SIGALRM in signal.sigpending()
+        with limit_resource(-1, 30):
+            assert signal.SIGALRM in signal.pthread_sigmask(signal.SIG_BLOCK, set())
+            signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGALRM})
+            assert calls == [True]
+        assert calls == [True]
+        if periodic:
+            remaining, interval = signal.getitimer(signal.ITIMER_REAL)
+            assert 0 < remaining <= 60
+            assert interval == 60
+        else:
+            assert signal.getitimer(signal.ITIMER_REAL) == (0, 0)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.pthread_sigmask(signal.SIG_SETMASK, original_mask)
+
+
+def test_takeover_pending_query_failure_restores_timer(takeover_clock):
+    state = takeover_clock
+    state.fail_pending = True
+    state.pause = 0.1
+    state.interval = 0.3
+    with pytest.raises(OSError, match="cannot query pending signals"):
+        with limit_resource(-1, 2):
+            pytest.fail("setup must fail")
+    assert state.handler is state.original_handler
+    assert state.deadline == pytest.approx(10.3)
+    assert state.interval == 0.3
+    assert state.mask == set()
+
+
+def test_takeover_setup_pause_does_not_replay_one_shot(monkeypatch):
+    calls = []
+    signal.signal(signal.SIGALRM, lambda *args: calls.append(True))
+    install = signal.signal
+    paused = False
+
+    def delayed_install(sig, handler):
+        nonlocal paused
+        if not paused:
+            paused = True
+            time.sleep(0.08)
+        return install(sig, handler)
+
+    monkeypatch.setattr(signal, "signal", delayed_install)
+    signal.setitimer(signal.ITIMER_REAL, 0.02)
+    with limit_resource(-1, 2):
+        wait_for_calls(calls, 1)
+        time.sleep(0.08)
+    assert calls == [True]
+
+
+@pytest.mark.parametrize("failure", ["fail_capture", "fail_arm"])
+def test_takeover_timer_failure_restores_state(takeover_clock, failure):
+    state = takeover_clock
+    setattr(state, failure, True)
+    state.interval = 0.3
+    with pytest.raises(OSError):
+        with limit_resource(-1, 2):
+            pytest.fail("setup must fail")
+    assert state.handler is state.original_handler
+    assert state.deadline == pytest.approx(10.3)
+    assert state.interval == 0.3
+    assert state.mask == set()
