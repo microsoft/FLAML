@@ -258,6 +258,52 @@ def test_seasonal_average_uses_tuned_season():
     assert estimator.season == 7
 
 
+def test_seasonal_search_space_is_bounded_by_training_history():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=5, freq="D"), "y": np.arange(5.0)})
+    dataset = TimeSeriesDataset(data, time_col="ds", target_names="y")
+    space = SeasonalNaive.search_space(data=dataset, task="ts_forecast", pred_horizon=7)["season"]
+
+    assert space["init_value"] == 5
+    assert space["domain"].upper == 6  # exclusive, so seasons 1 to 5
+
+
+def test_seasonal_average_caps_lag_order_on_short_training_data():
+    from flaml.automl.time_series import SeasonalAverage, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=11, freq="D"), "y": np.sin(np.arange(11.0))})
+    estimator = SeasonalAverage(season=6)
+    # 11 rows cannot estimate 6 lags and a constant; the lag order is selected up to 5 instead
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    assert estimator.season == 6
+
+
+@pytest.mark.parametrize("estimator", ["snaive", "savg"])
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+def test_seasonal_forecasters_fit_short_series(estimator, eval_method):
+    # 36 rows with period 6 leave 11 training rows in the first cross-validation fold
+    n = 36
+    data = pd.DataFrame(
+        {"ds": pd.date_range("2024-01-01", periods=n, freq="D"), "y": 10 + np.sin(np.arange(n)) + 0.01 * np.arange(n)}
+    )
+    automl = AutoML()
+    automl.fit(
+        dataframe=data,
+        label="y",
+        task="ts_forecast",
+        estimator_list=[estimator],
+        eval_method=eval_method,
+        period=6,
+        max_iter=5,
+        time_budget=10,
+        verbose=0,
+    )
+
+    assert 1 <= automl.best_config["season"] <= 6
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))

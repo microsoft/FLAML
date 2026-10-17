@@ -698,10 +698,13 @@ class SimpleForecaster(StatsModelsEstimator):
 
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        # A season cannot be longer than the training history; with holdout, data.train_data
+        # excludes the validation rows, and every cross-validation fold has at least pred_horizon rows
+        max_season = max(1, min(pred_horizon, len(data.train_data)))
         return {
             "season": {
-                "domain": tune.randint(1, pred_horizon),
-                "init_value": pred_horizon,
+                "domain": tune.randint(1, max_season + 1),
+                "init_value": max_season,
             }
         }
 
@@ -804,7 +807,10 @@ class SeasonalAverage(SimpleForecaster):
 
         self.season = kwargs.get("season", self.params.get("season", 1))  # seasonality period
         train_df, target_col = self.joint_preprocess(X_train, y_train)
-        selection_res = ar_select_order(train_df[target_col], maxlag=self.season)
+        # The lag order is selected up to the season, as far as the training rows allow: with a
+        # constant, statsmodels needs at least maxlag + 1 observations after dropping the first maxlag
+        maxlag = min(self.season, (len(train_df) - 1) // 2)
+        selection_res = ar_select_order(train_df[target_col], maxlag=maxlag)
 
         # Fit autoregressive model with optimal order
         model = AutoReg(train_df[target_col], lags=selection_res.ar_lags)
