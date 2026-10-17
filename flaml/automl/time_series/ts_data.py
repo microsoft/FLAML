@@ -51,6 +51,8 @@ class TimeSeriesDataset:
         time_idx: str = "time_idx",
         test_data: Optional[pd.DataFrame] = None,
     ):
+        if not train_data[time_col].is_monotonic_increasing:
+            train_data = train_data.iloc[train_data[time_col].array.argsort(kind="stable")]
         self.train_data = train_data
         self.time_col = time_col
         self.time_idx = time_idx
@@ -58,7 +60,44 @@ class TimeSeriesDataset:
         assert isinstance(self.target_names, list)
         assert len(self.target_names)
 
-        self.frequency = pd.infer_freq(train_data[time_col].unique())
+        # ``sorted(...)`` on a Python list raises ``TypeError`` for
+        # non-orderable mixed types (e.g., strings + datetimes, tz-aware +
+        # tz-naive). Use pandas' Series sort, which handles ``NaT`` and
+        # datetime dtypes more robustly and bubbles the same error only for
+        # genuinely unsortable inputs.
+        sorted_times = train_data[time_col].drop_duplicates().sort_values(ignore_index=True)
+        try:
+            self.frequency = pd.infer_freq(sorted_times)
+        except (ValueError, TypeError):
+            # ``pd.infer_freq`` raises ``ValueError`` when fewer than 3 dates
+            # are provided and ``TypeError`` when the input isn't
+            # datetime-like; either case should fall through to the
+            # delta-mode fallback below.
+            self.frequency = None
+        if self.frequency is None and len(sorted_times) >= 2 and pd.api.types.is_datetime64_any_dtype(sorted_times):
+            # Fallback: infer from the most common time delta (e.g., business day data with holidays).
+            # Gated on a datetime-like ``sorted_times`` so we don't recurse
+            # into ``.diff()`` for non-datetime input — that would raise its
+            # own ``TypeError`` and defeat the point of catching the
+            # ``pd.infer_freq`` ``TypeError`` above.
+            deltas = sorted_times.diff().dropna()
+            # ``deltas`` (and therefore ``deltas.mode()``) can still be empty
+            # — e.g., ``time_col`` contains ``NaT`` values so consecutive
+            # diffs are ``NaT`` and ``dropna()`` removes everything. Skip
+            # the fallback gracefully so the assertion below produces the
+            # intended error message instead of an opaque ``IndexError``.
+            if not deltas.empty:
+                # Pick the smallest tied mode value so the inferred
+                # frequency is deterministic across pandas versions (which
+                # don't guarantee a stable order for ``Series.mode()`` on
+                # ties).
+                mode_values = deltas.mode().sort_values()
+                if not mode_values.empty:
+                    mode_delta = mode_values.iloc[0]
+                    try:
+                        self.frequency = pd.tseries.frequencies.to_offset(mode_delta).freqstr
+                    except (ValueError, TypeError):
+                        pass
         assert self.frequency is not None, "Only time series of regular frequency are currently supported."
 
         float_cols = list(train_data.select_dtypes(include=["floating"]).columns)
@@ -382,7 +421,7 @@ class DataTransformerTS:
     def _drop(self):
         return len(self.drop_columns)
 
-    def fit(self, X: Union[DataFrame, np.array], y):
+    def fit(self, X: Union[DataFrame, np.array], y, *, transform_features=True, preserve_features=False):
         """Fit transformer.
 
         Args:
@@ -396,10 +435,19 @@ class DataTransformerTS:
         assert isinstance(X, DataFrame)
         X = X.copy()
         n = X.shape[0]
+        self._skip_feature_transform = not transform_features
+        self._column_mapping = {}
+        if preserve_features:
+            from flaml.automl.data import _make_column_name_mapping
+
+            self._column_mapping = _make_column_name_mapping(X.columns)
+            self._column_mapping.pop(self.time_col, None)
+            self._column_mapping.pop(self.time_idx, None)
+            X = X.rename(columns=self._column_mapping)
 
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
 
-        for column in X.columns:
+        for column in X.columns if transform_features else []:
             # Never treat the time column as a feature for sklearn preprocessing
             if column == self.time_col:
                 continue
@@ -411,7 +459,7 @@ class DataTransformerTS:
 
             # sklearn/utils/validation.py needs int/float values
             if X[column].dtype.name in ("object", "category", "string", "str"):
-                if (
+                if not preserve_features and (
                     # drop columns where all values are the same
                     X[column].nunique() == 1
                     # this drops UID-type cols
@@ -420,7 +468,7 @@ class DataTransformerTS:
                     self.drop_columns.append(column)
                 elif column != self.time_idx:
                     self.cat_columns.append(column)
-            elif X[column].nunique(dropna=True) < 2:
+            elif not preserve_features and X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
             elif X[column].dtype.name in ["datetime64[ns]", "datetime64[s]"]:
                 pass  # these will be processed at model level,
@@ -429,11 +477,12 @@ class DataTransformerTS:
                 self.num_columns.append(column)
 
         if self.num_columns:
+            imputer_kwargs = {"keep_empty_features": True} if preserve_features else {}
             self.transformer = ColumnTransformer(
                 [
                     (
                         "continuous",
-                        SimpleImputer(missing_values=np.nan, strategy="median"),
+                        SimpleImputer(missing_values=np.nan, strategy="median", **imputer_kwargs),
                         self.num_columns,
                     )
                 ]
@@ -461,6 +510,8 @@ class DataTransformerTS:
             self.label_transformer = None
 
     def transform(self, X: Union[DataFrame, np.array], y=None):
+        if getattr(self, "_column_mapping", None):
+            X = X.rename(columns=self._column_mapping)
         # TODO: revisit for multivariate series, and recast for a single df input anyway
         if self.label_transformer is not None and y is not None:
             if isinstance(y, pd.DataFrame):
@@ -470,7 +521,14 @@ class DataTransformerTS:
             else:
                 raise ValueError("y must be either a pd.Series or a pd.DataFrame at this stage")
             y_tr = self.label_transformer.transform(ycol)
-            y.iloc[:] = y_tr.reshape(y.shape)
+            # pandas 3 forbids in-place assignment of a numeric ndarray into a
+            # string-dtype column (`y.iloc[:] = y_tr` raises TypeError). Build a
+            # new container of the appropriate dtype instead.
+            if isinstance(y, pd.DataFrame):
+                y = y.copy()
+                y[y.columns[0]] = y_tr.reshape(-1)
+            else:
+                y = pd.Series(y_tr.reshape(-1), index=y.index, name=y.name)
 
         X.drop(columns=self.drop_columns, inplace=True)
 
@@ -492,8 +550,8 @@ class DataTransformerTS:
             return X
         return X, y
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y):
-        self.fit(X, y)
+    def fit_transform(self, X: Union[DataFrame, np.array], y, **fit_params):
+        self.fit(X, y, **fit_params)
         return self.transform(X, y)
 
 

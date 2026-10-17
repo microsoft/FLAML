@@ -11,6 +11,11 @@ from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+try:
+    from flaml.fabric.autofe import parse_autofe_config
+except ImportError:
+    parse_autofe_config = None
+
 
 class SearchState:
     @property
@@ -49,7 +54,7 @@ class SearchState:
 
     def valid_starting_point(self, starting_point, search_space):
         return all(
-            self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
+            name in search_space and self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
             for name, value in starting_point.items()
             if name != "FLAML_sample_size"
         )
@@ -65,6 +70,7 @@ class SearchState:
         max_iter=None,
         budget=None,
         featurization="auto",
+        estimator_name=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -84,18 +90,35 @@ class SearchState:
             search_space = learner_class.search_space(data_size=data_size, task=task)
 
         self.data_size = data_size
+        if parse_autofe_config is not None:
+            result = parse_autofe_config(featurization, data, task, learner_class, estimator_name=estimator_name)
+            search_space.update(result)
+        elif featurization != "off":
+            raise ImportError("AutoFE is unavailable. Install flaml[autofe] to enable featurization.")
 
         if custom_hp is not None:
             search_space.update(custom_hp)
+        if featurization == "off":
+            search_space = {name: space for name, space in search_space.items() if not name.startswith("fe.")}
+
+        def normalize_starting_point(point):
+            point = AutoMLState.sanitize(point)
+            disabled = [name for name in point if name.startswith("fe.") and name not in search_space]
+            if disabled:
+                logger.warning(
+                    "Ignoring unsupported AutoFE starting-point choices with featurization=%s.", featurization
+                )
+                point = {name: value for name, value in point.items() if name not in disabled}
+            return point
 
         if isinstance(starting_point, dict):
-            starting_point = AutoMLState.sanitize(starting_point)
+            starting_point = normalize_starting_point(starting_point)
             if max_iter > 1 and not self.valid_starting_point(starting_point, search_space):
                 # If the number of iterations is larger than 1, remove invalid point
                 logger.warning(f"Starting point {starting_point} removed because it is outside of the search space")
                 starting_point = None
         elif isinstance(starting_point, list):
-            starting_point = [AutoMLState.sanitize(x) for x in starting_point]
+            starting_point = [normalize_starting_point(x) for x in starting_point]
             if max_iter > len(starting_point):
                 # If the number of starting points is no smaller than max iter, avoid the checking
                 starting_point_len = len(starting_point)
@@ -134,6 +157,14 @@ class SearchState:
                 self.init_config[name] = space["init_value"]
 
         if isinstance(starting_point, list):
+            for point in starting_point:
+                for name, space in search_space.items():
+                    if (
+                        name.startswith("fe.")
+                        and "init_value" in space
+                        and self.valid_starting_point_one_dim(space["init_value"], space["domain"])
+                    ):
+                        point.setdefault(name, space["init_value"])
             self.init_config = starting_point
         else:
             self.init_config = [] if self.init_config is None else [self.init_config]
@@ -296,35 +327,46 @@ class AutoMLState:
             )
         )
 
-        (
-            trained_estimator,
-            val_loss,
-            metric_for_logging,
-            _,
-            pred_time,
-        ) = compute_estimator(
-            sampled_X_train,
-            sampled_y_train,
-            state.X_val,
-            state.y_val,
-            state.weight_val,
-            state.groups_val,
-            state.train_time_limit if budget is None else min(budget, state.train_time_limit or np.inf),
-            state.kf,
-            config,
-            state.task,
-            estimator,
-            state.eval_method,
-            state.metric,
-            state.best_loss,
-            state.n_jobs,
-            state.learner_classes.get(estimator),
-            state.cv_score_agg_func,
-            state.log_training_metric,
-            this_estimator_kwargs,
-            state.free_mem_ratio,
-        )
-        if state.retrain_final and not state.model_history:
+        try:
+            (
+                trained_estimator,
+                val_loss,
+                metric_for_logging,
+                _,
+                pred_time,
+            ) = compute_estimator(
+                sampled_X_train,
+                sampled_y_train,
+                state.X_val,
+                state.y_val,
+                state.weight_val,
+                state.groups_val,
+                state.train_time_limit if budget is None else min(budget, state.train_time_limit or np.inf),
+                state.kf,
+                config,
+                state.task,
+                estimator,
+                state.eval_method,
+                state.metric,
+                state.best_loss,
+                state.n_jobs,
+                state.learner_classes.get(estimator),
+                state.cv_score_agg_func,
+                state.log_training_metric,
+                this_estimator_kwargs,
+                state.free_mem_ratio,
+            )
+        except ValueError as exc:
+            if parse_autofe_config is None:
+                raise
+            from flaml.fabric.autofe import AutoFEIncompatibleDataError
+
+            if not isinstance(exc, AutoFEIncompatibleDataError):
+                raise
+            logger.warning("AutoFE candidate rejected for %s: %s", estimator, exc)
+            trained_estimator, val_loss, pred_time = None, np.inf, 0.0
+            metric_for_logging = {"val_loss": np.inf}
+        if trained_estimator is not None and state.retrain_final and not state.model_history:
             trained_estimator.cleanup()
 
         result = {
