@@ -601,5 +601,6 @@ class SEFRBoostEstimator(SKLearnEstimator):
             if "worse than random" not in str(e):
                 raise
         base = clone(self.params[_adaboost_estimator_param()])
+        kwargs.pop("groups", None)
         self._model = base.fit(self._preprocess(X_train), y_train, **kwargs)
         return time.time() - start
