@@ -13,7 +13,7 @@ babel==2.18.0
 beautifulsoup4==4.15.0
 bleach==6.4.0
 cachetools==5.5.2
-certifi==2026.7.22
+certifi==2026.10.18
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
@@ -33,10 +33,10 @@ defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.4
 executing==2.3.0
-fastapi==0.143.3
+fastapi==0.146.0
 fastjsonschema==2.22.2
-filelock==4.2.0
--e git+https://github.com/microsoft/FLAML@bcc62b8e849d8eaf09803fca87a1898754a88656#egg=FLAML
+filelock==4.2.2
+-e git+https://github.com/microsoft/FLAML@3d453a17e14aac1239d218b707fb6b783ec3a0a2#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -116,7 +116,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==13.0.0
-platformdirs==4.13.3
+platformdirs==4.13.4
 pluggy==1.7.0
 pre_commit==4.7.0
 prometheus_client==0.26.0
@@ -164,7 +164,7 @@ soupsieve==3.0.3
 SQLAlchemy==2.1.5
 sqlparse==0.6.0
 stack-data==0.6.3
-starlette==1.8.0
+starlette==1.9.0
 statsmodels==0.15.0
 tensorboardX==2.6.5
 terminado==0.18.1
