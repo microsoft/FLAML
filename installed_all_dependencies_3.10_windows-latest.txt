@@ -46,7 +46,7 @@ executing==2.3.0
 fastapi==0.143.3
 fastjsonschema==2.22.2
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@2d261f175cc7e55c2bbca761263cb61a4617a125#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@a1a75c659c428c3ba8f5e4fc4a53047a2bc1e5c4#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -151,7 +151,7 @@ pyarrow==25.0.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.0.0
+pycryptodome==4.0.1
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
