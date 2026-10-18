@@ -115,21 +115,28 @@ jobs:
           export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
           export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
           export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
-      # Newer native ARM64 wheels require Python >=3.12. XGBoost 3.2's source
-      # builder uses Visual Studio's default x64 target unless both variables are set.
+      # Newer ARM64 wheels require Python >=3.12. Build the compatible release
+      # explicitly for ARM64 and validate the DLL header before Python loads it.
       - name: Build native XGBoost for Windows ARM64 Python 3.11
         if: matrix.os == 'windows-11-arm' && matrix.python-version == '3.11'
         shell: pwsh
-        env:
-          CMAKE_GENERATOR: Visual Studio 17 2022
-          CMAKE_GENERATOR_PLATFORM: ARM64
-          CMAKE_BUILD_PARALLEL_LEVEL: "2"
         run: |
           python -m pip install --upgrade pip wheel "setuptools<82"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install --no-cache-dir --no-binary=xgboost "xgboost==3.2.0"
+          $source = Join-Path $env:RUNNER_TEMP 'xgboost-arm64-py311'
+          $build = Join-Path $source 'build-arm64'
+          git clone --depth 1 --branch v3.2.0 --recurse-submodules --shallow-submodules https://github.com/dmlc/xgboost.git $source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -c "import platform, numpy as np, xgboost; assert platform.machine() == 'ARM64'; X=np.arange(16).reshape(8,2); model=xgboost.XGBClassifier(n_estimators=2,n_jobs=1).fit(X,np.tile([0,1],4)); assert len(model.predict(X[:2])) == 2; print('Native ARM64 XGBoost',xgboost.__version__,'fit/predict passed')"
+          cmake -S $source -B $build -G 'Visual Studio 17 2022' -A ARM64 -DUSE_CUDA=OFF -DUSE_OPENMP=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build $build --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $library = Join-Path $source 'lib\xgboost.dll'
+          python -c "import pathlib,struct,sys; data=pathlib.Path(sys.argv[1]).read_bytes(); offset=struct.unpack_from('<I',data,0x3c)[0]; machine=struct.unpack_from('<H',data,offset+4)[0]; assert machine == 0xaa64, hex(machine); print('Built DLL machine:',hex(machine))" $library
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install --no-cache-dir (Join-Path $source 'python-package')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import importlib.util,pathlib,platform,struct; assert platform.machine() == 'ARM64'; spec=importlib.util.find_spec('xgboost'); data=(pathlib.Path(spec.origin).parent/'lib'/'xgboost.dll').read_bytes(); offset=struct.unpack_from('<I',data,0x3c)[0]; assert struct.unpack_from('<H',data,offset+4)[0] == 0xaa64; import numpy as np,xgboost; X=np.arange(16).reshape(8,2); model=xgboost.XGBClassifier(n_estimators=2,n_jobs=1).fit(X,np.tile([0,1],4)); assert len(model.predict(X[:2])) == 2; print('Native ARM64 XGBoost',xgboost.__version__,'fit/predict passed')"
       - name: Install packages and dependencies
         run: |
           python -m pip install --upgrade pip wheel "setuptools<82"

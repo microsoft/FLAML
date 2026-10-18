@@ -62,9 +62,11 @@ def test_legacy_arm64_xgboost_build_has_an_explicit_native_target():
     )
     build = steps[index]
     assert build["if"] == "matrix.os == 'windows-11-arm' && matrix.python-version == '3.11'"
-    assert build["env"]["CMAKE_GENERATOR"] == "Visual Studio 17 2022"
-    assert build["env"]["CMAKE_GENERATOR_PLATFORM"] == "ARM64"
-    assert "--no-cache-dir --no-binary=xgboost" in build["run"]
+    assert "-G 'Visual Studio 17 2022' -A ARM64" in build["run"]
+    assert "--branch v3.2.0 --recurse-submodules" in build["run"]
+    assert "-DUSE_CUDA=OFF -DUSE_OPENMP=OFF" in build["run"]
+    assert "machine == 0xaa64" in build["run"]
+    assert "python -m pip install --no-cache-dir (Join-Path $source 'python-package')" in build["run"]
     assert "XGBClassifier" in build["run"]
     assert index < next(i for i, step in enumerate(steps) if step.get("name") == "Install packages and dependencies")
 

@@ -381,6 +381,14 @@ The variables are scoped to that one build step so other packages and newer
 ARM64 jobs are unchanged. An immediate native fit/predict smoke check fails
 the step if the resulting library is unusable.
 
+Run `39081234773` showed that the environment-only target selection was
+insufficient: the built wheel still failed its immediate native import.
+The next correction configures the public XGBoost release directly with
+`cmake -A ARM64`, uses a CPU-only/no-OpenMP build, and checks the PE machine
+type of both the built and installed DLL before the fit/predict smoke.
+The Python package then consumes that explicitly built local library; no
+third-party source is patched and no architecture or matrix entry is skipped.
+
 Stage 2 will use a new source snapshot after the 282-test suite, expanded
 28-test pipeline checks, and successful wheel/source builds. Later clean stages
 cannot erase the inherited unresolved findings or relabel stage 1 as clean.
