@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 import unittest
+from test._artifact_paths import artifact_path
 
 from sklearn.datasets import fetch_california_housing
 
@@ -109,11 +110,11 @@ class TestLogging(unittest.TestCase):
 
         import pickle
 
-        with open("automl.pkl", "wb") as f:
+        with open(artifact_path(__file__, "automl.pkl"), "wb") as f:
             pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
         print(automl.__version__)
         pred1 = automl.predict(X_train)
-        with open("automl.pkl", "rb") as f:
+        with open(artifact_path(__file__, "automl.pkl"), "rb") as f:
             automl = pickle.load(f)
         pred2 = automl.predict(X_train)
         delta = pred1 - pred2

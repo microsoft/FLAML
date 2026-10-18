@@ -8,12 +8,54 @@ functions, which is required for sklearn 1.7+ ensemble methods.
 import pytest
 from sklearn.base import is_classifier, is_regressor
 
+from flaml.automl._lightgbm_compat import patch_lightgbm_sklearn_validation
 from flaml.automl.model import (
     ExtraTreesEstimator,
     LGBMEstimator,
     RandomForestEstimator,
     XGBoostSklearnEstimator,
 )
+
+
+@pytest.mark.parametrize("alias", ["_LGBMCheckXY", "_LGBMCheckArray"])
+def test_lightgbm_validation_keyword_compatibility(monkeypatch, alias):
+    import lightgbm.sklearn as lightgbm_sklearn
+
+    calls = []
+
+    def validator(*args, ensure_all_finite=True, **kwargs):
+        calls.append((args, ensure_all_finite, kwargs))
+        return args
+
+    monkeypatch.setattr(lightgbm_sklearn, alias, validator, raising=False)
+    patch_lightgbm_sklearn_validation()
+    wrapped = getattr(lightgbm_sklearn, alias)
+    assert wrapped("X", force_all_finite=False, accept_sparse=True) == ("X",)
+    assert calls == [(("X",), False, {"accept_sparse": True})]
+    wrapped("X", force_all_finite=False, ensure_all_finite="allow-nan")
+    assert calls[-1][1] == "allow-nan"
+    patch_lightgbm_sklearn_validation()
+    assert getattr(lightgbm_sklearn, alias) is wrapped
+
+
+def test_lightgbm_compatible_and_uninspectable_aliases_are_unchanged(monkeypatch):
+    import lightgbm.sklearn as lightgbm_sklearn
+
+    class UninspectableValidator:
+        __signature__ = 123
+
+        def __call__(self, *args, **kwargs):
+            return args
+
+    def compatible_validator(X, *, force_all_finite=True):
+        return X
+
+    uninspectable = UninspectableValidator()
+    monkeypatch.setattr(lightgbm_sklearn, "_LGBMCheckXY", uninspectable, raising=False)
+    monkeypatch.setattr(lightgbm_sklearn, "_LGBMCheckArray", compatible_validator, raising=False)
+    patch_lightgbm_sklearn_validation()
+    assert lightgbm_sklearn._LGBMCheckXY is uninspectable
+    assert lightgbm_sklearn._LGBMCheckArray is compatible_validator
 
 
 def test_extra_trees_regressor_type():

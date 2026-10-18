@@ -1,5 +1,6 @@
 import platform
 import sys
+from test._artifact_paths import artifact_path
 from urllib.error import URLError
 
 import pandas as pd
@@ -30,7 +31,7 @@ class TestScore:
             "time_budget": budget,  # total running time in seconds
             "metric": "mape",  # primary metric
             "task": "ts_forecast",  # task type
-            "log_file_name": "test/CO2_forecast.log",  # flaml log file
+            "log_file_name": artifact_path(__file__, "test/CO2_forecast.log"),  # flaml log file
             "eval_method": "holdout",
             "label": "y",
         }
@@ -45,8 +46,8 @@ class TestScore:
                 period=time_horizon,
             )
             automl.score(X_test, y_test)
-            automl.pickle("automl.pkl")
-            with open("automl.pkl", "rb") as f:
+            automl.pickle(artifact_path(__file__, "automl.pkl"))
+            with open(artifact_path(__file__, "automl.pkl"), "rb") as f:
                 pickle.load(f)  # v1.1 of prophet raises RecursionError
         except (ImportError, RecursionError):
             print("not using prophet due to ImportError or RecursionError (when unpickling in v1.1)")
@@ -57,8 +58,8 @@ class TestScore:
                 period=time_horizon,
             )
             automl.score(X_test, y_test)
-            automl.pickle("automl.pkl")
-            with open("automl.pkl", "rb") as f:
+            automl.pickle(artifact_path(__file__, "automl.pkl"))
+            with open(artifact_path(__file__, "automl.pkl"), "rb") as f:
                 pickle.load(f)
 
     @pytest.mark.skipif(
@@ -146,7 +147,7 @@ class TestScore:
         automl.score(X, y)
         automl.score(X, y, **{"metric": "accuracy"})
 
-        automl.pickle("automl.pkl")
+        automl.pickle(artifact_path(__file__, "automl.pkl"))
 
     @pytest.mark.skipif(
         sys.platform == "win32" and platform.machine() == "ARM64",
@@ -169,7 +170,7 @@ class TestScore:
             automl_settings = {
                 "time_budget": 2,
                 "task": "regression",
-                "log_file_name": "test/california.log",
+                "log_file_name": artifact_path(__file__, "test/california.log"),
                 "log_training_metric": True,
                 "estimator_list": [each_estimator],
                 "n_jobs": 1,
@@ -184,7 +185,7 @@ class TestScore:
             )
 
             automl_experiment.score(X_train[n:], y_train[n:], **{"metric": "mse"})
-            automl_experiment.pickle("automl.pkl")
+            automl_experiment.pickle(artifact_path(__file__, "automl.pkl"))
 
     def test_rank(self):
         from sklearn.externals._arff import ArffException
@@ -217,7 +218,7 @@ class TestScore:
             automl.fit(X[:n], y[:n], **automl_settings)
             try:
                 automl.score(X[n:], y[n:])
-                automl.pickle("automl.pkl")
+                automl.pickle(artifact_path(__file__, "automl.pkl"))
             except NotImplementedError:
                 pass
 
@@ -277,7 +278,7 @@ class TestScore:
         automl.fit(X, y, **automl_settings)
         assert automl._label_transformer is not None
         assert automl.score(X, y) > 0
-        automl.pickle("automl.pkl")
+        automl.pickle(artifact_path(__file__, "automl.pkl"))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import pickle
 import sys
+from test._artifact_paths import artifact_path
 
 import pandas as pd
 from sklearn.datasets import fetch_california_housing, load_breast_cancer, load_iris
@@ -39,7 +40,7 @@ def test_iris(as_frame=True):
         "time_budget": 2,
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "test/iris.log",
+        "log_file_name": artifact_path(__file__, "test/iris.log"),
         "n_jobs": 1,
         "starting_points": "data",
     }

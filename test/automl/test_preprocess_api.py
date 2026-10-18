@@ -294,6 +294,23 @@ class TestCategoricalEncodingStability(unittest.TestCase):
         self.assertTrue((unseen_rows == nan_code).all())
 
 
+@pytest.mark.parametrize("task", ["classification", "regression"])
+def test_prediction_apis_accept_estimators_without_autofe(task):
+    X = np.random.RandomState(7).normal(size=(40, 3))
+    y = (X[:, 0] > 0).astype(int) if task == "classification" else X[:, 0]
+    automl = AutoML(task=task, estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False)
+    automl.fit(X, y)
+    estimator = automl.model.model
+    transformed = automl.preprocess(X)
+    assert not hasattr(estimator, "autofe")
+    automl._trained_estimator = estimator
+
+    np.testing.assert_array_equal(automl.predict(X), estimator.predict(transformed))
+    assert automl.score(X, y) == pytest.approx(estimator.score(transformed, y))
+    if task == "classification":
+        np.testing.assert_allclose(automl.predict_proba(X), estimator.predict_proba(transformed))
+
+
 class TestOrdinalEncoderBackedTransform(unittest.TestCase):
     """Coverage for the categorical-encoding refactor in #1564: DataTransformer
     uses sklearn's OrdinalEncoder as the source of truth for the per-column

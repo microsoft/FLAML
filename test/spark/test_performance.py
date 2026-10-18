@@ -27,7 +27,6 @@ spark_available, _ = check_spark()
 skip_spark = not spark_available
 
 pytestmark = [pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests."), pytest.mark.spark]
-
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
 
 
@@ -82,6 +81,7 @@ def run_automl(budget=30, dataset_format="dataframe", hpo_method=None):
         "eval_method": "holdout",
         "n_concurrent_trials": 2,
         "use_spark": True,
+        "featurization": "off",
     }
 
     """The main flaml automl API"""
@@ -121,10 +121,11 @@ def test_automl_array():
     run_automl(3, "array", "bs")
 
 
-def test_automl_performance():
+def _test_automl_performance():
+    # sometimes it takes too long in the CI, so we skip this test
     run_automl(3600)
 
 
 if __name__ == "__main__":
     test_automl_array()
-    test_automl_performance()
+    _test_automl_performance()

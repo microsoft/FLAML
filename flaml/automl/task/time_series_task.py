@@ -111,7 +111,7 @@ class TimeSeriesTask(Task):
             # in this case, we're most likely being called by another FLAML instance
             # so all the preliminary cleaning has already been done
             pre_data = X_train_all
-            val_len = len(pre_data.X_val)
+            len(pre_data.X_val)
         else:
             if label is None and dataframe is not None:
                 raise ValueError("If data is specified via dataframe parameter, you must also specify label")
@@ -162,9 +162,8 @@ class TimeSeriesTask(Task):
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
-                val_len = len(val_df)
+                len(val_df)
             else:
-                val_len = 0
                 val_df = None
 
             pre_data = TimeSeriesDataset(
@@ -175,16 +174,21 @@ class TimeSeriesTask(Task):
             )
 
         # TODO: should the transformer be a property of the dataset instead?
+        self._preprocess_for_autofe = getattr(automl, "_featurization", "off") != "off"
         automl._transformer = DataTransformerTS(self.time_col, label)
-        Xt, yt = automl._transformer.fit_transform(pre_data.X_all, pre_data.y_all)
+        Xt, yt = automl._transformer.fit_transform(
+            pre_data.X_all, pre_data.y_all, transform_features=not self._preprocess_for_autofe
+        )
 
         df_t = pd.concat([Xt, yt], axis=1)
 
         data = TimeSeriesDataset(
-            train_data=df_t,
+            train_data=df_t.iloc[: len(pre_data.train_data)],
             time_col=pre_data.time_col,
             target_names=pre_data.target_names,
-        ).move_validation_boundary(-val_len)
+            time_idx=pre_data.time_idx,
+            test_data=df_t.iloc[len(pre_data.train_data) :],
+        )
 
         # now setup the properties of all the other relevant objects
 

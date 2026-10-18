@@ -1,6 +1,7 @@
 import platform
 import sys
 import unittest
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pytest
@@ -11,6 +12,11 @@ from flaml import AutoML, tune
 from flaml.automl.data import get_output_from_log
 from flaml.automl.model import LGBMEstimator, SKLearnEstimator, XGBoostSklearnEstimator
 from flaml.automl.training_log import training_log_reader
+
+if sys.version_info >= (3, 11):
+    skip_py311 = True
+else:
+    skip_py311 = False
 
 
 class MyRegularizedGreedyForest(SKLearnEstimator):
@@ -251,7 +257,7 @@ class TestMultiClass(unittest.TestCase):
             "model_history": True,
             "sample_weight": np.ones(len(y)),
             "pred_time_limit": 1e-5,
-            "ensemble": True,
+            "ensemble": False,  # if True, joblib 1.2.0 will raise error
         }
         automl = AutoML(**settings)  # test safe_json_dumps
         automl.fit(dataframe=df, label="label")
@@ -319,7 +325,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 4,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -367,6 +373,11 @@ class TestMultiClass(unittest.TestCase):
         automl_experiment_micro.fit(X_train=X_train, y_train=y_train, metric="micro_f1", **automl_settings)
         automl_experiment_macro.fit(X_train=X_train, y_train=y_train, metric="macro_f1", **automl_settings)
         estimator = automl_experiment_macro.model
+        # if user want directly use the estimator.predict_proba instead of automl.predict_proba
+        # they need to check autofe
+        if estimator.autofe is not None:
+            time_col = getattr(estimator, "time_col", None)
+            X_train = estimator.autofe.transform(X_train, time_col)
         y_pred = estimator.predict(X_train)
         y_pred_proba = estimator.predict_proba(X_train)
         from flaml.automl.ml import multi_class_curves, norm_confusion_matrix
@@ -441,7 +452,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 2,
             "metric": "auto",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "split_type": "uniform",
             "n_jobs": 1,
             "model_history": True,
@@ -510,7 +521,7 @@ class TestMultiClass(unittest.TestCase):
             "max_iter": 3,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -534,7 +545,7 @@ class TestMultiClass(unittest.TestCase):
             "time_budget": 2,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris_resume.log",
+            "log_file_name": artifact_path(__file__, "test/iris_resume.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -565,7 +576,7 @@ class TestMultiClass(unittest.TestCase):
             "max_iter": 3,
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "test/iris.log",
+            "log_file_name": artifact_path(__file__, "test/iris.log"),
             "log_training_metric": True,
             "n_jobs": 1,
             "model_history": True,
@@ -631,7 +642,7 @@ class TestMultiClass(unittest.TestCase):
             X_train,
             y_train,
             estimator_list=["lgbm"],
-            time_budget=2,
+            time_budget=10,
             seed=11,
             starting_points=am1.best_config_per_estimator,
         )
