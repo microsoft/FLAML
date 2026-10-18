@@ -320,9 +320,9 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             X = X.multiply(1.0 / self.spread_).tocsr()
             np.clip(X.data, 0.0, 1.0, out=X.data)
             return X
-        if self.offset_ is not None:
-            X = X - self.offset_
-        return np.clip(X / self.spread_, 0.0, 1.0)
+        X = X - self.offset_ if self.offset_ is not None else X.copy()
+        X /= self.spread_
+        return np.clip(X, 0.0, 1.0, out=X)
 
     def _class_costs(self, class_totals):
         if self.class_weight == "balanced":
