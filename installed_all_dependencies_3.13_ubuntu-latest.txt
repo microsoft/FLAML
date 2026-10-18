@@ -45,8 +45,8 @@ evaluate==0.4.6
 executing==2.3.0
 fastapi==0.143.3
 fastjsonschema==2.22.2
-filelock==4.2.0
--e git+https://github.com/microsoft/FLAML@d2f0dcb3865d85dcfc0793f7c08b316979500469#egg=FLAML
+filelock==4.2.1
+-e git+https://github.com/microsoft/FLAML@f1d5ad5b60779ace10d00b40f2ffdc910909c28d#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -153,7 +153,7 @@ parso==0.8.7
 patsy==1.0.3
 pexpect==4.9.0
 pillow==13.0.0
-platformdirs==4.13.3
+platformdirs==4.13.4
 plotly==7.1.0
 pluggy==1.7.0
 pre_commit==4.7.0
@@ -170,7 +170,7 @@ pyarrow==26.0.0
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.0.0
+pycryptodome==4.0.1
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
