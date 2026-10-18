@@ -53,6 +53,22 @@ def test_arrow_compatibility_cap_does_not_expand_other_profiles():
     assert "pyarrow" not in requirements_for("automl", "3.12")
 
 
+def test_legacy_arm64_xgboost_build_has_an_explicit_native_target():
+    yaml = pytest.importorskip("yaml")
+    workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
+    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
+    index = next(
+        i for i, step in enumerate(steps) if step.get("name") == "Build native XGBoost for Windows ARM64 Python 3.11"
+    )
+    build = steps[index]
+    assert build["if"] == "matrix.os == 'windows-11-arm' && matrix.python-version == '3.11'"
+    assert build["env"]["CMAKE_GENERATOR"] == "Visual Studio 17 2022"
+    assert build["env"]["CMAKE_GENERATOR_PLATFORM"] == "ARM64"
+    assert "--no-cache-dir --no-binary=xgboost" in build["run"]
+    assert "XGBClassifier" in build["run"]
+    assert index < next(i for i, step in enumerate(steps) if step.get("name") == "Install packages and dependencies")
+
+
 def test_fabric_notebooks_do_not_install_internal_release_wheels():
     notebook_root = Path(__file__).resolve().parents[1] / "notebook" / "trident"
     files = [*notebook_root.glob("*.ipynb"), notebook_root / "generate_test.py"]

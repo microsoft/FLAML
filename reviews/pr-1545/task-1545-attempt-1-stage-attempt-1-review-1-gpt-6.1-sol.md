@@ -367,6 +367,20 @@ environment imported NumPy 1.26.4, PyArrow 25.0.1, and the same hosted
 Datasets 5.1.0 release and created a dataset successfully. Metadata marker
 tests passed across the affected Linux/Windows Python profiles.
 
+The corrected run `39075717540` passed the Linux test variants and public
+installation jobs. Native Spark persistence was actually exercised in the
+Python 3.12 Spark job (`test_persistence_contracts.py .`), whose summary was
+88 passed and 2 skipped; this closes the prior local-only validation gap.
+
+One remaining Windows ARM64/Python 3.11 job source-built XGBoost 3.2 with
+Visual Studio's default x64 target and then failed to load its DLL
+(`WinError 193`). Newer ARM64 wheels require Python 3.12, so the job now
+preinstalls a CPU-native source build with both `CMAKE_GENERATOR` and
+`CMAKE_GENERATOR_PLATFORM=ARM64`, without reusing cached mis-targeted wheels.
+The variables are scoped to that one build step so other packages and newer
+ARM64 jobs are unchanged. An immediate native fit/predict smoke check fails
+the step if the resulting library is unusable.
+
 Stage 2 will use a new source snapshot after the 282-test suite, expanded
 28-test pipeline checks, and successful wheel/source builds. Later clean stages
 cannot erase the inherited unresolved findings or relabel stage 1 as clean.
