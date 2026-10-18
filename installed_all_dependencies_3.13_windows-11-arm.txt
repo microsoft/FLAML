@@ -34,10 +34,10 @@ defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.4
 executing==2.3.0
-fastapi==0.143.3
+fastapi==0.146.0
 fastjsonschema==2.22.2
 filelock==4.1.1
--e git+https://github.com/microsoft/FLAML@cfbff7e2d51825fac038361069d231166608534f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@38eadbd8641c34ead64c4d4d9c4ad8f5ed604abe#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -166,7 +166,7 @@ soupsieve==3.0.3
 SQLAlchemy==2.1.5
 sqlparse==0.6.0
 stack-data==0.6.3
-starlette==1.8.0
+starlette==1.9.0
 statsmodels==0.15.0
 tensorboardX==2.6.5
 terminado==0.18.1
