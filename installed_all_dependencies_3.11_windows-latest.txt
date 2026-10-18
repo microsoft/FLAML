@@ -40,10 +40,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.143.3
+fastapi==0.146.0
 fastjsonschema==2.22.2
-filelock==4.2.0
--e git+https://github.com/microsoft/FLAML@4e93180856061bbe20fa376e15deb929376b55b6#egg=FLAML
+filelock==4.2.2
+-e git+https://github.com/microsoft/FLAML@1dc066e22713db119315cbdfd5282aeffaf15901#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -134,7 +134,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==13.0.0
-platformdirs==4.13.3
+platformdirs==4.13.4
 plotly==7.1.0
 pluggy==1.7.0
 pre_commit==4.7.0
@@ -144,11 +144,11 @@ propcache==0.5.4
 protobuf==6.33.6
 psutil==7.2.2
 pure_eval==0.2.4
-pyarrow==26.0.0
+pyarrow==25.0.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.0.0
+pycryptodome==4.0.1
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
@@ -188,7 +188,7 @@ soupsieve==3.0.3
 SQLAlchemy==2.1.5
 sqlparse==0.6.0
 stack-data==0.6.3
-starlette==1.8.0
+starlette==1.9.0
 statsmodels==0.15.0
 sympy==1.14.0
 tensorboardX==2.6.5
