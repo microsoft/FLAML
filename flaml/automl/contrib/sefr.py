@@ -405,7 +405,8 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
             # its interval, so a row heavier than one draw's share is always kept
             edges = np.cumsum(weights[order[start:end]])
             totals[k] = edges[-1]
-            edges *= quota[k] / edges[-1]
+            # normalize before scaling: quota / total overflows for subnormal weights
+            edges = edges / edges[-1] * quota[k]
             edges[-1] = quota[k]
             hits[start:end] = np.diff(np.floor(edges - offsets[k]), prepend=np.floor(-offsets[k]))
         picked = hits > 0
@@ -601,6 +602,7 @@ class SEFRBoostEstimator(SKLearnEstimator):
             if "worse than random" not in str(e):
                 raise
         base = clone(self.params[_adaboost_estimator_param()])
+        # like the parent, keep group metadata away from the classifier's fit
         kwargs.pop("groups", None)
         self._model = base.fit(self._preprocess(X_train), y_train, **kwargs)
         return time.time() - start

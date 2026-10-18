@@ -376,6 +376,20 @@ def test_sefr_calibration_subsample_heavy_rows(monkeypatch):
     )
 
 
+def test_sefr_calibration_subsample_tiny_weights(monkeypatch):
+    import flaml.automl.contrib.sefr as sefr
+
+    # subnormal weights: the sampler must still draw every class and keep its total
+    X, y = make_classification(1000, 4, random_state=0)
+    w = np.full(len(y), 1e-310)
+    monkeypatch.setattr(sefr, "_CALIBRATION_MAX_ENTRIES", 200)
+    model = SEFRClassifier(calibration="platt").fit(X, y, sample_weight=w)
+    rows, row_weights = model._calibration_sample(y, w)
+    assert set(y[rows]) == {0, 1} and len(rows) * 2 <= 200
+    np.testing.assert_allclose(np.bincount(y[rows], weights=row_weights), np.bincount(y, weights=w))
+    assert np.all(np.isfinite(model.predict_proba(X)))
+
+
 def test_sefr_calibration_subsample_periodic_labels(monkeypatch):
     import flaml.automl.contrib.sefr as sefr
 
@@ -494,6 +508,29 @@ def test_sefr_boost_first_round_worse_than_random():
     automl = AutoML()
     automl.fit(X, y, task="binary", estimator_list=["sefr_boost"], time_budget=1, verbose=0)
     assert automl.predict_proba(X).shape == (2000, 2)
+
+    # grouped fits pass groups through the fit kwargs, which the fallback must drop
+    from sklearn.model_selection import GroupKFold
+
+    X = np.tile([[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]], (100, 1))
+    y = np.tile([0, 1, 1, 0], 100)
+    groups = np.repeat(np.arange(100), 4)
+    boost = SEFRBoostEstimator(task="binary", n_estimators=4, calibration="platt")
+    boost.fit(X, y, groups=groups, sample_weight=np.ones(len(y)))
+    assert np.all(np.isfinite(boost.predict_proba(X)))
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        task="binary",
+        estimator_list=["sefr_boost"],
+        eval_method="cv",
+        split_type=GroupKFold(n_splits=3),
+        groups=groups,
+        time_budget=2,
+        verbose=0,
+    )
+    assert automl.predict_proba(X).shape == (400, 2)
 
 
 if __name__ == "__main__":
