@@ -43,10 +43,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.143.3
+fastapi==0.146.0
 fastjsonschema==2.22.2
-filelock==4.2.1
--e git+https://github.com/microsoft/FLAML@c0505eac4ba4135325e12326517cdaf2ab822e4a#egg=FLAML
+filelock==4.2.2
+-e git+https://github.com/microsoft/FLAML@c1041def3370475408e47e555400aa25c1ff5773#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -213,7 +213,7 @@ SQLAlchemy==2.1.5
 sqlparse==0.6.0
 stack-data==0.6.3
 stanio==0.5.1
-starlette==1.8.0
+starlette==1.9.0
 statsmodels==0.15.0
 sympy==1.14.0
 tensorboardX==2.6.5
