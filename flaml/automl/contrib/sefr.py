@@ -437,7 +437,9 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
                 UserWarning,
             )
             return scale, bias
-        margins = np.asarray(X[rows] @ self.coef_.T) - self.intercept_
+        # index X only for a strict subsample: indexing with every row would copy it whole
+        X_rows = X if rows.size == X.shape[0] else X[rows]
+        margins = np.asarray(X_rows @ self.coef_.T) - self.intercept_
         if self.classes_.size == 2:
             return _fit_binary(margins[:, 0], y_index[rows] == 1, row_weights, scale, bias[0])
         return _fit_multinomial(margins, y_index[rows], row_weights, scale, bias)

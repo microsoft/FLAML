@@ -390,6 +390,30 @@ def test_sefr_calibration_subsample_tiny_weights(monkeypatch):
     assert np.all(np.isfinite(model.predict_proba(X)))
 
 
+def test_sefr_platt_does_not_copy_features(monkeypatch):
+    import tracemalloc
+
+    # with every row kept, Platt calibration must not copy the feature matrix
+    X, y = make_classification(20000, 100, random_state=0)
+    fit_calibration = SEFRClassifier._fit_calibration
+    extra = []
+
+    def traced(self, *args):
+        before = tracemalloc.get_traced_memory()[0]
+        tracemalloc.reset_peak()
+        result = fit_calibration(self, *args)
+        extra.append(tracemalloc.get_traced_memory()[1] - before)
+        return result
+
+    monkeypatch.setattr(SEFRClassifier, "_fit_calibration", traced)
+    tracemalloc.start()
+    try:
+        SEFRClassifier(calibration="platt").fit(X, y)
+    finally:
+        tracemalloc.stop()
+    assert extra[0] < X.nbytes / 2
+
+
 def test_sefr_calibration_subsample_periodic_labels(monkeypatch):
     import flaml.automl.contrib.sefr as sefr
 
