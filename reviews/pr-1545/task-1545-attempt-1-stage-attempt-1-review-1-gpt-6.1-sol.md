@@ -395,6 +395,13 @@ Visual Studio Enterprise 2026 (18.10), ARM64 tools, and CMake 4.4.4, but no
 Visual Studio 2022 instance. The generator is updated to the installed
 `Visual Studio 18 2026`; explicit ARM64 selection and PE checks remain.
 
+Run `39084096347` successfully compiled the native DLL, reported machine
+`0xaa64`, installed that library, and passed the import/architecture checks.
+The remaining failure was in the early smoke's sklearn wrapper, before the
+general test dependencies had installed sklearn. The smoke now exercises
+XGBoost's core DMatrix/train/predict API, which requires only the package's
+own dependencies. A subprocess regression blocks sklearn and runs that API.
+
 Stage 2 will use a new source snapshot after the 282-test suite, expanded
 28-test pipeline checks, and successful wheel/source builds. Later clean stages
 cannot erase the inherited unresolved findings or relabel stage 1 as clean.

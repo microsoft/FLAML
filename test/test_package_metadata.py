@@ -67,8 +67,26 @@ def test_legacy_arm64_xgboost_build_has_an_explicit_native_target():
     assert "-DUSE_CUDA=OFF -DUSE_OPENMP=OFF" in build["run"]
     assert "machine == 0xaa64" in build["run"]
     assert "python -m pip install --no-cache-dir (Join-Path $source 'python-package')" in build["run"]
-    assert "XGBClassifier" in build["run"]
+    assert "xgboost.train(" in build["run"]
+    assert "XGBClassifier" not in build["run"]
     assert index < next(i for i, step in enumerate(steps) if step.get("name") == "Install packages and dependencies")
+
+
+def test_native_xgboost_smoke_does_not_require_sklearn():
+    import subprocess
+    import sys
+
+    pytest.importorskip("xgboost")
+    code = (
+        "import sys; sys.modules['sklearn'] = None; "
+        "import numpy as np, xgboost; "
+        "X=np.arange(16).reshape(8,2); "
+        "model=xgboost.train({'objective':'binary:logistic','nthread':1}, "
+        "xgboost.DMatrix(X,label=np.tile([0,1],4)),num_boost_round=2); "
+        "assert len(model.predict(xgboost.DMatrix(X[:2]))) == 2"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_fabric_notebooks_do_not_install_internal_release_wheels():
