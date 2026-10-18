@@ -389,6 +389,12 @@ type of both the built and installed DLL before the fit/predict smoke.
 The Python package then consumes that explicitly built local library; no
 third-party source is patched and no architecture or matrix entry is skipped.
 
+The explicit configuration then exposed the remaining image mismatch:
+`windows-11-arm` now uses `windows-11-vs2026-arm64/20261013.183`, which has
+Visual Studio Enterprise 2026 (18.10), ARM64 tools, and CMake 4.4.4, but no
+Visual Studio 2022 instance. The generator is updated to the installed
+`Visual Studio 18 2026`; explicit ARM64 selection and PE checks remain.
+
 Stage 2 will use a new source snapshot after the 282-test suite, expanded
 28-test pipeline checks, and successful wheel/source builds. Later clean stages
 cannot erase the inherited unresolved findings or relabel stage 1 as clean.

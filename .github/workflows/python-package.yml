@@ -127,7 +127,7 @@ jobs:
           $build = Join-Path $source 'build-arm64'
           git clone --depth 1 --branch v3.2.0 --recurse-submodules --shallow-submodules https://github.com/dmlc/xgboost.git $source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake -S $source -B $build -G 'Visual Studio 17 2022' -A ARM64 -DUSE_CUDA=OFF -DUSE_OPENMP=OFF
+          cmake -S $source -B $build -G 'Visual Studio 18 2026' -A ARM64 -DUSE_CUDA=OFF -DUSE_OPENMP=OFF
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build $build --config Release --parallel 2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

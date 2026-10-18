@@ -62,7 +62,7 @@ def test_legacy_arm64_xgboost_build_has_an_explicit_native_target():
     )
     build = steps[index]
     assert build["if"] == "matrix.os == 'windows-11-arm' && matrix.python-version == '3.11'"
-    assert "-G 'Visual Studio 17 2022' -A ARM64" in build["run"]
+    assert "-G 'Visual Studio 18 2026' -A ARM64" in build["run"]
     assert "--branch v3.2.0 --recurse-submodules" in build["run"]
     assert "-DUSE_CUDA=OFF -DUSE_OPENMP=OFF" in build["run"]
     assert "machine == 0xaa64" in build["run"]
