@@ -361,3 +361,103 @@ def test_named_datetime_index_colliding_with_target_named_y():
     _fit(automl, X_train=X_train, y_train=y_train, label="y")
     assert automl._state.task.time_col == "y_1"
     assert len(automl.predict(X_train.tail(12))) == 12
+
+
+def test_valid_date_string_column_preserved_over_incidental_datetime_index():
+    """Verify that a valid ISO date string column is preserved over an incidental DatetimeIndex during inference and fit."""
+    dates_str = pd.date_range("2018-01-01", periods=120, freq="MS").strftime("%Y-%m-%d").tolist()
+    incidental_idx = pd.date_range("2030-01-01", periods=120, freq="MS")
+    df = pd.DataFrame(
+        {
+            "ds": dates_str,
+            "y": np.sin(np.arange(120) / 6) * 10 + 50,
+        },
+        index=incidental_idx,
+    )
+    automl = AutoML()
+    # Inferred time_col (no explicit time_col provided)
+    _fit(automl, dataframe=df)
+    assert automl._state.task.time_col == "ds"
+    # Ensure the timeline corresponds to 2018, not 2030 (120 monthly periods end in 2027)
+    assert automl.model.end_date.year == 2027
+    future_df = pd.DataFrame({"ds": pd.date_range("2028-01-01", periods=12, freq="MS").strftime("%Y-%m-%d")})
+    assert len(automl.predict(future_df)) == 12
+
+
+def test_positional_series_contract_preserved_when_timestamp_column_present():
+    """Verify that when X has an existing timestamp column, Series target is paired positionally even if X has a DatetimeIndex."""
+    from flaml.automl.task.time_series_task import TimeSeriesTask
+
+    # X has explicit timestamp column 'ds' in order, but an incidental reverse DatetimeIndex
+    dates = pd.date_range("2020-01-01", periods=5, freq="D")
+    X = pd.DataFrame(
+        {"ds": dates, "feat": [1.0, 2.0, 3.0, 4.0, 5.0]},
+        index=dates[::-1],
+    )
+    y = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0], index=dates[::-1])
+
+    needs_promotion = TimeSeriesTask._needs_datetime_index_promotion(X, time_col="ds", is_inferred=False)
+    assert not needs_promotion
+
+    X_aligned, y_aligned = TimeSeriesTask._align_y_to_X_and_promote(X, y, needs_promotion=needs_promotion)
+    # Target values must stay in original order (positional pairing), NOT re-indexed
+    assert list(y_aligned.values) == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+
+def test_label_mismatch_with_existing_nan_raises_value_error():
+    """Verify that index label mismatch is rejected even when dropped row contains NaN (which defeated NaN-count check)."""
+    from flaml.automl.task.time_series_task import TimeSeriesTask
+
+    # X has Jan 1 and Jan 2; y has Jan 2 and Jan 3 (with value NaN)
+    x_idx = pd.date_range("2020-01-01", periods=2, freq="D")
+    y_idx = pd.date_range("2020-01-02", periods=2, freq="D")
+
+    X = pd.DataFrame({"feat": [1.0, 2.0]}, index=x_idx)
+    y = pd.Series([10.0, np.nan], index=y_idx)
+
+    # When promotion is needed, mismatched index labels must raise ValueError
+    with pytest.raises(ValueError, match="Target index labels do not match feature index labels"):
+        TimeSeriesTask._align_y_to_X_and_promote(X, y, needs_promotion=True)
+
+
+def test_predict_restores_datetime_index_preventing_assignment_nans():
+    """Verify that predictions on future_df with DatetimeIndex retain future_df.index, preventing assignment NaNs."""
+    df = _make_train_df(periods=120)
+    automl = AutoML()
+    _fit(automl, dataframe=df)
+
+    future_index = pd.date_range("2028-01-01", periods=12, freq="MS")
+    future_df = pd.DataFrame(index=future_index)
+
+    preds = automl.predict(future_df)
+    assert isinstance(preds, (pd.Series, pd.DataFrame, np.ndarray))
+    # When assigned back to future_df, pandas aligns by index. If index was RangeIndex, this produced all NaNs.
+    future_df["prediction"] = preds
+    assert not future_df["prediction"].isna().any()
+    assert len(future_df["prediction"]) == 12
+
+
+def test_is_valid_timestamp_col_boundary_cases():
+    """Directly test _is_valid_timestamp_col with various dtypes."""
+    from flaml.automl.task.time_series_task import TimeSeriesTask
+
+    df = pd.DataFrame(
+        {
+            "num_int": [1, 2, 3],
+            "num_float": [1.0, 2.0, 3.0],
+            "num_str": ["100", "200", "300"],
+            "invalid_str": ["not-a-date", "foo", "bar"],
+            "iso_str": ["2020-01-01", "2020-01-02", "2020-01-03"],
+            "dt64": pd.date_range("2020-01-01", periods=3),
+            "bool_col": [True, False, True],
+        }
+    )
+
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "num_int")
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "num_float")
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "num_str")
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "invalid_str")
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "bool_col")
+    assert not TimeSeriesTask._is_valid_timestamp_col(df, "non_existent_col")
+    assert TimeSeriesTask._is_valid_timestamp_col(df, "iso_str")
+    assert TimeSeriesTask._is_valid_timestamp_col(df, "dt64")

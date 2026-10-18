@@ -1,3 +1,4 @@
+import datetime
 import logging
 import time
 from typing import List
@@ -146,40 +147,55 @@ class TimeSeriesTask(Task):
                 assert y_train_all is not None, "If X_train_all is not None, y_train_all must also be"
                 assert dataframe is None, "If X_train_all is provided, dataframe must be None"
                 if isinstance(X_train_all, pd.DataFrame):
-                    X_train_all, y_train_all = self._align_y_to_X_and_promote(X_train_all, y_train_all)
-                    X_train_all, promoted_time_col = self._promote_datetime_index_if_needed(
+                    needs_promotion = self._needs_datetime_index_promotion(
                         X_train_all,
                         time_col=self.time_col,
                         is_inferred=time_col_inferred,
-                        reserved_cols=target_names,
                     )
-                    if promoted_time_col is not None:
-                        self.time_col = promoted_time_col
-                        if isinstance(y_train_all, (pd.DataFrame, pd.Series)):
-                            y_train_all = y_train_all.reset_index(drop=True)
+                    X_train_all, y_train_all = self._align_y_to_X_and_promote(
+                        X_train_all,
+                        y_train_all,
+                        needs_promotion=needs_promotion,
+                    )
+                    if needs_promotion:
+                        X_train_all, promoted_time_col = self._promote_datetime_index_if_needed(
+                            X_train_all,
+                            time_col=self.time_col,
+                            is_inferred=time_col_inferred,
+                            reserved_cols=target_names,
+                        )
+                        if promoted_time_col is not None:
+                            self.time_col = promoted_time_col
+                            if isinstance(y_train_all, (pd.DataFrame, pd.Series)):
+                                y_train_all = y_train_all.reset_index(drop=True)
                 dataframe = TimeSeriesDataset.to_dataframe(X_train_all, y_train_all, target_names, self.time_col)
 
             elif dataframe is not None:
                 assert label is not None, "A label or list of labels must be provided."
                 assert isinstance(dataframe, pd.DataFrame), "dataframe must be a pandas DataFrame"
                 assert label in dataframe.columns, f"{label} must a column name in dataframe"
+                needs_promotion = self._needs_datetime_index_promotion(
+                    dataframe,
+                    time_col=self.time_col,
+                    is_inferred=time_col_inferred,
+                )
+                if needs_promotion:
+                    dataframe, promoted_time_col = self._promote_datetime_index_if_needed(
+                        dataframe,
+                        time_col=self.time_col,
+                        is_inferred=time_col_inferred,
+                        reserved_cols=target_names,
+                    )
+                    if promoted_time_col is not None:
+                        self.time_col = promoted_time_col
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
-
-            dataframe, promoted_time_col = self._promote_datetime_index_if_needed(
-                dataframe,
-                time_col=self.time_col,
-                is_inferred=time_col_inferred,
-                reserved_cols=target_names,
-            )
-            if promoted_time_col is not None:
-                self.time_col = promoted_time_col
 
             if self.time_col is None:
                 self.time_col = "ds"
 
             try:
-                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
@@ -190,16 +206,26 @@ class TimeSeriesTask(Task):
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 if isinstance(X_val, pd.DataFrame):
-                    X_val, y_val = self._align_y_to_X_and_promote(X_val, y_val)
-                    X_val, promoted_time_col_val = self._promote_datetime_index_if_needed(
+                    needs_promotion_val = self._needs_datetime_index_promotion(
                         X_val,
                         time_col=self.time_col,
                         is_inferred=False,
-                        reserved_cols=target_names,
                     )
-                    if promoted_time_col_val is not None:
-                        if isinstance(y_val, (pd.DataFrame, pd.Series)):
-                            y_val = y_val.reset_index(drop=True)
+                    X_val, y_val = self._align_y_to_X_and_promote(
+                        X_val,
+                        y_val,
+                        needs_promotion=needs_promotion_val,
+                    )
+                    if needs_promotion_val:
+                        X_val, promoted_time_col_val = self._promote_datetime_index_if_needed(
+                            X_val,
+                            time_col=self.time_col,
+                            is_inferred=False,
+                            reserved_cols=target_names,
+                        )
+                        if promoted_time_col_val is not None:
+                            if isinstance(y_val, (pd.DataFrame, pd.Series)):
+                                y_val = y_val.reset_index(drop=True)
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
                 val_len = len(val_df)
             else:
@@ -427,15 +453,55 @@ class TimeSeriesTask(Task):
         return X
 
     @staticmethod
-    def _align_y_to_X_and_promote(X, y):
-        """Align y to X by label before index promotion or resetting.
+    def _is_valid_timestamp_col(df, col):
+        """Check if col in df is a valid datetime-like column without numeric nanosecond coercion."""
+        if col is None or not isinstance(df, pd.DataFrame) or col not in df.columns:
+            return False
+        series = df[col]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return True
+        if pd.api.types.is_numeric_dtype(series) or pd.api.types.is_bool_dtype(series):
+            return False
+        non_null = series.dropna()
+        if non_null.empty:
+            return False
+        first_val = non_null.iloc[0]
+        if not isinstance(first_val, (str, datetime.date, datetime.datetime, pd.Timestamp, np.datetime64)):
+            return False
+        try:
+            import warnings
 
-        Only perform datetime-label alignment when X itself has a matching DatetimeIndex
-        and y also has a DatetimeIndex. If non-matching labels introduce new missing
-        values, raise ValueError.
-        Otherwise (e.g. X has a DatetimeIndex and y has a RangeIndex, or X has a
-        RangeIndex and y is a Series with DatetimeIndex or RangeIndex), preserve
-        the positional Series contract by assigning X.index to y.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                converted = pd.to_datetime(series, errors="raise")
+            return not converted.isna().all()
+        except Exception:
+            return False
+
+    @classmethod
+    def _needs_datetime_index_promotion(cls, df, time_col=None, is_inferred=False):
+        """Determine whether df's DatetimeIndex needs to be promoted to a column."""
+        if not isinstance(df, pd.DataFrame) or not isinstance(df.index, pd.DatetimeIndex):
+            return False
+        if not is_inferred:
+            return time_col is not None and time_col not in df.columns
+        else:
+            if time_col is not None and cls._is_valid_timestamp_col(df, time_col):
+                return False
+            return True
+
+    @classmethod
+    def _align_y_to_X_and_promote(cls, X, y, needs_promotion=False):
+        """Align y to X before index promotion or dataset construction.
+
+        When needs_promotion is True, X's DatetimeIndex will be promoted to the time column.
+        In that case, if y also has a DatetimeIndex, validate that index labels match and
+        align y to X by label. If y has a RangeIndex (or is a Series without DatetimeIndex),
+        pair y with X positionally.
+
+        When needs_promotion is False (e.g. X already has a valid timestamp column),
+        preserve the baseline positional contract for Series and DataFrames: row i of y
+        corresponds to row i of X.
         """
         if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
             return X, y
@@ -443,45 +509,34 @@ class TimeSeriesTask(Task):
         if len(X) != len(y):
             raise ValueError(f"Target length ({len(y)}) does not match feature length ({len(X)}).")
 
-        # Only perform datetime-label alignment when both X and y have a DatetimeIndex
-        if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
+        # Only align by label when X's DatetimeIndex is being promoted to the time column
+        # and y also has a DatetimeIndex.
+        if needs_promotion and isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
             if not y.index.equals(X.index):
-                y_aligned = y.reindex(X.index)
-                orig_nan_count = int(y.isna().sum().sum() if isinstance(y, pd.DataFrame) else y.isna().sum())
-                new_nan_count = int(
-                    y_aligned.isna().sum().sum() if isinstance(y_aligned, pd.DataFrame) else y_aligned.isna().sum()
-                )
-                if new_nan_count > orig_nan_count:
+                if not X.index.is_unique or not y.index.is_unique:
+                    raise ValueError("Duplicate index labels are not supported.")
+                try:
+                    if not X.index.difference(y.index).empty or not y.index.difference(X.index).empty:
+                        raise ValueError("Target index labels do not match feature index labels.")
+                except TypeError:
                     raise ValueError("Target index labels do not match feature index labels.")
-                y = y_aligned
+                y = y.reindex(X.index)
             return X, y
 
-        # Positional pairing: when X has DatetimeIndex and y is a Series without DatetimeIndex (or RangeIndex DataFrame),
-        # or when X has RangeIndex and y is a Series (even if y has a DatetimeIndex).
+        # Positional pairing: maintain position-level parity
         if isinstance(y, pd.Series):
-            if len(y) == len(X):
-                y = y.copy()
-                y.index = X.index
-                return X, y
+            y = y.copy()
+            y.index = X.index
+            return X, y
         elif isinstance(y, pd.DataFrame):
-            if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.RangeIndex):
-                if len(y) == len(X):
-                    y = y.copy()
-                    y.index = X.index
-                    return X, y
-            elif not y.index.equals(X.index):
-                # When neither is DatetimeIndex, standard label alignment if indexes differ
-                y_aligned = y.reindex(X.index)
-                orig_nan_count = int(y.isna().sum().sum())
-                new_nan_count = int(y_aligned.isna().sum().sum())
-                if new_nan_count > orig_nan_count:
-                    raise ValueError("Target index labels do not match feature index labels.")
-                y = y_aligned
+            y = y.copy()
+            y.index = X.index
+            return X, y
 
         return X, y
 
-    @staticmethod
-    def _promote_datetime_index_if_needed(df, time_col=None, is_inferred=False, reserved_cols=None):
+    @classmethod
+    def _promote_datetime_index_if_needed(cls, df, time_col=None, is_inferred=False, reserved_cols=None):
         """Promote a DatetimeIndex to a guaranteed-unique column if needed.
 
         Args:
@@ -493,21 +548,7 @@ class TimeSeriesTask(Task):
         Returns:
             Tuple of (df_processed, promoted_col_name or None).
         """
-        if not isinstance(df, pd.DataFrame) or not isinstance(df.index, pd.DatetimeIndex):
-            return df, None
-
-        # Precondition check:
-        # 1. If time_col was inferred: promote if df lacks a datetime-typed time_col.
-        # 2. If time_col was explicit: promote if time_col is missing from df.columns.
-        needs_promotion = False
-        if is_inferred:
-            if time_col is None or time_col not in df.columns or not pd.api.types.is_datetime64_any_dtype(df[time_col]):
-                needs_promotion = True
-        else:
-            if time_col is not None and time_col not in df.columns:
-                needs_promotion = True
-
-        if not needs_promotion:
+        if not cls._needs_datetime_index_promotion(df, time_col=time_col, is_inferred=is_inferred):
             return df, None
 
         if is_inferred:
@@ -530,6 +571,7 @@ class TimeSeriesTask(Task):
         return df_out, target_col
 
     def preprocess(self, X, transformer=None):
+        orig_index = getattr(X, "index", None)
         if isinstance(X, pd.DataFrame):
             X, _ = self._promote_datetime_index_if_needed(
                 X,
@@ -537,9 +579,16 @@ class TimeSeriesTask(Task):
                 is_inferred=False,
                 reserved_cols=self.target_names,
             )
+            if self.time_col in X.columns and not pd.api.types.is_datetime64_any_dtype(X[self.time_col]):
+                if self._is_valid_timestamp_col(X, self.time_col):
+                    X = X.copy()
+                    X[self.time_col] = pd.to_datetime(X[self.time_col])
         if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
             X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
-            return self._preprocess(X, transformer)
+            X = self._preprocess(X, transformer)
+            if orig_index is not None and isinstance(X, pd.DataFrame) and len(X) == len(orig_index):
+                X.index = orig_index
+            return X
         elif isinstance(X, int):
             return X
         else:
