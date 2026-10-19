@@ -545,3 +545,26 @@ def test_mismatched_dataframe_target_labels_raise_value_error():
     automl = AutoML()
     with pytest.raises(ValueError, match="Target index labels do not match feature index labels"):
         _fit(automl, X_train=X, y_train=y, time_col="ds")
+
+
+def test_explicit_time_col_missing_from_features_rejected_even_if_present_in_target_dataframe():
+    """Verify that an explicitly specified time_col must be present in features X, and cannot be
+    satisfied by a numeric column in DataFrame target y (reproducing maintainer thinkall's case)."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    X = pd.DataFrame({"feat": np.arange(40)}, index=dates)
+    y = pd.DataFrame(
+        {"y": 3 + 7 * np.arange(40, dtype=float), "ds": np.arange(40)},
+        index=dates,
+    )
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="must contain timestamp values"):
+        _fit(
+            automl,
+            X_train=X,
+            y_train=y,
+            label="y",
+            time_col="ds",
+            period=4,
+            keep_search_state=True,
+        )
