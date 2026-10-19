@@ -568,3 +568,41 @@ def test_explicit_time_col_missing_from_features_rejected_even_if_present_in_tar
             period=4,
             keep_search_state=True,
         )
+
+
+def test_numpy_array_training_input_with_explicit_time_col():
+    """Verify that a NumPy array X_train with timestamps in column 0 is accepted when time_col is explicit."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    X_arr = np.column_stack([dates.astype(object), np.arange(40, dtype=float)])
+    y_arr = np.arange(40, dtype=float)
+
+    automl = AutoML()
+    _fit(
+        automl,
+        X_train=X_arr,
+        y_train=y_arr,
+        time_col="ds",
+        period=4,
+    )
+    assert automl._state.task.time_col == "ds"
+    assert len(automl.predict(X_arr[-12:])) == 12
+
+
+def test_numpy_array_validation_input_accepted():
+    """Verify that a NumPy array X_val with timestamps in column 0 is accepted for holdout validation."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    df_train = pd.DataFrame({"ds": dates[:30], "y": np.arange(30, dtype=float)})
+    X_val_arr = dates[30:].values.reshape(-1, 1)
+    y_val_arr = np.arange(30, 40, dtype=float)
+
+    automl = AutoML()
+    _fit(
+        automl,
+        dataframe=df_train,
+        label="y",
+        X_val=X_val_arr,
+        y_val=y_val_arr,
+        period=4,
+    )
+    assert automl._state.eval_method == "holdout"
+    assert len(automl.predict(X_val_arr)) == 10

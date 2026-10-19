@@ -170,8 +170,7 @@ class TimeSeriesTask(Task):
                             self.time_col = promoted_time_col
                             if isinstance(y_train_all, (pd.DataFrame, pd.Series)):
                                 y_train_all = y_train_all.reset_index(drop=True)
-                if not time_col_inferred:
-                    if not isinstance(X_train_all, pd.DataFrame) or self.time_col not in X_train_all.columns:
+                    if not time_col_inferred and self.time_col not in X_train_all.columns:
                         raise ValueError(
                             f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
                         )
@@ -241,10 +240,10 @@ class TimeSeriesTask(Task):
                         if promoted_time_col_val is not None:
                             if isinstance(y_val, (pd.DataFrame, pd.Series)):
                                 y_val = y_val.reset_index(drop=True)
-                if not isinstance(X_val, pd.DataFrame) or self.time_col not in X_val.columns:
-                    raise ValueError(
-                        f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
-                    )
+                    if self.time_col not in X_val.columns:
+                        raise ValueError(
+                            f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
+                        )
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
                 val_len = len(val_df)
             else:
