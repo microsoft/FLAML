@@ -218,6 +218,20 @@ def test_seasonal_naive_predicts_in_sample_one_season_back():
     np.testing.assert_allclose(estimator.predict(sparse), y.iloc[[13, 15, 23]])
 
 
+def test_seasonal_naive_keeps_later_missing_lags_missing():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    y = np.arange(1.0, 19.0)
+    y[3] = np.nan  # January 4 is missing
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=18, freq="D"), "y": y})
+    estimator = SeasonalNaive(season=3)
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    # Only the first season falls back to the first observation; January 7 repeats the missing January 4
+    pred = estimator.predict(data[["ds"]].iloc[[1, 6, 7]])
+    np.testing.assert_allclose(pred, [1.0, np.nan, 5.0])
+
+
 def test_seasonal_naive_integer_horizon_starts_after_training_data():
     from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
 
@@ -274,7 +288,7 @@ def test_seasonal_average_caps_lag_order_on_short_training_data():
 
     data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=11, freq="D"), "y": np.sin(np.arange(11.0))})
     estimator = SeasonalAverage(season=6)
-    # 11 rows cannot estimate 6 lags and a constant; the lag order is selected up to 5 instead
+    # 11 rows cannot estimate 6 lags and a constant; the lag order is selected up to (11 - 2) // 2 = 4 instead
     estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
 
     assert estimator.season == 6
@@ -285,7 +299,8 @@ def test_seasonal_average_leaves_residual_degrees_of_freedom():
 
     data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=5, freq="D"), "y": [0.0, 0.0, 1.0, 0.0, 0.0]})
     estimator = SeasonalAverage(season=2)
-    # AR(2) on 5 rows would leave 3 observations for 2 lags and a constant, which order selection picks here
+    # Order selection picks AR(2) here, which on 5 rows leaves 3 observations for 2 lags and a constant;
+    # the cap allows at most (5 - 2) // 2 = 1 lag
     estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
 
     assert estimator._model.df_resid > 0

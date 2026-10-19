@@ -759,8 +759,10 @@ class SeasonalRandomWalk:
         self.frequency = frequency
         self.last_date = y.index[-1]
         self.last_cycle = y.to_numpy()[-season:]
-        # In-sample predictions; the first season has no earlier value and uses the first observation
-        self.fittedvalues = y.shift(season).fillna(y.iloc[0])
+        # In-sample predictions; only the first season has no earlier value and uses the first
+        # observation, while a missing target later on stays missing one season ahead
+        self.fittedvalues = y.shift(season)
+        self.fittedvalues.iloc[:season] = y.iloc[0]
 
     def forecast(self, steps: int, **kwargs) -> pd.Series:
         start = self.last_date + pd.tseries.frequencies.to_offset(self.frequency)
