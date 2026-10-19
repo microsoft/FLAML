@@ -12,6 +12,7 @@ from flaml.automl.data import group_counts
 from flaml.automl.model import BaseEstimator, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.spark.utils import len_labels
 from flaml.automl.task.task import Task
 from flaml.automl.time_series import TimeSeriesDataset
 
@@ -350,6 +351,7 @@ def compute_estimator(
     log_training_metric: Optional[bool] = False,
     fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
+    y_train_all=None,
 ):
     if fit_kwargs is None:
         fit_kwargs = {}
@@ -376,6 +378,11 @@ def compute_estimator(
         fit_kwargs["y_val"] = y_val
 
     if "holdout" == eval_method:
+        labels = fit_kwargs.get("label_list")  # pass the label list on to compute the evaluation metric
+        if labels is None and y_train is not None and task.is_classification() and not task.is_token_classification():
+            # Match evaluate_model_CV: a trial's sample can omit a class, so use
+            # the full training targets when choosing labels for its metric.
+            _, labels = len_labels(y_train if y_train_all is None else y_train_all, return_labels=True)
         val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
             config_dic,
             estimator,
@@ -387,7 +394,7 @@ def compute_estimator(
             groups_val,
             eval_metric,
             task,
-            labels=fit_kwargs.get("label_list"),  # pass the label list on to compute the evaluation metric
+            labels=labels,
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
