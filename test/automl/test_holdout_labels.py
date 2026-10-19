@@ -64,10 +64,13 @@ def test_custom_metric_receives_training_labels(eval_method):
     automl.fit(X, y, metric=custom_metric, eval_method=eval_method, n_splits=3, **SETTINGS)
 
     assert received
-    assert all(np.array_equal(labels, [0, 1, 2]) for labels in received)
+    if eval_method == "holdout":
+        assert all(labels is None for labels in received)
+    else:
+        assert all(np.array_equal(labels, [0, 1, 2]) for labels in received)
 
 
-def test_sampled_holdout_uses_full_training_labels():
+def test_sampled_holdout_custom_metric_keeps_label_inference():
     rng = np.random.RandomState(1)
     y = rng.choice([0, 1], size=3000)
     y[rng.choice(len(y), 40, replace=False)] = 2
@@ -80,7 +83,7 @@ def test_sampled_holdout_uses_full_training_labels():
 
     def macro_f1(X_val, y_val, estimator, labels, *args, **kwargs):
         sampled_classes.append(estimator.classes_)
-        assert np.array_equal(labels, [0, 1, 2])
+        assert labels is None
         predictions = estimator.predict(X_val)
         score = f1_score(y_val, predictions, labels=labels, average="macro")
         expected = f1_score(y_val, predictions, labels=[0, 1, 2], average="macro")
@@ -108,6 +111,62 @@ def test_sampled_holdout_uses_full_training_labels():
 
     assert any(len(classes) == 2 for classes in sampled_classes)
     assert np.isfinite(automl.best_loss)
+
+
+def test_documented_callable_log_loss_with_sampled_estimator():
+    rng = np.random.RandomState(1)
+    y = rng.choice([0, 1], size=3000)
+    y[rng.choice(len(y), 40, replace=False)] = 2
+    X = rng.randn(len(y), 4)
+    X[:, 0] += 2 * y
+    y_val = np.arange(300) % 2
+    X_val = rng.randn(len(y_val), 4)
+    X_val[:, 0] += 2 * y_val
+    sampled_classes = []
+
+    def custom_metric(X_val, y_val, estimator, labels, X_train, y_train, weight_val, weight_train, *args):
+        sampled_classes.append(estimator.classes_.copy())
+        val_loss = log_loss(y_val, estimator.predict_proba(X_val), labels=labels, sample_weight=weight_val)
+        train_loss = log_loss(y_train, estimator.predict_proba(X_train), labels=labels, sample_weight=weight_train)
+        return 1.5 * val_loss - 0.5 * train_loss, {"val_loss": val_loss, "train_loss": train_loss}
+
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
+        task="classification",
+        metric=custom_metric,
+        estimator_list=["lgbm"],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    assert any(len(classes) == 2 for classes in sampled_classes)
+    assert np.isfinite(automl.best_loss)
+
+
+def test_custom_metric_cannot_mutate_shared_labels():
+    X, y = _three_class_data()
+    labels = np.array([0, 1, 2])
+    received = []
+
+    def mutating_metric(X_val, y_val, estimator, callback_labels, *args):
+        received.append(callback_labels.copy())
+        callback_labels[0] = 99
+        return 0.5, {}
+
+    for _ in range(2):
+        ml._eval_estimator({}, object(), X, y, X, y, None, None, mutating_metric, "classification", labels)
+    assert all(np.array_equal(value, [0, 1, 2]) for value in received)
+    np.testing.assert_array_equal(labels, [0, 1, 2])
 
 
 @pytest.mark.parametrize("validation_has_rare_class", [False, True])
@@ -260,5 +319,6 @@ def test_holdout_labels_cached_and_refreshed_per_fit(monkeypatch):
             **SETTINGS,
         )
         assert seen
-        assert all(np.array_equal(labels, np.unique(current_y)) for labels in seen)
+        assert all(labels is None for labels in seen)
+        np.testing.assert_array_equal(automl._state.holdout_labels, np.unique(current_y))
     assert calls == []

@@ -4,6 +4,7 @@
 #  * project root for license information.
 import logging
 import time
+from copy import copy
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
@@ -383,7 +384,13 @@ def compute_estimator(
 
     if "holdout" == eval_method:
         labels = fit_kwargs.get("label_list")  # pass the label list on to compute the evaluation metric
-        if labels is None and y_train is not None and task.is_classification() and not task.is_token_classification():
+        if (
+            labels is None
+            and isinstance(eval_metric, str)
+            and y_train is not None
+            and task.is_classification()
+            and not task.is_token_classification()
+        ):
             # Match evaluate_model_CV: a trial's sample can omit a class, so use
             # the full training targets when choosing labels for its metric.
             labels = training_labels
@@ -687,7 +694,7 @@ def _eval_estimator(
             X_val,
             y_val,
             estimator,
-            labels,
+            copy(labels),
             X_train,
             y_train,
             weight_val,
