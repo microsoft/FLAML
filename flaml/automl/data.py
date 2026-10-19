@@ -252,18 +252,22 @@ def add_time_idx_col(X):
     elif freq == "Y":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year.astype(int)
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # taking minimum difference in timestamp
-        unique_ts = unique_dates.astype("int64")
-        diffs = unique_ts.diff().dropna()
-        if len(diffs) > 0:
-            mode_diff = diffs.mode()
-            freq_val = int(mode_diff.iloc[0]) if len(mode_diff) > 0 else 1
+        # If a regular frequency was inferred (e.g. ME/M month-ends, D with DST transitions),
+        # use ordinal steps to avoid artificial gaps or duplicate indices.
+        if freq is not None:
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            freq_val = 1
-        all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
-        min_ts = unique_ts.min()
-        X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
+            # Fallback using modal difference for irregular series or < 3 dates
+            unique_ts = unique_dates.astype("int64")
+            diffs = unique_ts.diff().dropna()
+            if len(diffs) > 0:
+                mode_diff = diffs.mode()
+                freq_val = int(mode_diff.iloc[0]) if len(mode_diff) > 0 else 1
+            else:
+                freq_val = 1
+            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
+            min_ts = unique_ts.min()
+            X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
     return X
 
 
