@@ -246,20 +246,28 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(unique_dates)
+    freq = pd.infer_freq(unique_dates) if len(unique_dates) >= 3 else None
     if freq == "MS":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+        X["time_idx"] = (X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month).astype(int)
     elif freq == "Y":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year.astype(int)
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        # If a regular frequency was inferred (e.g. ME/M month-ends, D with DST transitions),
+        # use ordinal steps to avoid artificial gaps or duplicate indices.
+        if freq is not None:
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
+        else:
+            # Fallback using modal difference for irregular series or < 3 dates
+            unique_ts = unique_dates.astype("int64")
+            diffs = unique_ts.diff().dropna()
+            if len(diffs) > 0:
+                mode_diff = diffs.mode()
+                freq_val = int(mode_diff.iloc[0]) if len(mode_diff) > 0 else 1
+            else:
+                freq_val = 1
+            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
+            min_ts = unique_ts.min()
+            X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
     return X
 
 
