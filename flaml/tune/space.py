@@ -263,7 +263,7 @@ def add_cost_to_space(space: Dict, low_cost_point: Dict, choice_cost: Dict):
                     if domain.ordered:
                         low_cost[-1] = int(np.where(ind == low_cost[-1])[0].item())
                     domain.low_cost_point = low_cost[-1]
-                return
+                continue
         if low_cost:
             domain.low_cost_point = low_cost
     return config
