@@ -1,6 +1,7 @@
 import json
 import logging
 import pathlib
+from copy import deepcopy
 
 import numpy as np
 
@@ -76,7 +77,8 @@ def suggest_config(
     """Suggest a list of configs for the given task and training data.
 
     The returned configs can be used as starting points for AutoML.fit().
-    `FLAML_sample_size` is removed from the configs.
+    `FLAML_sample_size` is removed from the configs. The returned configs can be
+    modified without changing the predictor or subsequent suggestions.
     """
     from packaging.version import parse as version_parse
 
@@ -100,7 +102,7 @@ def suggest_config(
     logger.info(f"metafeature distance: {dist.item()}")
     ind = int(ind.item())
     choice = neighbors[ind]["choice"] if k is None else neighbors[ind]["choice"][:k]
-    configs = [predictor["portfolio"][x] for x in choice]
+    configs = [deepcopy(predictor["portfolio"][x]) for x in choice]
     for config in configs:
         if "hyperparameters" in config:
             hyperparams = config["hyperparameters"]
