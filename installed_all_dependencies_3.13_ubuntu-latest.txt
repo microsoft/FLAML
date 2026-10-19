@@ -35,7 +35,7 @@ cuda-bindings==13.4.4
 cuda-pathfinder==1.8.3
 cuda-toolkit==13.0.3.0
 cycler==0.12.1
-databricks-sdk==0.153.0
+databricks-sdk==0.154.0
 datasets==5.1.0
 debugpy==1.8.22
 defusedxml==0.7.1
@@ -46,7 +46,7 @@ executing==2.3.0
 fastapi==0.146.0
 fastjsonschema==2.22.2
 filelock==4.2.4
--e git+https://github.com/microsoft/FLAML@ffd0a35675e7d6ab70ad53d5329eaba1c8118f2f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@4d108876bb4e261d04b2d5c48eb63d134893c826#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -246,9 +246,9 @@ websocket-client==1.9.2
 wheel==0.48.0
 widgetsnbextension==4.0.16
 workalendar==17.0.0
-wrapt==2.5.1
+wrapt==2.5.2rc1
 xgboost==3.4.1
 xmltodict==1.0.4
-xxhash==4.0.1
+xxhash==4.0.2
 yarl==1.25.1
 zipp==4.1.1
