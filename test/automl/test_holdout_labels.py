@@ -1,8 +1,12 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from sklearn.metrics import f1_score, log_loss
 
 from flaml import AutoML
+from flaml.automl import ml
+from flaml.automl.model import LRL1Classifier
 
 SETTINGS = {
     "task": "classification",
@@ -104,3 +108,157 @@ def test_sampled_holdout_uses_full_training_labels():
 
     assert any(len(classes) == 2 for classes in sampled_classes)
     assert np.isfinite(automl.best_loss)
+
+
+@pytest.mark.parametrize("validation_has_rare_class", [False, True])
+def test_sampled_log_loss_with_training_metric(monkeypatch, validation_has_rare_class):
+    rng = np.random.RandomState(1)
+    y = rng.choice([0, 1], size=3000)
+    y[rng.choice(len(y), 40, replace=False)] = 2
+    X = rng.randn(len(y), 4)
+    X[:, 0] += 2 * y
+    y_val = np.arange(300) % (3 if validation_has_rare_class else 2)
+    X_val = rng.randn(len(y_val), 4)
+    X_val[:, 0] += 2 * y_val
+    sampled_classes = []
+    original = ml._eval_estimator
+
+    def recording(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs):
+        result = original(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs)
+        sampled_classes.append(estimator.classes_)
+        for features, target, actual in (
+            (X_val, y_val, result[0]),
+            (X_train, y_train, result[1]["train_loss"]),
+        ):
+            probabilities = np.zeros((len(target), 3))
+            probabilities[:, estimator.classes_.astype(int)] = estimator.predict_proba(features)
+            assert actual == pytest.approx(log_loss(target, probabilities, labels=[0, 1, 2]))
+            assert np.isfinite(actual)
+        return result
+
+    monkeypatch.setattr(ml, "_eval_estimator", recording)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
+        task="classification",
+        metric="log_loss",
+        log_training_metric=True,
+        estimator_list=["lgbm"],
+        max_iter=6,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    assert any(len(classes) == 2 for classes in sampled_classes)
+    assert np.isfinite(automl.best_loss)
+
+
+def test_compute_estimator_accepts_string_task():
+    X, y = _three_class_data()
+    result = ml.compute_estimator(
+        X[:180],
+        y[:180],
+        X[180:],
+        y[180:],
+        None,
+        None,
+        None,
+        None,
+        {"C": 1.0},
+        "classification",
+        "lrl1",
+        "holdout",
+        "accuracy",
+        estimator_class=LRL1Classifier,
+    )
+    assert np.isfinite(result[1])
+
+
+@pytest.mark.parametrize(
+    "classes, labels, expected",
+    [
+        ([2, 0], [0, 1, 2], [[0.8, 0.0, 0.2]]),
+        (["z", "a"], ["z", "a", "m"], [[0.8, 0.0, 0.2]]),
+        ([0, 1], [1, 0], [[0.2, 0.8]]),
+    ],
+)
+def test_log_loss_probability_column_alignment(classes, labels, expected):
+    probabilities = np.array([[0.2, 0.8]])
+    estimator = SimpleNamespace(classes_=np.array(classes))
+    actual = ml._align_log_loss_probabilities(probabilities, estimator, labels)
+    np.testing.assert_allclose(actual, expected)
+
+
+def test_explicit_label_list_overrides_cached_labels():
+    X, y = _three_class_data()
+    received = []
+
+    class Estimator:
+        def __init__(self, **kwargs):
+            pass
+
+        def fit(self, *args, **kwargs):
+            pass
+
+    def custom_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+        received.append(labels)
+        return 0.5, {}
+
+    override = ["explicit", "labels"]
+    ml.compute_estimator(
+        X[:180],
+        y[:180],
+        X[180:],
+        y[180:],
+        None,
+        None,
+        None,
+        None,
+        {},
+        "classification",
+        "custom",
+        "holdout",
+        custom_metric,
+        estimator_class=Estimator,
+        fit_kwargs={"label_list": override},
+        training_labels=np.array([0, 1, 2]),
+    )
+    assert received == [override]
+
+
+def test_holdout_labels_cached_and_refreshed_per_fit(monkeypatch):
+    X, y = _three_class_data()
+    calls = []
+    original = ml.len_labels
+
+    def counting(values, *args, **kwargs):
+        calls.append(len(values))
+        return original(values, *args, **kwargs)
+
+    monkeypatch.setattr(ml, "len_labels", counting)
+    automl = AutoML()
+    for current_y in (y, y % 2):
+        seen = []
+
+        def custom_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+            seen.append(labels)
+            return 0.5, {}
+
+        automl.fit(
+            X[:180],
+            current_y[:180],
+            X_val=X[180:],
+            y_val=current_y[180:],
+            metric=custom_metric,
+            **SETTINGS,
+        )
+        assert seen
+        assert all(np.array_equal(labels, np.unique(current_y)) for labels in seen)
+    assert calls == []

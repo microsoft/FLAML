@@ -13,6 +13,7 @@ from flaml.automl.model import BaseEstimator, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.spark.utils import len_labels
+from flaml.automl.task.factory import task_factory
 from flaml.automl.task.task import Task
 from flaml.automl.time_series import TimeSeriesDataset
 
@@ -352,7 +353,10 @@ def compute_estimator(
     fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
     y_train_all=None,
+    training_labels=None,
 ):
+    if isinstance(task, str):
+        task = task_factory(task, X_train, y_train)
     if fit_kwargs is None:
         fit_kwargs = {}
 
@@ -382,7 +386,9 @@ def compute_estimator(
         if labels is None and y_train is not None and task.is_classification() and not task.is_token_classification():
             # Match evaluate_model_CV: a trial's sample can omit a class, so use
             # the full training targets when choosing labels for its metric.
-            _, labels = len_labels(y_train if y_train_all is None else y_train_all, return_labels=True)
+            labels = training_labels
+            if labels is None:
+                _, labels = len_labels(y_train if y_train_all is None else y_train_all, return_labels=True)
         val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
             config_dic,
             estimator,
@@ -587,6 +593,26 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
     return metric_to_minimize, metrics_to_log
 
 
+def _align_log_loss_probabilities(predictions, estimator, labels):
+    """Match sampled classifiers' probability columns to log_loss's label order."""
+    if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
+        return predictions
+    classes = getattr(estimator, "classes_", None)
+    probabilities = np.asarray(predictions)
+    if classes is None or probabilities.ndim != 2 or probabilities.shape[1] != len(classes):
+        return predictions
+    # sklearn's log_loss sorts labels, even when an explicit override is unsorted.
+    labels = np.unique(labels)
+    if np.array_equal(classes, labels):
+        return predictions
+    positions = {label: index for index, label in enumerate(labels)}
+    if any(label not in positions for label in classes):
+        return predictions
+    aligned = np.zeros((len(probabilities), len(labels)), dtype=probabilities.dtype)
+    aligned[:, [positions[label] for label in classes]] = probabilities
+    return aligned
+
+
 def _eval_estimator(
     config,
     estimator,
@@ -605,6 +631,8 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
+        if eval_metric == "log_loss":
+            val_pred_y = _align_log_loss_probabilities(val_pred_y, estimator, labels)
 
         # TODO: why are integer labels being cast to str in the first place?
 
@@ -644,6 +672,8 @@ def _eval_estimator(
             # aligned and avoid empty prediction inputs.
             X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
             train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
+            if eval_metric == "log_loss":
+                train_pred_y = _align_log_loss_probabilities(train_pred_y, estimator, labels)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,

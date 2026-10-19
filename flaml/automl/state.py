@@ -324,6 +324,7 @@ class AutoMLState:
             this_estimator_kwargs,
             state.free_mem_ratio,
             y_train_all=state.y_train_all,
+            training_labels=getattr(state, "holdout_labels", None),
         )
         if state.retrain_final and not state.model_history:
             trained_estimator.cleanup()
