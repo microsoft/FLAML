@@ -28,7 +28,7 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==46.0.3
 cycler==0.12.1
-databricks-sdk==0.153.0
+databricks-sdk==0.154.0
 debugpy==1.8.22
 defusedxml==0.7.1
 dill==0.4.1
@@ -37,7 +37,7 @@ executing==2.3.0
 fastapi==0.146.0
 fastjsonschema==2.22.2
 filelock==4.1.1
--e git+https://github.com/microsoft/FLAML@e5bddc0f64e053d83bd49d743f0be436f535d058#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@914575752831ea20f77ab606f62337883b9449a5#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -194,6 +194,6 @@ websocket-client==1.9.2
 wheel==0.48.0
 widgetsnbextension==4.0.16
 workalendar==17.0.0
-wrapt==2.5.1
+wrapt==2.5.2rc1
 xgboost==3.4.1
 zipp==4.1.1
