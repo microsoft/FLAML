@@ -246,20 +246,27 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(unique_dates)
+    try:
+        freq = pd.infer_freq(unique_dates) if len(unique_dates) >= 3 else None
+    except (ValueError, TypeError):
+        freq = None
     if freq == "MS":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
     elif freq == "Y":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
         # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        timestamps = unique_dates.astype("int64")
+        diffs = pd.Series(timestamps).diff().dropna()
+        if not diffs.empty and not diffs.mode().empty:
+            step = int(diffs.mode().iloc[0])
+        else:
+            step = 1
+        if step <= 0:
+            step = 1
+        indices = ((timestamps - timestamps.min()) // step).astype("int64")
+        date_to_idx = dict(zip(unique_dates, indices))
+        X["time_idx"] = X[TS_TIMESTAMP_COL].map(date_to_idx).astype("int64")
     return X
 
 

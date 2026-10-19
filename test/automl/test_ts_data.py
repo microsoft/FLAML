@@ -123,3 +123,41 @@ def test_automl_cv_scores_latest_observation():
     # Every training fold contains only zeros. The final validation observation
     # must contribute its error to the mean across all three five-row folds.
     assert automl.best_loss == pytest.approx(100.0 / 15)
+
+
+def test_add_time_idx_col_panel_data():
+    from flaml.automl.data import add_time_idx_col
+
+    df = pd.DataFrame(
+        {
+            "ds": pd.to_datetime(
+                [
+                    "2021-01-01",
+                    "2021-01-02",
+                    "2021-01-03",
+                    "2021-01-01",
+                    "2021-01-02",
+                    "2021-01-03",
+                ]
+            ),
+            "group": ["A", "A", "A", "B", "B", "B"],
+        }
+    )
+    res = add_time_idx_col(df)
+    assert "time_idx" in res.columns
+    assert list(res["time_idx"]) == [0, 1, 2, 0, 1, 2]
+
+
+def test_add_time_idx_col_edge_cases():
+    from flaml.automl.data import add_time_idx_col
+
+    # Single date
+    df1 = pd.DataFrame({"ds": pd.to_datetime(["2021-01-01", "2021-01-01"])})
+    res1 = add_time_idx_col(df1)
+    assert list(res1["time_idx"]) == [0, 0]
+
+    # Two dates
+    df2 = pd.DataFrame({"ds": pd.to_datetime(["2021-01-01", "2021-01-02", "2021-01-01"])})
+    res2 = add_time_idx_col(df2)
+    assert list(res2["time_idx"]) == [0, 1, 0]
+
