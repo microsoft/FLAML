@@ -57,7 +57,6 @@ class TrainingLogWriter:
     def __init__(self, output_filename: str):
         self.output_filename = output_filename
         self.file = None
-        self._lock = None
         self.current_best_loss_record_id = None
         self.current_best_loss = float("+inf")
         self.current_sample_size = None
@@ -70,12 +69,8 @@ class TrainingLogWriter:
         self._open(append=True)
 
     def _open(self, append):
-        from filelock import FileLock
-
         self.close()
-        self._lock = FileLock(f"{os.path.realpath(self.output_filename)}.lock")
         try:
-            self._lock.acquire()
             if append:
                 try:
                     with training_log_reader(self.output_filename) as reader:
@@ -152,9 +147,6 @@ class TrainingLogWriter:
                 self.file.close()
         finally:
             self.file = None  # for pickle
-            lock, self._lock = self._lock, None
-            if lock is not None:
-                lock.release()
 
 
 class TrainingLogReader:
@@ -191,7 +183,7 @@ class TrainingLogReader:
 
 @contextmanager
 def training_log_writer(filename: str, append: bool = False):
-    """Open a training log, holding its sidecar file lock until the writer closes."""
+    """Open a training log. Concurrent independent fits must use distinct files."""
     try:
         w = TrainingLogWriter(filename)
         if not append:

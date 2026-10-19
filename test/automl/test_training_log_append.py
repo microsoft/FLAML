@@ -1,6 +1,6 @@
 import json
-import multiprocessing
 import pickle
+import threading
 
 import pytest
 
@@ -10,16 +10,6 @@ from flaml.automl.training_log import training_log_reader, training_log_writer
 
 def append_trial(writer, n_estimators):
     writer.append(1, None, 0.1, 0.1, 1.0 / n_estimators, {"n_estimators": n_estimators}, "rf", 100)
-
-
-def append_in_process(filename, n_estimators, started, opened, release=None, append=True):
-    started.set()
-    with training_log_writer(filename, append=append) as writer:
-        opened.set()
-        if release is not None and not release.wait(60):
-            raise TimeoutError("Parent did not release the training log writer")
-        append_trial(writer, n_estimators)
-        writer.checkpoint()
 
 
 def test_appended_trial_can_be_loaded_from_checkpoint(tmp_path):
@@ -117,58 +107,32 @@ def test_append_preserves_valid_record_and_checkpoint_tails(tmp_path, checkpoint
     assert estimator.n_estimators == 8
 
 
-@pytest.mark.parametrize(
-    "existing_log, same_log, first_append",
-    [(False, True, True), (True, True, True), (True, True, False), (True, False, True)],
-)
-def test_process_writers_serialize_only_for_the_same_log(tmp_path, existing_log, same_log, first_append):
+@pytest.mark.parametrize("append", [False, True])
+def test_writer_does_not_wait_for_another_fit(tmp_path, append):
     filename = tmp_path / "training.log"
-    if existing_log:
-        with training_log_writer(filename) as writer:
-            append_trial(writer, 4)
-    second_filename = filename if same_log else tmp_path / "other.log"
-    context = multiprocessing.get_context("spawn")
-    first_started, first_opened, release_first = (context.Event() for _ in range(3))
-    second_started, second_opened = (context.Event() for _ in range(2))
-    first = context.Process(
-        target=append_in_process, args=(filename, 8, first_started, first_opened, release_first, first_append)
-    )
-    second = context.Process(target=append_in_process, args=(second_filename, 16, second_started, second_opened))
-    processes = []
-    try:
-        first.start()
-        processes.append(first)
-        assert first_opened.wait(60), "First writer did not open the log"
-        second.start()
-        processes.append(second)
-        assert second_started.wait(60), "Second writer did not start"
-        opened_before_release = second_opened.wait(3 if same_log else 60)
-        release_first.set()
-        for process in processes:
-            process.join(timeout=60)
-            assert process.exitcode == 0
-    finally:
-        release_first.set()
-        for process in processes:
-            if process.is_alive():
-                process.terminate()
-            process.join(timeout=10)
+    opened = threading.Event()
+    errors = []
 
-    with training_log_reader(filename) as reader:
-        records = list(reader.records())
-    expected_counts = ([4] if existing_log and first_append else []) + [8] + ([16] if same_log else [])
-    assert [record.record_id for record in records] == list(range(len(expected_counts)))
-    assert [record.config["n_estimators"] for record in records] == expected_counts
-    assert opened_before_release is not same_log
-    if not same_log:
-        with training_log_reader(second_filename) as reader:
-            assert reader.get_record(0).config == {"n_estimators": 16}
+    def open_other_writer():
+        try:
+            with training_log_writer(filename, append=append):
+                opened.set()
+        except BaseException as error:
+            errors.append(error)
+
+    with training_log_writer(filename):
+        other = threading.Thread(target=open_other_writer)
+        other.start()
+        opened_while_first_active = opened.wait(2)
+    other.join(timeout=10)
+    assert not other.is_alive()
+    assert not errors
+    assert opened_while_first_active, "Logging must not wait for another fit to finish"
+    assert not filename.with_suffix(".log.lock").exists()
 
 
 @pytest.mark.parametrize("append", [False, True])
-def test_writer_releases_lock_after_context_error(tmp_path, append):
-    from filelock import FileLock
-
+def test_writer_closes_after_context_error(tmp_path, append):
     filename = tmp_path / "training.log"
     with pytest.raises(RuntimeError, match="training failed"):
         with training_log_writer(filename, append=append) as writer:
@@ -177,14 +141,11 @@ def test_writer_releases_lock_after_context_error(tmp_path, append):
 
     writer.close()
     assert pickle.loads(pickle.dumps(writer)).file is None
-    with FileLock(f"{filename}.lock", timeout=0):
-        with training_log_reader(filename) as reader:
-            assert reader.get_record(0).config == {"n_estimators": 4}
+    with training_log_reader(filename) as reader:
+        assert reader.get_record(0).config == {"n_estimators": 4}
 
 
-def test_append_releases_lock_after_invalid_log(tmp_path):
-    from filelock import FileLock
-
+def test_append_preserves_invalid_log(tmp_path):
     filename = tmp_path / "training.log"
     original = '{"record_id":'
     filename.write_text(original)
@@ -193,18 +154,27 @@ def test_append_releases_lock_after_invalid_log(tmp_path):
             pytest.fail("An invalid log should not be opened for append")
 
     assert filename.read_text() == original
-    with FileLock(f"{filename}.lock", timeout=0):
-        pass
+    assert not filename.with_suffix(".log.lock").exists()
 
 
-def test_writer_releases_lock_after_open_error(tmp_path):
-    from filelock import FileLock
-
+def test_writer_handles_open_error(tmp_path):
     filename = tmp_path / "training.log"
     filename.mkdir()
     with pytest.raises(OSError):
         with training_log_writer(filename):
             pytest.fail("A directory should not be opened as a log file")
 
-    with FileLock(f"{filename}.lock", timeout=0):
-        pass
+    assert not filename.with_suffix(".log.lock").exists()
+
+
+def test_default_writer_overwrites_existing_records(tmp_path):
+    filename = tmp_path / "training.log"
+    for count in (4, 8):
+        with training_log_writer(filename) as writer:
+            append_trial(writer, count)
+            writer.checkpoint()
+
+    with training_log_reader(filename) as reader:
+        records = list(reader.records())
+    assert [record.record_id for record in records] == [0]
+    assert records[0].config == {"n_estimators": 8}
