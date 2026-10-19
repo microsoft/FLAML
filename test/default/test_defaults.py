@@ -1,7 +1,10 @@
 import pickle
 import sys
+from copy import deepcopy
 
+import numpy as np
 import pandas as pd
+import pytest
 from sklearn.datasets import fetch_california_housing, load_breast_cancer, load_iris
 from sklearn.model_selection import train_test_split
 
@@ -10,6 +13,7 @@ from flaml.default import (
     portfolio,
     preprocess_and_suggest_hyperparams,
     regret,
+    suggest_config,
     suggest_hyperparams,
     suggest_learner,
 )
@@ -279,6 +283,48 @@ def test_nobudget():
     assert automl.best_config_per_estimator["extra_tree"]["n_estimators"] > 4
     # make sure that the zero-shot config {} is not modified
     assert "criterion" not in automl.best_config_per_estimator["rf"]
+
+
+@pytest.mark.parametrize("estimator", ["rf", "extra_tree", "lgbm", "xgboost"])
+@pytest.mark.parametrize("task", ["regression", "classification"])
+def test_suggested_config_changes_do_not_affect_later_suggestions(estimator, task):
+    X = np.arange(40).reshape(20, 2)
+    y = np.arange(20) if task == "regression" else np.arange(20) % 2
+    configs = suggest_config(task, X, y, estimator, k=1)
+    expected = deepcopy(configs)
+
+    configs[0]["hyperparameters"]["n_estimators"] = 1
+
+    assert suggest_config(task, X, y, estimator, k=1) == expected
+
+
+def test_suggest_config_preserves_user_predictor():
+    X = np.arange(40).reshape(20, 2)
+    y = np.arange(20)
+    predictor = {
+        "version": "1.0.2",
+        "meta_feature_names": ["NumberOfInstances"],
+        "preprocessing": {"center": [0], "scale": [1]},
+        "neighbors": [{"features": [20], "choice": [0, 1]}],
+        "portfolio": [
+            {
+                "class": "rf",
+                "hyperparameters": {"n_estimators": 10, "FLAML_sample_size": 100, "nested": {"values": [1, 2]}},
+            },
+            {"class": "rf", "hyperparameters": {}},
+        ],
+    }
+    original = deepcopy(predictor)
+
+    configs = suggest_config("regression", X, y, predictor)
+
+    assert predictor == original
+    assert "FLAML_sample_size" not in configs[0]["hyperparameters"]
+    assert configs[1] == {"class": "rf", "hyperparameters": {}}
+    configs[0]["hyperparameters"]["nested"]["values"].append(3)
+    configs[1]["hyperparameters"]["n_estimators"] = 1
+    assert predictor == original
+    assert suggest_config("regression", X, y, predictor)[0]["hyperparameters"]["nested"]["values"] == [1, 2]
 
 
 if __name__ == "__main__":
