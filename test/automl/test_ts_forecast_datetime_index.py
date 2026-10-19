@@ -461,3 +461,78 @@ def test_is_valid_timestamp_col_boundary_cases():
     assert not TimeSeriesTask._is_valid_timestamp_col(df, "non_existent_col")
     assert TimeSeriesTask._is_valid_timestamp_col(df, "iso_str")
     assert TimeSeriesTask._is_valid_timestamp_col(df, "dt64")
+
+
+def test_reordered_dataframe_target_with_existing_time_col_aligns_by_value():
+    """Verify that when X has an existing timestamp column, DataFrame target with reversed index
+    aligns by index label to preserve target-feature mapping (reproducing maintainer thinkall's case)."""
+    n = 40
+    X = pd.DataFrame(
+        {
+            "ds": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "feat": np.arange(n),
+        }
+    )
+    y = pd.DataFrame({"y": np.arange(n, dtype=float)[::-1]}, index=np.arange(n)[::-1])
+
+    automl = AutoML()
+    _fit(
+        automl,
+        X_train=X,
+        y_train=y,
+        period=4,
+        time_budget=3,
+        keep_search_state=True,
+    )
+    head_df = automl._state.X_train_all.train_data.head()
+    assert list(head_df["y"].values) == [0.0, 1.0, 2.0, 3.0, 4.0]
+
+
+def test_reordered_dataframe_target_with_datetime_index_promotion_aligns_by_value():
+    """Verify that when DatetimeIndex is promoted to time_col, DataFrame target with reversed
+    DatetimeIndex aligns by timestamp to preserve target-feature mapping."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    X = pd.DataFrame({"feat": np.arange(40)}, index=dates)
+    y = pd.DataFrame({"y": np.arange(40, dtype=float)[::-1]}, index=dates[::-1])
+
+    automl = AutoML()
+    _fit(
+        automl,
+        X_train=X,
+        y_train=y,
+        period=4,
+        time_budget=3,
+        keep_search_state=True,
+    )
+    head_df = automl._state.X_train_all.train_data.head()
+    assert list(head_df["y"].values) == [0.0, 1.0, 2.0, 3.0, 4.0]
+
+
+def test_explicit_missing_time_col_raises_error_even_with_datetime_index():
+    """Verify that explicitly specifying a non-existent time_col raises ValueError rather than
+    silently promoting DatetimeIndex during training (Copilot review discussion_r4308583028)."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    X = pd.DataFrame({"feat": np.arange(40)}, index=dates)
+    y = pd.Series(np.arange(40, dtype=float), index=dates, name="y")
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="must contain timestamp values"):
+        _fit(automl, X_train=X, y_train=y, time_col="non_existent_time_col")
+
+    # Also test dataframe input with explicit missing time_col
+    df = pd.DataFrame({"feat": np.arange(40), "y": np.arange(40, dtype=float)}, index=dates)
+    automl_df = AutoML()
+    with pytest.raises(ValueError, match="must contain timestamp values"):
+        _fit(automl_df, dataframe=df, time_col="non_existent_time_col")
+
+
+def test_mismatched_dataframe_target_labels_raise_value_error():
+    """Verify that DataFrame targets with mismatched labels raise ValueError instead of silent corruption."""
+    dates = pd.date_range("2020-01-01", periods=40, freq="D")
+    wrong_dates = pd.date_range("2021-01-01", periods=40, freq="D")
+    X = pd.DataFrame({"ds": dates, "feat": np.arange(40)})
+    y = pd.DataFrame({"y": np.arange(40, dtype=float)}, index=wrong_dates)
+
+    automl = AutoML()
+    with pytest.raises(ValueError, match="Target index labels do not match feature index labels"):
+        _fit(automl, X_train=X, y_train=y, time_col="ds")

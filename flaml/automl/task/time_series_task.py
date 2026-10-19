@@ -151,6 +151,7 @@ class TimeSeriesTask(Task):
                         X_train_all,
                         time_col=self.time_col,
                         is_inferred=time_col_inferred,
+                        allow_index_fallback=False,
                     )
                     X_train_all, y_train_all = self._align_y_to_X_and_promote(
                         X_train_all,
@@ -162,6 +163,7 @@ class TimeSeriesTask(Task):
                             X_train_all,
                             time_col=self.time_col,
                             is_inferred=time_col_inferred,
+                            allow_index_fallback=False,
                             reserved_cols=target_names,
                         )
                         if promoted_time_col is not None:
@@ -178,12 +180,14 @@ class TimeSeriesTask(Task):
                     dataframe,
                     time_col=self.time_col,
                     is_inferred=time_col_inferred,
+                    allow_index_fallback=False,
                 )
                 if needs_promotion:
                     dataframe, promoted_time_col = self._promote_datetime_index_if_needed(
                         dataframe,
                         time_col=self.time_col,
                         is_inferred=time_col_inferred,
+                        allow_index_fallback=False,
                         reserved_cols=target_names,
                     )
                     if promoted_time_col is not None:
@@ -210,6 +214,7 @@ class TimeSeriesTask(Task):
                         X_val,
                         time_col=self.time_col,
                         is_inferred=False,
+                        allow_index_fallback=True,
                     )
                     X_val, y_val = self._align_y_to_X_and_promote(
                         X_val,
@@ -221,6 +226,7 @@ class TimeSeriesTask(Task):
                             X_val,
                             time_col=self.time_col,
                             is_inferred=False,
+                            allow_index_fallback=True,
                             reserved_cols=target_names,
                         )
                         if promoted_time_col_val is not None:
@@ -479,16 +485,17 @@ class TimeSeriesTask(Task):
             return False
 
     @classmethod
-    def _needs_datetime_index_promotion(cls, df, time_col=None, is_inferred=False):
+    def _needs_datetime_index_promotion(cls, df, time_col=None, is_inferred=False, allow_index_fallback=False):
         """Determine whether df's DatetimeIndex needs to be promoted to a column."""
         if not isinstance(df, pd.DataFrame) or not isinstance(df.index, pd.DatetimeIndex):
             return False
-        if not is_inferred:
+        if allow_index_fallback:
             return time_col is not None and time_col not in df.columns
-        else:
+        if is_inferred:
             if time_col is not None and cls._is_valid_timestamp_col(df, time_col):
                 return False
             return True
+        return False
 
     @classmethod
     def _align_y_to_X_and_promote(cls, X, y, needs_promotion=False):
@@ -500,8 +507,8 @@ class TimeSeriesTask(Task):
         pair y with X positionally.
 
         When needs_promotion is False (e.g. X already has a valid timestamp column),
-        preserve the baseline positional contract for Series and DataFrames: row i of y
-        corresponds to row i of X.
+        preserve the baseline positional contract for Series (y.index = X.index).
+        For DataFrame targets, align by label if unique labels match, or raise ValueError.
         """
         if not isinstance(X, pd.DataFrame) or not isinstance(y, (pd.DataFrame, pd.Series)):
             return X, y
@@ -509,9 +516,30 @@ class TimeSeriesTask(Task):
         if len(X) != len(y):
             raise ValueError(f"Target length ({len(y)}) does not match feature length ({len(X)}).")
 
-        # Only align by label when X's DatetimeIndex is being promoted to the time column
-        # and y also has a DatetimeIndex.
-        if needs_promotion and isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
+        # When X's DatetimeIndex is being promoted to the time column:
+        if needs_promotion:
+            if isinstance(X.index, pd.DatetimeIndex) and isinstance(y.index, pd.DatetimeIndex):
+                if not y.index.equals(X.index):
+                    if not X.index.is_unique or not y.index.is_unique:
+                        raise ValueError("Duplicate index labels are not supported.")
+                    try:
+                        if not X.index.difference(y.index).empty or not y.index.difference(X.index).empty:
+                            raise ValueError("Target index labels do not match feature index labels.")
+                    except TypeError:
+                        raise ValueError("Target index labels do not match feature index labels.")
+                    y = y.reindex(X.index)
+                return X, y
+            # Positional pairing when promotion is needed and y has RangeIndex / non-DatetimeIndex
+            y = y.copy()
+            y.index = X.index
+            return X, y
+
+        # When promotion is NOT needed (e.g. X already has a timestamp column):
+        if isinstance(y, pd.Series):
+            y = y.copy()
+            y.index = X.index
+            return X, y
+        elif isinstance(y, pd.DataFrame):
             if not y.index.equals(X.index):
                 if not X.index.is_unique or not y.index.is_unique:
                     raise ValueError("Duplicate index labels are not supported.")
@@ -523,32 +551,30 @@ class TimeSeriesTask(Task):
                 y = y.reindex(X.index)
             return X, y
 
-        # Positional pairing: maintain position-level parity
-        if isinstance(y, pd.Series):
-            y = y.copy()
-            y.index = X.index
-            return X, y
-        elif isinstance(y, pd.DataFrame):
-            y = y.copy()
-            y.index = X.index
-            return X, y
-
         return X, y
 
     @classmethod
-    def _promote_datetime_index_if_needed(cls, df, time_col=None, is_inferred=False, reserved_cols=None):
+    def _promote_datetime_index_if_needed(
+        cls, df, time_col=None, is_inferred=False, allow_index_fallback=False, reserved_cols=None
+    ):
         """Promote a DatetimeIndex to a guaranteed-unique column if needed.
 
         Args:
             df: A pandas DataFrame.
             time_col: The current timestamp column name (if known).
             is_inferred: Whether time_col was inferred rather than explicitly specified.
+            allow_index_fallback: Whether to allow falling back to df.index when time_col is absent.
             reserved_cols: Additional column names to avoid colliding with (e.g. target names).
 
         Returns:
             Tuple of (df_processed, promoted_col_name or None).
         """
-        if not cls._needs_datetime_index_promotion(df, time_col=time_col, is_inferred=is_inferred):
+        if not cls._needs_datetime_index_promotion(
+            df,
+            time_col=time_col,
+            is_inferred=is_inferred,
+            allow_index_fallback=allow_index_fallback,
+        ):
             return df, None
 
         if is_inferred:
@@ -577,6 +603,7 @@ class TimeSeriesTask(Task):
                 X,
                 time_col=self.time_col,
                 is_inferred=False,
+                allow_index_fallback=True,
                 reserved_cols=self.target_names,
             )
             if self.time_col in X.columns and not pd.api.types.is_datetime64_any_dtype(X[self.time_col]):
