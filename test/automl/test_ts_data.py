@@ -282,3 +282,28 @@ def test_add_time_idx_col_nanosecond_precision():
     res = add_time_idx_col(df)
     assert res["time_idx"].tolist() == [0, 1]
     assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_wide_range_overflow():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # 500-year span (1700-01-01 to 2200-01-01) in datetime64[ns]
+    # In nanoseconds, 500 years is ~1.58e19 ns, which exceeds signed int64 max (~9.22e18 ns).
+    # Using Python integer arithmetic prevents int64 overflow in adjacent difference and offset calculations.
+    dates = pd.to_datetime(["1700-01-01", "2200-01-01"]).astype("datetime64[ns]")
+    df = pd.DataFrame({TS_TIMESTAMP_COL: dates})
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Multi-date wide-range panel verifying offset normalization across multiple groups
+    multi_dates = pd.to_datetime(["1700-01-01", "1950-01-01", "2200-01-01"]).astype("datetime64[ns]")
+    df_multi = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(multi_dates) + list(multi_dates),
+            "group": ["A"] * 3 + ["B"] * 3,
+        }
+    )
+    res_multi = add_time_idx_col(df_multi)
+    assert res_multi["time_idx"].tolist() == [0, 1, 2, 0, 1, 2]
+    assert np.issubdtype(res_multi["time_idx"].dtype, np.integer)

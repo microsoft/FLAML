@@ -261,21 +261,31 @@ def add_time_idx_col(X):
         if freq is not None:
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            # Fallback using integer arithmetic and GCD of positive adjacent differences
-            # for irregular series or < 3 dates. This avoids float64 precision loss with
-            # nanosecond timestamps and preserves proportional spacing across irregular gaps.
-            unique_ts = unique_dates.astype("int64").to_numpy()
-            diffs = np.diff(unique_ts) if len(unique_ts) > 1 else np.array([], dtype=np.int64)
-            pos_diffs = [int(d) for d in diffs if d > 0]
+            # Fallback using Python integer arithmetic and GCD of positive adjacent differences
+            # for irregular series or < 3 dates. This avoids float64 precision loss and int64
+            # overflow with wide-range/nanosecond timestamps while preserving proportional spacing.
+            unique_ts = [int(ts) for ts in unique_dates.astype("int64")]
+            pos_diffs = [
+                unique_ts[i + 1] - unique_ts[i]
+                for i in range(len(unique_ts) - 1)
+                if unique_ts[i + 1] - unique_ts[i] > 0
+            ]
             if pos_diffs:
                 freq_val = math.gcd(*pos_diffs)
             else:
                 freq_val = 1
             if freq_val <= 0:
                 freq_val = 1
-            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
-            min_ts = int(unique_ts.min()) if len(unique_ts) > 0 else 0
-            X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
+            min_ts = unique_ts[0] if unique_ts else 0
+            max_int64 = np.iinfo(np.int64).max
+            ts_to_idx = {}
+            for ts in unique_ts:
+                idx = (ts - min_ts) // freq_val
+                if idx > max_int64:
+                    raise OverflowError(f"Calculated time_idx {idx} exceeds maximum supported integer range.")
+                ts_to_idx[ts] = idx
+            all_timestamps = [int(ts) for ts in X[TS_TIMESTAMP_COL].astype("int64")]
+            X["time_idx"] = np.array([ts_to_idx[ts] for ts in all_timestamps], dtype=int)
     return X
 
 
