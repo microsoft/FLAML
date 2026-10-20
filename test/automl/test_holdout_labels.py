@@ -3,10 +3,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from sklearn.metrics import f1_score, log_loss
+from xgboost import XGBClassifier
 
 from flaml import AutoML
 from flaml.automl import ml
-from flaml.automl.model import LRL1Classifier
+from flaml.automl.model import LGBMEstimator, LRL1Classifier
 
 SETTINGS = {
     "task": "classification",
@@ -238,6 +239,112 @@ def test_compute_estimator_accepts_string_task():
         estimator_class=LRL1Classifier,
     )
     assert np.isfinite(result[1])
+
+
+@pytest.mark.parametrize("learner", ["lgbm", "xgboost", "xgb_limitdepth"])
+@pytest.mark.parametrize("log_training_metric", [False, True])
+@pytest.mark.parametrize("num_classes", [2, 3])
+def test_single_class_boosted_sample_has_finite_log_loss(monkeypatch, log_training_metric, learner, num_classes):
+    rng = np.random.RandomState(81)
+    y = np.zeros(3000, dtype=int)
+    y[1500], y[2500] = 1, num_classes - 1
+    X = rng.randn(len(y), 4)
+    y_val = (np.arange(300) % 5 == 0).astype(int) if num_classes == 2 else np.arange(300) % 2
+    X_val = rng.randn(len(y_val), 4)
+    sampled_classes = []
+    original = ml._eval_estimator
+
+    def recording(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs):
+        result = original(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs)
+        sampled_classes.append(estimator.classes_.copy())
+        cases = [(X_val, y_val, result[0])]
+        if log_training_metric:
+            cases.append((X_train, y_train, result[1]["train_loss"]))
+        for features, target, actual in cases:
+            raw = estimator.predict_proba(features)
+            assert raw.shape == (len(target), 2)
+            if num_classes == 2:
+                expected = raw
+            else:
+                expected = np.zeros((len(target), num_classes), dtype=raw.dtype)
+                expected[:, 0] = 1.0
+            assert np.isfinite(actual)
+            assert actual == pytest.approx(log_loss(target, expected, labels=np.arange(num_classes)))
+        return result
+
+    monkeypatch.setattr(ml, "_eval_estimator", recording)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
+        task="classification",
+        metric="log_loss",
+        log_training_metric=log_training_metric,
+        estimator_list=[learner],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    assert len(sampled_classes) == 2
+    assert all(np.array_equal(classes, [0]) for classes in sampled_classes)
+    assert np.isfinite(automl.best_loss)
+    assert automl.model is not None
+
+
+@pytest.mark.parametrize(
+    "sole_class, labels",
+    [(0, [0, 1, 2]), (1, [2, 1, 0]), (7, [1, 7, 3]), ("b", ["c", "b", "a"])],
+)
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_single_class_lightgbm_probability_alignment(sole_class, labels, wrapped):
+    X = np.random.RandomState(81).randn(20, 4)
+    estimator = LGBMEstimator(task="classification", n_estimators=2, n_jobs=1, verbosity=-1)
+    estimator.fit(X, np.full(len(X), sole_class))
+    raw = estimator.predict_proba(X)
+    assert raw.shape == (len(X), 2)
+    np.testing.assert_array_equal(estimator.classes_, [sole_class])
+    before = raw.copy()
+    actual = ml._align_log_loss_probabilities(raw, estimator if wrapped else estimator.model, labels)
+    expected = np.zeros((len(X), len(labels)))
+    expected[:, list(np.unique(labels)).index(sole_class)] = 1.0
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_array_equal(raw, before)
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_single_class_xgboost_probability_alignment(wrapped):
+    X = np.random.RandomState(81).randn(20, 4)
+    estimator = XGBClassifier(n_estimators=2, n_jobs=1)
+    estimator.fit(X, np.zeros(len(X), dtype=int))
+    raw = estimator.predict_proba(X)
+    assert raw.shape == (len(X), 2)
+    before = raw.copy()
+    classifier = SimpleNamespace(model=estimator, classes_=estimator.classes_) if wrapped else estimator
+    actual = ml._align_log_loss_probabilities(raw, classifier, [2, 0, 1])
+    np.testing.assert_array_equal(actual, np.tile([1.0, 0.0, 0.0], (len(X), 1)))
+    np.testing.assert_array_equal(actual.sum(axis=1), np.ones(len(X)))
+    np.testing.assert_array_equal(raw, before)
+
+
+def test_unknown_single_class_estimator_keeps_unexpected_probability_width():
+    raw = np.array([[0.2, 0.8]])
+    estimator = SimpleNamespace(classes_=np.array([0]))
+    assert ml._align_log_loss_probabilities(raw, estimator, [0, 1, 2]) is raw
+
+
+def test_probability_width_guard_without_lightgbm(monkeypatch):
+    monkeypatch.setattr(ml, "LGBMClassifier", None, raising=False)
+    raw = np.array([[0.2, 0.8]])
+    estimator = SimpleNamespace(classes_=np.array([0]))
+    assert ml._align_log_loss_probabilities(raw, estimator, [0, 1, 2]) is raw
 
 
 @pytest.mark.parametrize(

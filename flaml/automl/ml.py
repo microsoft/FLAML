@@ -8,9 +8,10 @@ from copy import copy
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from xgboost import XGBClassifier
 
 from flaml.automl.data import group_counts
-from flaml.automl.model import BaseEstimator, TransformersEstimator
+from flaml.automl.model import BaseEstimator, LGBMClassifier, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.spark.utils import len_labels
@@ -606,7 +607,21 @@ def _align_log_loss_probabilities(predictions, estimator, labels):
         return predictions
     classes = getattr(estimator, "classes_", None)
     probabilities = np.asarray(predictions)
-    if classes is None or probabilities.ndim != 2 or probabilities.shape[1] != len(classes):
+    if classes is None or probabilities.ndim != 2:
+        return predictions
+    # For multiclass scoring, these binary APIs can emit an implicit second class.
+    # Normalize over the sole observed class; binary scoring keeps both columns.
+    if (
+        len(classes) == 1
+        and probabilities.shape[1] == 2
+        and len(np.unique(labels)) > 2
+        and (
+            isinstance(getattr(estimator, "model", estimator), XGBClassifier)
+            or (LGBMClassifier is not None and isinstance(getattr(estimator, "model", estimator), LGBMClassifier))
+        )
+    ):
+        probabilities = np.ones_like(probabilities[:, :1])
+    if probabilities.shape[1] != len(classes):
         return predictions
     # sklearn's log_loss sorts labels, even when an explicit override is unsorted.
     labels = np.unique(labels)
