@@ -260,11 +260,12 @@ def add_time_idx_col(X):
         if freq is not None:
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            # Fallback using modal difference for irregular series or < 3 dates
+            # Fallback using minimum positive difference for irregular series or < 3 dates
             unique_ts = unique_dates.astype("int64")
             diffs = pd.Series(unique_ts).diff().dropna()
-            if not diffs.empty and not diffs.mode().empty:
-                freq_val = int(diffs.mode().iloc[0])
+            pos_diffs = diffs[diffs > 0]
+            if not pos_diffs.empty:
+                freq_val = int(pos_diffs.min())
             else:
                 freq_val = 1
             if freq_val <= 0:

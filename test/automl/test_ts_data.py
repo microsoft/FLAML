@@ -201,3 +201,37 @@ def test_add_time_idx_col_dst_transition_panel():
     res = add_time_idx_col(df)
     assert res["time_idx"].tolist() == [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]
     assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_irregular_gaps():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Irregular dates with gaps of 2, 2, and 1 days (modal gap = 2, min gap = 1)
+    dates = pd.to_datetime(["2021-01-01", "2021-01-03", "2021-01-05", "2021-01-06"])
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 4 + ["B"] * 4,
+        }
+    )
+    res = add_time_idx_col(df)
+    # Distinct timestamps must receive distinct indices and retain relative spacing [0, 2, 4, 5]
+    assert res["time_idx"].tolist() == [0, 2, 4, 5, 0, 2, 4, 5]
+    assert len(set(res["time_idx"][:4])) == 4
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Shuffled input order preserves alignment
+    shuffled = df.sample(frac=1.0, random_state=42)
+    res_shuffled = add_time_idx_col(shuffled)
+    assert res_shuffled[res_shuffled["group"] == "A"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        4,
+        5,
+    ]
+    assert res_shuffled[res_shuffled["group"] == "B"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        4,
+        5,
+    ]
