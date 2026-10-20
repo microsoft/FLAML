@@ -123,3 +123,187 @@ def test_automl_cv_scores_latest_observation():
     # Every training fold contains only zeros. The final validation observation
     # must contribute its error to the mean across all three five-row folds.
     assert automl.best_loss == pytest.approx(100.0 / 15)
+
+
+def test_add_time_idx_col_panel_data():
+    from flaml.automl.data import add_time_idx_col
+
+    df = pd.DataFrame(
+        {
+            "ds": pd.to_datetime(
+                [
+                    "2021-01-01",
+                    "2021-01-02",
+                    "2021-01-03",
+                    "2021-01-01",
+                    "2021-01-02",
+                    "2021-01-03",
+                ]
+            ),
+            "group": ["A", "A", "A", "B", "B", "B"],
+        }
+    )
+    res = add_time_idx_col(df)
+    assert "time_idx" in res.columns
+    assert list(res["time_idx"]) == [0, 1, 2, 0, 1, 2]
+
+
+def test_add_time_idx_col_edge_cases():
+    from flaml.automl.data import add_time_idx_col
+
+    # Single date
+    df1 = pd.DataFrame({"ds": pd.to_datetime(["2021-01-01", "2021-01-01"])})
+    res1 = add_time_idx_col(df1)
+    assert list(res1["time_idx"]) == [0, 0]
+
+    # Two dates
+    df2 = pd.DataFrame({"ds": pd.to_datetime(["2021-01-01", "2021-01-02", "2021-01-01"])})
+    res2 = add_time_idx_col(df2)
+    assert list(res2["time_idx"]) == [0, 1, 0]
+
+
+def test_add_time_idx_col_month_end_panel():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Six month-ends from 2021-01-31 across panel groups (inferred as ME / M)
+    dates = pd.to_datetime(
+        [
+            "2021-01-31",
+            "2021-02-28",
+            "2021-03-31",
+            "2021-04-30",
+            "2021-05-31",
+            "2021-06-30",
+        ]
+    )
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 6 + ["B"] * 6,
+        }
+    )
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_dst_transition_panel():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Six America/New_York local days crossing spring DST (2021-03-14: 23-hour day)
+    dates = pd.date_range("2021-03-12", periods=6, freq="D", tz="America/New_York")
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 6 + ["B"] * 6,
+        }
+    )
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_irregular_gaps():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Irregular dates with gaps of 2, 2, and 1 days (modal gap = 2, min gap = 1)
+    dates = pd.to_datetime(["2021-01-01", "2021-01-03", "2021-01-05", "2021-01-06"])
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 4 + ["B"] * 4,
+        }
+    )
+    res = add_time_idx_col(df)
+    # Distinct timestamps must receive distinct indices and retain relative spacing [0, 2, 4, 5]
+    assert res["time_idx"].tolist() == [0, 2, 4, 5, 0, 2, 4, 5]
+    assert len(set(res["time_idx"][:4])) == 4
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Shuffled input order preserves alignment
+    shuffled = df.sample(frac=1.0, random_state=42)
+    res_shuffled = add_time_idx_col(shuffled)
+    assert res_shuffled[res_shuffled["group"] == "A"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        4,
+        5,
+    ]
+    assert res_shuffled[res_shuffled["group"] == "B"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        4,
+        5,
+    ]
+
+
+def test_add_time_idx_col_irregular_gcd_grid():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Irregular dates with gaps of 2, 3, and 2 days (min gap = 2, GCD = 1)
+    dates = pd.to_datetime(["2021-01-01", "2021-01-03", "2021-01-06", "2021-01-08"])
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 4 + ["B"] * 4,
+        }
+    )
+    res = add_time_idx_col(df)
+    # Using GCD grid step (1 day), spacing is preserved: [0, 2, 5, 7]
+    assert res["time_idx"].tolist() == [0, 2, 5, 7, 0, 2, 5, 7]
+    assert len(set(res["time_idx"][:4])) == 4
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Shuffled input order preserves alignment
+    shuffled = df.sample(frac=1.0, random_state=42)
+    res_shuffled = add_time_idx_col(shuffled)
+    assert res_shuffled[res_shuffled["group"] == "A"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        5,
+        7,
+    ]
+    assert res_shuffled[res_shuffled["group"] == "B"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        5,
+        7,
+    ]
+
+
+def test_add_time_idx_col_nanosecond_precision():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Year-plus-three-nanoseconds gap: 31536000000000003 ns
+    # Ensures exact integer arithmetic avoids float64 precision rounding (which rounds to 31536000000000004 ns)
+    t0 = pd.Timestamp("2021-01-01")
+    t1 = pd.Timestamp("2022-01-01 00:00:00.000000003")
+    df = pd.DataFrame({TS_TIMESTAMP_COL: [t0, t1]})
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_wide_range_overflow():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # 500-year span (1700-01-01 to 2200-01-01) in datetime64[ns]
+    # In nanoseconds, 500 years is ~1.58e19 ns, which exceeds signed int64 max (~9.22e18 ns).
+    # Using Python integer arithmetic prevents int64 overflow in adjacent difference and offset calculations.
+    dates = pd.to_datetime(["1700-01-01", "2200-01-01"]).astype("datetime64[ns]")
+    df = pd.DataFrame({TS_TIMESTAMP_COL: dates})
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Multi-date wide-range panel verifying offset normalization across multiple groups
+    multi_dates = pd.to_datetime(["1700-01-01", "1950-01-01", "2200-01-01"]).astype("datetime64[ns]")
+    df_multi = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(multi_dates) + list(multi_dates),
+            "group": ["A"] * 3 + ["B"] * 3,
+        }
+    )
+    res_multi = add_time_idx_col(df_multi)
+    assert res_multi["time_idx"].tolist() == [0, 1, 2, 0, 1, 2]
+    assert np.issubdtype(res_multi["time_idx"].dtype, np.integer)

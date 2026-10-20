@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import math
 import os
 import random
 import re
@@ -246,20 +247,45 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(unique_dates)
+    try:
+        freq = pd.infer_freq(unique_dates) if len(unique_dates) >= 3 else None
+    except (ValueError, TypeError):
+        freq = None
     if freq == "MS":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+        X["time_idx"] = (X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month).astype(int)
     elif freq == "Y":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year.astype(int)
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        # If a regular frequency was inferred (e.g. ME/M month-ends, D with DST transitions),
+        # use ordinal steps to avoid artificial gaps or duplicate indices.
+        if freq is not None:
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
+        else:
+            # Fallback using Python integer arithmetic and GCD of positive adjacent differences
+            # for irregular series or < 3 dates. This avoids float64 precision loss and int64
+            # overflow with wide-range/nanosecond timestamps while preserving proportional spacing.
+            unique_ts = [int(ts) for ts in unique_dates.astype("int64")]
+            pos_diffs = [
+                unique_ts[i + 1] - unique_ts[i]
+                for i in range(len(unique_ts) - 1)
+                if unique_ts[i + 1] - unique_ts[i] > 0
+            ]
+            if pos_diffs:
+                freq_val = math.gcd(*pos_diffs)
+            else:
+                freq_val = 1
+            if freq_val <= 0:
+                freq_val = 1
+            min_ts = unique_ts[0] if unique_ts else 0
+            max_int64 = np.iinfo(np.int64).max
+            ts_to_idx = {}
+            for ts in unique_ts:
+                idx = (ts - min_ts) // freq_val
+                if idx > max_int64:
+                    raise OverflowError(f"Calculated time_idx {idx} exceeds maximum supported integer range.")
+                ts_to_idx[ts] = idx
+            all_timestamps = [int(ts) for ts in X[TS_TIMESTAMP_COL].astype("int64")]
+            X["time_idx"] = np.array([ts_to_idx[ts] for ts in all_timestamps], dtype=int)
     return X
 
 
