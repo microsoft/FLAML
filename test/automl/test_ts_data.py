@@ -235,3 +235,50 @@ def test_add_time_idx_col_irregular_gaps():
         4,
         5,
     ]
+
+
+def test_add_time_idx_col_irregular_gcd_grid():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Irregular dates with gaps of 2, 3, and 2 days (min gap = 2, GCD = 1)
+    dates = pd.to_datetime(["2021-01-01", "2021-01-03", "2021-01-06", "2021-01-08"])
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 4 + ["B"] * 4,
+        }
+    )
+    res = add_time_idx_col(df)
+    # Using GCD grid step (1 day), spacing is preserved: [0, 2, 5, 7]
+    assert res["time_idx"].tolist() == [0, 2, 5, 7, 0, 2, 5, 7]
+    assert len(set(res["time_idx"][:4])) == 4
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+    # Shuffled input order preserves alignment
+    shuffled = df.sample(frac=1.0, random_state=42)
+    res_shuffled = add_time_idx_col(shuffled)
+    assert res_shuffled[res_shuffled["group"] == "A"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        5,
+        7,
+    ]
+    assert res_shuffled[res_shuffled["group"] == "B"].sort_values(TS_TIMESTAMP_COL)["time_idx"].tolist() == [
+        0,
+        2,
+        5,
+        7,
+    ]
+
+
+def test_add_time_idx_col_nanosecond_precision():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Year-plus-three-nanoseconds gap: 31536000000000003 ns
+    # Ensures exact integer arithmetic avoids float64 precision rounding (which rounds to 31536000000000004 ns)
+    t0 = pd.Timestamp("2021-01-01")
+    t1 = pd.Timestamp("2022-01-01 00:00:00.000000003")
+    df = pd.DataFrame({TS_TIMESTAMP_COL: [t0, t1]})
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)

@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import math
 import os
 import random
 import re
@@ -260,12 +261,14 @@ def add_time_idx_col(X):
         if freq is not None:
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            # Fallback using minimum positive difference for irregular series or < 3 dates
-            unique_ts = unique_dates.astype("int64")
-            diffs = pd.Series(unique_ts).diff().dropna()
-            pos_diffs = diffs[diffs > 0]
-            if not pos_diffs.empty:
-                freq_val = int(pos_diffs.min())
+            # Fallback using integer arithmetic and GCD of positive adjacent differences
+            # for irregular series or < 3 dates. This avoids float64 precision loss with
+            # nanosecond timestamps and preserves proportional spacing across irregular gaps.
+            unique_ts = unique_dates.astype("int64").to_numpy()
+            diffs = np.diff(unique_ts) if len(unique_ts) > 1 else np.array([], dtype=np.int64)
+            pos_diffs = [int(d) for d in diffs if d > 0]
+            if pos_diffs:
+                freq_val = math.gcd(*pos_diffs)
             else:
                 freq_val = 1
             if freq_val <= 0:
