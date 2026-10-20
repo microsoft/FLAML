@@ -1,9 +1,9 @@
 """Regression tests for ts_forecast input where the timestamp is the DataFrame index.
 
-Flaml expects the timestamp to live in a *column* (`time_col`). When a user passes the
-idiomatic pandas shape instead -- timestamps as a `DatetimeIndex` -- `validate_data`
-defaults `time_col` to `dataframe.columns[0]`, which is a value column (often the label
-itself), so the real timestamps are never looked at.
+FLAML expects the timestamp to live in a *column* (`time_col`). When a user passes timestamps
+as a `DatetimeIndex`, `validate_data` promotes the index to a column, preserves explicit index
+names, ensures label-based alignment for DatetimeIndex targets, and maintains backwards
+compatibility for explicit columns and NumPy array inputs across training, validation, and prediction.
 """
 
 import numpy as np
