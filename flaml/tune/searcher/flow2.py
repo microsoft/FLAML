@@ -234,6 +234,8 @@ class FLOW2(Searcher):
                         np.log(1.0 + q / self.best_config[key]) / np.log(domain.upper / domain.lower),
                     )
             elif isinstance(domain, sample.Integer) and str(sampler) == "LogUniform":
+                if domain.upper - 1 == domain.lower:
+                    continue  # A fixed integer has no log-space step to constrain.
                 step_lb = min(
                     step_lb,
                     np.log(1.0 + 1.0 / self.best_config[key]) / np.log((domain.upper - 1) / domain.lower),
