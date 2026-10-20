@@ -26,6 +26,7 @@ from flaml.automl.ml import (
     train_estimator,
 )
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.spark.utils import len_labels
 from flaml.automl.state import AutoMLState, SearchState
 from flaml.automl.task.factory import task_factory
 
@@ -1844,6 +1845,8 @@ class AutoML(BaseEstimator):
         return self._metric_constraints
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
+        # Reset on every fit, including when the same AutoML changes tasks.
+        self._state.holdout_labels = None
         self._state.task.prepare_data(
             self._state,
             self._X_train_all,
@@ -1857,6 +1860,15 @@ class AutoML(BaseEstimator):
             self._sample_weight_full,
             self._allow_label_overlap,
         )
+        if (
+            eval_method == "holdout"
+            and self._state.task.is_classification()
+            and not self._state.task.is_token_classification()
+            and self._state.y_train_all is not None
+        ):
+            _, labels = len_labels(self._state.y_train_all, return_labels=True)
+            # Do not retain a live pandas-on-Spark object in serialized state.
+            self._state.holdout_labels = labels.to_numpy() if isinstance(labels, psSeries) else labels
         self.data_size_full = self._state.data_size_full
 
     def fit(
