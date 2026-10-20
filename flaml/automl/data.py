@@ -251,22 +251,27 @@ def add_time_idx_col(X):
     except (ValueError, TypeError):
         freq = None
     if freq == "MS":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+        X["time_idx"] = (X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month).astype(int)
     elif freq == "Y":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year.astype(int)
     else:
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.astype("int64")
-        diffs = pd.Series(timestamps).diff().dropna()
-        if not diffs.empty and not diffs.mode().empty:
-            step = int(diffs.mode().iloc[0])
+        # If a regular frequency was inferred (e.g. ME/M month-ends, D with DST transitions),
+        # use ordinal steps to avoid artificial gaps or duplicate indices.
+        if freq is not None:
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            step = 1
-        if step <= 0:
-            step = 1
-        indices = ((timestamps - timestamps.min()) // step).astype("int64")
-        date_to_idx = dict(zip(unique_dates, indices))
-        X["time_idx"] = X[TS_TIMESTAMP_COL].map(date_to_idx).astype("int64")
+            # Fallback using modal difference for irregular series or < 3 dates
+            unique_ts = unique_dates.astype("int64")
+            diffs = pd.Series(unique_ts).diff().dropna()
+            if not diffs.empty and not diffs.mode().empty:
+                freq_val = int(diffs.mode().iloc[0])
+            else:
+                freq_val = 1
+            if freq_val <= 0:
+                freq_val = 1
+            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
+            min_ts = int(unique_ts.min()) if len(unique_ts) > 0 else 0
+            X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
     return X
 
 
