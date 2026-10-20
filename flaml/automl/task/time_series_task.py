@@ -590,7 +590,7 @@ class TimeSeriesTask(Task):
             return df, None
 
         if is_inferred:
-            base_name = df.index.name or "ds"
+            base_name = "ds" if df.index.name is None else df.index.name
             promoted_col = base_name
             # Guarantee unique column name avoiding collisions with existing columns and reserved names
             reserved = set(reserved_cols) if reserved_cols else set()

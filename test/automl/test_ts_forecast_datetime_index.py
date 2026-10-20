@@ -606,3 +606,25 @@ def test_numpy_array_validation_input_accepted():
     )
     assert automl._state.eval_method == "holdout"
     assert len(automl.predict(X_val_arr)) == 10
+
+
+@pytest.mark.parametrize("name", ["", 0, "when"])
+def test_explicit_index_name_prediction_form_equivalence(name):
+    """Verify that explicit index names (including empty string '' and integer 0) are preserved
+    as the time column, and raw-index future frames produce identical predictions to reset_index() frames."""
+    df = _make_train_df(periods=120)
+    df.index.name = name
+    automl = AutoML()
+    _fit(automl, dataframe=df)
+    assert automl._state.task.time_col == name
+
+    future_index = pd.date_range("2028-01-01", periods=12, freq="MS", name=name)
+    future_raw = pd.DataFrame(index=future_index)
+    future_reset = future_raw.reset_index()
+
+    pred_raw = automl.predict(future_raw)
+    pred_reset = automl.predict(future_reset)
+
+    assert len(pred_raw) == 12
+    assert len(pred_reset) == 12
+    np.testing.assert_allclose(pred_raw.values, pred_reset.values)
