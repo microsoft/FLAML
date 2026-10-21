@@ -235,7 +235,7 @@ def test_statsmodels_in_sample_forecast_restores_requested_timestamp_order():
     estimator.enrich = lambda X: X
     estimator._model = Mock()
     estimator._model.predict.return_value = pd.Series([10.0, 20.0, 30.0, 40.0], index=dates)
-    requested_dates = dates[[0, 2, 1, 3]]
+    requested_dates = dates[[0, 2, 1, 3]].rename("ds")
 
     forecast = estimator.predict(pd.DataFrame({"ds": requested_dates}))
 
