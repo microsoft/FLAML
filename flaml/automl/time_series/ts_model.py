@@ -371,13 +371,16 @@ class StatsModelsEstimator(TimeSeriesEstimator):
         if isinstance(X, DataFrame):
             if X.shape[0] == 0:
                 return pd.Series([], name=self.target_names[0], dtype=float)
-            start = X[self.time_col].iloc[0]
-            end = X[self.time_col].iloc[-1]
+            requested_dates = pd.DatetimeIndex(pd.to_datetime(X[self.time_col]))
+            start = requested_dates.min()
+            end = requested_dates.max()
             exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
+            in_sample = self.train_end_date is not None and end <= self.train_end_date
+            if in_sample and exog is not None:
+                exog = exog[requested_dates.argsort(kind="stable")]
             if self.train_end_date is not None and start > self.train_end_date:
                 first_forecast_date = self.train_end_date + pd.tseries.frequencies.to_offset(self.frequency)
                 forecast_dates = pd.date_range(start=first_forecast_date, end=end, freq=self.frequency)
-                requested_dates = pd.DatetimeIndex(X[self.time_col])
                 positions = forecast_dates.get_indexer(requested_dates)
                 if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
                     raise ValueError(
@@ -403,6 +406,15 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                 forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
                 forecast = self._model.predict(start=start, end=end, **kwargs)
+            if in_sample:
+                forecast_dates = forecast.index
+                if not isinstance(forecast_dates, pd.DatetimeIndex):
+                    forecast_dates = pd.date_range(start=start, periods=len(forecast), freq=self.frequency)
+                positions = forecast_dates.get_indexer(requested_dates)
+                if (positions < 0).any():
+                    raise ValueError("Prediction timestamps are not covered by the model forecast.")
+                forecast = forecast.iloc[positions]
+                forecast.index = requested_dates
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"

@@ -222,6 +222,28 @@ def test_numpy_large():
     )
 
 
+def test_statsmodels_in_sample_forecast_restores_requested_timestamp_order():
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=4, freq="D")
+    train_data = pd.DataFrame({"ds": dates, "y": range(4)})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator.enrich = lambda X: X
+    estimator._model = Mock()
+    estimator._model.predict.return_value = pd.Series([10.0, 20.0, 30.0, 40.0], index=dates)
+    requested_dates = dates[[0, 2, 1, 3]]
+
+    forecast = estimator.predict(pd.DataFrame({"ds": requested_dates}))
+
+    estimator._model.predict.assert_called_once_with(start=dates[0], end=dates[-1])
+    expected = pd.Series([10.0, 30.0, 20.0, 40.0], index=requested_dates, name="y")
+    pd.testing.assert_series_equal(forecast, expected)
+
+
 def test_statsmodels_future_forecast_uses_training_boundary():
     import pandas as pd
 

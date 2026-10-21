@@ -704,7 +704,7 @@ def test_prophet_predict_restores_unsorted_input_timestamp_order(monkeypatch):
 
     class SortingProphetModel:
         def predict(self, frame, **kwargs):
-            sorted_dates = frame.sort_values("ds")["ds"]
+            sorted_dates = frame["ds"].sort_values()
             return pd.DataFrame(
                 {
                     "ds": sorted_dates.to_numpy(),
