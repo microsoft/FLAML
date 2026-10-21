@@ -255,10 +255,15 @@ def add_time_idx_col(X):
         # using time frequency to generate all time stamps and then indexing for time_idx
         # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
         # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.astype("int64")
-        freq = int(timestamps.diff().mode().iloc[0])
-        X["time_idx"] = (X[TS_TIMESTAMP_COL].astype("int64") - timestamps.min()) // freq
+        if freq is not None:
+            # regular series: a step is the position among the unique timestamps, so calendar
+            # frequencies (month ends) and tz-aware dates across DST are counted correctly
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])
+        else:
+            # taking minimum difference in timestamp
+            timestamps = unique_dates.astype("int64")
+            freq = int(timestamps.diff().mode().iloc[0])
+            X["time_idx"] = (X[TS_TIMESTAMP_COL].astype("int64") - timestamps.min()) // freq
     return X
 
 
