@@ -638,6 +638,23 @@ def test_numpy_array_validation_input_accepted():
     assert len(automl.predict(X_val_arr)) == 10
 
 
+def test_numpy_date_string_array_can_train_and_predict():
+    """Verify ISO date strings are converted for NumPy array training and prediction."""
+    train_dates = pd.date_range("2018-01-01", periods=120, freq="MS")
+    X_train = train_dates.strftime("%Y-%m-%d").to_numpy(dtype=object)
+    y_train = 10 + np.sin(np.arange(len(train_dates)) * 2 * np.pi / 12)
+
+    automl = AutoML()
+    _fit(automl, X_train=X_train, y_train=y_train, time_col="ds")
+
+    future_dates = pd.date_range("2028-01-01", periods=12, freq="MS")
+    X_future = future_dates.strftime("%Y-%m-%d").to_numpy(dtype=object)
+    predictions = automl.predict(X_future)
+
+    assert len(predictions) == len(future_dates)
+    assert np.isfinite(np.asarray(predictions)).all()
+
+
 @pytest.mark.parametrize("name", ["", 0, "when"])
 def test_explicit_index_name_prediction_form_equivalence(name):
     """Verify that explicit index names (including empty string '' and integer 0) are preserved

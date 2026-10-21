@@ -618,12 +618,16 @@ class TimeSeriesTask(Task):
                 allow_index_fallback=True,
                 reserved_cols=self.target_names,
             )
-            if self.time_col in X.columns and not pd.api.types.is_datetime64_any_dtype(X[self.time_col]):
-                if self._is_valid_timestamp_col(X, self.time_col):
-                    X = X.copy()
-                    X[self.time_col] = pd.to_datetime(X[self.time_col])
         if isinstance(X, (pd.DataFrame, np.ndarray, pd.Series)):
             X = normalize_ts_data(X.copy(), self.target_names, self.time_col)
+            if (
+                isinstance(X, pd.DataFrame)
+                and self.time_col in X.columns
+                and not pd.api.types.is_datetime64_any_dtype(X[self.time_col])
+                and self._is_valid_timestamp_col(X, self.time_col)
+            ):
+                X = X.copy()
+                X[self.time_col] = pd.to_datetime(X[self.time_col])
             X = self._preprocess(X, transformer)
             if orig_index is not None and isinstance(X, pd.DataFrame) and len(X) == len(orig_index):
                 X.index = orig_index
