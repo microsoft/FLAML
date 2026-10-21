@@ -882,15 +882,18 @@ class AutoML(BaseEstimator):
         if estimator is None:
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
+        orig_index = getattr(X, "index", None)
         X = self._state.task.preprocess(X, self._transformer)
         y_pred = estimator.predict(X, **pred_kwargs)
 
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()
         if self._label_transformer:
-            return self._label_transformer.inverse_transform(Series(y_pred.astype(int)))
-        else:
-            return y_pred
+            y_pred = self._label_transformer.inverse_transform(Series(y_pred.astype(int)))
+        if orig_index is not None and isinstance(y_pred, (Series, DataFrame)) and len(y_pred) == len(orig_index):
+            y_pred = y_pred.copy()
+            y_pred.index = orig_index
+        return y_pred
 
     def predict_proba(self, X, **pred_kwargs):
         """Predict the probability of each class from features, only works for

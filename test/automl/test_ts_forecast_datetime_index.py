@@ -446,6 +446,34 @@ def test_predict_restores_datetime_index_preventing_assignment_nans():
     assert len(future_df["prediction"]) == 12
 
 
+def test_predict_restores_datetime_index_for_estimator_that_resets_output_index():
+    """Verify that when an estimator resets its prediction index (like Orbit or Prophet),
+    AutoML.predict() restores the caller's input DatetimeIndex, preventing assignment NaNs."""
+    df = _make_train_df(periods=120)
+    automl = AutoML()
+    _fit(automl, dataframe=df)
+
+    future_index = pd.date_range("2028-01-01", periods=12, freq="MS")
+    future_df = pd.DataFrame(index=future_index)
+
+    # Wrap estimator to reset index to RangeIndex (simulating Orbit or Prophet)
+    orig_predict = automl._trained_estimator.predict
+
+    def reset_predict(X, **kwargs):
+        preds = orig_predict(X, **kwargs)
+        return preds.reset_index(drop=True) if hasattr(preds, "reset_index") else preds
+
+    automl._trained_estimator.predict = reset_predict
+
+    preds = automl.predict(future_df)
+    assert isinstance(preds, (pd.Series, pd.DataFrame))
+    assert preds.index.equals(future_index)
+
+    future_df["prediction"] = preds
+    assert not future_df["prediction"].isna().any()
+    assert len(future_df["prediction"]) == 12
+
+
 def test_is_valid_timestamp_col_boundary_cases():
     """Directly test _is_valid_timestamp_col with various dtypes."""
     from flaml.automl.task.time_series_task import TimeSeriesTask

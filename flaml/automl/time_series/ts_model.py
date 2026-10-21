@@ -226,6 +226,8 @@ class Orbit(TimeSeriesEstimator):
                     }
                 )
             )
+            if hasattr(X, "index") and len(out) == len(X.index):
+                out.index = X.index
 
             return out
         else:
@@ -325,6 +327,8 @@ class Prophet(TimeSeriesEstimator):
             forecast = self._model.predict(X, **kwargs)
             out = forecast["yhat"]
             out.name = self.target_names[0]
+            if hasattr(X, "index") and len(out) == len(X.index):
+                out.index = X.index
             return out
 
         else:
