@@ -244,6 +244,49 @@ def test_statsmodels_in_sample_forecast_restores_requested_timestamp_order():
     pd.testing.assert_series_equal(forecast, expected)
 
 
+def test_statsmodels_automl_predict_restores_unsorted_timestamps_with_real_model():
+    from types import SimpleNamespace
+
+    from statsmodels.tsa.arima.model import ARIMA as StatsmodelsARIMA
+
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+    from flaml.automl.time_series.ts_model import StatsModelsEstimator
+
+    dates = pd.date_range("2026-01-01", periods=12, freq="D")
+    values = np.array([2.0, 9.0, 1.0, 8.0, 3.0, 12.0, 4.0, 11.0, 5.0, 15.0, 7.0, 17.0])
+    target = pd.Series(values, index=dates, name="y")
+    train_data = pd.DataFrame({"ds": dates, "y": values})
+    dataset = TimeSeriesDataset(train_data, time_col="ds", target_names="y")
+
+    estimator = StatsModelsEstimator()
+    estimator.fit(dataset)
+    estimator.regressors = []
+    estimator._model = StatsmodelsARIMA(target, order=(1, 0, 0)).fit()
+
+    requested_dates = dates[[0, 2, 1, 3]].rename("ds")
+    X = pd.DataFrame({"ds": requested_dates}, index=requested_dates)
+    task = SimpleNamespace(
+        preprocess=lambda frame, transformer: frame,
+        is_ts_forecastpanel=lambda: False,
+    )
+    automl = AutoML()
+    automl._state = SimpleNamespace(task=task)
+    automl._transformer = None
+    automl._trained_estimator = estimator
+    automl._label_transformer = None
+
+    actual = automl.predict(X)
+
+    chronological = estimator._model.predict(start=dates[0], end=dates[3])
+    assert not np.isclose(chronological.iloc[1], chronological.iloc[2])
+    expected = pd.Series(
+        chronological.reindex(requested_dates).to_numpy(),
+        index=X.index,
+        name="y",
+    )
+    pd.testing.assert_series_equal(actual, expected)
+
+
 def test_statsmodels_future_forecast_uses_training_boundary():
     import pandas as pd
 
