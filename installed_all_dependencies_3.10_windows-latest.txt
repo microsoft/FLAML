@@ -19,7 +19,7 @@ beautifulsoup4==4.15.0
 bleach==6.4.0
 cachetools==5.5.2
 catboost==1.2.10
-certifi==2026.10.18
+certifi==2026.10.19
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
@@ -43,10 +43,10 @@ distlib==0.4.4
 evaluate==0.4.6
 exceptiongroup==1.3.1
 executing==2.3.0
-fastapi==0.146.0
+fastapi==0.156.4
 fastjsonschema==2.22.2
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@36ddfea5982dfa43247add57ff903d65897c6738#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@aff53eaf15dbf844ea587508518c132dcef31b46#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -79,7 +79,7 @@ Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
 json5==0.17.3
-jsonpointer==3.3
+jsonpointer==3.4
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupyter==1.1.1
@@ -109,7 +109,7 @@ matplotlib==3.10.9
 matplotlib-inline==0.2.2
 mdurl==0.1.2
 minio==7.2.20
-mistune==3.3.4
+mistune==3.4.0
 mlflow-skinny==2.22.1
 mpmath==1.3.0
 multidict==7.1.0
@@ -151,7 +151,7 @@ pyarrow==25.0.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.0.1
+pycryptodome==4.1.0
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
@@ -208,7 +208,7 @@ torchvision==0.29.1
 tornado==6.5.10
 tqdm==4.70.1
 traitlets==5.16.1
-transformers==5.20.1
+transformers==5.20.2
 truststore==0.10.5
 typer==0.27.3
 typing-inspection==0.4.4
@@ -218,7 +218,7 @@ uri-template==1.3.0
 urllib3==2.8.0
 uvicorn==0.54.0
 virtualenv==21.14.5
-wcwidth==0.9.2
+wcwidth==0.9.3
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
