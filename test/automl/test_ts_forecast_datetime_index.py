@@ -6,6 +6,8 @@ names, ensures label-based alignment for DatetimeIndex targets, and maintains ba
 compatibility for explicit columns and NumPy array inputs across training, validation, and prediction.
 """
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -656,3 +658,67 @@ def test_explicit_index_name_prediction_form_equivalence(name):
     assert len(pred_raw) == 12
     assert len(pred_reset) == 12
     np.testing.assert_allclose(pred_raw.values, pred_reset.values)
+
+
+def _make_predict_only_automl(predictions, is_panel=False):
+    automl = AutoML()
+    automl._state = SimpleNamespace(
+        task=SimpleNamespace(
+            preprocess=lambda X, transformer: X,
+            is_ts_forecastpanel=lambda: is_panel,
+        )
+    )
+    automl._transformer = None
+    automl._label_transformer = None
+    automl._trained_estimator = SimpleNamespace(predict=lambda X, **kwargs: predictions.copy())
+    return automl
+
+
+def test_predict_handles_list_input_when_estimator_returns_series():
+    expected = pd.Series([10.0, 20.0], index=[4, 5], name="y")
+    automl = _make_predict_only_automl(expected)
+
+    actual = automl.predict([[1.0], [2.0]])
+
+    pd.testing.assert_series_equal(actual, expected)
+
+
+def test_predict_preserves_panel_group_time_index():
+    panel_index = pd.MultiIndex.from_tuples(
+        [("store_b", pd.Timestamp("2024-01-01")), ("store_a", pd.Timestamp("2024-01-01"))],
+        names=["store", "ds"],
+    )
+    expected = pd.Series([2.0, 1.0], index=panel_index, name="y")
+    automl = _make_predict_only_automl(expected, is_panel=True)
+
+    actual = automl.predict(pd.DataFrame({"store": ["store_a", "store_b"]}))
+
+    pd.testing.assert_series_equal(actual, expected)
+
+
+def test_prophet_predict_restores_unsorted_input_timestamp_order(monkeypatch):
+    from flaml.automl.time_series.ts_model import Prophet
+
+    dates = pd.DatetimeIndex(["2028-03-01", "2028-01-01", "2028-02-01"], name="ds")
+    X = pd.DataFrame({"ds": dates}, index=dates)
+
+    class SortingProphetModel:
+        def predict(self, frame, **kwargs):
+            sorted_dates = frame.sort_values("ds")["ds"]
+            return pd.DataFrame(
+                {
+                    "ds": sorted_dates.to_numpy(),
+                    "yhat": sorted_dates.dt.month.to_numpy(dtype=float),
+                }
+            )
+
+    estimator = Prophet()
+    estimator.time_col = "ds"
+    estimator.target_names = ["y"]
+    estimator._model = SortingProphetModel()
+    monkeypatch.setattr(estimator, "enrich", lambda frame: frame.copy())
+
+    actual = estimator.predict(X)
+    expected = pd.Series([3.0, 1.0, 2.0], index=dates, name="y")
+
+    pd.testing.assert_series_equal(actual, expected)

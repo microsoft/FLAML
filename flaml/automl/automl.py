@@ -883,6 +883,8 @@ class AutoML(BaseEstimator):
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
         orig_index = getattr(X, "index", None)
+        if callable(orig_index):
+            orig_index = None
         X = self._state.task.preprocess(X, self._transformer)
         y_pred = estimator.predict(X, **pred_kwargs)
 
@@ -890,7 +892,12 @@ class AutoML(BaseEstimator):
             y_pred = y_pred.flatten()
         if self._label_transformer:
             y_pred = self._label_transformer.inverse_transform(Series(y_pred.astype(int)))
-        if orig_index is not None and isinstance(y_pred, (Series, DataFrame)) and len(y_pred) == len(orig_index):
+        if (
+            orig_index is not None
+            and not self._state.task.is_ts_forecastpanel()
+            and isinstance(y_pred, (Series, DataFrame))
+            and len(y_pred) == len(orig_index)
+        ):
             y_pred = y_pred.copy()
             y_pred.index = orig_index
         return y_pred

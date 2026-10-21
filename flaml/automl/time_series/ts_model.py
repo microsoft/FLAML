@@ -323,12 +323,23 @@ class Prophet(TimeSeriesEstimator):
 
         X = X.rename(columns={self.time_col: "ds"})
         if self._model is not None:
+            input_index = X.index.copy()
+            input_times = pd.Index(pd.to_datetime(X["ds"])) if "ds" in X.columns else None
             X = self._preprocess(X)
             forecast = self._model.predict(X, **kwargs)
             out = forecast["yhat"]
+            if input_times is not None and "ds" in forecast.columns:
+                forecast_times = pd.Index(pd.to_datetime(forecast["ds"]))
+                if not forecast_times.equals(input_times):
+                    if not forecast_times.is_unique or not input_times.is_unique:
+                        raise ValueError("Prophet cannot restore prediction order for duplicate timestamps.")
+                    positions = forecast_times.get_indexer(input_times)
+                    if (positions < 0).any():
+                        raise ValueError("Prophet forecast timestamps do not match prediction input timestamps.")
+                    out = out.iloc[positions]
             out.name = self.target_names[0]
-            if hasattr(X, "index") and len(out) == len(X.index):
-                out.index = X.index
+            if len(out) == len(input_index):
+                out.index = input_index
             return out
 
         else:
