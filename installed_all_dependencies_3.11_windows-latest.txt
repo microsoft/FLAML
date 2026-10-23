@@ -3,7 +3,7 @@ accelerate==1.15.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.5
 aiosignal==1.4.0
-alembic==1.20.0
+alembic==1.20.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
@@ -29,10 +29,10 @@ colorlog==6.12.0
 comm==0.2.3
 contourpy==1.3.3
 convertdate==2.5.1
-coverage==7.16.2
+coverage==7.17.0
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.154.0
+databricks-sdk==0.156.0
 datasets==5.1.0
 debugpy==1.8.22
 defusedxml==0.7.1
@@ -40,10 +40,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.156.4
+fastapi==0.161.1
 fastjsonschema==2.22.2
 filelock==4.2.4
--e git+https://github.com/microsoft/FLAML@4f70801a891b9c79e122c604562c1b553775dcc0#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@68dfccb2aa859e6697b15cc9ff5edec137a45814#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -57,9 +57,9 @@ h11==0.16.0
 hcrystalball==0.1.12
 hf-xet==1.7.0
 httpcore==1.0.9
-httpcore2==2.15.1
+httpcore2==2.16.0
 httpx==0.28.1
-httpx2==2.15.1
+httpx2==2.16.0
 huggingface_hub==2.2.0
 identify==2.6.20
 idna==3.20
@@ -117,7 +117,7 @@ nbconvert==7.17.2
 nbformat==5.11.1
 nest-asyncio2==1.7.4
 networkx==3.6.1
-nltk==3.10.3
+nltk==3.10.4
 nodeenv==1.11.0
 notebook==7.6.3
 notebook_shim==0.2.4
@@ -147,7 +147,7 @@ pure_eval==0.2.4
 pyarrow==25.0.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
-pycparser==3.11
+pycparser==3.12
 pycryptodome==4.1.0
 pydantic==2.14.1
 pydantic_core==2.50.1
@@ -157,7 +157,7 @@ PyMeeus==0.5.12
 pyparsing==3.3.3
 pytest==9.1.1
 pytest-rerunfailures==16.7
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
 python-discovery==1.6.4
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
@@ -184,8 +184,8 @@ seqeval==1.2.2
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
-soupsieve==3.0.3
-SQLAlchemy==2.1.5
+soupsieve==3.0.4
+SQLAlchemy==2.1.6
 sqlparse==0.6.0
 stack-data==0.6.3
 starlette==1.9.0
@@ -200,7 +200,7 @@ tokenizers==0.23.3
 torch==2.14.1
 torchmetrics==1.9.0
 torchvision==0.29.1
-tornado==6.5.10
+tornado==6.6
 tqdm==4.70.1
 traitlets==5.16.1
 transformers==5.20.2
@@ -224,4 +224,4 @@ xgboost==3.2.0
 xmltodict==1.0.4
 xxhash==4.0.2
 yarl==1.25.1
-zipp==4.1.1
+zipp==4.1.2
