@@ -18,7 +18,7 @@ def test_daily_time_idx_with_shared_timestamps():
 
 
 def test_month_end_time_idx_with_shared_timestamps():
-    dates = list(pd.date_range("2021-01-31", periods=6, freq="ME"))
+    dates = list(pd.date_range("2021-01-31", periods=6, freq=pd.offsets.MonthEnd()))
     X = pd.DataFrame({"ds": dates * 2, "group": ["a"] * 6 + ["b"] * 6})
     X = add_time_idx_col(X)
     assert X["time_idx"].tolist() == [0, 1, 2, 3, 4, 5] * 2
