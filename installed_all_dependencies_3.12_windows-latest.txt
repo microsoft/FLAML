@@ -19,7 +19,7 @@ beautifulsoup4==4.15.0
 bleach==6.4.0
 cachetools==5.5.2
 catboost==1.2.10
-certifi==2026.10.19
+certifi==2026.10.23
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
@@ -33,7 +33,7 @@ convertdate==2.5.1
 coverage==7.17.0
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.156.0
+databricks-sdk==0.157.0
 datasets==5.1.0
 debugpy==1.8.22
 defusedxml==0.7.1
@@ -41,10 +41,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.161.1
+fastapi==0.162.0
 fastjsonschema==2.22.2
-filelock==4.0.12
--e git+https://github.com/microsoft/FLAML@fa8ccdffad0ed2895ea2c3039b637eecbba49416#egg=FLAML
+filelock==4.2.4
+-e git+https://github.com/microsoft/FLAML@70df368f0f6bbe53b1431c4239fa056cf36572ce#egg=FLAML
 fonttools==4.67.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -61,7 +61,7 @@ httpcore==1.0.9
 httpcore2==2.16.0
 httpx==0.28.1
 httpx2==2.16.0
-huggingface_hub==2.2.0
+huggingface_hub==2.3.0
 identify==2.6.20
 idna==3.20
 importlib_metadata==8.9.0
@@ -77,7 +77,7 @@ Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
 json5==0.17.3
-jsonpointer==3.4
+jsonpointer==3.5
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupyter==1.1.1
@@ -110,7 +110,7 @@ minio==7.2.20
 mistune==3.4.0
 mlflow-skinny==2.22.1
 mpmath==1.3.0
-multidict==7.1.0
+multidict==7.2.1
 multiprocess==0.70.19
 narwhals==2.27.1
 nbclient==0.11.0
@@ -134,8 +134,8 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==13.0.0
-pipx==1.17.12
-platformdirs==4.12.4
+pipx==1.18.4
+platformdirs==4.13.5
 plotly==7.1.0
 pluggy==1.7.0
 pre_commit==4.7.0
@@ -149,7 +149,7 @@ pyarrow==25.0.1
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.12
-pycryptodome==4.1.0
+pycryptodome==4.2.0
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
@@ -190,7 +190,7 @@ soupsieve==3.0.4
 SQLAlchemy==2.1.6
 sqlparse==0.6.0
 stack-data==0.6.3
-starlette==1.9.0
+starlette==1.10.0
 statsmodels==0.15.0
 sympy==1.14.0
 tensorboardX==2.6.5
@@ -216,7 +216,7 @@ urllib3==2.8.0
 userpath==1.9.2
 uvicorn==0.54.0
 virtualenv==21.14.5
-wcwidth==0.9.3
+wcwidth==0.9.4
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
