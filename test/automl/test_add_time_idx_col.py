@@ -31,6 +31,13 @@ def test_tz_aware_daily_time_idx_across_dst():
     assert X["time_idx"].tolist() == [0, 1, 2, 3, 4, 5] * 2
 
 
+def test_tz_aware_business_day_time_idx_across_dst():
+    dates = list(pd.date_range("2021-03-10", periods=6, freq="B", tz="America/New_York"))
+    X = pd.DataFrame({"ds": dates * 2, "group": ["a"] * 6 + ["b"] * 6})
+    X = add_time_idx_col(X)
+    assert X["time_idx"].tolist() == [0, 1, 2, 3, 4, 5] * 2
+
+
 def test_irregular_time_idx_keeps_gaps():
     dates = pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-05"])
     X = pd.DataFrame({"ds": dates})

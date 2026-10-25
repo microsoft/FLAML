@@ -246,7 +246,12 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(pd.DatetimeIndex(unique_dates))
+    dates = pd.DatetimeIndex(unique_dates)
+    freq = pd.infer_freq(dates)
+    if freq is None and dates.tz is not None:
+        # older pandas cannot infer calendar frequencies such as business days across DST
+        # from tz-aware dates, so try the local wall-clock times
+        freq = pd.infer_freq(dates.tz_localize(None))
     if freq == "MS":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
     elif freq == "Y":
