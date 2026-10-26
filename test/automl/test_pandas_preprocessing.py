@@ -57,7 +57,10 @@ def test_datetime_features_keep_existing_names_and_values(monkeypatch, legacy_ac
                     return getattr(self.accessor, modern if hasattr(self.accessor, modern) else name)
                 return getattr(self.accessor, name)
 
-        monkeypatch.setattr(pd.Series, "dt", property(LegacyDatetimeAccessor))
+        def cache_accessor(series, accessor):
+            series.__dict__["dt"] = accessor
+
+        monkeypatch.setattr(pd.Series, "dt", property(LegacyDatetimeAccessor, cache_accessor))
     frame = pd.DataFrame({"when": pd.to_datetime(["2023-12-31", "2024-01-01", "2024-03-01", "2024-03-02"])})
     transformer = DataTransformer()
     fitted, _ = transformer.fit_transform(frame, np.arange(4, dtype=float), "regression")
