@@ -8,6 +8,7 @@ from xgboost import XGBClassifier
 from flaml import AutoML
 from flaml.automl import ml
 from flaml.automl.model import LGBMEstimator, LRL1Classifier
+from flaml.automl.state import AutoMLState
 
 SETTINGS = {
     "task": "classification",
@@ -54,20 +55,29 @@ def test_time_split_with_class_absent_from_latest_rows():
 
 @pytest.mark.parametrize("skip_transform", [False, True])
 @pytest.mark.parametrize("retrain_full", [False, True])
-def test_public_probabilities_with_complete_class_set(skip_transform, retrain_full):
+def test_public_probabilities_with_complete_class_set(monkeypatch, skip_transform, retrain_full):
     X, y = _three_class_data()
+    retrained_sizes = []
+    original = AutoMLState._train_with_config
+
+    def recording(self, estimator, config, sample_size=None, is_retrain=False):
+        if is_retrain:
+            retrained_sizes.append(sample_size)
+        return original(self, estimator, config, sample_size, is_retrain)
+
+    monkeypatch.setattr(AutoMLState, "_train_with_config", recording)
     automl = AutoML()
     automl.fit(
-        X[:180],
-        y[:180],
-        X_val=X[180:],
-        y_val=y[180:],
+        X,
+        y,
+        eval_method="holdout",
         metric="log_loss",
         sample=False,
         skip_transform=skip_transform,
         **{**SETTINGS, "retrain_full": retrain_full},
     )
 
+    assert retrained_sizes == ([len(X)] if retrain_full else [])
     raw = automl.model.predict_proba(automl.preprocess(X[180:]))
     np.testing.assert_array_equal(automl.predict_proba(X[180:]), raw)
     np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
@@ -288,11 +298,8 @@ def test_single_class_boosted_sample_has_finite_log_loss(
         for features, target, actual in cases:
             raw = estimator.predict_proba(features)
             assert raw.shape == (len(target), 2)
-            if num_classes == 2:
-                expected = raw
-            else:
-                expected = np.zeros((len(target), num_classes), dtype=raw.dtype)
-                expected[:, 0] = 1.0
+            expected = np.zeros((len(target), num_classes), dtype=raw.dtype)
+            expected[:, 0] = 1.0
             assert np.isfinite(actual)
             assert actual == pytest.approx(log_loss(target, expected, labels=np.arange(num_classes)))
         return result
@@ -327,13 +334,86 @@ def test_single_class_boosted_sample_has_finite_log_loss(
     assert probabilities.shape == (len(y_val), num_classes)
     np.testing.assert_array_equal(automl.classes_, labels)
     np.testing.assert_allclose(probabilities.sum(axis=1), 1)
-    if num_classes == 2:
-        np.testing.assert_array_equal(probabilities, raw)
-    else:
-        np.testing.assert_array_equal(probabilities[:, 0], 1)
-        np.testing.assert_array_equal(probabilities[:, 1:], 0)
+    np.testing.assert_array_equal(probabilities[:, 0], 1)
+    np.testing.assert_array_equal(probabilities[:, 1:], 0)
     assert log_loss(labels[y_val], probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
     np.testing.assert_array_equal(automl.model.predict_proba(automl.preprocess(X_val)), raw)
+
+
+def test_single_class_binary_lightgbm_public_class_axis():
+    rng = np.random.RandomState(81)
+    y = np.full(3000, 20)
+    y[[1500, 2500]] = 10
+    X = rng.randn(len(y), 4)
+    X_val = rng.randn(300, 4)
+    y_val = np.where(np.arange(len(X_val)) % 5 == 0, 10, 20)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
+        task="classification",
+        metric="log_loss",
+        log_training_metric=True,
+        estimator_list=["lgbm"],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    np.testing.assert_array_equal(automl.model.classes_, [1])
+    np.testing.assert_array_equal(automl.classes_, [10, 20])
+    predictions = automl.predict(X_val)
+    np.testing.assert_array_equal(predictions, 20)
+    probabilities = automl.predict_proba(X_val)
+    np.testing.assert_array_equal(probabilities, np.tile([0.0, 1.0], (len(X_val), 1)))
+    np.testing.assert_array_equal(automl.classes_[probabilities.argmax(axis=1)], predictions)
+    assert log_loss(y_val, probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
+
+
+@pytest.mark.parametrize("learner", ["xgboost", "xgb_limitdepth"])
+def test_single_class_xgboost_public_probabilities_preserve_nan(learner):
+    rng = np.random.RandomState(81)
+    y = np.zeros(3000, dtype=int)
+    y[1500], y[2500] = 1, 2
+    X = rng.randn(len(y), 4)
+    X_val = rng.randn(300, 4)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(len(X_val)) % 2,
+        task="classification",
+        metric="log_loss",
+        estimator_list=[learner],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    np.testing.assert_array_equal(automl.model.classes_, [0])
+    base_margin = np.zeros(len(X_val))
+    base_margin[::2] = np.nan
+    raw = automl.model.predict_proba(automl.preprocess(X_val), base_margin=base_margin)
+    assert np.isnan(raw[::2]).all()
+    assert np.isfinite(raw[1::2]).all()
+    probabilities = automl.predict_proba(X_val, base_margin=base_margin)
+    assert probabilities.shape == (len(X_val), 3)
+    assert np.isnan(probabilities[::2, 0]).all()
+    np.testing.assert_array_equal(probabilities[:, 1:], 0)
+    np.testing.assert_array_equal(probabilities[1::2, 0], 1)
 
 
 @pytest.mark.parametrize("output", ["raw_score", "pred_leaf", "pred_contrib", None])
@@ -426,7 +506,7 @@ def test_public_probabilities_from_sampled_classifier(missing_class, learner):
 
 @pytest.mark.parametrize(
     "sole_class, labels",
-    [(0, [0, 1, 2]), (1, [2, 1, 0]), (7, [1, 7, 3]), ("b", ["c", "b", "a"])],
+    [(0, [0, 1]), (1, [0, 1]), (0, [0, 1, 2]), (1, [2, 1, 0]), (7, [1, 7, 3]), ("b", ["c", "b", "a"])],
 )
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_single_class_lightgbm_probability_alignment(sole_class, labels, wrapped):
@@ -456,6 +536,22 @@ def test_single_class_xgboost_probability_alignment(wrapped):
     actual = ml._align_log_loss_probabilities(raw, classifier, [2, 0, 1])
     np.testing.assert_array_equal(actual, np.tile([1.0, 0.0, 0.0], (len(X), 1)))
     np.testing.assert_array_equal(actual.sum(axis=1), np.ones(len(X)))
+    np.testing.assert_array_equal(raw, before)
+
+
+@pytest.mark.parametrize("invalid", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("labels", [[0, 1], [0, 1, 2]])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_single_class_probability_alignment_preserves_nonfinite_rows(invalid, labels, dtype):
+    estimator = SimpleNamespace(model=ml.LGBMClassifier(), classes_=np.array([1]))
+    raw = np.array([[0.8, 0.2], [0.5, invalid], [invalid, 0.5]], dtype=dtype)
+    before = raw.copy()
+    actual = ml._align_log_loss_probabilities(raw, estimator, labels)
+    assert actual.dtype == raw.dtype
+    assert actual.shape == (3, len(labels))
+    assert actual[0, 1] == 1
+    assert np.isnan(actual[1:, 1]).all()
+    np.testing.assert_array_equal(actual[:, np.array(labels) != 1], 0)
     np.testing.assert_array_equal(raw, before)
 
 

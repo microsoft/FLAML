@@ -905,7 +905,14 @@ class AutoML(BaseEstimator):
 
         Returns:
             A numpy array of shape n * c. c is the  # classes. Each element at
-            (i, j) is the probability for instance i to be in class j.
+            (i, j) is the probability for instance i to be in class `classes_[j]`.
+            For tabular classification, classes absent from a retained sampled model
+            receive zero probability. A single-class LightGBM or XGBoost sample is
+            normalized over its observed class; non-finite backend rows remain
+            non-finite. These aligned probabilities can therefore differ from the
+            raw output of `automl.model.predict_proba(automl.preprocess(X))`.
+            Requested raw scores, leaf indices and feature contributions are returned
+            unchanged from the backend instead of being aligned as probabilities.
         """
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:

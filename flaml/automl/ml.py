@@ -602,25 +602,28 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
 
 
 def _align_log_loss_probabilities(predictions, estimator, labels):
-    """Match sampled classifiers' probability columns to log_loss's label order."""
+    """Match sampled classifiers' probability columns to sorted label order."""
     if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
         return predictions
     classes = getattr(estimator, "classes_", None)
     probabilities = np.asarray(predictions)
     if classes is None or probabilities.ndim != 2:
         return predictions
-    # For multiclass scoring, these binary APIs can emit an implicit second class.
-    # Normalize over the sole observed class; binary scoring keeps both columns.
+    # These binary APIs can emit an implicit second class even for a one-class fit.
+    # Normalize over the sole observed class before aligning binary or multiclass labels.
     if (
         len(classes) == 1
         and probabilities.shape[1] == 2
-        and len(np.unique(labels)) > 2
+        and len(np.unique(labels)) > 1
         and (
             isinstance(getattr(estimator, "model", estimator), XGBClassifier)
             or (LGBMClassifier is not None and isinstance(getattr(estimator, "model", estimator), LGBMClassifier))
         )
     ):
-        probabilities = np.ones_like(probabilities[:, :1])
+        # Invalid backend rows must not become confident finite predictions.
+        probabilities = np.where(
+            np.isfinite(probabilities).all(axis=1, keepdims=True), np.ones_like(probabilities[:, :1]), np.nan
+        )
     if probabilities.shape[1] != len(classes):
         return predictions
     # sklearn's log_loss sorts labels, even when an explicit override is unsorted.
