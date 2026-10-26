@@ -52,6 +52,27 @@ def test_time_split_with_class_absent_from_latest_rows():
     assert np.isfinite(automl.best_loss)
 
 
+@pytest.mark.parametrize("skip_transform", [False, True])
+@pytest.mark.parametrize("retrain_full", [False, True])
+def test_public_probabilities_with_complete_class_set(skip_transform, retrain_full):
+    X, y = _three_class_data()
+    automl = AutoML()
+    automl.fit(
+        X[:180],
+        y[:180],
+        X_val=X[180:],
+        y_val=y[180:],
+        metric="log_loss",
+        sample=False,
+        skip_transform=skip_transform,
+        **{**SETTINGS, "retrain_full": retrain_full},
+    )
+
+    raw = automl.model.predict_proba(automl.preprocess(X[180:]))
+    np.testing.assert_array_equal(automl.predict_proba(X[180:]), raw)
+    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+
+
 @pytest.mark.parametrize("eval_method", ["holdout", "cv"])
 def test_custom_metric_receives_training_labels(eval_method):
     X, y = _three_class_data()
@@ -244,13 +265,17 @@ def test_compute_estimator_accepts_string_task():
 @pytest.mark.parametrize("learner", ["lgbm", "xgboost", "xgb_limitdepth"])
 @pytest.mark.parametrize("log_training_metric", [False, True])
 @pytest.mark.parametrize("num_classes", [2, 3])
-def test_single_class_boosted_sample_has_finite_log_loss(monkeypatch, log_training_metric, learner, num_classes):
+@pytest.mark.parametrize("string_labels", [False, True])
+def test_single_class_boosted_sample_has_finite_log_loss(
+    monkeypatch, log_training_metric, learner, num_classes, string_labels
+):
     rng = np.random.RandomState(81)
     y = np.zeros(3000, dtype=int)
     y[1500], y[2500] = 1, num_classes - 1
     X = rng.randn(len(y), 4)
     y_val = (np.arange(300) % 5 == 0).astype(int) if num_classes == 2 else np.arange(300) % 2
     X_val = rng.randn(len(y_val), 4)
+    labels = np.array(["a", "b", "c"][:num_classes]) if string_labels else 10 * (np.arange(num_classes) + 1)
     sampled_classes = []
     original = ml._eval_estimator
 
@@ -276,9 +301,9 @@ def test_single_class_boosted_sample_has_finite_log_loss(monkeypatch, log_traini
     automl = AutoML()
     automl.fit(
         X,
-        y,
+        labels[y],
         X_val=X_val,
-        y_val=y_val,
+        y_val=labels[y_val],
         task="classification",
         metric="log_loss",
         log_training_metric=log_training_metric,
@@ -297,6 +322,106 @@ def test_single_class_boosted_sample_has_finite_log_loss(monkeypatch, log_traini
     assert all(np.array_equal(classes, [0]) for classes in sampled_classes)
     assert np.isfinite(automl.best_loss)
     assert automl.model is not None
+    raw = automl.model.predict_proba(automl.preprocess(X_val))
+    probabilities = automl.predict_proba(X_val)
+    assert probabilities.shape == (len(y_val), num_classes)
+    np.testing.assert_array_equal(automl.classes_, labels)
+    np.testing.assert_allclose(probabilities.sum(axis=1), 1)
+    if num_classes == 2:
+        np.testing.assert_array_equal(probabilities, raw)
+    else:
+        np.testing.assert_array_equal(probabilities[:, 0], 1)
+        np.testing.assert_array_equal(probabilities[:, 1:], 0)
+    assert log_loss(labels[y_val], probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
+    np.testing.assert_array_equal(automl.model.predict_proba(automl.preprocess(X_val)), raw)
+
+
+@pytest.mark.parametrize("output", ["raw_score", "pred_leaf", "pred_contrib", None])
+def test_sampled_lightgbm_prediction_options(output):
+    rng = np.random.RandomState(81)
+    y = np.zeros(3000, dtype=int)
+    y[1500], y[2500] = 1, 2
+    # One feature makes contribution scores have the same width as binary probabilities.
+    X = rng.randn(len(y), 1)
+    X_val = rng.randn(300, 1)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(len(X_val)) % 2,
+        task="classification",
+        metric="log_loss",
+        estimator_list=["lgbm"],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+    np.testing.assert_array_equal(automl.model.classes_, [0])
+    kwargs = {"num_iteration": 2}
+    if output is not None:
+        kwargs[output] = True
+    raw = automl.model.predict_proba(automl.preprocess(X_val), **kwargs)
+    actual = automl.predict_proba(X_val, **kwargs)
+    if output is None:
+        assert actual.shape == (len(X_val), len(automl.classes_))
+        np.testing.assert_array_equal(actual[:, 0], 1)
+        np.testing.assert_array_equal(actual[:, 1:], 0)
+    else:
+        np.testing.assert_array_equal(actual, raw)
+
+
+@pytest.mark.parametrize("missing_class", [0, 1, 2])
+@pytest.mark.parametrize("learner", ["lgbm", "rf"])
+def test_public_probabilities_from_sampled_classifier(missing_class, learner):
+    rng = np.random.RandomState(1)
+    present_classes = np.delete(np.arange(3), missing_class)
+    y = rng.choice(present_classes, size=3000)
+    y[rng.choice(len(y), 40, replace=False)] = missing_class
+    X = rng.randn(len(y), 4)
+    X[:, 0] += 2 * y
+    y_val = np.arange(300) % 3
+    X_val = rng.randn(len(y_val), 4)
+    X_val[:, 0] += 2 * y_val
+    labels = np.array(["alpha", "beta", "gamma"])
+
+    automl = AutoML()
+    automl.fit(
+        X,
+        labels[y],
+        X_val=X_val,
+        y_val=labels[y_val],
+        task="classification",
+        metric="log_loss",
+        estimator_list=[learner],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+    )
+
+    np.testing.assert_array_equal(automl.model.classes_, present_classes)
+    np.testing.assert_array_equal(automl.classes_, labels)
+    features = automl.preprocess(X_val)
+    raw = automl.model.predict_proba(features)
+    probabilities = automl.predict_proba(X_val)
+    assert probabilities.shape == (len(y_val), 3)
+    np.testing.assert_array_equal(probabilities[:, present_classes], raw)
+    np.testing.assert_array_equal(probabilities[:, missing_class], 0)
+    np.testing.assert_allclose(probabilities.sum(axis=1), 1)
+    assert log_loss(labels[y_val], probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
+    np.testing.assert_array_equal(automl.model.predict_proba(features), raw)
 
 
 @pytest.mark.parametrize(
