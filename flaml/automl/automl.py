@@ -800,10 +800,13 @@ class AutoML(BaseEstimator):
 
     @property
     def classes_(self):
-        """A numpy array of shape (n_classes,) for class labels."""
+        """A numpy array of full training class labels, including for sparse or untransformed inputs."""
         attr = getattr(self, "_label_transformer", None)
         if attr:
             return attr.classes_
+        classes = getattr(self, "_classes", None)
+        if classes is not None:
+            return classes
         attr = getattr(self, "_trained_estimator", None)
         if attr:
             return attr.classes_
@@ -907,7 +910,8 @@ class AutoML(BaseEstimator):
             A numpy array of shape n * c. c is the  # classes. Each element at
             (i, j) is the probability for instance i to be in class `classes_[j]`.
             For tabular classification, classes absent from a retained sampled model
-            receive zero probability. A single-class LightGBM or XGBoost sample is
+            receive zero probability, including with sparse inputs or disabled
+            preprocessing. A single-class LightGBM or XGBoost sample is
             normalized over its observed class; non-finite backend rows remain
             non-finite. These aligned probabilities can therefore differ from the
             raw output of `automl.model.predict_proba(automl.preprocess(X))`.
@@ -920,14 +924,12 @@ class AutoML(BaseEstimator):
             return None
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
-        if (
-            self._state.task.name in ("classification", "binary", "multiclass")
-            and self._label_transformer
-            and not any(pred_kwargs.get(option) for option in ("raw_score", "pred_leaf", "pred_contrib"))
+        if self._state.task.name in ("classification", "binary", "multiclass") and not any(
+            pred_kwargs.get(option) for option in ("raw_score", "pred_leaf", "pred_contrib")
         ):
-            # The estimator uses encoded labels; public columns follow classes_.
+            # Match the estimator's encoded or native labels to the full class set.
             # Raw scores, leaf indices and feature contributions are not probabilities.
-            labels = np.arange(len(self._label_transformer.classes_))
+            labels = np.arange(len(self.classes_)) if self._label_transformer else self.classes_
             proba = _align_log_loss_probabilities(proba, estimator, labels)
         return proba
 
@@ -1864,6 +1866,7 @@ class AutoML(BaseEstimator):
     def _prepare_data(self, eval_method, split_ratio, n_splits):
         # Reset on every fit, including when the same AutoML changes tasks.
         self._state.holdout_labels = None
+        self._classes = None
         self._state.task.prepare_data(
             self._state,
             self._X_train_all,
@@ -1877,15 +1880,24 @@ class AutoML(BaseEstimator):
             self._sample_weight_full,
             self._allow_label_overlap,
         )
+        native_class_axis = (
+            self._state.task.name in ("classification", "binary", "multiclass")
+            and not self._label_transformer
+            and not isinstance(self._state.y_train_all, psSeries)
+        )
         if (
-            eval_method == "holdout"
+            (eval_method == "holdout" or native_class_axis)
             and self._state.task.is_classification()
             and not self._state.task.is_token_classification()
             and self._state.y_train_all is not None
         ):
             _, labels = len_labels(self._state.y_train_all, return_labels=True)
             # Do not retain a live pandas-on-Spark object in serialized state.
-            self._state.holdout_labels = labels.to_numpy() if isinstance(labels, psSeries) else labels
+            labels = labels.to_numpy() if isinstance(labels, psSeries) else labels
+            if eval_method == "holdout":
+                self._state.holdout_labels = labels
+            if native_class_axis:
+                self._classes = labels
         self.data_size_full = self._state.data_size_full
 
     def fit(

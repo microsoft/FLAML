@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from scipy.sparse import csr_matrix, issparse
 from sklearn.metrics import f1_score, log_loss
 from xgboost import XGBClassifier
 
@@ -53,10 +54,14 @@ def test_time_split_with_class_absent_from_latest_rows():
     assert np.isfinite(automl.best_loss)
 
 
-@pytest.mark.parametrize("skip_transform", [False, True])
+@pytest.mark.parametrize("input_mode", ["transform", "skip", "sparse"])
 @pytest.mark.parametrize("retrain_full", [False, True])
-def test_public_probabilities_with_complete_class_set(monkeypatch, skip_transform, retrain_full):
+def test_public_probabilities_with_complete_class_set(monkeypatch, input_mode, retrain_full):
     X, y = _three_class_data()
+    if input_mode != "transform":
+        y = 10 * (y + 1)
+    if input_mode == "sparse":
+        X = csr_matrix(X)
     retrained_sizes = []
     original = AutoMLState._train_with_config
 
@@ -73,14 +78,14 @@ def test_public_probabilities_with_complete_class_set(monkeypatch, skip_transfor
         eval_method="holdout",
         metric="log_loss",
         sample=False,
-        skip_transform=skip_transform,
+        skip_transform=input_mode == "skip",
         **{**SETTINGS, "retrain_full": retrain_full},
     )
 
-    assert retrained_sizes == ([len(X)] if retrain_full else [])
+    assert retrained_sizes == ([X.shape[0]] if retrain_full else [])
     raw = automl.model.predict_proba(automl.preprocess(X[180:]))
     np.testing.assert_array_equal(automl.predict_proba(X[180:]), raw)
-    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+    np.testing.assert_array_equal(automl.classes_, np.unique(y))
 
 
 @pytest.mark.parametrize("eval_method", ["holdout", "cv"])
@@ -378,18 +383,21 @@ def test_single_class_binary_lightgbm_public_class_axis():
 
 
 @pytest.mark.parametrize("learner", ["xgboost", "xgb_limitdepth"])
-def test_single_class_xgboost_public_probabilities_preserve_nan(learner):
+@pytest.mark.parametrize("input_mode", ["transform", "skip", "sparse"])
+def test_single_class_xgboost_public_probabilities_preserve_nan(learner, input_mode):
     rng = np.random.RandomState(81)
     y = np.zeros(3000, dtype=int)
     y[1500], y[2500] = 1, 2
     X = rng.randn(len(y), 4)
     X_val = rng.randn(300, 4)
+    if input_mode == "sparse":
+        X, X_val = csr_matrix(X), csr_matrix(X_val)
     automl = AutoML()
     automl.fit(
         X,
         y,
         X_val=X_val,
-        y_val=np.arange(len(X_val)) % 2,
+        y_val=np.arange(X_val.shape[0]) % 2,
         task="classification",
         metric="log_loss",
         estimator_list=[learner],
@@ -402,34 +410,110 @@ def test_single_class_xgboost_public_probabilities_preserve_nan(learner):
         n_jobs=1,
         verbose=0,
         retrain_full=False,
+        skip_transform=input_mode == "skip",
     )
     np.testing.assert_array_equal(automl.model.classes_, [0])
-    base_margin = np.zeros(len(X_val))
+    base_margin = np.zeros(X_val.shape[0])
     base_margin[::2] = np.nan
     raw = automl.model.predict_proba(automl.preprocess(X_val), base_margin=base_margin)
     assert np.isnan(raw[::2]).all()
     assert np.isfinite(raw[1::2]).all()
     probabilities = automl.predict_proba(X_val, base_margin=base_margin)
-    assert probabilities.shape == (len(X_val), 3)
+    assert probabilities.shape == (X_val.shape[0], 3)
     assert np.isnan(probabilities[::2, 0]).all()
     np.testing.assert_array_equal(probabilities[:, 1:], 0)
     np.testing.assert_array_equal(probabilities[1::2, 0], 1)
 
 
-@pytest.mark.parametrize("output", ["raw_score", "pred_leaf", "pred_contrib", None])
-def test_sampled_lightgbm_prediction_options(output):
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize(
+    "learner, labels, sole_class",
+    [
+        ("lgbm", [0, 1], 0),
+        ("lgbm", [0, 1], 1),
+        ("lgbm", [10, 20, 30], 20),
+        ("xgboost", [0, 1, 2], 0),
+        ("xgb_limitdepth", [0, 1, 2], 0),
+    ],
+)
+def test_native_single_class_sample_public_probabilities(monkeypatch, input_mode, learner, labels, sole_class):
     rng = np.random.RandomState(81)
-    y = np.zeros(3000, dtype=int)
-    y[1500], y[2500] = 1, 2
-    # One feature makes contribution scores have the same width as binary probabilities.
-    X = rng.randn(len(y), 1)
-    X_val = rng.randn(300, 1)
+    y = np.full(3000, sole_class)
+    other_classes = [label for label in labels if label != sole_class]
+    y[1500], y[2500] = other_classes[0], other_classes[-1]
+    X = rng.randn(len(y), 4)
+    X_val = rng.randn(300, 4)
+    y_val = np.resize(labels, len(X_val))
+    if input_mode == "sparse":
+        X, X_val = csr_matrix(X), csr_matrix(X_val)
+    original = ml._eval_estimator
+    sampled_classes = []
+
+    def recording(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs):
+        result = original(config, estimator, X_train, y_train, X_val, y_val, *args, **kwargs)
+        sampled_classes.append(estimator.classes_.copy())
+        for target, loss in [(y_val, result[0]), (y_train, result[1]["train_loss"])]:
+            expected = np.zeros((len(target), len(labels)), dtype=estimator.predict_proba(X_val).dtype)
+            expected[:, labels.index(sole_class)] = 1
+            assert loss == pytest.approx(log_loss(target, expected, labels=labels))
+        return result
+
+    monkeypatch.setattr(ml, "_eval_estimator", recording)
     automl = AutoML()
     automl.fit(
         X,
         y,
         X_val=X_val,
-        y_val=np.arange(len(X_val)) % 2,
+        y_val=y_val,
+        task="classification",
+        metric="log_loss",
+        log_training_metric=True,
+        estimator_list=[learner],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+        skip_transform=input_mode == "skip",
+    )
+    assert not automl.label_transformer
+    assert len(sampled_classes) == 2
+    assert all(np.array_equal(classes, [sole_class]) for classes in sampled_classes)
+    np.testing.assert_array_equal(automl.classes_, labels)
+    raw = automl.model.predict_proba(automl.preprocess(X_val))
+    assert raw.shape == (X_val.shape[0], 2)
+    probabilities = automl.predict_proba(X_val)
+    expected = np.zeros((X_val.shape[0], len(labels)))
+    expected[:, labels.index(sole_class)] = 1
+    np.testing.assert_array_equal(probabilities, expected)
+    np.testing.assert_array_equal(automl.classes_[probabilities.argmax(axis=1)], automl.predict(X_val))
+    assert log_loss(y_val, probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
+    np.testing.assert_array_equal(automl.model.predict_proba(automl.preprocess(X_val)), raw)
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("missing_class", [10, 20, 30])
+def test_native_sampled_lightgbm_probability_columns(input_mode, missing_class):
+    rng = np.random.RandomState(1)
+    labels = np.array([10, 20, 30])
+    present_classes = labels[labels != missing_class]
+    y = rng.choice(present_classes, size=3000)
+    y[rng.choice(len(y), 40, replace=False)] = missing_class
+    X = rng.randn(len(y), 4)
+    X_val = rng.randn(300, 4)
+    y_val = np.resize(labels, len(X_val))
+    if input_mode == "sparse":
+        X, X_val = csr_matrix(X), csr_matrix(X_val)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
         task="classification",
         metric="log_loss",
         estimator_list=["lgbm"],
@@ -442,6 +526,107 @@ def test_sampled_lightgbm_prediction_options(output):
         n_jobs=1,
         verbose=0,
         retrain_full=False,
+        skip_transform=input_mode == "skip",
+    )
+    np.testing.assert_array_equal(automl.model.classes_, present_classes)
+    np.testing.assert_array_equal(automl.classes_, labels)
+    raw = automl.model.predict_proba(automl.preprocess(X_val))
+    probabilities = automl.predict_proba(X_val)
+    np.testing.assert_array_equal(probabilities[:, labels != missing_class], raw)
+    np.testing.assert_array_equal(probabilities[:, labels == missing_class], 0)
+    assert log_loss(y_val, probabilities, labels=automl.classes_) == pytest.approx(automl.best_loss)
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+def test_native_class_axis_does_not_change_callable_metric_labels(input_mode, eval_method):
+    X, y = _three_class_data()
+    y = 10 * (y + 1)
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    received = []
+
+    def custom_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+        received.append(labels)
+        return 0.5, {}
+
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        metric=custom_metric,
+        eval_method=eval_method,
+        n_splits=3,
+        skip_transform=input_mode == "skip",
+        **SETTINGS,
+    )
+    assert received
+    if eval_method == "holdout":
+        assert all(labels is None for labels in received)
+    else:
+        assert all(np.array_equal(labels, [10, 20, 30]) for labels in received)
+    np.testing.assert_array_equal(automl.classes_, [10, 20, 30])
+    np.testing.assert_array_equal(automl.predict_proba(X), automl.model.predict_proba(automl.preprocess(X)))
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+def test_native_class_axis_refreshed_when_refitting(input_mode):
+    X, y = _three_class_data()
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    automl = AutoML()
+    for current_y in (10 * (y + 1), (y % 2) + 5):
+        automl.fit(X, current_y, metric="log_loss", skip_transform=input_mode == "skip", **SETTINGS)
+        np.testing.assert_array_equal(automl.classes_, np.unique(current_y))
+        np.testing.assert_array_equal(automl.predict_proba(X), automl.model.predict_proba(automl.preprocess(X)))
+    automl.fit(
+        X,
+        y.astype(float),
+        task="regression",
+        estimator_list=["lgbm"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=0,
+        skip_transform=input_mode == "skip",
+    )
+    assert automl._classes is None
+    # Returning to transformed classification must not reuse native labels.
+    X, y = _three_class_data()
+    automl.fit(X, y, task="classification", skip_transform=False, **{k: v for k, v in SETTINGS.items() if k != "task"})
+    assert automl._classes is None
+    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+
+
+@pytest.mark.parametrize("output", ["raw_score", "pred_leaf", "pred_contrib", None])
+@pytest.mark.parametrize("input_mode", ["transform", "skip", "sparse"])
+def test_sampled_lightgbm_prediction_options(output, input_mode):
+    rng = np.random.RandomState(81)
+    y = np.zeros(3000, dtype=int)
+    y[1500], y[2500] = 1, 2
+    # One feature makes contribution scores have the same width as binary probabilities.
+    X = rng.randn(len(y), 1)
+    X_val = rng.randn(300, 1)
+    if input_mode == "sparse":
+        X, X_val = csr_matrix(X), csr_matrix(X_val)
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(X_val.shape[0]) % 2,
+        task="classification",
+        metric="log_loss",
+        estimator_list=["lgbm"],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+        skip_transform=input_mode == "skip",
     )
     np.testing.assert_array_equal(automl.model.classes_, [0])
     kwargs = {"num_iteration": 2}
@@ -450,9 +635,13 @@ def test_sampled_lightgbm_prediction_options(output):
     raw = automl.model.predict_proba(automl.preprocess(X_val), **kwargs)
     actual = automl.predict_proba(X_val, **kwargs)
     if output is None:
-        assert actual.shape == (len(X_val), len(automl.classes_))
+        assert actual.shape == (X_val.shape[0], len(automl.classes_))
         np.testing.assert_array_equal(actual[:, 0], 1)
         np.testing.assert_array_equal(actual[:, 1:], 0)
+    elif issparse(raw):
+        assert issparse(actual)
+        assert actual.shape == raw.shape
+        assert (actual != raw).nnz == 0
     else:
         np.testing.assert_array_equal(actual, raw)
 
