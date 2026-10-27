@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import math
 import os
 import random
 import re
@@ -246,20 +247,35 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(unique_dates)
+    freq = pd.infer_freq(unique_dates) if len(unique_dates) >= 3 else None
     if freq == "MS":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+        X["time_idx"] = (X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month).astype(int)
     elif freq == "Y":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year.astype(int)
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        # If a regular frequency was inferred (e.g. ME/M month-ends, D with DST transitions),
+        # use ordinal steps to avoid artificial gaps or duplicate indices.
+        if freq is not None:
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
+        else:
+            # Fallback for irregular series or < 3 dates: preserve integer precision and avoid collapsing
+            unique_ts = unique_dates.astype("int64").to_numpy()
+            diffs = np.diff(unique_ts)
+            if len(diffs) > 0:
+                freq_val = math.gcd(*[int(d) for d in diffs])
+                if freq_val <= 0:
+                    freq_val = 1
+            else:
+                freq_val = 1
+            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64").to_numpy()
+            min_ts = unique_ts[0] if len(unique_ts) > 0 else 0
+            diff_from_min = all_timestamps - min_ts
+            if (diff_from_min % freq_val != 0).any():
+                raise ValueError(
+                    f"Timestamp intervals in '{TS_TIMESTAMP_COL}' are not integral multiples "
+                    f"of the base step ({freq_val})."
+                )
+            X["time_idx"] = (diff_from_min // freq_val).astype(int)
     return X
 
 
