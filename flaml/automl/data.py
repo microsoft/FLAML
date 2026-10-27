@@ -342,7 +342,7 @@ class DataTransformer:
                             if key not in X.columns and value.nunique(dropna=False) >= 2:
                                 X[key] = value
                                 num_columns.append(key)
-                        X[column] = X[column].map(datetime.toordinal)
+                        X[column] = X[column].map(lambda x: datetime.toordinal(x) if pd.notna(x) else np.nan)
                         datetime_columns.append(column)
                         del tmp_dt
                     X[column] = X[column].fillna(np.nan)
@@ -448,7 +448,7 @@ class DataTransformer:
                 for new_col_name, new_col_value in new_columns_dict.items():
                     if new_col_name not in X.columns and new_col_name in num_columns:
                         X[new_col_name] = new_col_value
-                X[column] = X[column].map(datetime.toordinal)
+                X[column] = X[column].map(lambda x: datetime.toordinal(x) if pd.notna(x) else np.nan)
                 del tmp_dt
             X = X[cat_columns + num_columns].copy()
             if self._task.is_ts_forecast():
