@@ -20,7 +20,7 @@ import numpy as np
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
 from flaml.automl.ml import (
-    _align_log_loss_probabilities,
+    _align_class_probabilities,
     huggingface_metric_to_mode,
     sklearn_metric_name_set,
     spark_metric_name_dict,
@@ -941,7 +941,7 @@ class AutoML(BaseEstimator):
             # Match the estimator's encoded or native labels to the full class set.
             # Raw scores, leaf indices and feature contributions are not probabilities.
             labels = np.arange(len(self.classes_)) if self._label_transformer else self.classes_
-            proba = _align_log_loss_probabilities(proba, estimator, labels)
+            proba = _align_class_probabilities(proba, estimator, labels)
         return proba
 
     def preprocess(
@@ -1253,6 +1253,7 @@ class AutoML(BaseEstimator):
                     from .model import BaseEstimator as Estimator
 
                     self._trained_estimator = Estimator()
+                    self._classes = None
                     return training_duration
         if not best:
             return

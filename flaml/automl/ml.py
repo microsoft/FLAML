@@ -601,8 +601,8 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
     return metric_to_minimize, metrics_to_log
 
 
-def _align_log_loss_probabilities(predictions, estimator, labels):
-    """Match sampled classifiers' probability columns to sorted label order."""
+def _align_class_probabilities(predictions, estimator, labels):
+    """Match sampled classifiers' probability columns to the supplied label order."""
     if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
         return predictions
     classes = getattr(estimator, "classes_", None)
@@ -626,8 +626,7 @@ def _align_log_loss_probabilities(predictions, estimator, labels):
         )
     if probabilities.shape[1] != len(classes):
         return predictions
-    # sklearn's log_loss sorts labels, even when an explicit override is unsorted.
-    labels = np.unique(labels)
+    labels = np.asarray(labels)
     if np.array_equal(classes, labels):
         return predictions
     positions = {label: index for index, label in enumerate(labels)}
@@ -636,6 +635,13 @@ def _align_log_loss_probabilities(predictions, estimator, labels):
     aligned = np.zeros((len(probabilities), len(labels)), dtype=probabilities.dtype)
     aligned[:, [positions[label] for label in classes]] = probabilities
     return aligned
+
+
+def _align_log_loss_probabilities(predictions, estimator, labels):
+    """Align probability columns to sklearn log_loss's sorted label order."""
+    if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
+        return predictions
+    return _align_class_probabilities(predictions, estimator, np.unique(labels))
 
 
 def _eval_estimator(

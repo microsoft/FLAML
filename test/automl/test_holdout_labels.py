@@ -1,3 +1,4 @@
+import pickle
 from types import SimpleNamespace
 
 import numpy as np
@@ -8,7 +9,14 @@ from xgboost import XGBClassifier
 
 from flaml import AutoML
 from flaml.automl import ml
-from flaml.automl.model import BaseEstimator, LGBMEstimator, LRL1Classifier, SparkGBTEstimator, SparkNaiveBayesEstimator
+from flaml.automl.model import (
+    BaseEstimator,
+    LGBMEstimator,
+    LRL1Classifier,
+    RandomForestEstimator,
+    SparkGBTEstimator,
+    SparkNaiveBayesEstimator,
+)
 from flaml.automl.spark import psDataFrame, psSeries
 from flaml.automl.state import AutoMLState
 from flaml.automl.task.factory import task_factory
@@ -29,6 +37,73 @@ def _three_class_data(n=240, seed=0):
     X = rng.randn(n, 4)
     X[:, 0] += 2 * y
     return X, y
+
+
+class ReversedRandomForestEstimator(RandomForestEstimator):
+    @property
+    def classes_(self):
+        return super().classes_[::-1]
+
+    def predict_proba(self, X, **kwargs):
+        return super().predict_proba(X, **kwargs)[:, ::-1]
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("labels", [[10, 20], ["a", "z"]])
+def test_legacy_pickle_preserves_custom_class_order(input_mode, labels):
+    X, y = _three_class_data(n=120)
+    y = np.asarray(labels)[y % 2]
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    automl = AutoML()
+    automl.add_learner("reversed_rf", ReversedRandomForestEstimator)
+    automl.fit(
+        X,
+        y,
+        task="classification",
+        estimator_list=["reversed_rf"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=0,
+        metric="accuracy",
+        skip_transform=input_mode == "skip",
+    )
+    # Older serialized AutoML objects have no cached native class axis.
+    del automl._classes
+    restored = pickle.loads(pickle.dumps(automl))
+    expected_classes = np.asarray(labels)[::-1]
+    raw = restored.model.predict_proba(restored.preprocess(X))
+
+    np.testing.assert_array_equal(restored.classes_, expected_classes)
+    np.testing.assert_array_equal(restored.predict_proba(X), raw)
+    np.testing.assert_array_equal(restored.classes_[raw.argmax(axis=1)], restored.predict(X))
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+def test_empty_log_replay_clears_native_class_axis(tmp_path, input_mode):
+    X, y = _three_class_data(n=120)
+    y = 10 * (y + 1)
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    log_file = str(tmp_path / "native.log")
+    automl = AutoML()
+    automl.fit(X, y, log_file_name=log_file, skip_transform=input_mode == "skip", **SETTINGS)
+    np.testing.assert_array_equal(automl.classes_, [10, 20, 30])
+    duration = automl.retrain_from_log(
+        log_file,
+        X_train=X,
+        y_train=y,
+        task="classification",
+        time_budget=0,
+        n_jobs=1,
+        skip_transform=input_mode == "skip",
+    )
+
+    assert duration == 0
+    assert automl.model.model is None
+    assert automl._classes is None
+    with pytest.raises(AttributeError, match="classes_"):
+        _ = automl.classes_
 
 
 def test_log_loss_with_validation_set_missing_a_class():
