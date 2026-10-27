@@ -201,3 +201,31 @@ def test_add_time_idx_col_dst_transition_panel():
     res = add_time_idx_col(df)
     assert res["time_idx"].tolist() == [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]
     assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_nanosecond_precision():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Two nanosecond-resolution timestamps with interval ending in 3 ns
+    t1 = pd.Timestamp("2021-01-01")
+    t2 = pd.Timestamp("2021-05-01 00:00:00.000000003")
+    df = pd.DataFrame({TS_TIMESTAMP_COL: [t1, t2]})
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)
+
+
+def test_add_time_idx_col_irregular_spacing():
+    from flaml.automl.data import TS_TIMESTAMP_COL, add_time_idx_col
+
+    # Irregular dates Jan 1, 2, 4, 6 across panel groups (modal diff 2d, base step 1d)
+    dates = pd.to_datetime(["2021-01-01", "2021-01-02", "2021-01-04", "2021-01-06"])
+    df = pd.DataFrame(
+        {
+            TS_TIMESTAMP_COL: list(dates) + list(dates),
+            "group": ["A"] * 4 + ["B"] * 4,
+        }
+    )
+    res = add_time_idx_col(df)
+    assert res["time_idx"].tolist() == [0, 1, 3, 5, 0, 1, 3, 5]
+    assert np.issubdtype(res["time_idx"].dtype, np.integer)

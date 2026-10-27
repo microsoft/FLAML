@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import math
 import os
 import random
 import re
@@ -257,17 +258,24 @@ def add_time_idx_col(X):
         if freq is not None:
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL]).astype(int)
         else:
-            # Fallback using modal difference for irregular series or < 3 dates
-            unique_ts = unique_dates.astype("int64")
-            diffs = unique_ts.diff().dropna()
+            # Fallback for irregular series or < 3 dates: preserve integer precision and avoid collapsing
+            unique_ts = unique_dates.astype("int64").to_numpy()
+            diffs = np.diff(unique_ts)
             if len(diffs) > 0:
-                mode_diff = diffs.mode()
-                freq_val = int(mode_diff.iloc[0]) if len(mode_diff) > 0 else 1
+                freq_val = math.gcd(*[int(d) for d in diffs])
+                if freq_val <= 0:
+                    freq_val = 1
             else:
                 freq_val = 1
-            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64")
-            min_ts = unique_ts.min()
-            X["time_idx"] = ((all_timestamps - min_ts) // freq_val).astype(int)
+            all_timestamps = X[TS_TIMESTAMP_COL].astype("int64").to_numpy()
+            min_ts = unique_ts[0] if len(unique_ts) > 0 else 0
+            diff_from_min = all_timestamps - min_ts
+            if (diff_from_min % freq_val != 0).any():
+                raise ValueError(
+                    f"Timestamp intervals in '{TS_TIMESTAMP_COL}' are not integral multiples "
+                    f"of the base step ({freq_val})."
+                )
+            X["time_idx"] = (diff_from_min // freq_val).astype(int)
     return X
 
 
