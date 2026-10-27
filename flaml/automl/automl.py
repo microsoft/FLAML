@@ -800,7 +800,11 @@ class AutoML(BaseEstimator):
 
     @property
     def classes_(self):
-        """A numpy array of full training class labels, including for sparse or untransformed inputs."""
+        """Class labels from the label transformer or estimator.
+
+        For local tabular classification, includes the full training class set,
+        including for sparse or untransformed inputs.
+        """
         attr = getattr(self, "_label_transformer", None)
         if attr:
             return attr.classes_
@@ -907,7 +911,8 @@ class AutoML(BaseEstimator):
                 the searched learners, such as per_device_eval_batch_size.
 
         Returns:
-            A numpy array of shape n * c. c is the  # classes. Each element at
+            For local tabular classification, a numpy array of shape n * c,
+            where c is the number of classes. Each element at
             (i, j) is the probability for instance i to be in class `classes_[j]`.
             For tabular classification, classes absent from a retained sampled model
             receive zero probability, including with sparse inputs or disabled
@@ -917,6 +922,7 @@ class AutoML(BaseEstimator):
             raw output of `automl.model.predict_proba(automl.preprocess(X))`.
             Requested raw scores, leaf indices and feature contributions are returned
             unchanged from the backend instead of being aligned as probabilities.
+            Spark outputs are returned unchanged in their backend format.
         """
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
@@ -924,9 +930,14 @@ class AutoML(BaseEstimator):
             return None
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
-        if self._state.task.name in ("classification", "binary", "multiclass") and not any(
-            pred_kwargs.get(option) for option in ("raw_score", "pred_leaf", "pred_contrib")
-        ):
+        if isinstance(proba, (psDataFrame, psSeries)):
+            return proba
+        # A failed task change can leave the previous classifier installed.
+        # Keep its retained native class axis aligned until the model is replaced.
+        if (
+            self._state.task.name in ("classification", "binary", "multiclass")
+            or getattr(self, "_classes", None) is not None
+        ) and not any(pred_kwargs.get(option) for option in ("raw_score", "pred_leaf", "pred_contrib")):
             # Match the estimator's encoded or native labels to the full class set.
             # Raw scores, leaf indices and feature contributions are not probabilities.
             labels = np.arange(len(self.classes_)) if self._label_transformer else self.classes_
@@ -1291,6 +1302,7 @@ class AutoML(BaseEstimator):
             best_config,
             sample_size=sample_size,
         )[0]
+        self._classes = self._state.native_classes
         logger.info("retrain from log succeeded")
         return training_duration
 
@@ -1866,7 +1878,7 @@ class AutoML(BaseEstimator):
     def _prepare_data(self, eval_method, split_ratio, n_splits):
         # Reset on every fit, including when the same AutoML changes tasks.
         self._state.holdout_labels = None
-        self._classes = None
+        self._state.native_classes = None
         self._state.task.prepare_data(
             self._state,
             self._X_train_all,
@@ -1897,7 +1909,7 @@ class AutoML(BaseEstimator):
             if eval_method == "holdout":
                 self._state.holdout_labels = labels
             if native_class_axis:
-                self._classes = labels
+                self._state.native_classes = labels
         self.data_size_full = self._state.data_size_full
 
     def fit(
@@ -3317,6 +3329,9 @@ class AutoML(BaseEstimator):
         self._iter_per_learner_fullsize = {e: 0 for e in self.estimator_list}
         self._fullsize_reached = False
         self._trained_estimator = None
+        # Publish the prepared axis only once the previous model is discarded.
+        # Setup errors before search must not relabel the still-installed model.
+        self._classes = self._state.native_classes
         self._best_estimator = None
         self._retrained_config = {}
         self._warn_threshold = 10

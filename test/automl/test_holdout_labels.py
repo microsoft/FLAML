@@ -8,8 +8,10 @@ from xgboost import XGBClassifier
 
 from flaml import AutoML
 from flaml.automl import ml
-from flaml.automl.model import LGBMEstimator, LRL1Classifier
+from flaml.automl.model import BaseEstimator, LGBMEstimator, LRL1Classifier, SparkGBTEstimator, SparkNaiveBayesEstimator
+from flaml.automl.spark import psDataFrame, psSeries
 from flaml.automl.state import AutoMLState
+from flaml.automl.task.factory import task_factory
 
 SETTINGS = {
     "task": "classification",
@@ -432,6 +434,7 @@ def test_single_class_xgboost_public_probabilities_preserve_nan(learner, input_m
         ("lgbm", [0, 1], 0),
         ("lgbm", [0, 1], 1),
         ("lgbm", [10, 20, 30], 20),
+        ("lgbm", ["a", "b", "c"], "b"),
         ("xgboost", [0, 1, 2], 0),
         ("xgb_limitdepth", [0, 1, 2], 0),
     ],
@@ -570,13 +573,37 @@ def test_native_class_axis_does_not_change_callable_metric_labels(input_mode, ev
 
 
 @pytest.mark.parametrize("input_mode", ["skip", "sparse"])
-def test_native_class_axis_refreshed_when_refitting(input_mode):
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+@pytest.mark.parametrize("string_labels", [False, True])
+def test_native_class_axis_refreshed_when_refitting(monkeypatch, input_mode, eval_method, string_labels):
     X, y = _three_class_data()
     if input_mode == "sparse":
         X = csr_matrix(X)
+    from flaml.automl import automl as automl_module
+
+    calls = []
+    original = automl_module.len_labels
+
+    def counting(values, *args, **kwargs):
+        calls.append(len(values))
+        return original(values, *args, **kwargs)
+
+    monkeypatch.setattr(automl_module, "len_labels", counting)
     automl = AutoML()
     for current_y in (10 * (y + 1), (y % 2) + 5):
-        automl.fit(X, current_y, metric="log_loss", skip_transform=input_mode == "skip", **SETTINGS)
+        if string_labels:
+            current_y = current_y.astype(str)
+        calls.clear()
+        automl.fit(
+            X,
+            current_y,
+            metric="log_loss",
+            eval_method=eval_method,
+            n_splits=3,
+            skip_transform=input_mode == "skip",
+            **SETTINGS,
+        )
+        assert calls == [len(y)]
         np.testing.assert_array_equal(automl.classes_, np.unique(current_y))
         np.testing.assert_array_equal(automl.predict_proba(X), automl.model.predict_proba(automl.preprocess(X)))
     automl.fit(
@@ -595,6 +622,144 @@ def test_native_class_axis_refreshed_when_refitting(input_mode):
     automl.fit(X, y, task="classification", skip_transform=False, **{k: v for k, v in SETTINGS.items() if k != "task"})
     assert automl._classes is None
     np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+def test_rejected_native_refit_preserves_installed_class_axis(input_mode, eval_method):
+    X, y = _three_class_data(n=120)
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    settings = {
+        **SETTINGS,
+        "estimator_list": ["lgbm"],
+        "max_iter": 2,
+        "eval_method": eval_method,
+        "n_splits": 3,
+        "skip_transform": input_mode == "skip",
+    }
+    automl = AutoML()
+    automl.fit(X, y % 2, metric="log_loss", **settings)
+    installed = automl.model
+    classes = automl.classes_.copy()
+    probabilities = automl.predict_proba(X)
+    assert probabilities.shape == (120, 2)
+
+    with pytest.raises(ValueError, match="only supports binary classification"):
+        automl.fit(X, 10 * (y + 1), metric="roc_auc", **settings)
+
+    assert automl.model is installed
+    np.testing.assert_array_equal(automl.predict_proba(X), probabilities)
+    np.testing.assert_array_equal(automl.classes_, classes)
+    assert automl.predict_proba(X).shape[1] == len(automl.classes_)
+
+    automl.fit(X, 10 * (y + 1), metric="log_loss", **settings)
+    assert automl.model is not installed
+    np.testing.assert_array_equal(automl.classes_, [10, 20, 30])
+    assert automl.predict_proba(X).shape == (120, 3)
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+def test_rejected_task_change_preserves_sampled_probability_axis(input_mode):
+    rng = np.random.RandomState(131)
+    X = rng.normal(size=(3000, 4))
+    y = np.arange(len(X)) % 2
+    y[-1] = 2
+    X_val = rng.normal(size=(80, 4))
+    if input_mode == "sparse":
+        X, X_val = csr_matrix(X), csr_matrix(X_val)
+    settings = dict(
+        estimator_list=["lgbm"],
+        n_jobs=1,
+        verbose=0,
+        max_iter=2,
+        auto_augment=False,
+        skip_transform=input_mode == "skip",
+        retrain_full=False,
+    )
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(80) % 2,
+        task="classification",
+        metric="log_loss",
+        sample=True,
+        min_sample_size=50,
+        starting_points={},
+        seed=1,
+        **settings,
+    )
+    installed = automl.model
+    assert len(installed.classes_) == 2
+    classes = automl.classes_.copy()
+    probabilities = automl.predict_proba(X_val)
+    assert probabilities.shape == (80, 3)
+
+    with pytest.raises(ValueError, match="metric.*parameter"):
+        automl.fit(X, np.arange(3000, dtype=float), task="regression", metric=42, **settings)
+
+    assert automl.model is installed
+    np.testing.assert_array_equal(automl.classes_, classes)
+    np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
+
+
+@pytest.mark.parametrize("estimator_class", [SparkNaiveBayesEstimator, SparkGBTEstimator])
+@pytest.mark.parametrize("return_all", [False, True])
+def test_spark_probability_facade_bypasses_missing_class_metadata(monkeypatch, estimator_class, return_all):
+    # Controlled public facade: no Spark training or native Spark runtime is required.
+    # Use repository Spark types without constructing a live Spark session.
+    output = object.__new__(psDataFrame if return_all else psSeries)
+    estimator = estimator_class.__new__(estimator_class)
+    BaseEstimator.__init__(estimator, task="binary")
+    estimator._model = SimpleNamespace()  # Like these Spark models, has no classes_.
+    with pytest.raises(AttributeError):
+        _ = estimator.classes_
+
+    def predict_proba(X, **kwargs):
+        assert kwargs == {"return_all": return_all}
+        return output
+
+    monkeypatch.setattr(estimator, "predict_proba", predict_proba)
+    automl = AutoML()
+    automl._state.task = task_factory("classification")
+    automl._transformer = automl._label_transformer = None
+    automl.preserve_checkpoint = True
+    automl._trained_estimator = estimator
+    assert automl.predict_proba(np.zeros((2, 3)), return_all=return_all) is output
+
+
+@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+def test_native_class_axis_retrain_from_log(tmp_path, input_mode, eval_method):
+    X, y = _three_class_data()
+    if input_mode == "sparse":
+        X = csr_matrix(X)
+    y = np.array(["a", "b", "c"])[y]
+    log_file = str(tmp_path / "native.log")
+    automl = AutoML()
+    settings = {**SETTINGS, "estimator_list": ["lgbm"], "max_iter": 2, "skip_transform": input_mode == "skip"}
+    automl.fit(X, y, metric="log_loss", eval_method=eval_method, n_splits=3, log_file_name=log_file, **settings)
+
+    # Replaying on an existing AutoML must replace its old native class axis.
+    automl.fit(X, np.arange(len(y)) % 2, metric="log_loss", **settings)
+    automl.retrain_from_log(
+        log_file,
+        X_train=X,
+        y_train=y,
+        task="classification",
+        eval_method=eval_method,
+        n_splits=3,
+        train_full=True,
+        record_id=0,
+        n_jobs=1,
+        skip_transform=input_mode == "skip",
+    )
+    np.testing.assert_array_equal(automl.classes_, ["a", "b", "c"])
+    probabilities = automl.predict_proba(X)
+    assert probabilities.shape == (len(y), 3)
+    np.testing.assert_array_equal(probabilities, automl.model.predict_proba(automl.preprocess(X)))
 
 
 @pytest.mark.parametrize("output", ["raw_score", "pred_leaf", "pred_contrib", None])
