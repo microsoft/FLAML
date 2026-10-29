@@ -44,8 +44,8 @@ executing==2.3.0
 fastapi==0.162.0
 fastjsonschema==2.22.2
 filelock==4.2.4
--e git+https://github.com/microsoft/FLAML@08b26aa687cebab2be611e74d5d1deee27893159#egg=FLAML
-fonttools==4.67.0
+-e git+https://github.com/microsoft/FLAML@5252772d8d17040ce31cb639fc3daa993873a2b7#egg=FLAML
+fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
 frozenlist==1.8.0
@@ -56,7 +56,7 @@ google-auth==2.62.0
 graphviz==0.21
 h11==0.16.0
 hcrystalball==0.1.12
-hf-xet==1.7.0
+hf-xet==1.7.1
 httpcore==1.0.9
 httpcore2==2.16.0
 httpx==0.28.1
@@ -84,7 +84,7 @@ jupyter==1.1.1
 jupyter-console==6.6.3
 jupyter-events==0.12.1
 jupyter-lsp==2.3.1
-jupyter_builder==1.2.3
+jupyter_builder==1.2.4
 jupyter_client==8.10.0
 jupyter_core==5.9.1
 jupyter_server==2.21.1
@@ -112,7 +112,7 @@ mlflow-skinny==2.22.1
 mpmath==1.3.0
 multidict==7.2.1
 multiprocess==0.70.19
-narwhals==2.27.1
+narwhals==2.28.0
 nbclient==0.11.0
 nbconvert==7.17.2
 nbformat==5.11.1
@@ -146,7 +146,7 @@ protobuf==6.33.6
 psutil==7.2.2
 pure_eval==0.2.4
 pyarrow==25.0.1
-pyasn1==0.6.4
+pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.12
 pycryptodome==4.2.0
@@ -156,14 +156,14 @@ Pygments==2.21.0
 pyluach==2.3.0
 PyMeeus==0.5.12
 pyparsing==3.3.3
-pytest==9.1.1
+pytest==9.2.0
 pytest-rerunfailures==16.7
 python-dateutil==3.0.0
-python-discovery==1.6.4
+python-discovery==1.6.7
 python-json-logger==4.2.0
 pytorch-forecasting==1.8.0
 pytorch-lightning==2.6.6
-pywinpty==3.1.0
+pywinpty==3.1.2
 PyYAML==6.0.3
 pyzmq==27.2.0
 referencing==0.37.0
@@ -199,9 +199,9 @@ thop==0.1.1.post2209072238
 threadpoolctl==3.7.0
 tinycss2==1.5.1
 tokenizers==0.23.3
-torch==2.14.1
+torch==2.15.0
 torchmetrics==1.9.0
-torchvision==0.29.1
+torchvision==0.29.2
 tornado==6.6
 tqdm==4.70.1
 traitlets==5.16.1
@@ -210,7 +210,7 @@ truststore==0.10.5
 typer==0.27.3
 typing-inspection==0.4.4
 typing_extensions==4.16.0
-tzdata==2026.5
+tzdata==2026.6
 uri-template==1.3.0
 urllib3==2.8.0
 userpath==1.9.2
