@@ -16,7 +16,7 @@ packaging==24.2
 pandas==3.1.0
 psutil==7.2.2
 pytest-rerunfailures==16.7
-pytest==9.1.1
+pytest==9.2.0
 requests==2.34.2
 rouge_score==0.1.2
 scikit-learn==1.8.0
@@ -26,4 +26,4 @@ statsmodels==0.15.0
 tensorboardX==2.6.5
 transformers==5.21.0
 xgboost==3.2.0
-Current commit hash: 4cd18aa61c575855fdba75d1ae20cf032c1f88c7
+Current commit hash: 8ba16f08a5433e020a299f964b897ff731fe74db
