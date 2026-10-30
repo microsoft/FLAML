@@ -268,6 +268,10 @@ def add_time_idx_col(X):
             # regular series: a step is the position among the unique timestamps, so calendar
             # frequencies (month ends) and tz-aware dates across DST are counted correctly
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])
+        elif (month_steps := _calendar_month_steps(dates)) is not None:
+            # month-end (or same day of month) series with gaps: count calendar months, since
+            # months differ in length and an elapsed-time step would turn months into days
+            X["time_idx"] = month_steps[pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])]
         else:
             # irregular series: the step is the largest interval that divides every gap,
             # so distinct timestamps never share an index and gaps are kept
@@ -281,6 +285,19 @@ def add_time_idx_col(X):
     return X
 
 
+def _calendar_month_steps(dates):
+    """Month steps (or multiples, e.g. quarters) for dates that are all month ends, or all the same
+    day of the month, at one time of day; None for any other series."""
+    wall = dates.tz_localize(None) if dates.tz is not None else dates
+    if len(wall) < 2 or (wall - wall.normalize()).nunique() != 1:
+        return None
+    if not (wall.is_month_end.all() or wall.day.nunique() == 1):
+        return None
+    months = np.asarray(wall.year * 12 + wall.month, dtype="int64")
+    steps = months - months[0]
+    return steps // int(np.gcd.reduce(np.diff(steps)))
+
+
 def _has_whole_day_steps(dates):
     gaps = np.diff(dates.asi8)
     day = np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns"))
@@ -289,7 +306,8 @@ def _has_whole_day_steps(dates):
 
 def _is_regular_grid(dates, freq):
     try:
-        grid = pd.date_range(dates[0], dates[-1], freq=freq)
+        # one candidate per date: an endpoint-bounded range can be huge for a sub-second freq
+        grid = pd.date_range(dates[0], periods=len(dates), freq=freq)
     except Exception:
         # e.g. an ambiguous or nonexistent local time on the generated grid (older pandas
         # raises pytz errors that are not ValueErrors)
