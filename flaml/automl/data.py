@@ -252,6 +252,10 @@ def add_time_idx_col(X):
         # older pandas cannot infer calendar frequencies such as business days across DST
         # from tz-aware dates, so try the local wall-clock times
         freq = pd.infer_freq(dates.tz_localize(None))
+        # wall-clock regularity can hide a missing DST fold hour, so only keep the
+        # frequency if it regenerates the tz-aware timestamps exactly
+        if freq is not None and not _is_regular_grid(dates, freq):
+            freq = None
     if freq == "MS":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
     elif freq == "Y":
@@ -265,11 +269,32 @@ def add_time_idx_col(X):
             # frequencies (month ends) and tz-aware dates across DST are counted correctly
             X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])
         else:
-            # taking minimum difference in timestamp
-            timestamps = unique_dates.astype("int64")
-            freq = int(timestamps.diff().mode().iloc[0])
-            X["time_idx"] = (X[TS_TIMESTAMP_COL].astype("int64") - timestamps.min()) // freq
+            # irregular series: the step is the largest interval that divides every gap,
+            # so distinct timestamps never share an index and gaps are kept
+            timestamps = X[TS_TIMESTAMP_COL]
+            if dates.tz is not None and _has_whole_day_steps(dates.tz_localize(None)):
+                # daily data follows the wall clock, so a 23 or 25 hour day across DST is one step
+                timestamps, dates = timestamps.dt.tz_localize(None), dates.tz_localize(None)
+            values = dates.asi8
+            freq = int(np.gcd.reduce(np.diff(values)))
+            X["time_idx"] = (timestamps.astype("int64") - values[0]) // freq
     return X
+
+
+def _has_whole_day_steps(dates):
+    gaps = np.diff(dates.asi8)
+    day = np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns"))
+    return bool((gaps > 0).all()) and np.gcd.reduce(gaps) % day == 0
+
+
+def _is_regular_grid(dates, freq):
+    try:
+        grid = pd.date_range(dates[0], dates[-1], freq=freq)
+    except Exception:
+        # e.g. an ambiguous or nonexistent local time on the generated grid (older pandas
+        # raises pytz errors that are not ValueErrors)
+        return False
+    return grid.equals(dates)
 
 
 class DataTransformer:
