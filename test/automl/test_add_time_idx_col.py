@@ -86,6 +86,28 @@ def test_sparse_quarter_end_time_idx_counts_quarters():
     assert X["time_idx"].tolist() == [0, 1, 3, 4]
 
 
+def test_tz_aware_same_day_of_month_time_idx_keeps_both_dst_fold_hours():
+    # 01:30 on the 7th each month, and the 7th of November 2021 has two 01:30s in New York
+    dates = list(
+        pd.to_datetime(["2021-10-07 05:30", "2021-11-07 05:30", "2021-11-07 06:30"])
+        .tz_localize("UTC")
+        .tz_convert("America/New_York")
+    )
+    X = pd.DataFrame({"ds": dates * 2, "group": ["a"] * 3 + ["b"] * 3}).sample(frac=1, random_state=0)
+    X = add_time_idx_col(X)
+    assert X.sort_values(["group", "ds"])["time_idx"].tolist() == [0, 744, 745] * 2
+
+
+def test_tz_aware_dst_fold_hours_then_same_day_of_month_get_distinct_time_idx():
+    dates = list(
+        pd.to_datetime(["2021-11-07 05:30", "2021-11-07 06:30", "2021-12-07 06:30", "2022-01-07 06:30"])
+        .tz_localize("UTC")
+        .tz_convert("America/New_York")
+    )
+    X = add_time_idx_col(pd.DataFrame({"ds": dates}))
+    assert X["time_idx"].tolist() == [0, 1, 721, 1465]
+
+
 def test_regular_grid_check_builds_one_candidate_per_date(monkeypatch):
     # 1 ms apart on the wall clock, but across the New York fall-back hour
     dates = list(

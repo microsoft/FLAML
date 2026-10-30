@@ -294,6 +294,9 @@ def _calendar_month_steps(dates):
     if not (wall.is_month_end.all() or wall.day.nunique() == 1):
         return None
     months = np.asarray(wall.year * 12 + wall.month, dtype="int64")
+    if (np.diff(months) <= 0).any():
+        # two dates in one month, e.g. both DST fold hours of the same day, need distinct steps
+        return None
     steps = months - months[0]
     return steps // int(np.gcd.reduce(np.diff(steps)))
 
