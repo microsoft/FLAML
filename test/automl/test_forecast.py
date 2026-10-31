@@ -170,6 +170,166 @@ def test_average_forecasters_set_training_boundary(estimator_name):
     assert estimator.train_end_date == dates[-1]
 
 
+def _weekly_dataset():
+    from flaml.automl.time_series import TimeSeriesDataset
+
+    t = np.arange(84)
+    weekly = np.array([0.0, 5.0, 2.0, -3.0, 8.0, -6.0, 1.0])
+    dates = pd.date_range("2024-01-01", periods=84, freq="D")
+    train_data = pd.DataFrame({"ds": dates, "y": 100 + 0.1 * t + weekly[t % 7]})
+    future = pd.DataFrame({"ds": pd.date_range(dates[-1] + pd.Timedelta(days=1), periods=14, freq="D")})
+    return TimeSeriesDataset(train_data, time_col="ds", target_names="y"), train_data["y"], future
+
+
+def test_naive_forecasts_last_observation():
+    from flaml.automl.time_series import Naive
+
+    dataset, y, future = _weekly_dataset()
+    estimator = Naive()
+    estimator.fit(dataset)
+
+    np.testing.assert_allclose(estimator.predict(future), y.iloc[-1])
+    np.testing.assert_allclose(estimator.predict(3), y.iloc[-1])
+
+
+def test_seasonal_naive_repeats_last_season():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, y, future = _weekly_dataset()
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    last_season = y.iloc[-7:].to_numpy()
+    np.testing.assert_allclose(estimator.predict(future), np.tile(last_season, 2))
+    np.testing.assert_allclose(estimator.predict(7), last_season)
+
+
+def test_seasonal_naive_predicts_in_sample_one_season_back():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, y, _ = _weekly_dataset()
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    in_sample = dataset.train_data[["ds"]].iloc[20:40]
+    np.testing.assert_allclose(estimator.predict(in_sample), y.iloc[13:33])
+
+    sparse = dataset.train_data[["ds"]].iloc[[20, 22, 30]]
+    np.testing.assert_allclose(estimator.predict(sparse), y.iloc[[13, 15, 23]])
+
+
+def test_seasonal_naive_keeps_later_missing_lags_missing():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    y = np.arange(1.0, 19.0)
+    y[3] = np.nan  # January 4 is missing
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=18, freq="D"), "y": y})
+    estimator = SeasonalNaive(season=3)
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    # Only the first season falls back to the first observation; January 7 repeats the missing January 4
+    pred = estimator.predict(data[["ds"]].iloc[[1, 6, 7]])
+    np.testing.assert_allclose(pred, [1.0, np.nan, 5.0])
+
+
+def test_seasonal_naive_integer_horizon_starts_after_training_data():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    _, y, _ = _weekly_dataset()
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=len(y), freq="D"), "y": y})
+    # 10 held-out rows, not a multiple of the season, so a forecast that started after them would be out of phase
+    dataset = TimeSeriesDataset(data.iloc[:70], time_col="ds", target_names="y", test_data=data.iloc[70:80])
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+
+    np.testing.assert_allclose(estimator.predict(7), y.iloc[63:70])
+
+
+@pytest.mark.parametrize("season", [0, -3, 2.5])
+def test_seasonal_naive_rejects_invalid_season(season):
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, _, _ = _weekly_dataset()
+    with pytest.raises(ValueError, match="season must be a positive integer"):
+        SeasonalNaive(season=season).fit(dataset)
+
+
+def test_seasonal_naive_requires_a_full_season():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, _, _ = _weekly_dataset()
+    with pytest.raises(ValueError, match="at least season=100"):
+        SeasonalNaive(season=100).fit(dataset)
+
+
+def test_seasonal_average_uses_tuned_season():
+    from flaml.automl.time_series import SeasonalAverage
+
+    dataset, _, _ = _weekly_dataset()
+    estimator = SeasonalAverage(season=7)
+    estimator.fit(dataset)
+
+    assert estimator.season == 7
+
+
+def test_seasonal_search_space_is_bounded_by_training_history():
+    from flaml.automl.time_series import SeasonalNaive, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=5, freq="D"), "y": np.arange(5.0)})
+    dataset = TimeSeriesDataset(data, time_col="ds", target_names="y")
+    space = SeasonalNaive.search_space(data=dataset, task="ts_forecast", pred_horizon=7)["season"]
+
+    assert space["init_value"] == 5
+    assert space["domain"].upper == 6  # exclusive, so seasons 1 to 5
+
+
+def test_seasonal_average_caps_lag_order_on_short_training_data():
+    from flaml.automl.time_series import SeasonalAverage, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=11, freq="D"), "y": np.sin(np.arange(11.0))})
+    estimator = SeasonalAverage(season=6)
+    # 11 rows cannot estimate 6 lags and a constant; the lag order is selected up to (11 - 2) // 2 = 4 instead
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    assert estimator.season == 6
+
+
+def test_seasonal_average_leaves_residual_degrees_of_freedom():
+    from flaml.automl.time_series import SeasonalAverage, TimeSeriesDataset
+
+    data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=5, freq="D"), "y": [0.0, 0.0, 1.0, 0.0, 0.0]})
+    estimator = SeasonalAverage(season=2)
+    # Order selection picks AR(2) here, which on 5 rows leaves 3 observations for 2 lags and a constant;
+    # the cap allows at most (5 - 2) // 2 = 1 lag
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+
+    assert estimator._model.df_resid > 0
+
+
+@pytest.mark.parametrize("estimator", ["snaive", "savg"])
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+def test_seasonal_forecasters_fit_short_series(estimator, eval_method):
+    # 36 rows with period 6 leave 12 training rows in the first cross-validation fold, too few for 6 lags
+    n = 36
+    data = pd.DataFrame(
+        {"ds": pd.date_range("2024-01-01", periods=n, freq="D"), "y": 10 + np.sin(np.arange(n)) + 0.01 * np.arange(n)}
+    )
+    automl = AutoML()
+    automl.fit(
+        dataframe=data,
+        label="y",
+        task="ts_forecast",
+        estimator_list=[estimator],
+        eval_method=eval_method,
+        period=6,
+        max_iter=5,
+        time_budget=10,
+        verbose=0,
+    )
+
+    assert 1 <= automl.best_config["season"] <= 6
+
+
 def test_numpy():
     X_train = np.arange("2014-01", "2021-01", dtype="datetime64[M]")
     y_train = np.random.random(size=len(X_train))
