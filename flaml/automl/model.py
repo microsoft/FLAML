@@ -2020,6 +2020,8 @@ class ExtraTreesEstimator(RandomForestEstimator):
 class LRL1Classifier(SKLearnEstimator):
     """The class for tuning Logistic Regression with L1 regularization."""
 
+    limit_resource = True
+
     @classmethod
     def search_space(cls, **params):
         return {
