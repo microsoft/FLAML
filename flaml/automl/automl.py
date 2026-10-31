@@ -290,8 +290,13 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            append_log: boolean, default=False | Whetehr to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to append records to an existing
+                log file with continuing record IDs. False overwrites the file.
+                Appending logs does not resume the previous search. Independent fits
+                writing concurrently to the same file can mix or corrupt records,
+                produce duplicate IDs, or overwrite each other's logs. Use a distinct
+                log_file_name for each concurrent fit; it can be passed separately to
+                each fit() call, including repeated calls on one AutoML instance.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             resampler: object, default=None | An imbalanced-learn-compatible resampler
@@ -2118,8 +2123,13 @@ class AutoML(BaseEstimator):
             mlflow_exp_name: str, default=None | The name of the mlflow experiment. This should be specified if
                 enable mlflow autologging on Spark. Otherwise it will log all the results into the experiment of the
                 same name as the basename of main entry file.
-            append_log: boolean, default=False | Whetehr to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to append records to an existing
+                log file with continuing record IDs. False overwrites the file.
+                Appending logs does not resume the previous search. Independent fits
+                writing concurrently to the same file can mix or corrupt records,
+                produce duplicate IDs, or overwrite each other's logs. Use a distinct
+                log_file_name for each concurrent fit; it can be passed separately to
+                each fit() call, including repeated calls on one AutoML instance.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample
