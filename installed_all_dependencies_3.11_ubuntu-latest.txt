@@ -45,8 +45,8 @@ evaluate==0.4.6
 executing==2.3.0
 fastapi==0.162.0
 fastjsonschema==2.22.2
-filelock==4.2.5
--e git+https://github.com/microsoft/FLAML@4901cf9eaff65e75beba2c41e1f5c8e258b4ea67#egg=FLAML
+filelock==4.2.6
+-e git+https://github.com/microsoft/FLAML@0ffb76f661a88073ec18e6de63549f93887b0f68#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -155,7 +155,7 @@ parso==0.8.7
 patsy==1.0.3
 pexpect==4.9.0
 pillow==13.0.0
-platformdirs==4.14.0
+platformdirs==4.14.2
 plotly==7.1.0
 pluggy==1.7.0
 pre_commit==4.7.0
