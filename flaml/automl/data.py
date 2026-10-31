@@ -246,7 +246,16 @@ def concat(X1, X2):
 def add_time_idx_col(X):
     unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
     # assume no missing timestamps
-    freq = pd.infer_freq(unique_dates)
+    dates = pd.DatetimeIndex(unique_dates)
+    freq = pd.infer_freq(dates)
+    if freq is None and dates.tz is not None:
+        # older pandas cannot infer calendar frequencies such as business days across DST
+        # from tz-aware dates, so try the local wall-clock times
+        freq = pd.infer_freq(dates.tz_localize(None))
+        # wall-clock regularity can hide a missing DST fold hour, so only keep the
+        # frequency if it regenerates the tz-aware timestamps exactly
+        if freq is not None and not _is_regular_grid(dates, freq):
+            freq = None
     if freq == "MS":
         X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
     elif freq == "Y":
@@ -255,12 +264,58 @@ def add_time_idx_col(X):
         # using time frequency to generate all time stamps and then indexing for time_idx
         # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
         # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        # taking minimum difference in timestamp
-        timestamps = unique_dates.view("int64")
-        freq = int(timestamps.diff().mode())
-        X["time_idx"] = timestamps - timestamps.min() / freq
-        X["time_idx"] = X["time_idx"].astype("int")
+        if freq is not None:
+            # regular series: a step is the position among the unique timestamps, so calendar
+            # frequencies (month ends) and tz-aware dates across DST are counted correctly
+            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])
+        elif (month_steps := _calendar_month_steps(dates)) is not None:
+            # month-end (or same day of month) series with gaps: count calendar months, since
+            # months differ in length and an elapsed-time step would turn months into days
+            X["time_idx"] = month_steps[pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])]
+        else:
+            # irregular series: the step is the largest interval that divides every gap,
+            # so distinct timestamps never share an index and gaps are kept
+            timestamps = X[TS_TIMESTAMP_COL]
+            if dates.tz is not None and _has_whole_day_steps(dates.tz_localize(None)):
+                # daily data follows the wall clock, so a 23 or 25 hour day across DST is one step
+                timestamps, dates = timestamps.dt.tz_localize(None), dates.tz_localize(None)
+            values = dates.asi8
+            freq = int(np.gcd.reduce(np.diff(values)))
+            X["time_idx"] = (timestamps.astype("int64") - values[0]) // freq
     return X
+
+
+def _calendar_month_steps(dates):
+    """Month steps (or multiples, e.g. quarters) for dates that are all month ends, or all the same
+    day of the month, at one time of day; None for any other series."""
+    wall = dates.tz_localize(None) if dates.tz is not None else dates
+    if len(wall) < 2 or (wall - wall.normalize()).nunique() != 1:
+        return None
+    if not (wall.is_month_end.all() or wall.day.nunique() == 1):
+        return None
+    months = np.asarray(wall.year * 12 + wall.month, dtype="int64")
+    if (np.diff(months) <= 0).any():
+        # two dates in one month, e.g. both DST fold hours of the same day, need distinct steps
+        return None
+    steps = months - months[0]
+    return steps // int(np.gcd.reduce(np.diff(steps)))
+
+
+def _has_whole_day_steps(dates):
+    gaps = np.diff(dates.asi8)
+    day = np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns"))
+    return bool((gaps > 0).all()) and np.gcd.reduce(gaps) % day == 0
+
+
+def _is_regular_grid(dates, freq):
+    try:
+        # one candidate per date: an endpoint-bounded range can be huge for a sub-second freq
+        grid = pd.date_range(dates[0], periods=len(dates), freq=freq)
+    except Exception:
+        # e.g. an ambiguous or nonexistent local time on the generated grid (older pandas
+        # raises pytz errors that are not ValueErrors)
+        return False
+    return grid.equals(dates)
 
 
 class DataTransformer:
