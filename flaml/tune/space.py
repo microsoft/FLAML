@@ -340,6 +340,10 @@ def normalize(
             sampler = sampler.get_sampler()
         else:
             quantize = None
+        if isinstance(domain, sample.Integer) and quantize is None and domain.upper - 1 == domain.lower:
+            # Exclusive integer bounds can describe a single legal value.
+            config_norm[key] = 0.5
+            continue
         if str(sampler) == "LogUniform":
             upper = domain.upper - (isinstance(domain, sample.Integer) & (quantize is None))
             config_norm[key] = np.log(value / domain.lower) / np.log(upper / domain.lower)
