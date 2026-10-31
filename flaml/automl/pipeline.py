@@ -86,14 +86,14 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
         if isinstance(X, TimeSeriesDataset):
-            return TimeSeriesDataset(
-                self._transform_forecast_frame(X.train_data),
-                X.time_col,
-                X.target_names,
-                time_idx=X.time_idx,
-                test_data=self._transform_forecast_frame(X.test_data) if len(X.test_data) else X.test_data.copy(),
-            )
+            return self._transform_validation_data(X)[0]
         return self.task_.preprocess(X, self.transformer_)
+
+    def _transform_validation_data(self, X):
+        from flaml.automl.time_series.ts_data import _transform_ts_dataset
+
+        check_is_fitted(self)
+        return _transform_ts_dataset(X, self._transform_forecast_frame)
 
     def _transform_forecast_frame(self, frame):
         targets = self.task_.target_names
@@ -156,15 +156,16 @@ class AutoMLPipeline(Pipeline):
             codes = np.asarray(prediction)
             if codes.ndim == 2 and codes.shape[1] == 1:
                 codes = codes[:, 0]
+            expected_rows = None
             if isinstance(X, (int, np.integer)):
                 expected_rows = int(X)
-            elif hasattr(X, "shape"):
+            elif hasattr(X, "shape") and len(X.shape) > 1:
                 expected_rows = X.shape[0]
-            elif isinstance(X, list) and X and not isinstance(X[0], list):
-                expected_rows = 1
-            else:
+            elif isinstance(X, (list, tuple)) and all(isinstance(row, (list, tuple)) for row in X):
                 expected_rows = len(X)
-            if codes.ndim != 1 or len(codes) != expected_rows:
+            # A 1D input may be one feature row or a univariate batch; its
+            # estimator/transformer owns that convention, not the label decoder.
+            if codes.ndim != 1 or (expected_rows is not None and len(codes) != expected_rows):
                 raise ValueError("Classifier predictions must contain one class index per input row.")
             try:
                 with np.errstate(invalid="ignore", over="ignore"):

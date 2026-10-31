@@ -20,6 +20,7 @@ GLOBAL_CONF = {
     # "num_iter": 10,
     "seed": 7654321,
 }
+# Keep the historical spelling for external benchmark callers.
 GLOABL_CONF = GLOBAL_CONF
 
 logger = logging.getLogger(__name__)

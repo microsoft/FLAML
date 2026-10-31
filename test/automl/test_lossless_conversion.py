@@ -142,18 +142,86 @@ def test_nanosecond_span_and_index_overflow_are_lossless():
 
 
 @pytest.mark.parametrize("frequency", ["MS", "BMS", "BYS", "BYE"])
-def test_calendar_index_values_are_calendar_based(frequency):
+def test_regular_calendar_frequencies_follow_public_step_indexing(frequency):
     dates = pd.date_range("2020-01-01", periods=8, freq=frequency)
     result = add_time_idx_col(pd.DataFrame({"ds": dates}))
-    expected = dates.year if frequency.startswith("BY") else dates.year * 12 + dates.month
+    expected = dates.year * 12 + dates.month if frequency == "MS" else np.arange(len(dates))
     assert result["time_idx"].tolist() == expected.tolist()
 
 
 @pytest.mark.parametrize("step", [0, -1])
 def test_nonpositive_computed_timestamp_step_is_rejected(monkeypatch, step):
-    monkeypatch.setattr(pd.Series, "mode", lambda self, *args, **kwargs: pd.Series([step]))
+    monkeypatch.setattr("flaml.automl.data._gcd_time_gaps", lambda gaps: step)
     with pytest.raises(ValueError, match="positive indexing interval"):
-        add_time_idx_col(pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=3)}))
+        add_time_idx_col(pd.DataFrame({"ds": pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-04"])}))
+
+
+def test_regular_calendar_steps_preserve_missing_and_shared_timestamps():
+    dates = list(pd.date_range("2026-01-31", periods=3, freq=pd.offsets.MonthEnd()))
+    frame = pd.DataFrame({"ds": [dates[1], pd.NaT, dates[0], dates[2], dates[0]]}, index=[10, 30, 20, 40, 20])
+    result = add_time_idx_col(frame)
+    expected = pd.Series([1, pd.NA, 0, 2, 0], index=frame.index, dtype="Int64", name="time_idx")
+    pd.testing.assert_series_equal(result["time_idx"], expected)
+
+
+def test_irregular_datetime_units_are_not_forced_into_nanosecond_bounds():
+    from packaging.version import Version
+
+    if Version(pd.__version__) < Version("2.0"):
+        pytest.skip("Older pandas requires nanosecond datetime storage.")
+    dates = np.array(["1000-01-01", "1000-01-02", "1000-01-04"], dtype="datetime64[us]")
+    result = add_time_idx_col(pd.DataFrame({"ds": dates}))
+    assert result["time_idx"].tolist() == [0, 1, 3]
+
+
+@pytest.mark.parametrize("calendar", ["MS", "Y"])
+def test_nullable_calendar_indexes_preserve_duplicate_row_labels(monkeypatch, calendar):
+    dates = pd.date_range("2020-01-01", periods=3, freq="MS" if calendar == "MS" else "YS")
+    if calendar == "Y":
+        monkeypatch.setattr(pd, "infer_freq", lambda values: "Y")
+    frame = pd.DataFrame({"ds": [dates[1], pd.NaT, dates[0], dates[2], dates[0]]}, index=[4, 4, 2, 8, 2])
+    base_values = dates.year * 12 + dates.month if calendar == "MS" else dates.year
+    expected = pd.Series(
+        [base_values[1], pd.NA, base_values[0], base_values[2], base_values[0]],
+        index=frame.index,
+        dtype="Int64",
+        name="time_idx",
+    )
+    pd.testing.assert_series_equal(add_time_idx_col(frame)["time_idx"], expected)
+
+
+def test_irregular_steps_preserve_duplicate_index_and_missing_timestamp():
+    frame = pd.DataFrame(
+        {"ds": pd.to_datetime(["2026-01-01", None, "2026-01-02", "2026-01-04", "2026-01-07"])},
+        index=[1, 1, 1, 2, 2],
+    )
+    expected = pd.Series([0, pd.NA, 1, 3, 6], index=frame.index, dtype="Int64", name="time_idx")
+    pd.testing.assert_series_equal(add_time_idx_col(frame)["time_idx"], expected)
+
+
+@pytest.mark.parametrize("wide", [False, True])
+def test_irregular_gcd_does_not_expand_every_gap_into_python_arguments(monkeypatch, wide):
+    import math
+
+    original = math.gcd
+
+    def bounded_gcd(*values):
+        assert len(values) <= 2
+        return original(*values)
+
+    monkeypatch.setattr(math, "gcd", bounded_gcd)
+    dates = (
+        [
+            pd.Timestamp.min,
+            pd.Timestamp.min + pd.Timedelta(1, "ns"),
+            pd.Timestamp.min + pd.Timedelta(3, "ns"),
+            pd.Timestamp.max,
+        ]
+        if wide
+        else pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-04", "2026-01-07", "2026-01-11"])
+    )
+    result = add_time_idx_col(pd.DataFrame({"ds": dates}))
+    assert result["time_idx"].is_unique
 
 
 @pytest.mark.parametrize("sample_ratio", [0.1, 1.0])

@@ -228,7 +228,7 @@ def concat(X1, X2):
 
     if isinstance(X1, (DataFrame, Series)):
         df = pd.concat([X1, X2], sort=False)
-        df.reset_index(drop=True, inplace=True)
+        df = df.reset_index(drop=True)
         if isinstance(X1, DataFrame):
             cat_columns = X1.select_dtypes(include="category").columns
             if len(cat_columns):
@@ -251,10 +251,8 @@ def _nat_aware_int_series(values: "pd.Series", index: "pd.Index") -> "pd.Series"
     """Build a nullable ``Int64`` Series from int-coercible values aligned to
     ``index``; rows whose ``values`` slot is missing become ``pd.NA``.
 
-    Centralizes the NaT-aware shape used by the MS / yearly / mode-of-deltas
-    branches of ``add_time_idx_col`` so they all return the same nullable
-    ``Int64`` dtype instead of mixing ``int64`` and ``float64`` (which is
-    what plain ``.dt.year`` + ``NaT`` would produce).
+    Preserve missing timestamps in the calendar-index branches of
+    ``add_time_idx_col`` without promoting integer indexes to float64.
     """
     not_na = values.notna()
     out = pd.Series(pd.NA, index=index, dtype="Int64")
@@ -264,57 +262,23 @@ def _nat_aware_int_series(values: "pd.Series", index: "pd.Index") -> "pd.Series"
 
 
 def add_time_idx_col(X):
+    """Add a nullable step index, retaining the legacy month-start calendar index."""
     ts = X[TS_TIMESTAMP_COL]
-    # Object-dtype columns (and pandas ``StringDtype`` columns) that hold
-    # Python ``datetime`` objects (or strings parseable by pandas) are
-    # legitimately datetime-like inputs from callers' perspective; coerce
-    # them up-front so they don't get rejected by the dtype-guard below.
-    # ``errors='coerce'`` turns unparseable values into ``NaT``, so the
-    # subsequent ``dropna()`` filters them out and the guard then makes
-    # the final call based on the resulting dtype. We only attempt this
-    # for string-like dtypes (``object`` or pandas ``StringDtype``) to
-    # avoid round-tripping already-typed datetime/numeric columns (which
-    # could lose precision).
     if ts.dtype == object or isinstance(ts.dtype, pd.StringDtype):
-        # Snapshot whether the ORIGINAL column had any non-null entries
-        # so the post-coerce check below can distinguish "all-NA input"
-        # (legitimately empty) from "non-null input that ALL coerced
-        # to NaT" (every value was unparseable garbage). Without this,
-        # a column of unparseable strings would silently produce an
-        # all-``pd.NA`` ``time_idx`` instead of failing loudly.
         had_nonnull_before = ts.notna().any()
         try:
             ts = pd.to_datetime(ts, errors="coerce")
         except (ValueError, TypeError):
-            # Coercion itself can raise on exotic object contents
-            # (e.g., mixed tz). Leave ``ts`` as-is so the dtype guard
-            # below produces the clearer "convert with pd.to_datetime
-            # first" message instead of an opaque conversion error.
             ts = X[TS_TIMESTAMP_COL]
         else:
-            # Conversion succeeded structurally, but if it coerced
-            # EVERY non-null input to ``NaT`` the column is unusable
-            # for time_idx — raise the same dtype-guard error the
-            # branch below would raise for a fully non-datetime dtype.
             if had_nonnull_before and not ts.notna().any():
                 raise TypeError(
                     f"Column {TS_TIMESTAMP_COL!r} must be datetime-like to compute time_idx; "
                     "all non-null values were unparseable. Convert with pd.to_datetime first."
                 )
-            # Replace the dtype rather than assigning timestamps into a string
-            # array. Copy first so a caller's DataFrame view is not mutated.
             X = X.copy()
             X[TS_TIMESTAMP_COL] = ts
     unique_dates = ts.dropna().drop_duplicates()
-    # Require datetime-like input. Without this, a column of object strings
-    # (or other non-datetime dtype) would silently pass ``pd.infer_freq``
-    # (which raises ``TypeError`` we swallow below) and then fail with an
-    # opaque ``TypeError`` deep inside ``.astype("int64")``. This guard
-    # runs BEFORE ``sort_values`` so a column of mixed object dtypes
-    # (e.g., tz-aware datetimes mixed with strings, or strings mixed
-    # with ints) raises this clearer TypeError instead of the opaque
-    # ``'<' not supported between instances of ...`` that
-    # ``Series.sort_values`` would produce on unorderable mixed values.
     if len(unique_dates) and not (
         pd.api.types.is_datetime64_any_dtype(unique_dates) or isinstance(unique_dates.dtype, pd.DatetimeTZDtype)
     ):
@@ -322,199 +286,54 @@ def add_time_idx_col(X):
             f"Column {TS_TIMESTAMP_COL!r} must be datetime-like to compute time_idx; "
             f"got dtype {unique_dates.dtype!r}. Convert with pd.to_datetime first."
         )
+    time_idx = pd.Series(pd.NA, index=X.index, dtype="Int64")
+    valid = ts.notna()
+    if len(unique_dates) < 2:
+        time_idx.iloc[np.flatnonzero(valid.to_numpy())] = 0
+        X["time_idx"] = time_idx
+        return X
+
+    dates = pd.DatetimeIndex(unique_dates.sort_values())
     try:
-        unique_dates = unique_dates.sort_values(ascending=True)
-    except TypeError as exc:
-        # ``sort_values`` can still raise ``TypeError`` on a datetime
-        # Series in pathological mixed-tz situations that the dtype
-        # guard above doesn't cover (e.g., an ``object`` Series whose
-        # type-check we somehow bypassed). Surface the same clearer
-        # guidance as the dtype guard above instead of letting the
-        # low-level ordering error propagate.
-        raise TypeError(
-            f"Column {TS_TIMESTAMP_COL!r} must be datetime-like to compute time_idx; "
-            "Convert with pd.to_datetime first."
-        ) from exc
-    use_utc = False
-    freq_input = unique_dates
-    if isinstance(unique_dates.dtype, pd.DatetimeTZDtype):
-        wall_time = unique_dates.dt.tz_localize(None)
-        # Calendar days retain wall-clock spacing; intraday observations must
-        # retain elapsed time so the repeated DST hour remains distinguishable.
-        use_utc = wall_time.duplicated().any() or (wall_time.diff().dropna() < pd.Timedelta(days=1)).any()
-        freq_input = unique_dates.dt.tz_convert("UTC").dt.tz_localize(None) if use_utc else wall_time
-    try:
-        freq = pd.infer_freq(freq_input)
+        freq = pd.infer_freq(dates)
     except (TypeError, ValueError):
-        # pd.infer_freq needs >= 3 dates (ValueError) and older pandas
-        # raises TypeError for tz-aware datetime Series — fall back to the
-        # mode-of-deltas branch in either case.
         freq = None
-    if freq in ("MS", "M", "ME", "BMS", "BM", "BME"):
-        # Treat month-start and month-end frequencies (including the
-        # business variants) identically: compute an integer
-        # calendar-month index. Month lengths vary (28-31 days), so the
-        # fixed mode-of-deltas branch below would drift over longer
-        # ranges and fail to produce exactly one step per calendar
-        # month. ``.dt.year * 12 + .dt.month`` would promote NaT rows to
-        # ``NaN`` (float64), inconsistent with the mode-of-deltas branch
-        # below that returns nullable Int64 with ``pd.NA`` for NaT.
-        # Build the result via ``_nat_aware_int_series`` so all branches
-        # behave identically. Use the local ``ts`` (which may have been
-        # coerced from object dtype above) rather than re-reading
-        # ``X[TS_TIMESTAMP_COL]`` — re-reading would silently revert to
-        # the original object dtype and break ``ts.dt`` access.
+    if freq is None and dates.tz is not None and len(dates) >= 3:
+        try:
+            freq = pd.infer_freq(dates.tz_localize(None))
+        except (TypeError, ValueError):
+            freq = None
+        if freq is not None and not _is_regular_grid(dates, freq):
+            freq = None
+
+    if freq == "MS":
         raw = ts.dt.year * 12 + ts.dt.month
         X["time_idx"] = _nat_aware_int_series(raw, X.index)
-    elif freq is not None and freq.startswith(("Y", "A", "BY", "BA")):
-        # Use the calendar year as the integer index for yearly
-        # frequencies. ``pd.infer_freq`` returns several aliases that
-        # all map to "one row per year":
-        #   * ``Y-DEC`` / ``YE-DEC`` — year-end (year-aligned)
-        #   * ``YS-JAN`` / ``AS-JAN`` — year-start
-        #   * ``A-DEC`` — legacy year-end (still emitted by older pandas)
-        #   * ``BA-DEC`` / ``BAS-JAN`` — business-year-end / -start
-        #   * ``BY-DEC`` / ``BYS-JAN`` — newer business-year aliases
-        # The first four all start with ``"Y"`` or ``"A"``; the
-        # business variants start with ``"BY"`` or ``"BA"``. Without
-        # the business-year prefixes those series fall through to the
-        # mode-of-deltas branch and get nanosecond-elapsed indexes
-        # instead of integer year indexes, which produces dense
-        # multi-million step values that downstream forecasters
-        # interpret as a completely different time axis.
+    elif freq == "Y":
         X["time_idx"] = _nat_aware_int_series(ts.dt.year, X.index)
+    elif freq is not None:
+        X["time_idx"] = pd.Series(dates.get_indexer(ts), index=X.index, dtype="Int64").mask(~valid)
+    elif (month_steps := _calendar_month_steps(dates)) is not None:
+        X["time_idx"] = pd.Series(month_steps[dates.get_indexer(ts)], index=X.index, dtype="Int64").mask(~valid)
     else:
-        # Use the mode of time deltas as the step; handles irregular data
-        # like business days with holidays removed.
-        # Modern pandas (>= 2.0) emits ``FutureWarning`` for
-        # ``Series.astype("int64")`` on datetime64[ns] dtypes and a
-        # future release may remove that coercion entirely. Drop to a
-        # numpy ndarray first and ``.view("int64")`` it — the canonical
-        # zero-copy way to access the nanosecond integer representation
-        # of a datetime64[ns] array. ``.view()`` is also valid on
-        # tz-naive datetime64 ndarrays but undefined on tz-aware
-        # ``DatetimeTZDtype`` Series, so use the same timezone-normalized
-        # calendar/elapsed axis used for frequency inference.
-        unique_for_int = freq_input
-        timestamps_int64 = unique_for_int.to_numpy(dtype="datetime64[ns]", copy=False).view("int64")
-        # Compute deltas via ``np.diff`` on the int64 numpy array rather
-        # than ``timestamps.diff()``. ``Series.diff()`` produces float64
-        # (the first element becomes ``NaN``), and ``float64`` can only
-        # represent integers exactly up to 2**53; for nanosecond steps
-        # above that (~104 days), the mode/step computation would lose
-        # precision and shift the resulting ``time_idx`` by a fractional
-        # amount. ``np.diff`` returns the differences as ``int64`` and
-        # implicitly drops the would-be NaN (no leading sentinel), so
-        # the explicit ``dropna()`` is no longer needed.
-        #
-        # ``np.diff`` on an ``int64`` array silently overflows when two
-        # consecutive timestamps differ by more than ``2**63 - 1``
-        # nanoseconds (~292 years), producing negative/garbled deltas
-        # that then corrupt the ``step`` mode and every downstream
-        # ``time_idx`` value. The ``datetime64[ns]`` representable
-        # range itself is only ~584 years end-to-end, so this can
-        # realistically only occur for a near-full-range pair, but
-        # detect it via the overall span (computed in Python big-int
-        # to avoid the same overflow when measuring) and route the
-        # diff through ``astype(object)`` for exact Python-int
-        # subtraction in that rare regime.
-        if timestamps_int64.size:
-            span_ns = int(timestamps_int64.max()) - int(timestamps_int64.min())
-        else:
-            span_ns = 0
-        if span_ns > np.iinfo(np.int64).max:
-            deltas_np = np.diff(timestamps_int64.astype(object))
-        else:
-            deltas_np = np.diff(timestamps_int64)
-        # Use the local ``ts`` (coerced if applicable) rather than
-        # ``X[TS_TIMESTAMP_COL]`` to keep the per-row index calculation
-        # consistent with ``unique_for_int`` above.
-        ts_for_int = ts
-        if isinstance(ts_for_int.dtype, pd.DatetimeTZDtype):
-            if use_utc:
-                ts_for_int = ts_for_int.dt.tz_convert("UTC")
-            ts_for_int = ts_for_int.dt.tz_localize(None)
-        not_na = ts_for_int.notna()
-        # Always assign nullable ``Int64`` regardless of NaT presence, so the
-        # dtype of ``time_idx`` is identical across the empty-deltas,
-        # multi-step, and MS/yearly branches. Otherwise the
-        # ``deltas.empty & not_na.all()`` and ``deltas-present & not_na.all()``
-        # paths would produce non-nullable ``int64``, breaking downstream
-        # code that relies on a single dtype.
-        time_idx = pd.Series(pd.NA, index=X.index, dtype="Int64")
-        if deltas_np.size == 0:
-            # No usable step (e.g., 0 or 1 unique non-null timestamp). Assign
-            # 0 to rows with valid timestamps and pd.NA to rows whose
-            # timestamp is NaT — consistent with the multi-step branch
-            # below, which also returns nullable Int64 with pd.NA for NaT.
-            if not_na.any():
-                time_idx.loc[not_na] = 0
-        else:
-            modes = pd.Series(deltas_np).mode()
-            step = int(modes.max() if len(modes) > 1 else modes.iloc[0])
-            if step <= 0:
-                raise ValueError("Distinct timestamps must have a positive indexing interval.")
-            # Retain the modal cadence only if all observations align with it.
-            # Otherwise use an exact common interval rather than merging rows by floor division.
-            if any(int(delta) % step for delta in deltas_np):
-                step = math.gcd(*(int(delta) for delta in deltas_np))
-            origin = int(timestamps_int64.min())
-            if not_na.any():
-                # Keep the per-row arithmetic in int64 too: subtract via
-                # numpy then floor-divide, then wrap in a Series for the
-                # ``time_idx.loc`` assignment. This avoids the float64
-                # round-trip that ``Series.astype('int64') - origin``
-                # might trigger under nullable-dtype edge cases. Use
-                # ``.to_numpy(...).view("int64")`` for the same reason
-                # as ``timestamps_int64`` above.
-                #
-                # ``(valid_int - origin)`` is computed in ``int64`` and
-                # can overflow when the per-row span ``valid_int.max() -
-                # origin`` exceeds ``np.iinfo(np.int64).max`` — mirroring
-                # the ``np.diff`` overflow guard above. Casting ``step``
-                # to ``int`` is necessary but not sufficient: the
-                # numerator must also be in big-int form. Detect the
-                # rare wide-span regime via Python-int subtraction and
-                # route through ``astype(object)`` only when needed so
-                # the common path stays vectorized int64.
-                valid_int = ts_for_int[not_na].to_numpy(dtype="datetime64[ns]", copy=False).view("int64")
-                if valid_int.size:
-                    valid_span = int(valid_int.max()) - origin
-                else:
-                    valid_span = 0
-                if valid_span > np.iinfo(np.int64).max:
-                    # Compute the per-row indexes in Python big-int via
-                    # the object-dtype path. The resulting ``valid_idx``
-                    # is a numpy object array of Python ints — any of
-                    # which could themselves exceed ``int64`` for
-                    # pathological spans. Assigning such values into a
-                    # nullable ``Int64`` Series raises ``OverflowError``
-                    # during the implicit cast. Check whether the
-                    # computed indices actually fit in ``int64`` before
-                    # forcing the cast: if they do, materialize as an
-                    # ``int64`` ndarray for an efficient Int64
-                    # assignment; if they don't, fall back to object
-                    # dtype for ``time_idx`` so the wide-span
-                    # correctness fix in the comment above doesn't
-                    # silently regress to an exception during
-                    # assignment.
-                    valid_idx_obj = (valid_int.astype(object) - origin) // step
-                    int64_min = int(np.iinfo(np.int64).min)
-                    int64_max = int(np.iinfo(np.int64).max)
-                    if valid_idx_obj.size:
-                        idx_min = int(min(valid_idx_obj))
-                        idx_max = int(max(valid_idx_obj))
-                    else:
-                        idx_min = 0
-                        idx_max = 0
-                    if idx_min < int64_min or idx_max > int64_max:
-                        time_idx = time_idx.astype(object)
-                        time_idx.loc[not_na] = list(valid_idx_obj)
-                    else:
-                        time_idx.loc[not_na] = np.asarray(valid_idx_obj, dtype="int64")
-                else:
-                    valid_idx = (valid_int - origin) // step
-                    time_idx.loc[not_na] = valid_idx
+        axis = dates
+        if dates.tz is not None and _has_whole_day_steps(dates.tz_localize(None)):
+            axis = dates.tz_localize(None)
+        # Retain the native datetime unit and use Python integers only when
+        # the span can overflow int64; neither NaT nor float arithmetic participates.
+        values = axis.asi8
+        if int(values[-1]) - int(values[0]) > np.iinfo(np.int64).max:
+            values = values.astype(object)
+        step = _gcd_time_gaps(np.diff(values))
+        if step <= 0:
+            raise ValueError("Distinct timestamps must have a positive indexing interval.")
+        steps = (values - int(values[0])) // step
+        if int(max(steps)) > np.iinfo(np.int64).max:
+            time_idx = time_idx.astype(object)
+        positions = dates.get_indexer(ts.loc[valid])
+        if (positions < 0).any():
+            raise ValueError("Timestamps must match the inferred time-index grid.")
+        time_idx.iloc[np.flatnonzero(valid.to_numpy())] = list(steps[positions])
         X["time_idx"] = time_idx
     return X
 
@@ -533,6 +352,56 @@ def _make_column_name_mapping(columns):
             names.add(name)
             mapping[column] = name
     return mapping
+
+
+def _calendar_month_steps(dates):
+    """Month steps (or multiples, e.g. quarters) for dates that are all month ends, or all the same
+    day of the month, at one time of day; None for any other series."""
+    wall = dates.tz_localize(None) if dates.tz is not None else dates
+    if len(wall) < 2:
+        return None
+    if not (wall.is_month_end.all() or wall.day.nunique() == 1):
+        return None
+    if any(
+        np.any(getattr(wall, component) != getattr(wall[0], component))
+        for component in ("hour", "minute", "second", "microsecond", "nanosecond")
+    ):
+        return None
+    months = np.asarray(wall.year * 12 + wall.month, dtype="int64")
+    if (np.diff(months) <= 0).any():
+        # two dates in one month, e.g. both DST fold hours of the same day, need distinct steps
+        return None
+    steps = months - months[0]
+    return steps // int(np.gcd.reduce(np.diff(steps)))
+
+
+def _gcd_time_gaps(gaps):
+    if gaps.dtype != object:
+        return int(np.gcd.reduce(gaps))
+    step = 0
+    for gap in gaps:
+        step = math.gcd(step, int(gap))
+        if step == 1:
+            break
+    return step
+
+
+def _has_whole_day_steps(dates):
+    if len(dates) < 2 or not dates.is_monotonic_increasing or not dates.is_unique:
+        return False
+    day = int(np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns")))
+    return bool(np.all(dates.asi8 % day == int(dates.asi8[0]) % day))
+
+
+def _is_regular_grid(dates, freq):
+    try:
+        # one candidate per date: an endpoint-bounded range can be huge for a sub-second freq
+        grid = pd.date_range(dates[0], periods=len(dates), freq=freq)
+    except Exception:
+        # e.g. an ambiguous or nonexistent local time on the generated grid (older pandas
+        # raises pytz errors that are not ValueErrors)
+        return False
+    return grid.equals(dates)
 
 
 class DataTransformer:
@@ -609,7 +478,7 @@ class DataTransformer:
                     if not preserve_features and (
                         X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
                     ):
-                        X.drop(columns=column, inplace=True)
+                        X = X.drop(columns=column)
                         drop = True
                     elif X[column].dtype.name == "category":
                         if preserve_features:
@@ -623,7 +492,7 @@ class DataTransformer:
                         X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                 elif not preserve_features and X[column].nunique(dropna=True) < 2:
-                    X.drop(columns=column, inplace=True)
+                    X = X.drop(columns=column)
                     drop = True
                 else:  # datetime or numeric
                     if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
@@ -635,15 +504,19 @@ class DataTransformer:
                             f"hour_{column}": tmp_dt.hour,
                             f"minute_{column}": tmp_dt.minute,
                             f"second_{column}": tmp_dt.second,
-                            f"dayofweek_{column}": tmp_dt.dayofweek,
-                            f"dayofyear_{column}": tmp_dt.dayofyear,
+                            f"dayofweek_{column}": tmp_dt.day_of_week
+                            if hasattr(tmp_dt, "day_of_week")
+                            else tmp_dt.dayofweek,
+                            f"dayofyear_{column}": tmp_dt.day_of_year
+                            if hasattr(tmp_dt, "day_of_year")
+                            else tmp_dt.dayofyear,
                             f"quarter_{column}": tmp_dt.quarter,
                         }
                         for key, value in new_columns_dict.items():
                             if key not in X.columns and value.nunique(dropna=False) >= 2:
                                 X[key] = value
                                 num_columns.append(key)
-                        X[column] = X[column].map(datetime.toordinal)
+                        X[column] = X[column].map(lambda x: datetime.toordinal(x) if pd.notna(x) else np.nan)
                         datetime_columns.append(column)
                         del tmp_dt
                     X[column] = X[column].fillna(np.nan)
@@ -757,14 +630,14 @@ class DataTransformer:
                     f"hour_{column}": tmp_dt.hour,
                     f"minute_{column}": tmp_dt.minute,
                     f"second_{column}": tmp_dt.second,
-                    f"dayofweek_{column}": tmp_dt.dayofweek,
-                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                    f"dayofweek_{column}": tmp_dt.day_of_week if hasattr(tmp_dt, "day_of_week") else tmp_dt.dayofweek,
+                    f"dayofyear_{column}": tmp_dt.day_of_year if hasattr(tmp_dt, "day_of_year") else tmp_dt.dayofyear,
                     f"quarter_{column}": tmp_dt.quarter,
                 }
                 for new_col_name, new_col_value in new_columns_dict.items():
                     if new_col_name not in X.columns and new_col_name in num_columns:
                         X[new_col_name] = new_col_value
-                X[column] = X[column].map(datetime.toordinal)
+                X[column] = X[column].map(lambda x: datetime.toordinal(x) if pd.notna(x) else np.nan)
                 del tmp_dt
             X = X[cat_columns + num_columns].copy()
             if self._task.is_ts_forecast():
@@ -1130,6 +1003,9 @@ def auto_convert_dtypes_spark(
         - 'category' in the schema dict is conceptual as PySpark doesn't have a true
             category type like pandas
         - The function uses sampling for efficiency with large datasets
+        - Numeric and timestamp candidates must also meet convert_threshold on the
+            full non-null column. An accepted conversion can coerce nonmatching
+            values to null; use skip_columns to preserve a column unchanged.
     """
     if not (0 < sample_ratio <= 1):
         # Match the pandas-path validation so misuses are caught
@@ -1313,36 +1189,56 @@ def auto_convert_dtypes_spark(
 
         schema[colname] = inferred_type
 
-    integer_columns = [
+    conversion_columns = [
         name
         for name, dtype in schema.items()
-        if name not in skip_set and original_dtypes[name] == "string" and dtype in {"int", "bigint"}
+        if name not in skip_set
+        and original_dtypes[name] == "string"
+        and dtype in {"int", "bigint", "double", "timestamp"}
     ]
-    if integer_columns:
-        # Validate all inferred integer columns in one action. Sampling alone
-        # cannot detect a rare wider integer or an incompatible finite value.
+    if conversion_columns:
+        # Revalidate candidate types together; a biased sample must not choose
+        # a cast whose full-column support is below the requested threshold.
         checks = []
-        for index, name in enumerate(integer_columns):
+        for index, name in enumerate(conversion_columns):
             value = _spark_integral_value(name)
             numeric = _spark_try_cast(name, "double")
             finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
+            supported = _spark_try_cast(name, "timestamp").isNotNull() if schema[name] == "timestamp" else finite
             checks.extend(
                 [
-                    F.max(F.when(value.isNotNull() & ~value.between(-(2**31), 2**31 - 1), 1).otherwise(0)).alias(
-                        f"wide_{index}"
-                    ),
-                    F.sum(F.when(finite & value.isNull(), 1).otherwise(0)).alias(f"invalid_{index}"),
+                    F.count(_spark_column(name)).alias(f"total_{index}"),
+                    F.sum(F.when(supported, 1).otherwise(0)).alias(f"supported_{index}"),
                 ]
             )
-        validation = df.agg(*checks).collect()[0]
-        for index, name in enumerate(integer_columns):
-            if validation[f"invalid_{index}"]:
-                raise ValueError(
-                    f"Column {name!r} has finite numeric values incompatible with its inferred integer type. "
-                    "Use skip_columns to preserve the original values."
+            if schema[name] in {"int", "bigint"}:
+                checks.extend(
+                    [
+                        F.max(
+                            F.when(value.isNotNull() & ~value.between(-(2**31), 2**31 - 1), 1).otherwise(0)
+                        ).alias(f"wide_{index}"),
+                        F.sum(F.when(finite & value.isNull(), 1).otherwise(0)).alias(f"invalid_{index}"),
+                    ]
                 )
-            if validation[f"wide_{index}"]:
-                schema[name] = "bigint"
+        validation = df.agg(*checks).collect()[0]
+        for index, name in enumerate(conversion_columns):
+            total = validation[f"total_{index}"]
+            supported = validation[f"supported_{index}"] or 0
+            if total == 0 or supported < total * convert_threshold:
+                logger.warning(
+                    "Column %r does not meet the full-column %s conversion threshold; preserving strings.",
+                    name,
+                    schema[name],
+                )
+                schema[name] = "string"
+            elif schema[name] in {"int", "bigint"}:
+                if validation[f"invalid_{index}"]:
+                    raise ValueError(
+                        f"Column {name!r} has finite numeric values incompatible with its inferred integer type. "
+                        "Use skip_columns to preserve the original values."
+                    )
+                if validation[f"wide_{index}"]:
+                    schema[name] = "bigint"
 
     # Apply inferred schema
     for colname, inferred_type in schema.items():
@@ -1353,7 +1249,7 @@ def auto_convert_dtypes_spark(
         # NULL rather than raising under Spark ANSI mode.
         if inferred_type == "int" and original_dtypes[colname] == "boolean":
             df = df.withColumn(colname, _spark_column(colname).cast("int"))
-        elif colname in integer_columns:
+        elif inferred_type in {"int", "bigint"} and original_dtypes[colname] == "string":
             df = df.withColumn(colname, _spark_integral_value(colname).cast(inferred_type))
         elif inferred_type == "double":
             df = df.withColumn(colname, _spark_try_cast(colname, "double"))

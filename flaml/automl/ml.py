@@ -157,7 +157,10 @@ def metric_loss_score(
                 )
             score_dict = metric.compute(predictions=y_processed_predict, references=y_processed_true)
             if "rouge" in metric_name:
-                score = score_dict[metric_name].mid.fmeasure
+                score = score_dict[metric_name]
+                # evaluate returns a scalar; older datasets metrics return AggregateScore.
+                if hasattr(score, "mid"):
+                    score = score.mid.fmeasure
             elif metric_name.startswith("seqeval"):
                 metric_submetric_names = metric_name.split(":")
                 score = score_dict[metric_submetric_names[1] if len(metric_submetric_names) > 1 else "overall_accuracy"]
@@ -595,6 +598,14 @@ def multi_class_curves(
     return curve_x, curve_y
 
 
+def _transform_validation_data(transformer, X):
+    if isinstance(X, TimeSeriesDataset) and hasattr(transformer, "_transform_validation_data"):
+        return transformer._transform_validation_data(X)
+    start = time.perf_counter()
+    transformed = transformer.transform(X)
+    return transformed, time.perf_counter() - start
+
+
 def get_val_loss(
     config,
     estimator,
@@ -618,17 +629,15 @@ def get_val_loss(
     if preprocessor is not None:
         X_train = preprocessor.fit_transform(X_train, y_train)
         if X_val is not None:
-            transform_start = time.perf_counter()
-            X_val = preprocessor.transform(X_val)
-            validation_transform_time += time.perf_counter() - transform_start
+            X_val, transform_time = _transform_validation_data(preprocessor, X_val)
+            validation_transform_time += transform_time
     autofe = getattr(estimator, "autofe", None)
     if autofe is not None:
         # This runs separately for each CV fold as well as for a holdout split.
         X_train = autofe.fit_transform(X_train, y_train)
         if X_val is not None:
-            transform_start = time.perf_counter()
-            X_val = autofe.transform(X_val)
-            validation_transform_time += time.perf_counter() - transform_start
+            X_val, transform_time = _transform_validation_data(autofe, X_val)
+            validation_transform_time += transform_time
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
@@ -651,9 +660,15 @@ def get_val_loss(
         fit_kwargs,
     )
     if validation_transform_time:
-        num_val_rows = len(X_val.test_data) if isinstance(X_val, TimeSeriesDataset) else X_val.shape[0]
-        pred_time += validation_transform_time / num_val_rows
-        metric_for_logging["pred_time"] = pred_time
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data) if X_val.test_data is not None else 0
+        else:
+            num_val_rows = X_val.shape[0]
+        if num_val_rows:
+            pred_time += validation_transform_time / num_val_rows
+            metric_for_logging["pred_time"] = pred_time
+        else:
+            logger.warning("Skipping per-row transform latency for an empty validation partition.")
     if hasattr(estimator, "intermediate_results"):
         metric_for_logging["intermediate_results"] = estimator.intermediate_results
     train_time = time.time() - start

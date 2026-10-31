@@ -121,3 +121,30 @@ def test_grid():
     except TuneError:
         # Grid search expected list of values, got: 3
         pass
+
+
+def test_add_cost_to_space_keys_after_nested_choice():
+    from flaml.tune.space import add_cost_to_space
+
+    space = {
+        "c": tune.choice([{"a": tune.randint(1, 10)}, {"b": tune.uniform(0, 1)}]),
+        "x": tune.randint(1, 100),
+        "y": tune.choice([{"p": tune.uniform(0, 1)}, {"q": tune.uniform(0, 1)}]),
+        "k": 7,
+    }
+    # a list low-cost point for "c" must not stop the keys after it from being set up
+    const = add_cost_to_space(space, {"c": [{"a": 1}, {"b": 0}], "x": 1}, {})
+    assert const == {"k": 7}
+    assert space["x"].low_cost_point == 1
+    assert space["x"].bounded
+    assert len(space["y"].const) == 2
+
+    analysis = tune.run(
+        lambda config: {"metric": config["x"]},
+        config=space,
+        low_cost_partial_config={"c": [{"a": 1}, {"b": 0}], "x": 1},
+        metric="metric",
+        mode="min",
+        num_samples=10,
+    )
+    assert len(analysis.trials) == 10

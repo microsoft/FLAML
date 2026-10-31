@@ -324,8 +324,13 @@ class AutoML(BaseEstimator):
                 Set "force" to require a feature engineering method for each stage; `null` is not an option.
                 Set "off" to disable featurization. An explicit value overrides FLAML_FEATURIZATION.
                 Will support a custom config dict in the future.
-            append_log: boolean, default=False | Whether to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to append records to an existing
+                log file with continuing record IDs. False overwrites the file.
+                Appending logs does not resume the previous search. Independent fits
+                writing concurrently to the same file can mix or corrupt records,
+                produce duplicate IDs, or overwrite each other's logs. Use a distinct
+                log_file_name for each concurrent fit; it can be passed separately to
+                each fit() call, including repeated calls on one AutoML instance.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             resampler: object, default=None | An imbalanced-learn-compatible resampler
@@ -2203,8 +2208,13 @@ class AutoML(BaseEstimator):
                 Set "force" to require a feature engineering method for each stage; `null` is not an option.
                 Set "off" to disable featurization. An explicit value overrides FLAML_FEATURIZATION.
                 Will support a custom config dict in the future.
-            append_log: boolean, default=False | Whether to directly append the log
-                records to the input log file if it exists.
+            append_log: boolean, default=False | Whether to append records to an existing
+                log file with continuing record IDs. False overwrites the file.
+                Appending logs does not resume the previous search. Independent fits
+                writing concurrently to the same file can mix or corrupt records,
+                produce duplicate IDs, or overwrite each other's logs. Use a distinct
+                log_file_name for each concurrent fit; it can be passed separately to
+                each fit() call, including repeated calls on one AutoML instance.
             auto_augment: boolean, default=True | Whether to automatically
                 augment rare classes.
             min_sample_size: int, default=MIN_SAMPLE_TRAIN | the minimal sample

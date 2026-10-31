@@ -71,11 +71,15 @@ prediction and export. The ordinary `featurization="off"` preprocessing path is
 unchanged.
 Reported per-row prediction latency includes validation-time preprocessing and
 AutoFE transformation, so `pred_time_limit` accounts for the serving pipeline
-without charging feature fitting or training-only resampling.
+without charging feature fitting, training-only resampling, or transformation
+of a forecast dataset's training-history partition. Empty validation partitions
+do not contribute a per-row transform latency.
 Rare-class augmentation is likewise applied only to the training partition in
-the AutoFE path, through a cloneable fit-only sampler. Impossible singleton-class
-splits and missing class coverage are rejected instead of copying observations
-across the training/validation boundary. Feature-off augmentation is unchanged.
+the AutoFE path, through a cloneable fit-only sampler. Automatically generated
+singleton-class splits and missing class coverage are rejected instead of copying
+observations across the training/validation boundary. Caller-provided validation
+is used as supplied, without augmentation or class-coverage repair.
+Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
 Registered custom learner names are used for AutoFE selection; unknown learners
@@ -96,6 +100,10 @@ Featurization supports scikit-learn cloning. An unfitted or failed-refit
 transformer raises `NotFittedError` instead of silently passing data through;
 successful no-op fits remain valid. Fitted time-series transformers retain their
 timestamp column when used directly or inside an exported pipeline.
+Statsmodels-backed integer forecasts follow the fitted training boundary,
+including in exported pipelines. Public naive and seasonal-naive lag semantics are retained.
+Panel time indexes use steps for regular non-month-start frequencies and retain
+gaps for irregular observations; nullable timestamps and DST folds stay distinct.
 No-op feature transforms preserve categorical values. Ordinal feature encoding
 rejects unsupported mixed categorical types rather than merging distinct values
 through string conversion.
@@ -137,11 +145,15 @@ the appropriately preprocessed data described above.
 Configured resampling remains a cloneable, fit-only operation after feature
 engineering; prediction and validation rows are never resampled. The same
 sample-weight and group-alignment restrictions apply to exported refits.
+Resampling refits use traditional `step__parameter` fit inputs; routing
+row-aligned metadata through the resampling operation is not supported.
 An early failed refit does not replace the previous label decoder. Exported
 classifiers reject non-integral, non-finite, or incorrectly shaped class-index
 outputs instead of silently truncating them.
 An autologging `log_models=False` setting suppresses automatic model and pipeline
 artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.
+The metric-name tag retains its historical spelling: `flaml.meric` publicly and
+`synapseml.flaml.meric` in Fabric. Consumers should use that key, not `*.metric`.
 
 Tune's centralized startup log contains only configuration counts and boolean
 flags, not configuration contents, user tags, metric names, or experiment names.
@@ -150,7 +162,7 @@ signature/artifact failures send exception types rather than data-bearing
 exception text to centralized diagnostics. Detailed failures remain in local
 debug logs.
 Fabric telemetry and its no-op logger do not depend on an MLflow installation.
-Optional reporting or diagnostic-logger initialization failures emit warnings
+Optional usage-telemetry or diagnostic-logger initialization failures emit warnings
 without stopping model work. Invalid runtime configuration remains an explicit
 error; it is not silently ignored.
 Logged configuration metadata is rebuilt for each fit from its resolved settings.

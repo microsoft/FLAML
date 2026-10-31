@@ -69,7 +69,7 @@ class SearchState:
         custom_hp=None,
         max_iter=None,
         budget=None,
-        featurization="auto",
+        featurization="off",
         estimator_name=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1

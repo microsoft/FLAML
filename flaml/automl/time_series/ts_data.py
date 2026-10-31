@@ -1,6 +1,7 @@
 import copy
 import datetime
 import math
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Generator, List, Optional, Union
 
@@ -300,6 +301,30 @@ class TimeSeriesDataset:
     def merge_prediction_with_target(self, y_pred: Union[pd.DataFrame, pd.Series, np.ndarray]):
         y_pred = self.prettify_prediction(y_pred)
         return pd.concat([self.train_data[[self.time_col] + self.target_names], y_pred], axis=0)
+
+
+def _transform_ts_dataset(data: TimeSeriesDataset, transform_frame: Callable) -> tuple[TimeSeriesDataset, float]:
+    """Transform both partitions while timing only held-out rows."""
+    train_data = transform_frame(data.train_data)
+    test_data = data.test_data
+    validation_time = 0.0
+    if test_data is not None:
+        if len(test_data):
+            start = time.perf_counter()
+            test_data = transform_frame(test_data)
+            validation_time = time.perf_counter() - start
+        else:
+            test_data = test_data.copy()
+    return (
+        TimeSeriesDataset(
+            train_data,
+            data.time_col,
+            data.target_names,
+            time_idx=data.time_idx,
+            test_data=test_data,
+        ),
+        validation_time,
+    )
 
 
 def enrich_dataframe(

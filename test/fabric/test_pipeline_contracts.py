@@ -54,6 +54,39 @@ def test_exported_pipeline_preserves_target_labels(labels):
     np.testing.assert_array_equal(restored.predict(X), automl.predict(X))
 
 
+@pytest.mark.parametrize(
+    "data,features,expected_rows",
+    [
+        (pd.Series([1.0, 2.0, 3.0]), 3, 1),
+        (np.array([1.0, 2.0, 3.0]), 3, 1),
+        ([(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)], 3, 2),
+        (pd.Series([1.0, 2.0, 3.0]), 1, 3),
+    ],
+)
+def test_label_decoder_respects_estimator_vector_and_tuple_row_inputs(data, features, expected_rows):
+    from sklearn.base import BaseEstimator
+    from sklearn.preprocessing import LabelEncoder
+
+    from flaml.automl.pipeline import AutoMLPipeline
+
+    class FlexibleClassifier(BaseEstimator):
+        def __init__(self):
+            self.fitted_ = True
+
+        def fit(self, X, y=None):
+            return self
+
+        def predict(self, X):
+            values = np.asarray(X).reshape(-1, features)
+            return np.zeros(len(values), dtype=int)
+
+    pipeline = AutoMLPipeline(
+        [("estimator", FlexibleClassifier())],
+        label_transformer=LabelEncoder().fit(["approve", "deny"]),
+    )
+    np.testing.assert_array_equal(pipeline.predict(data), ["approve"] * expected_rows)
+
+
 @pytest.mark.parametrize("labels", [("approve", "deny"), (10, 20)])
 def test_registered_pipeline_retains_original_labels(tmp_path, monkeypatch, labels):
     mlflow = pytest.importorskip("mlflow")
@@ -364,6 +397,51 @@ def test_notebook_feature_examples_use_unlabeled_feature_inputs(tmp_path, monkey
     frames = [item for item in displayed if isinstance(item, pd.DataFrame)]
     assert len(frames) == 2
     assert all(len(frame) == len(test) and "target" not in frame for frame in frames)
+
+
+def test_exported_seasonal_naive_uses_training_boundary_and_seasonal_lags():
+    frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=21), "target": np.arange(21.0)})
+    automl = AutoML(
+        estimator_list=["snaive"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        retrain_full=False,
+        custom_hp={"snaive": {"season": {"domain": 3, "init_value": 3}}},
+    )
+    automl.fit(
+        frame[["ds"]].iloc[:18],
+        frame["target"].iloc[:18],
+        X_val=frame[["ds"]].iloc[18:],
+        y_val=frame["target"].iloc[18:],
+        task="ts_forecast",
+        period=3,
+    )
+    prediction = automl.predict(6)
+    np.testing.assert_allclose(prediction, [15, 16, 17, 15, 16, 17])
+    pd.testing.assert_index_equal(prediction.index, pd.date_range("2026-01-19", periods=6), check_names=False)
+    pd.testing.assert_series_equal(automl.automl_pipeline.predict(6), prediction)
+
+
+def test_autofe_datetime_missing_values_survive_preprocessing_and_export():
+    frame = pd.DataFrame({"date": pd.date_range("2026-01-01", periods=40), "value": np.arange(40.0)})
+    frame.loc[::5, "date"] = pd.NaT
+    original = frame.copy(deep=True)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+    )
+    automl.fit(frame, np.tile([0, 1], 20))
+    transformed = automl.preprocess(frame)
+    assert np.isfinite(np.asarray(transformed, dtype=float)).all()
+    np.testing.assert_array_equal(automl.automl_pipeline.predict(frame), automl.predict(frame))
+    pd.testing.assert_frame_equal(frame, original)
 
 
 def test_exported_refit_resamples_only_training_rows():

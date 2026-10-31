@@ -531,24 +531,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         if time_col is None:
             time_col = getattr(self, "time_col_", None)
         if isinstance(X, TimeSeriesDataset):
-            keep_cols = X.target_names + [X.time_col]
-            if X.test_data is not None and len(X.test_data) > 0:
-                keep_test_data = X.test_data[keep_cols]
-                transformed_test_data = self._transform(X.test_data.drop(columns=keep_cols))
-                test_data = pd.concat([keep_test_data, transformed_test_data], axis=1)
-            else:
-                test_data = X.test_data
-            keep_train_data = X.train_data[keep_cols]
-            transformed_train_data = self._transform(X.train_data.drop(columns=keep_cols))
-            train_data = pd.concat([keep_train_data, transformed_train_data], axis=1)
-            new_ts_dataset = TimeSeriesDataset(
-                train_data=train_data,
-                time_col=X.time_col,
-                target_names=X.target_names,
-                time_idx=X.time_idx,
-                test_data=test_data,
-            )
-            return new_ts_dataset
+            return self._transform_validation_data(X)[0]
         elif time_col is not None:
             if isinstance(X, int):  # predict single timestamp
                 return X
@@ -557,6 +540,17 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
             return pd.concat([keep_data, transformed_data], axis=1)
         else:
             return self._transform(X)
+
+    def _transform_validation_data(self, X):
+        from flaml.automl.time_series.ts_data import _transform_ts_dataset
+
+        check_is_fitted(self)
+        keep_cols = X.target_names + [X.time_col]
+
+        def transform_frame(frame):
+            return pd.concat([frame[keep_cols], self._transform(frame.drop(columns=keep_cols))], axis=1)
+
+        return _transform_ts_dataset(X, transform_frame)
 
     def __repr__(self):
         return repr(self.pipeline) if self.pipeline is not None else "Featurization(no pipeline)"

@@ -214,7 +214,7 @@ def test_legacy_step_forecast_preserves_exogenous_values_and_kwargs():
     assert arguments["custom_flag"] is True
 
 
-def test_holt_winters_integer_horizon_respects_attached_validation_boundary():
+def test_holt_winters_integer_horizon_starts_after_fitted_training_boundary():
     from unittest.mock import patch
 
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -227,7 +227,7 @@ def test_holt_winters_integer_horizon_respects_attached_validation_boundary():
     with patch("statsmodels.tsa.holtwinters.ExponentialSmoothing", wraps=ExponentialSmoothing) as constructor:
         estimator.fit(data, None)
     assert constructor.call_args.kwargs["initialization_method"] == "estimated"
-    future = pd.DataFrame({"ds": pd.date_range("2026-01-26", periods=3)})
+    future = pd.DataFrame({"ds": pd.date_range("2026-01-21", periods=3)})
     by_count = estimator.predict(3)
     by_dates = estimator.predict(future)
     pd.testing.assert_index_equal(by_count.index, by_dates.index, check_names=False)
@@ -252,6 +252,59 @@ def test_forecast_cv_uses_fitted_business_day_frequency(with_regressors):
     exog = estimator._preprocess(enriched.test_data[estimator.regressors]).values if estimator.regressors else None
     expected = estimator._model.forecast(steps=5, exog=exog)
     pd.testing.assert_series_equal(predictions, expected.rename("price"))
+    if not with_regressors:
+        pd.testing.assert_series_equal(estimator.predict(5), expected.rename("price"))
+
+
+@pytest.mark.parametrize("future", [False, True])
+@pytest.mark.parametrize("invalid", ["duplicate", "decreasing", "off_grid"])
+def test_statsmodels_rejects_invalid_prediction_grid_before_model_calls(monkeypatch, future, invalid):
+    from unittest.mock import Mock
+
+    from flaml.automl.time_series.ts_model import Naive
+
+    frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=30), "value": np.arange(30.0)})
+    estimator = Naive(task="ts_forecast")
+    estimator.fit(TimeSeriesDataset(frame, "ds", "value"))
+    start = "2026-01-31" if future else "2026-01-10"
+    dates = pd.date_range(start, periods=2)
+    if invalid == "duplicate":
+        dates = dates[[0, 0]]
+    elif invalid == "decreasing":
+        dates = dates[::-1]
+    else:
+        dates = dates + pd.Timedelta(hours=12)
+    predict = Mock(wraps=estimator.model.predict)
+    forecast = Mock(wraps=estimator.model.forecast)
+    monkeypatch.setattr(estimator.model, "predict", predict)
+    monkeypatch.setattr(estimator.model, "forecast", forecast)
+    with pytest.raises(ValueError, match="unique, increasing, and aligned"):
+        estimator.predict(pd.DataFrame({"ds": dates}))
+    predict.assert_not_called()
+    forecast.assert_not_called()
+
+
+def test_generated_index_forecast_receives_explicit_future_dates():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from flaml.automl.time_series.ts_model import ARIMA
+
+    dates = pd.date_range("2026-02-01", periods=3)
+    estimator = ARIMA(p=1, d=0, q=0, monthly_fourier_degree=0, fourier_time_features=0)
+    estimator.time_col = "ds"
+    estimator.target_names = ["value"]
+    estimator.frequency = "D"
+    estimator.train_end_date = pd.Timestamp("2026-01-31")
+    estimator.end_date = estimator.train_end_date
+    estimator.regressors = []
+    estimator._model = SimpleNamespace(
+        model=SimpleNamespace(_index_generated=True, _index_freq=None),
+        get_forecast=Mock(),
+        forecast=Mock(return_value=pd.Series(np.ones(3), index=dates)),
+    )
+    estimator.predict(pd.DataFrame({"ds": dates}))
+    pd.testing.assert_index_equal(estimator.model.forecast.call_args.kwargs["index"], dates)
 
 
 @pytest.mark.parametrize("fabric_runtime", [False, True])
@@ -266,7 +319,7 @@ def test_simple_forecasters_use_estimated_initialization_everywhere(monkeypatch,
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric_runtime))
     values = np.r_[100.0, np.full(29, 10.0)]
     data = pd.DataFrame({"ds": pd.date_range("2024-01-01", periods=len(values)), "price": values})
-    estimator = getattr(ts_model, estimator_name)(task="ts_forecast", season=3)
+    estimator = getattr(ts_model, estimator_name)(task="ts_forecast", season=1)
     with patch("statsmodels.tsa.holtwinters.SimpleExpSmoothing", wraps=SimpleExpSmoothing) as constructor:
         estimator.fit(TimeSeriesDataset(data, "ds", "price"), budget=10)
     assert constructor.call_args.kwargs["initialization_method"] == "estimated"
@@ -275,7 +328,7 @@ def test_simple_forecasters_use_estimated_initialization_everywhere(monkeypatch,
     )
     assert estimator.model.sse <= legacy.sse + 1e-6
     if estimator_name == "Naive":
-        assert estimator.model.params["initial_level"] == pytest.approx(values.mean(), abs=1e-3)
+        np.testing.assert_allclose(estimator.predict(3), values[-1])
 
 
 def test_forecast_stock_data_without_holidays(budget=30):

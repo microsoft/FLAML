@@ -264,12 +264,12 @@ class TestAddTimeIdxCol:
         assert "time_idx" in result.columns
 
     def test_yearly_frequency(self):
-        """Cover lines 246-247: freq == 'Y'."""
+        """Year-start observations follow public regular-step semantics."""
         dates = pd.date_range("2015-01-01", periods=5, freq="YS")
         X = pd.DataFrame({"ds": dates, "val": range(5)})
         result = add_time_idx_col(X)
         assert "time_idx" in result.columns
-        assert result["time_idx"].tolist() == [2015, 2016, 2017, 2018, 2019]
+        assert result["time_idx"].tolist() == [0, 1, 2, 3, 4]
 
     def test_daily_frequency(self):
         """Cover lines 253-257: other freq (daily)."""

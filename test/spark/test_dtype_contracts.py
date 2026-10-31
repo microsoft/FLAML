@@ -111,3 +111,23 @@ def test_spark_conversion_preserves_quoted_column_names(dtype_spark):
     converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0)
     assert schema == {"a`b": "int"}
     assert sorted(row[0] for row in converted.collect()) == [1, 2]
+
+
+@pytest.mark.parametrize("candidate", ["1", "1.5", "2026-01-01"])
+def test_inferred_spark_cast_requires_full_column_support(dtype_spark, monkeypatch, candidate):
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('{candidate}'), ('alpha'), ('beta'), ('gamma') AS input(value)")
+    monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") == candidate))
+    converted, schema = auto_convert_dtypes_spark(frame, convert_threshold=0.6)
+    assert schema["value"] == "string"
+    assert sorted(row.value for row in converted.collect()) == sorted([candidate, "alpha", "beta", "gamma"])
+
+
+@pytest.mark.parametrize(
+    "values,expected_type", [(["1.5", "2.5", "bad"], "double"), (["2026-01-01", "2026-01-02", "bad"], "timestamp")]
+)
+def test_supported_spark_threshold_retains_documented_coercion(dtype_spark, values, expected_type):
+    rows = ", ".join(f"('{value}')" for value in values)
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES {rows} AS input(value)")
+    converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0, convert_threshold=0.6)
+    assert schema["value"] == expected_type
+    assert converted.filter(F.col("value").isNull()).count() == 1

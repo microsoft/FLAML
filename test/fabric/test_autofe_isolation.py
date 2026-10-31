@@ -428,6 +428,168 @@ def test_feature_registry_retains_legacy_alias():
     assert available_methods is avaliable_methods
 
 
+def test_public_search_state_requires_an_explicit_featurization_optin(monkeypatch):
+    import flaml.automl.state as module
+
+    options = dict(
+        learner_class=RandomForestEstimator,
+        data=np.arange(40).reshape(20, 2),
+        task=task_factory("classification"),
+        budget=10,
+        max_iter=1,
+    )
+    assert not any(name.startswith("fe.") for name in module.SearchState(**options).search_space)
+    assert any(name.startswith("fe.") for name in module.SearchState(**options, featurization="auto").search_space)
+    monkeypatch.setattr(module, "parse_autofe_config", None)
+    module.SearchState(**options)
+    with pytest.raises(ImportError, match="AutoFE is unavailable"):
+        module.SearchState(**options, featurization="auto")
+
+
+def test_generated_autofe_holdout_rejects_missing_classes_without_copying(monkeypatch):
+    from unittest.mock import Mock
+
+    from flaml.automl.task.generic_task import GenericTask
+
+    repair = Mock(side_effect=AssertionError("Validation rows must not be copied"))
+    monkeypatch.setattr(GenericTask, "_handle_missing_labels_fast", repair)
+
+    def incomplete_split(self, state, X, y, **kwargs):
+        train, validation = np.asarray(y) == 0, np.asarray(y) == 1
+        return X[train], X[validation], y[train], y[validation]
+
+    monkeypatch.setattr(GenericTask, "_train_test_split", incomplete_split)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        eval_method="holdout",
+        split_type="uniform",
+    )
+    with pytest.raises(ValueError, match="every class represented"):
+        automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    repair.assert_not_called()
+
+
+def test_explicit_autofe_validation_keeps_the_supplied_class_subset(monkeypatch):
+    from unittest.mock import Mock
+
+    from flaml.automl.task.generic_task import GenericTask
+
+    repair = Mock(side_effect=AssertionError("Caller validation must be left unchanged"))
+    monkeypatch.setattr(GenericTask, "_handle_missing_labels_fast", repair)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        metric="accuracy",
+        retrain_full=False,
+        keep_search_state=True,
+    )
+    validation = np.arange(8).reshape(4, 2)
+    automl.fit(
+        np.arange(80).reshape(40, 2),
+        np.tile([0, 1], 20),
+        X_val=validation,
+        y_val=np.zeros(4, dtype=int),
+    )
+    assert len(automl._state.X_val) == 4
+    assert set(automl._state.y_val) == {0}
+    repair.assert_not_called()
+
+
+@pytest.mark.parametrize("evaluation", ["holdout", "cv"])
+def test_forecast_latency_times_validation_rows_not_training_history(monkeypatch, evaluation):
+    import flaml.automl.ml as module
+    from flaml.automl.pipeline import _TaskPreprocessor
+
+    clock = [0.0]
+    transform_preprocessor = _TaskPreprocessor._transform_forecast_frame
+    transform_features = Featurization._transform
+
+    def timed_preprocessor(self, frame):
+        clock[0] += 0.2 * len(frame)
+        return transform_preprocessor(self, frame)
+
+    def timed_features(self, frame):
+        clock[0] += 0.1 * len(frame)
+        return transform_features(self, frame)
+
+    monkeypatch.setattr(module.time, "perf_counter", lambda: clock[0])
+    monkeypatch.setattr(_TaskPreprocessor, "_transform_forecast_frame", timed_preprocessor)
+    monkeypatch.setattr(Featurization, "_transform", timed_features)
+    frame = pd.DataFrame(
+        {"ds": pd.date_range("2026-01-01", periods=30), "value": np.arange(30.0), "y": np.arange(30.0)}
+    )
+    automl = AutoML(
+        estimator_list=["naive"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        eval_method=evaluation,
+        metric="mse",
+        time_budget=10,
+        n_splits=2,
+    )
+    automl.fit(dataframe=frame, label="y", task="ts_forecast", period=3)
+    assert automl.best_result["pred_time"] == pytest.approx(0.3, abs=0.02)
+
+
+def test_empty_custom_validation_does_not_divide_transform_time_by_zero(caplog):
+    from types import SimpleNamespace
+
+    import flaml.automl.ml as module
+
+    transformer = SimpleNamespace(fit_transform=lambda X, y: X, transform=lambda X: X)
+    estimator = SimpleNamespace(autofe=transformer, fit=lambda *args, **kwargs: None)
+    train = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+    _, metrics, _, latency = module.get_val_loss(
+        {},
+        estimator,
+        train,
+        np.arange(3.0),
+        train.iloc[:0],
+        np.array([]),
+        None,
+        None,
+        lambda *args: (0.25, {"pred_time": 0.5}),
+        task_factory("regression"),
+    )
+    assert metrics["pred_time"] == latency == 0.5
+    assert any("empty validation partition" in record.message for record in caplog.records)
+
+
+def test_empty_forecast_validation_does_not_charge_training_history():
+    from types import SimpleNamespace
+
+    import flaml.automl.ml as module
+
+    frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=4), "x": np.arange(4.0), "y": np.arange(4.0)})
+    data = TimeSeriesDataset(frame, "ds", "y")
+    estimator = SimpleNamespace(autofe=Featurization(params={}), fit=lambda *args, **kwargs: None)
+    _, metrics, _, latency = module.get_val_loss(
+        {},
+        estimator,
+        data,
+        None,
+        data,
+        None,
+        None,
+        None,
+        lambda *args: (0.25, {"pred_time": 0.5}),
+        task_factory("ts_forecast"),
+    )
+    assert metrics["pred_time"] == latency == 0.5
+
+
 def test_zero_within_class_rank_lda_candidate_is_rejected_and_search_continues():
     X = pd.DataFrame({"x": [0.0, 0.0, 1.0, 1.0], "id": pd.Categorical(["a", "b", "c", "d"])})
     validation = pd.DataFrame({"x": [0.0, 1.0], "id": pd.Categorical(["a", "c"])})

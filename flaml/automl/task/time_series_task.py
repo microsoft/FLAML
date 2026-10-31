@@ -111,7 +111,6 @@ class TimeSeriesTask(Task):
             # in this case, we're most likely being called by another FLAML instance
             # so all the preliminary cleaning has already been done
             pre_data = X_train_all
-            len(pre_data.X_val)
         else:
             if label is None and dataframe is not None:
                 raise ValueError("If data is specified via dataframe parameter, you must also specify label")
@@ -162,7 +161,6 @@ class TimeSeriesTask(Task):
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
-                len(val_df)
             else:
                 val_df = None
 
