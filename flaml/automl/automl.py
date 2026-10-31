@@ -20,12 +20,14 @@ import numpy as np
 from flaml import tune
 from flaml.automl.logger import logger, logger_formatter
 from flaml.automl.ml import (
+    _align_class_probabilities,
     huggingface_metric_to_mode,
     sklearn_metric_name_set,
     spark_metric_name_dict,
     train_estimator,
 )
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.spark.utils import len_labels
 from flaml.automl.state import AutoMLState, SearchState
 from flaml.automl.task.factory import task_factory
 
@@ -803,10 +805,17 @@ class AutoML(BaseEstimator):
 
     @property
     def classes_(self):
-        """A numpy array of shape (n_classes,) for class labels."""
+        """Class labels from the label transformer or estimator.
+
+        For local tabular classification, includes the full training class set,
+        including for sparse or untransformed inputs.
+        """
         attr = getattr(self, "_label_transformer", None)
         if attr:
             return attr.classes_
+        classes = getattr(self, "_classes", None)
+        if classes is not None:
+            return classes
         attr = getattr(self, "_trained_estimator", None)
         if attr:
             return attr.classes_
@@ -907,8 +916,18 @@ class AutoML(BaseEstimator):
                 the searched learners, such as per_device_eval_batch_size.
 
         Returns:
-            A numpy array of shape n * c. c is the  # classes. Each element at
-            (i, j) is the probability for instance i to be in class j.
+            For local tabular classification, a numpy array of shape n * c,
+            where c is the number of classes. Each element at
+            (i, j) is the probability for instance i to be in class `classes_[j]`.
+            For tabular classification, classes absent from a retained sampled model
+            receive zero probability, including with sparse inputs or disabled
+            preprocessing. A single-class LightGBM or XGBoost sample is
+            normalized over its observed class; non-finite backend rows remain
+            non-finite. These aligned probabilities can therefore differ from the
+            raw output of `automl.model.predict_proba(automl.preprocess(X))`.
+            Requested raw scores, leaf indices and feature contributions are returned
+            unchanged from the backend instead of being aligned as probabilities.
+            Spark outputs are returned unchanged in their backend format.
         """
         estimator = getattr(self, "_trained_estimator", None)
         if estimator is None:
@@ -916,6 +935,18 @@ class AutoML(BaseEstimator):
             return None
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
+        if isinstance(proba, (psDataFrame, psSeries)):
+            return proba
+        # A failed task change can leave the previous classifier installed.
+        # Keep its retained native class axis aligned until the model is replaced.
+        if (
+            self._state.task.name in ("classification", "binary", "multiclass")
+            or getattr(self, "_classes", None) is not None
+        ) and not any(pred_kwargs.get(option) for option in ("raw_score", "pred_leaf", "pred_contrib")):
+            # Match the estimator's encoded or native labels to the full class set.
+            # Raw scores, leaf indices and feature contributions are not probabilities.
+            labels = np.arange(len(self.classes_)) if self._label_transformer else self.classes_
+            proba = _align_class_probabilities(proba, estimator, labels)
         return proba
 
     def preprocess(
@@ -1227,6 +1258,7 @@ class AutoML(BaseEstimator):
                     from .model import BaseEstimator as Estimator
 
                     self._trained_estimator = Estimator()
+                    self._classes = None
                     return training_duration
         if not best:
             return
@@ -1276,6 +1308,7 @@ class AutoML(BaseEstimator):
             best_config,
             sample_size=sample_size,
         )[0]
+        self._classes = self._state.native_classes
         logger.info("retrain from log succeeded")
         return training_duration
 
@@ -1849,6 +1882,9 @@ class AutoML(BaseEstimator):
         return self._metric_constraints
 
     def _prepare_data(self, eval_method, split_ratio, n_splits):
+        # Reset on every fit, including when the same AutoML changes tasks.
+        self._state.holdout_labels = None
+        self._state.native_classes = None
         self._state.task.prepare_data(
             self._state,
             self._X_train_all,
@@ -1862,6 +1898,24 @@ class AutoML(BaseEstimator):
             self._sample_weight_full,
             self._allow_label_overlap,
         )
+        native_class_axis = (
+            self._state.task.name in ("classification", "binary", "multiclass")
+            and not self._label_transformer
+            and not isinstance(self._state.y_train_all, psSeries)
+        )
+        if (
+            (eval_method == "holdout" or native_class_axis)
+            and self._state.task.is_classification()
+            and not self._state.task.is_token_classification()
+            and self._state.y_train_all is not None
+        ):
+            _, labels = len_labels(self._state.y_train_all, return_labels=True)
+            # Do not retain a live pandas-on-Spark object in serialized state.
+            labels = labels.to_numpy() if isinstance(labels, psSeries) else labels
+            if eval_method == "holdout":
+                self._state.holdout_labels = labels
+            if native_class_axis:
+                self._state.native_classes = labels
         self.data_size_full = self._state.data_size_full
 
     def fit(
@@ -3286,6 +3340,9 @@ class AutoML(BaseEstimator):
         self._iter_per_learner_fullsize = {e: 0 for e in self.estimator_list}
         self._fullsize_reached = False
         self._trained_estimator = None
+        # Publish the prepared axis only once the previous model is discarded.
+        # Setup errors before search must not relabel the still-installed model.
+        self._classes = self._state.native_classes
         self._best_estimator = None
         self._retrained_config = {}
         self._warn_threshold = 10
