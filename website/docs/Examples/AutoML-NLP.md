@@ -290,7 +290,7 @@ automl.fit(
 automl.predict(X_test)
 ```
 
-The second is to define the id labels + a token [label list](https://microsoft.github.io/FLAML/docs/reference/nlp/huggingface/training_args):
+The second is to define the id labels + a token [label list](https://microsoft.github.io/FLAML/docs/reference/automl/nlp/huggingface/training_args):
 
 ```python
 from flaml import AutoML
