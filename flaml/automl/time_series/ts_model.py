@@ -334,6 +334,9 @@ class Prophet(TimeSeriesEstimator):
 
 class StatsModelsEstimator(TimeSeriesEstimator):
     def predict(self, X, **kwargs) -> pd.Series:
+        if isinstance(X, int) and self.train_end_date is not None:
+            # Forecast the requested number of periods right after the fitted training data
+            X = create_forward_frame(self.frequency, X, self.train_end_date, self.time_col)
         X = self.enrich(X)
         if self._model is None or self._model is False:
             return np.ones(X if isinstance(X, int) else X.shape[0])
@@ -384,10 +387,19 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = forecast.iloc[positions]
             elif self.train_end_date is not None and end > self.train_end_date:
                 raise ValueError("Prediction timestamps cannot span both training and future periods.")
-            elif exog is not None:
-                forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
             else:
-                forecast = self._model.predict(start=start, end=end, **kwargs)
+                if exog is not None:
+                    forecast = self._model.predict(start=start, end=end, exog=exog, **kwargs)
+                else:
+                    forecast = self._model.predict(start=start, end=end, **kwargs)
+                # The model predicts every period from start to end; keep only the requested timestamps
+                positions = pd.DatetimeIndex(forecast.index).get_indexer(pd.DatetimeIndex(X[self.time_col]))
+                if (positions < 0).any() or (positions[1:] <= positions[:-1]).any():
+                    raise ValueError(
+                        "Prediction timestamps must be unique, increasing, and aligned with the training frequency."
+                    )
+                if len(positions) != len(forecast):
+                    forecast = forecast.iloc[positions]
         else:
             raise ValueError(
                 "X needs to be either a pandas Dataframe with dates as the first column"
@@ -686,10 +698,13 @@ class SimpleForecaster(StatsModelsEstimator):
 
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
+        # A season cannot be longer than the training history; with holdout, data.train_data
+        # excludes the validation rows, and every cross-validation fold has at least pred_horizon rows
+        max_season = max(1, min(pred_horizon, len(data.train_data)))
         return {
             "season": {
-                "domain": tune.randint(1, pred_horizon),
-                "init_value": pred_horizon,
+                "domain": tune.randint(1, max_season + 1),
+                "init_value": max_season,
             }
         }
 
@@ -736,33 +751,54 @@ class SimpleForecaster(StatsModelsEstimator):
         return train_time
 
 
+class SeasonalRandomWalk:
+    """Point forecasts of a seasonal random walk, where each value repeats the one a season earlier."""
+
+    def __init__(self, y: pd.Series, season: int, frequency: str):
+        self.season = season
+        self.frequency = frequency
+        self.last_date = y.index[-1]
+        self.last_cycle = y.to_numpy()[-season:]
+        # In-sample predictions; only the first season has no earlier value and uses the first
+        # observation, while a missing target later on stays missing one season ahead
+        self.fittedvalues = y.shift(season)
+        self.fittedvalues.iloc[:season] = y.iloc[0]
+
+    def forecast(self, steps: int, **kwargs) -> pd.Series:
+        start = self.last_date + pd.tseries.frequencies.to_offset(self.frequency)
+        index = pd.date_range(start=start, periods=steps, freq=self.frequency)
+        return pd.Series(np.resize(self.last_cycle, steps), index=index)
+
+    def predict(self, start, end, **kwargs) -> pd.Series:
+        return self.fittedvalues.loc[start:end]
+
+
 class SeasonalNaive(SimpleForecaster):
     smoothing_level = 1.0
 
-    def predict(self, X, **kwargs):
-        if isinstance(X, int):
-            forecasts = []
-            for i in range(X):
-                forecast = self._model.forecast(steps=self.season)[0]
-                forecasts.append(forecast)
-            return pd.Series(forecasts)
-        else:
-            return super().predict(X, **kwargs)
+    def fit(self, X_train, y_train=None, budget=None, **kwargs):
+        season = self.params.get("season", 1)
+        if isinstance(season, bool) or not isinstance(season, (int, np.integer)) or season < 1:
+            raise ValueError(f"season must be a positive integer, got {season!r}.")
+        if season == 1:
+            return super().fit(X_train, y_train, budget=budget, **kwargs)
+        current_time = time.time()
+        self.season = int(season)
+        train_df, target_col = self.joint_preprocess(X_train, y_train)
+        if len(train_df) < self.season:
+            raise ValueError(
+                f"SeasonalNaive needs at least season={self.season} training observations, got {len(train_df)}."
+            )
+        self._model = SeasonalRandomWalk(train_df[target_col], self.season, self.frequency)
+        return time.time() - current_time
 
 
 class Naive(SimpleForecaster):
-    smoothing_level = 0.0
+    smoothing_level = 1.0
 
     @classmethod
     def _search_space(cls, data: TimeSeriesDataset, task: Task, pred_horizon: int, **params):
         return {}
-
-    def predict(self, X, **kwargs):
-        if isinstance(X, int):
-            last_observation = self._model.params["initial_level"]
-            return pd.Series([last_observation] * X)
-        else:
-            return super().predict(X, **kwargs)
 
 
 class SeasonalAverage(SimpleForecaster):
@@ -771,9 +807,12 @@ class SeasonalAverage(SimpleForecaster):
 
         start_time = time.time()
 
-        self.season = kwargs.get("season", 1)  # seasonality period
+        self.season = kwargs.get("season", self.params.get("season", 1))  # seasonality period
         train_df, target_col = self.joint_preprocess(X_train, y_train)
-        selection_res = ar_select_order(train_df[target_col], maxlag=self.season)
+        # The lag order is selected up to the season, as far as the training rows allow: after
+        # dropping the first maxlag rows, the maxlag lags and the constant need one residual degree of freedom
+        maxlag = min(self.season, (len(train_df) - 2) // 2)
+        selection_res = ar_select_order(train_df[target_col], maxlag=maxlag)
 
         # Fit autoregressive model with optimal order
         model = AutoReg(train_df[target_col], lags=selection_res.ar_lags)
