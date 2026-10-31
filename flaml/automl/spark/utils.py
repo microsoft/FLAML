@@ -108,7 +108,7 @@ def train_test_split_pyspark(
         test_fraction: float | The fraction of the test data. Default 0.2.
         seed: int | The random seed. Default 1234.
         to_pandas_spark: bool | Whether to convert the output to pandas_on_spark. Default True.
-        index_col: str | The column name to use as index. Default None.
+        index_col: str | The column name to use as index. Default "tmp_index_col".
 
     Returns:
         pyspark.sql.DataFrame/pandas_on_spark DataFrame | The train dataframe.

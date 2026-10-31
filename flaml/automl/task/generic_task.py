@@ -893,19 +893,19 @@ class GenericTask(Task):
                     sample_weight_full,
                     random_state=RANDOM_SEED,
                 )
+                if isinstance(state.sample_weight_all, pd.Series):
+                    state.sample_weight_all = state.sample_weight_all.reset_index(drop=True)
                 state.fit_kwargs[
                     "sample_weight"
                 ] = (
                     state.sample_weight_all
                 )  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
-                if isinstance(state.sample_weight_all, pd.Series):
-                    state.sample_weight_all.reset_index(drop=True, inplace=True)
             else:
                 X_train_all, y_train_all = shuffle(X_train_all, y_train_all, random_state=RANDOM_SEED)
             if data_is_df:
-                X_train_all.reset_index(drop=True, inplace=True)
+                X_train_all = X_train_all.reset_index(drop=True)
         if isinstance(y_train_all, pd.Series):
-            y_train_all.reset_index(drop=True, inplace=True)
+            y_train_all = y_train_all.reset_index(drop=True)
 
         X_train, y_train = X_train_all, y_train_all
         state.groups_all = state.groups
