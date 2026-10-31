@@ -35,5 +35,5 @@ except (ImportError, AssertionError):
     )
 from .sample import Categorical, Float, PolynomialExpansionSet, polynomial_expansion_set
 from .trial import Trial
-from .tune import INCUMBENT_RESULT, report, run
+from .tune import INCUMBENT_RESULT, get_run_context, report, run, use_run_context
 from .utils import choice
