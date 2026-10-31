@@ -224,7 +224,7 @@ def concat(X1, X2):
 
     if isinstance(X1, (DataFrame, Series)):
         df = pd.concat([X1, X2], sort=False)
-        df.reset_index(drop=True, inplace=True)
+        df = df.reset_index(drop=True)
         if isinstance(X1, DataFrame):
             cat_columns = X1.select_dtypes(include="category").columns
             if len(cat_columns):
@@ -310,7 +310,7 @@ class DataTransformer:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category", "string", "str"):
                     if X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum():
-                        X.drop(columns=column, inplace=True)
+                        X = X.drop(columns=column)
                         drop = True
                     elif X[column].dtype.name == "category":
                         current_categories = X[column].cat.categories
@@ -322,7 +322,7 @@ class DataTransformer:
                         X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                 elif X[column].nunique(dropna=True) < 2:
-                    X.drop(columns=column, inplace=True)
+                    X = X.drop(columns=column)
                     drop = True
                 else:  # datetime or numeric
                     if is_datetime64_any_dtype is not None and is_datetime64_any_dtype(X[column]):
@@ -334,8 +334,12 @@ class DataTransformer:
                             f"hour_{column}": tmp_dt.hour,
                             f"minute_{column}": tmp_dt.minute,
                             f"second_{column}": tmp_dt.second,
-                            f"dayofweek_{column}": tmp_dt.dayofweek,
-                            f"dayofyear_{column}": tmp_dt.dayofyear,
+                            f"dayofweek_{column}": tmp_dt.day_of_week
+                            if hasattr(tmp_dt, "day_of_week")
+                            else tmp_dt.dayofweek,
+                            f"dayofyear_{column}": tmp_dt.day_of_year
+                            if hasattr(tmp_dt, "day_of_year")
+                            else tmp_dt.dayofyear,
                             f"quarter_{column}": tmp_dt.quarter,
                         }
                         for key, value in new_columns_dict.items():
@@ -441,8 +445,8 @@ class DataTransformer:
                     f"hour_{column}": tmp_dt.hour,
                     f"minute_{column}": tmp_dt.minute,
                     f"second_{column}": tmp_dt.second,
-                    f"dayofweek_{column}": tmp_dt.dayofweek,
-                    f"dayofyear_{column}": tmp_dt.dayofyear,
+                    f"dayofweek_{column}": tmp_dt.day_of_week if hasattr(tmp_dt, "day_of_week") else tmp_dt.dayofweek,
+                    f"dayofyear_{column}": tmp_dt.day_of_year if hasattr(tmp_dt, "day_of_year") else tmp_dt.dayofyear,
                     f"quarter_{column}": tmp_dt.quarter,
                 }
                 for new_col_name, new_col_value in new_columns_dict.items():
