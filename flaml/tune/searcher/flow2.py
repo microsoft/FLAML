@@ -163,7 +163,8 @@ class FLOW2(Searcher):
                     if str(sampler) == "Uniform":
                         self._step_lb = min(self._step_lb, q / (domain.upper - domain.lower + 1))
                 elif isinstance(domain, sample.Integer) and str(sampler) == "Uniform":
-                    self._step_lb = min(self._step_lb, 1.0 / (domain.upper - domain.lower))
+                    if domain.upper - domain.lower > 1:
+                        self._step_lb = min(self._step_lb, 1.0 / (domain.upper - domain.lower))
                 if isinstance(domain, sample.Categorical):
                     if not domain.ordered:
                         self._unordered_cat_hp[key] = len(domain.categories)
@@ -234,6 +235,8 @@ class FLOW2(Searcher):
                         np.log(1.0 + q / self.best_config[key]) / np.log(domain.upper / domain.lower),
                     )
             elif isinstance(domain, sample.Integer) and str(sampler) == "LogUniform":
+                if domain.upper - 1 == domain.lower:
+                    continue  # A fixed integer has no log-space step to constrain.
                 step_lb = min(
                     step_lb,
                     np.log(1.0 + 1.0 / self.best_config[key]) / np.log((domain.upper - 1) / domain.lower),
