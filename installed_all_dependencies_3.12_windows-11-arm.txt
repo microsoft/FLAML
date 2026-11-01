@@ -36,7 +36,7 @@ executing==2.3.0
 fastapi==0.162.0
 fastjsonschema==2.22.2
 filelock==4.2.6
--e git+https://github.com/microsoft/FLAML@17efebd03e21d9d251d43f8d21753ba874fb5d96#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@ec8ba0f94132a67aee2557ec91e54104c788d3bf#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -101,7 +101,7 @@ nbconvert==7.17.2
 nbformat==5.11.1
 nest-asyncio2==1.7.4
 nltk==3.10.4
-nodeenv==1.11.1
+nodeenv==1.12.0
 notebook==7.6.4
 notebook_shim==0.2.4
 numpy==2.5.4
