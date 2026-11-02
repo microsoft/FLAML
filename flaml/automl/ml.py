@@ -7,9 +7,11 @@ import time
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from sklearn.pipeline import Pipeline
 
-from flaml.automl.data import group_counts
+from flaml.automl.data import DataTransformer, group_counts
 from flaml.automl.model import BaseEstimator, TransformersEstimator
+from flaml.automl.pipeline import _TaskPreprocessor
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.task.task import Task
@@ -30,6 +32,11 @@ try:
     )
 except ImportError:
     pass
+
+try:
+    from flaml.fabric.autofe import Featurization
+except ImportError:
+    Featurization = None
 
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
@@ -329,6 +336,11 @@ def to_numpy(x):
     return x.reshape((-1, 1))
 
 
+def _attach_task_preprocessor(estimator, task):
+    if getattr(task, "_preprocess_for_autofe", False):
+        estimator._flaml_preprocessor = _TaskPreprocessor(task, DataTransformer(), preserve_features=True)
+
+
 def compute_estimator(
     X_train,
     y_train,
@@ -362,12 +374,19 @@ def compute_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
+    _attach_task_preprocessor(estimator, task)
 
     if isinstance(estimator, TransformersEstimator):
         # TODO: move the partial function to nlp
@@ -427,8 +446,9 @@ def train_estimator(
     fit_kwargs: Optional[dict] = None,
     eval_metric=None,
     free_mem_ratio=0,
-) -> Tuple[EstimatorSubclass, float]:
+) -> Tuple[Union[EstimatorSubclass, Pipeline], float]:
     start_time = time.time()
+    config_dic = config_dic.copy()
     fe_params = {}
     for param, value in config_dic.items():
         if param.startswith("fe."):
@@ -437,12 +457,25 @@ def train_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
+    _attach_task_preprocessor(estimator, task)
+    if X_train is not None:
+        preprocessor = getattr(estimator, "_flaml_preprocessor", None)
+        if preprocessor is not None:
+            X_train = preprocessor.fit_transform(X_train, y_train)
+        if autofe is not None:
+            X_train = autofe.fit_transform(X_train, y_train)
 
     if fit_kwargs is None:
         fit_kwargs = {}
@@ -455,12 +488,60 @@ def train_estimator(
         train_time = estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     else:
         estimator = estimator.estimator_class(**estimator.params)
+        if autofe is not None:
+            estimator = Pipeline([("autofe", autofe), ("estimator", estimator)])
     train_time = time.time() - start_time
     return estimator, train_time
 
 
-def _resample_training_data(X_train, y_train, task):
-    resampler = getattr(task, "_resampler", None)
+def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator):
+    if resampler is None:
+        return fit_kwargs, fit_kwargs_by_estimator
+    if ensemble:
+        raise ValueError(
+            "Cannot combine 'resampler' with 'ensemble' because stacking performs "
+            "internal cross-validation where pre-resampling can leak synthetic samples "
+            "across folds. Disable ensemble or omit resampler."
+        )
+    metadata_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
+    if any(kwargs.get("sample_weight") is not None for kwargs in metadata_sources):
+        raise ValueError(
+            "Cannot combine 'resampler' with 'sample_weight' (including via "
+            "fit_kwargs_by_estimator); resampling breaks the 1-to-1 row alignment "
+            "with sample weights. Use either resampling or sample weighting, not both."
+        )
+    if groups is not None or any(kwargs.get("groups") is not None for kwargs in metadata_sources):
+        raise ValueError(
+            "Cannot combine 'resampler' with 'groups' because resampling breaks the "
+            "1-to-1 row alignment with group labels."
+        )
+    if not callable(getattr(resampler, "fit_resample", None)):
+        raise TypeError(
+            "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
+            "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
+        )
+    try:
+        from sklearn.base import clone
+
+        clone(resampler)
+    except Exception as e:
+        raise TypeError(
+            "'resampler' must be cloneable via sklearn.base.clone (implement "
+            "get_params/set_params, e.g. by subclassing sklearn.base.BaseEstimator); "
+            f"cloning failed with: {e}"
+        ) from e
+    return (
+        {key: value for key, value in fit_kwargs.items() if key != "sample_weight"},
+        {
+            name: {key: value for key, value in kwargs.items() if key != "sample_weight"}
+            for name, kwargs in (fit_kwargs_by_estimator or {}).items()
+        },
+    )
+
+
+def _resample_training_data(X_train, y_train, task=None, *, resampler=None):
+    if resampler is None:
+        resampler = getattr(task, "_resampler", None)
     if resampler is None:
         return X_train, y_train
 
@@ -517,6 +598,14 @@ def multi_class_curves(
     return curve_x, curve_y
 
 
+def _transform_validation_data(transformer, X):
+    if isinstance(X, TimeSeriesDataset) and hasattr(transformer, "_transform_validation_data"):
+        return transformer._transform_validation_data(X)
+    start = time.perf_counter()
+    transformed = transformer.transform(X)
+    return transformed, time.perf_counter() - start
+
+
 def get_val_loss(
     config,
     estimator,
@@ -535,6 +624,20 @@ def get_val_loss(
     free_mem_ratio=0,
 ):
     start = time.time()
+    validation_transform_time = 0.0
+    preprocessor = getattr(estimator, "_flaml_preprocessor", None)
+    if preprocessor is not None:
+        X_train = preprocessor.fit_transform(X_train, y_train)
+        if X_val is not None:
+            X_val, transform_time = _transform_validation_data(preprocessor, X_val)
+            validation_transform_time += transform_time
+    autofe = getattr(estimator, "autofe", None)
+    if autofe is not None:
+        # This runs separately for each CV fold as well as for a holdout split.
+        X_train = autofe.fit_transform(X_train, y_train)
+        if X_val is not None:
+            X_val, transform_time = _transform_validation_data(autofe, X_val)
+            validation_transform_time += transform_time
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
@@ -556,6 +659,16 @@ def get_val_loss(
         log_training_metric,
         fit_kwargs,
     )
+    if validation_transform_time:
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data) if X_val.test_data is not None else 0
+        else:
+            num_val_rows = X_val.shape[0]
+        if num_val_rows:
+            pred_time += validation_transform_time / num_val_rows
+            metric_for_logging["pred_time"] = pred_time
+        else:
+            logger.warning("Skipping per-row transform latency for an empty validation partition.")
     if hasattr(estimator, "intermediate_results"):
         metric_for_logging["intermediate_results"] = estimator.intermediate_results
     train_time = time.time() - start

@@ -34,6 +34,7 @@ except ImportError:
     SKLEARN_TAGS_AVAILABLE = False
 
 from flaml import tune
+from flaml.automl._lightgbm_compat import patch_lightgbm_sklearn_validation
 from flaml.automl.data import group_counts
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
@@ -70,6 +71,8 @@ try:
     from lightgbm import LGBMClassifier, LGBMRanker, LGBMRegressor
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
+else:
+    patch_lightgbm_sklearn_validation()
 
 xgb_callback = False
 try:
@@ -226,6 +229,8 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             return self._model.feature_names_in_
         if hasattr(self._model, "feature_name_"):  # for lightgbm
             return self._model.feature_name_
+        if hasattr(self._model, "feature_names_"):  # for catboost
+            return self._model.feature_names_
         if hasattr(self._model, "feature_names"):  # for XGBoostEstimator
             return self._model.feature_names
         if hasattr(self._model, "get_booster"):

@@ -84,7 +84,6 @@ def spark_metric_loss_score(
         kwargs = {"weightCol": "weight"}
 
     df = df.to_spark()
-
     metric_name = metric_name.lower()
     min_mode_metrics = ["log_loss", "rmse", "mse", "mae"]
 

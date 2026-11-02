@@ -2,6 +2,7 @@ import pickle
 import platform
 import shutil
 import sys
+from test._artifact_paths import artifact_path
 
 import pytest
 
@@ -112,9 +113,9 @@ def _test_hf_data():
 
     automl = AutoML()
     automl.retrain_from_log(X_train=X_train, y_train=y_train, train_full=True, record_id=0, **automl_settings)
-    with open("automl.pkl", "wb") as f:
+    with open(artifact_path(__file__, "automl.pkl"), "wb") as f:
         pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
-    with open("automl.pkl", "rb") as f:
+    with open(artifact_path(__file__, "automl.pkl"), "rb") as f:
         automl = pickle.load(f)
     shutil.rmtree("test/data/output/")
     automl.predict(X_test)

@@ -77,7 +77,8 @@ def test_time_split_with_sample_weight():
     assert automl.model is not None
 
 
-def test_group_split_with_sample_weight_alignment():
+@pytest.mark.parametrize("weight_type", [np.asarray, list, tuple])
+def test_group_split_with_sample_weight_alignment(weight_type):
     """Regression for group holdout: sample_weight must be split by the group
     train/val indices, not left full-length and sliced positionally downstream."""
     from unittest.mock import patch
@@ -90,7 +91,7 @@ def test_group_split_with_sample_weight_alignment():
     X = np.column_stack([np.arange(n, dtype=float), rng.normal(size=n)])
     groups = np.repeat(np.arange(20), 10)
     y = (groups % 2).astype(int)
-    sample_weight = 1000.0 + np.arange(n, dtype=float)
+    sample_weight = weight_type(1000.0 + np.arange(n, dtype=float))
 
     captured = []
     original_fit = RandomForestClassifier.fit

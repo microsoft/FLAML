@@ -23,7 +23,7 @@ FLAML automatically preprocesses missing values in the input data through its `D
 
 FLAML performs the following preprocessing automatically when you call `AutoML.fit()`:
 
-1. **Numerical/Continuous Columns**: Missing values (NaN) in numerical columns are imputed using `sklearn.impute.SimpleImputer` with the **median strategy**. This preprocessing is applied in the `DataTransformer.fit_transform()` method (see `flaml/automl/data.py` lines 357-369 and `flaml/automl/time_series/ts_data.py` lines 429-440).
+1. **Numerical/Continuous Columns**: Missing values (NaN) in numerical columns are imputed using `sklearn.impute.SimpleImputer` with the **median strategy**. See `DataTransformer.fit_transform()` in `flaml/automl/data.py` and `DataTransformerTS.fit()` in `flaml/automl/time_series/ts_data.py`.
 
 1. **Categorical Columns**: Missing values in categorical columns (object, category, or string dtypes) are filled with a special placeholder value `"__NAN__"`, which is treated as a distinct category.
 
@@ -164,7 +164,7 @@ Optimization history can be checked from the [log](Use-Cases/Task-Oriented-AutoM
 
 - Set `free_mem_ratio` a float between 0 and 1. For example, 0.2 means try to keep free memory above 20% of total memory. Training may be early stopped for memory consumption reason when this is set.
 - Set `model_history` False.
-- If your data are already preprocessed, set `skip_transform` False. If you can preprocess the data before the fit starts, this setting can save memory needed for preprocessing in `fit`.
+- If your data are already preprocessed, set `skip_transform=True`. This skips automatic preprocessing in `fit` and can save the memory that transformation would otherwise require.
 - If the OOM error only happens for some particular trials:
   - set `use_ray` True. This will increase the overhead per trial but can keep the AutoML process running when a single trial fails due to OOM error.
   - provide a more accurate [`size`](reference/automl/model#size) function for the memory bytes consumption of each config for the estimator causing this error.

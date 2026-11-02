@@ -38,11 +38,11 @@ class TrainerForAuto(Seq2SeqTrainer):
         else:
             return super(Seq2SeqTrainer, self).prediction_step(model, inputs, prediction_loss_only, ignore_keys)
 
-    def log(self, logs) -> None:
+    def log(self, logs, *args, **kwargs) -> None:
         if getattr(self, "_is_seq2seq", None):
-            super().log(logs)
+            super().log(logs, *args, **kwargs)
         else:
-            super(Seq2SeqTrainer, self).log(logs)
+            super(Seq2SeqTrainer, self).log(logs, *args, **kwargs)
         if not hasattr(self, "intermediate_results"):
             self.intermediate_results = {}
 
