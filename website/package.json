@@ -7,7 +7,7 @@
     "trim": "0.0.3",
     "got": "11.8.5",
     "node-forge": "1.3.0",
-    "minimatch": "11.0.1",
+    "serve-handler/minimatch": "3.1.5",
     "loader-utils": "2.0.4",
     "eta": "2.0.0",
     "@sideway/formula": "3.0.1",
