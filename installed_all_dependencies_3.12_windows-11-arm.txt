@@ -2,7 +2,7 @@ absl-py==2.5.1
 alembic==1.20.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
-anyio==4.15.1
+anyio==4.16.0
 argon2-cffi==25.1.0
 argon2-cffi-bindings==26.1.0
 arrow==1.4.0
@@ -27,16 +27,16 @@ convertdate==2.5.1
 coverage==7.17.0
 cryptography==46.0.3
 cycler==0.12.1
-databricks-sdk==0.158.0
+databricks-sdk==0.159.0
 debugpy==1.8.22
 defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.4
 executing==2.3.0
 fastapi==0.162.0
-fastjsonschema==2.22.2
-filelock==4.2.6
--e git+https://github.com/microsoft/FLAML@ec8ba0f94132a67aee2557ec91e54104c788d3bf#egg=FLAML
+fastjsonschema==2.22.3
+filelock==4.2.7
+-e git+https://github.com/microsoft/FLAML@e919a8b6ebcda1770e5dca344f22d54ea8cd77c6#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -58,7 +58,7 @@ importlib_metadata==8.9.0
 iniconfig==2.3.1
 interface_meta==2.0.1
 ipykernel==7.4.0
-ipython==9.18.0
+ipython==9.18.1
 ipython_pygments_lexers==1.1.1
 ipywidgets==8.1.9
 isoduration==20.11.0
@@ -67,7 +67,7 @@ Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
 json5==0.17.3
-jsonpointer==3.6
+jsonpointer==3.8
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupyter==1.1.1
@@ -115,7 +115,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==13.0.0
-platformdirs==4.14.2
+platformdirs==4.14.3
 pluggy==1.7.0
 pre_commit==4.7.0
 prometheus_client==0.26.0
@@ -133,10 +133,10 @@ pyluach==2.3.0
 PyMeeus==0.5.12
 pyparsing==3.3.3
 pytest==9.2.0
-pytest-asyncio==1.4.1
+pytest-asyncio==1.4.1.post1
 pytest-rerunfailures==16.7
-python-dateutil==3.0.0
-python-discovery==1.9.0
+python-dateutil==4.0.0
+python-discovery==1.9.1
 python-json-logger==4.2.0
 pywinpty==3.1.2
 PyYAML==6.0.3
@@ -162,7 +162,7 @@ six==1.17.0
 smmap==5.0.3
 soupsieve==3.0.4
 SQLAlchemy==2.1.6
-sqlparse==0.6.0
+sqlparse==0.6.1
 stack-data==0.6.3
 starlette==1.10.0
 statsmodels==0.15.0
