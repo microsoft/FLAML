@@ -411,7 +411,7 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
         Returns:
             The evaluation score on the validation dataset.
         """
-        from .ml import is_min_metric, metric_loss_score
+        from .ml import get_y_pred, is_min_metric, metric_loss_score
 
         if self._model is not None:
             if self._task == "rank":
@@ -420,7 +420,8 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
                 X_val = self._preprocess(X_val)
                 metric = kwargs.pop("metric", None)
                 if metric:
-                    y_pred = self.predict(X_val, **kwargs)
+                    # probability-based metrics such as roc_auc and log_loss need predict_proba
+                    y_pred = get_y_pred(self, X_val, metric, self._task, **kwargs)
                     if is_min_metric(metric):
                         return metric_loss_score(metric, y_pred, y_val)
                     else:
