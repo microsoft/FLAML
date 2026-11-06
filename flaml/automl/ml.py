@@ -4,14 +4,18 @@
 #  * project root for license information.
 import logging
 import time
+from copy import copy
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from xgboost import XGBClassifier
 
 from flaml.automl.data import group_counts
-from flaml.automl.model import BaseEstimator, TransformersEstimator
+from flaml.automl.model import BaseEstimator, LGBMClassifier, TransformersEstimator
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.spark.utils import len_labels
+from flaml.automl.task.factory import task_factory
 from flaml.automl.task.task import Task
 from flaml.automl.time_series import TimeSeriesDataset
 
@@ -350,7 +354,11 @@ def compute_estimator(
     log_training_metric: Optional[bool] = False,
     fit_kwargs: Optional[dict] = None,
     free_mem_ratio=0,
+    y_train_all=None,
+    training_labels=None,
 ):
+    if isinstance(task, str):
+        task = task_factory(task, X_train, y_train)
     if fit_kwargs is None:
         fit_kwargs = {}
 
@@ -376,6 +384,19 @@ def compute_estimator(
         fit_kwargs["y_val"] = y_val
 
     if "holdout" == eval_method:
+        labels = fit_kwargs.get("label_list")  # pass the label list on to compute the evaluation metric
+        if (
+            labels is None
+            and isinstance(eval_metric, str)
+            and y_train is not None
+            and task.is_classification()
+            and not task.is_token_classification()
+        ):
+            # Match evaluate_model_CV: a trial's sample can omit a class, so use
+            # the full training targets when choosing labels for its metric.
+            labels = training_labels
+            if labels is None:
+                _, labels = len_labels(y_train if y_train_all is None else y_train_all, return_labels=True)
         val_loss, metric_for_logging, train_time, pred_time = get_val_loss(
             config_dic,
             estimator,
@@ -387,7 +408,7 @@ def compute_estimator(
             groups_val,
             eval_metric,
             task,
-            labels=fit_kwargs.get("label_list"),  # pass the label list on to compute the evaluation metric
+            labels=labels,
             budget=budget,
             log_training_metric=log_training_metric,
             fit_kwargs=fit_kwargs,
@@ -580,6 +601,49 @@ def default_cv_score_agg_func(val_loss_folds, log_metrics_folds):
     return metric_to_minimize, metrics_to_log
 
 
+def _align_class_probabilities(predictions, estimator, labels):
+    """Match sampled classifiers' probability columns to the supplied label order."""
+    if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
+        return predictions
+    classes = getattr(estimator, "classes_", None)
+    probabilities = np.asarray(predictions)
+    if classes is None or probabilities.ndim != 2:
+        return predictions
+    # These binary APIs can emit an implicit second class even for a one-class fit.
+    # Normalize over the sole observed class before aligning binary or multiclass labels.
+    if (
+        len(classes) == 1
+        and probabilities.shape[1] == 2
+        and len(np.unique(labels)) > 1
+        and (
+            isinstance(getattr(estimator, "model", estimator), XGBClassifier)
+            or (LGBMClassifier is not None and isinstance(getattr(estimator, "model", estimator), LGBMClassifier))
+        )
+    ):
+        # Invalid backend rows must not become confident finite predictions.
+        probabilities = np.where(
+            np.isfinite(probabilities).all(axis=1, keepdims=True), np.ones_like(probabilities[:, :1]), np.nan
+        )
+    if probabilities.shape[1] != len(classes):
+        return predictions
+    labels = np.asarray(labels)
+    if np.array_equal(classes, labels):
+        return predictions
+    positions = {label: index for index, label in enumerate(labels)}
+    if any(label not in positions for label in classes):
+        return predictions
+    aligned = np.zeros((len(probabilities), len(labels)), dtype=probabilities.dtype)
+    aligned[:, [positions[label] for label in classes]] = probabilities
+    return aligned
+
+
+def _align_log_loss_probabilities(predictions, estimator, labels):
+    """Align probability columns to sklearn log_loss's sorted label order."""
+    if labels is None or isinstance(predictions, (psDataFrame, psSeries)):
+        return predictions
+    return _align_class_probabilities(predictions, estimator, np.unique(labels))
+
+
 def _eval_estimator(
     config,
     estimator,
@@ -598,6 +662,8 @@ def _eval_estimator(
     if isinstance(eval_metric, str):
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
+        if eval_metric == "log_loss":
+            val_pred_y = _align_log_loss_probabilities(val_pred_y, estimator, labels)
 
         # TODO: why are integer labels being cast to str in the first place?
 
@@ -637,6 +703,8 @@ def _eval_estimator(
             # aligned and avoid empty prediction inputs.
             X_train_for_metric = X_val.X_train if isinstance(X_val, TimeSeriesDataset) else X_train
             train_pred_y = get_y_pred(estimator, X_train_for_metric, eval_metric, task)
+            if eval_metric == "log_loss":
+                train_pred_y = _align_log_loss_probabilities(train_pred_y, estimator, labels)
             metric_for_logging["train_loss"] = metric_loss_score(
                 eval_metric,
                 train_pred_y,
@@ -650,7 +718,7 @@ def _eval_estimator(
             X_val,
             y_val,
             estimator,
-            labels,
+            copy(labels),
             X_train,
             y_train,
             weight_val,
