@@ -74,8 +74,8 @@ class OnlineResult:
         Args:
             result_type_name: A String to specify the name of the result type.
             cb_coef: a string to specify the coefficient on the confidence bound.
-            init_loss: a float to specify the inital loss.
-            init_cb: a float to specify the intial confidence bound.
+            init_loss: a float to specify the initial loss.
+            init_cb: a float to specify the initial confidence bound.
             mode: A string in ['min', 'max'] to specify the objective as
                 minimization or maximization.
             sliding_window_size: An int to specify the size of the sliding window
