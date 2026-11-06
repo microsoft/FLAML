@@ -11,6 +11,7 @@ import os
 import random
 import sys
 import time
+import weakref
 from concurrent.futures import as_completed
 from functools import partial, wraps
 from typing import Callable, List, Optional, Union
@@ -94,12 +95,23 @@ def size(learner_classes: dict, config: dict) -> float:
     return learner_class.size(config)
 
 
+def _model_ref(model):
+    """Return a callable that yields ``model``, holding it weakly when possible."""
+    if model is None:
+        return None
+    try:
+        return weakref.ref(model)
+    except TypeError:
+        return lambda: model
+
+
 def _keep_installed_preprocessing(fit):
     """Restore the installed model's task and preprocessing if a fit fails before replacing it."""
 
     @wraps(fit)
     def wrapper(self, *args, **kwargs):
-        installed = getattr(self, "_trained_estimator", None)
+        # Hold the installed model weakly so search can still free it once it is discarded.
+        installed = _model_ref(getattr(self, "_trained_estimator", None))
         names = ("_transformer", "_label_transformer", "_classes", "_estimator_type")
         preprocessing = [getattr(self, name, None) for name in names]
         state = getattr(self, "_state", None)
@@ -107,7 +119,8 @@ def _keep_installed_preprocessing(fit):
         try:
             return fit(self, *args, **kwargs)
         except BaseException:
-            if installed is not None and getattr(self, "_trained_estimator", None) is installed:
+            model = installed() if installed is not None else None
+            if model is not None and getattr(self, "_trained_estimator", None) is model:
                 for name, value in zip(names, preprocessing):
                     setattr(self, name, value)
                 if state is not None:

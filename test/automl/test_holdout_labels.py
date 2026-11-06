@@ -1,4 +1,6 @@
+import gc
 import pickle
+import weakref
 from types import SimpleNamespace
 
 import numpy as np
@@ -888,6 +890,28 @@ def test_failed_retrain_from_log_preserves_installed_model(tmp_path, skip_transf
     assert automl._label_transformer is preprocessing[1]
     np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
     np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
+
+
+def test_refit_releases_discarded_model_before_search(monkeypatch):
+    rng = np.random.RandomState(0)
+    X = rng.normal(size=(600, 4))
+    y = np.arange(600) % 3
+    settings = dict(task="classification", estimator_list=["lgbm"], n_jobs=1, verbose=0, max_iter=2, seed=1)
+    automl = AutoML()
+    automl.fit(X, y, **settings)
+    discarded = weakref.ref(automl.model)
+    alive_during_search = []
+    search = AutoML._search_sequential
+
+    def checked_search(self):
+        gc.collect()
+        alive_during_search.append(discarded() is not None)
+        return search(self)
+
+    monkeypatch.setattr(AutoML, "_search_sequential", checked_search)
+    automl.fit(X, y, **settings)
+
+    assert alive_during_search == [False]
 
 
 @pytest.mark.parametrize("estimator_class", [SparkNaiveBayesEstimator, SparkGBTEstimator])
