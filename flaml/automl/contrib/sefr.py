@@ -461,8 +461,11 @@ class SEFRClassifier(ClassifierMixin, SKLearnBaseEstimator):
         costs = self._class_costs(class_totals)
         self._class_totals(y_index, sample_weight * costs[y_index])
 
-        # zero-weight samples take no part in the fit, including the feature range
-        self._fit_scaler(X if np.all(sample_weight > 0) else X[sample_weight > 0])
+        # Zero-weight rows must not reach scaling, scoring, or calibration.
+        positive = sample_weight > 0
+        if not np.all(positive):
+            X, y_index, sample_weight = X[positive], y_index[positive], sample_weight[positive]
+        self._fit_scaler(X)
         X = self._scale(X)
 
         self.coef_, self.intercept_, score_mean = self._fit_heads(X, y_index, sample_weight, class_totals)
