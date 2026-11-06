@@ -96,6 +96,8 @@ automl.fit(
 
 You can activate Spark as the parallel backend during parallel tuning in both [AutoML](/docs/Use-Cases/Task-Oriented-AutoML#parallel-tuning) and [Hyperparameter Tuning](/docs/Use-Cases/Tune-User-Defined-Function#parallel-tuning), by setting the `use_spark` to `true`. FLAML will dispatch your job to the distributed Spark backend using [`joblib-spark`](https://github.com/joblib/joblib-spark).
 
+Spark schedules trials independently of each estimator's internal joblib parallelism. When only one trial worker is available, joblib can execute the trial on the driver; FLAML keeps its nested joblib operations local rather than routing them back through Spark.
+
 Please note that you should not set `use_spark` to `true` when applying AutoML and Tuning for Spark Data. This is because only SparkML models will be used for Spark Data in AutoML and Tuning. As SparkML models run in parallel, there is no need to distribute them with `use_spark` again.
 
 All the Spark-related arguments are stated below. These arguments are available in both Hyperparameter Tuning and AutoML:
