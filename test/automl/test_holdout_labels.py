@@ -780,6 +780,103 @@ def test_rejected_task_change_preserves_sampled_probability_axis(input_mode):
     np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
 
 
+@pytest.mark.parametrize("skip_transform", [True, False])
+def test_rejected_refit_with_new_preprocessing_mode_preserves_installed_model(skip_transform):
+    rng = np.random.RandomState(131)
+    X = rng.normal(size=(3000, 4))
+    y = np.arange(len(X)) % 2
+    y[-1] = 2
+    X_val = rng.normal(size=(80, 4))
+    settings = dict(
+        task="classification",
+        estimator_list=["lgbm"],
+        n_jobs=1,
+        verbose=0,
+        max_iter=2,
+        auto_augment=False,
+        retrain_full=False,
+    )
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(80) % 2,
+        metric="log_loss",
+        sample=True,
+        min_sample_size=50,
+        starting_points={},
+        seed=1,
+        skip_transform=skip_transform,
+        **settings,
+    )
+    installed = automl.model
+    assert len(installed.classes_) == 2
+    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+    preprocessing = automl._transformer, automl._label_transformer
+    probabilities = automl.predict_proba(X_val)
+    predictions = automl.predict(X_val)
+    assert probabilities.shape == (80, 3)
+
+    with pytest.raises(ValueError, match="metric.*parameter"):
+        automl.fit(X, 10 + 10 * (np.arange(3000) % 2), metric=42, skip_transform=not skip_transform, **settings)
+
+    assert automl.model is installed
+    assert automl._transformer is preprocessing[0]
+    assert automl._label_transformer is preprocessing[1]
+    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+    np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
+    np.testing.assert_array_equal(automl.predict(X_val), predictions)
+
+
+@pytest.mark.parametrize("skip_transform", [True, False])
+def test_failed_retrain_from_log_preserves_installed_model(tmp_path, skip_transform):
+    rng = np.random.RandomState(131)
+    X = rng.normal(size=(3000, 4))
+    y = np.arange(len(X)) % 2
+    y[-1] = 2
+    X_val = rng.normal(size=(80, 4))
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=np.arange(80) % 2,
+        task="classification",
+        estimator_list=["lgbm"],
+        metric="log_loss",
+        n_jobs=1,
+        verbose=0,
+        max_iter=2,
+        auto_augment=False,
+        retrain_full=False,
+        sample=True,
+        min_sample_size=50,
+        starting_points={},
+        seed=1,
+        skip_transform=skip_transform,
+    )
+    installed = automl.model
+    preprocessing = automl._transformer, automl._label_transformer
+    probabilities = automl.predict_proba(X_val)
+    assert probabilities.shape == (80, 3)
+
+    with pytest.raises(FileNotFoundError):
+        automl.retrain_from_log(
+            str(tmp_path / "missing.log"),
+            X,
+            10 + 10 * (np.arange(3000) % 2),
+            task="classification",
+            skip_transform=not skip_transform,
+        )
+
+    assert automl.model is installed
+    assert automl._transformer is preprocessing[0]
+    assert automl._label_transformer is preprocessing[1]
+    np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
+    np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
+
+
 @pytest.mark.parametrize("estimator_class", [SparkNaiveBayesEstimator, SparkGBTEstimator])
 @pytest.mark.parametrize("return_all", [False, True])
 def test_spark_probability_facade_bypasses_missing_class_metadata(monkeypatch, estimator_class, return_all):

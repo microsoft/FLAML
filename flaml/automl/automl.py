@@ -12,7 +12,7 @@ import random
 import sys
 import time
 from concurrent.futures import as_completed
-from functools import partial
+from functools import partial, wraps
 from typing import Callable, List, Optional, Union
 
 import numpy as np
@@ -92,6 +92,25 @@ def size(learner_classes: dict, config: dict) -> float:
     estimator = config["learner"]
     learner_class = learner_classes.get(estimator)
     return learner_class.size(config)
+
+
+def _keep_installed_preprocessing(fit):
+    """Restore the installed model's preprocessing if a fit fails before replacing it."""
+
+    @wraps(fit)
+    def wrapper(self, *args, **kwargs):
+        installed = getattr(self, "_trained_estimator", None)
+        names = ("_transformer", "_label_transformer", "_classes")
+        preprocessing = [getattr(self, name, None) for name in names]
+        try:
+            return fit(self, *args, **kwargs)
+        except BaseException:
+            if installed is not None and getattr(self, "_trained_estimator", None) is installed:
+                for name, value in zip(names, preprocessing):
+                    setattr(self, name, value)
+            raise
+
+    return wrapper
 
 
 # metrics that sklearn only computes for binary targets
@@ -1044,6 +1063,7 @@ class AutoML(BaseEstimator):
         )
         return estimator
 
+    @_keep_installed_preprocessing
     def retrain_from_log(
         self,
         log_file_name,
@@ -1918,6 +1938,7 @@ class AutoML(BaseEstimator):
                 self._state.native_classes = labels
         self.data_size_full = self._state.data_size_full
 
+    @_keep_installed_preprocessing
     def fit(
         self,
         X_train=None,
