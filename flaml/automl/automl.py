@@ -95,19 +95,23 @@ def size(learner_classes: dict, config: dict) -> float:
 
 
 def _keep_installed_preprocessing(fit):
-    """Restore the installed model's preprocessing if a fit fails before replacing it."""
+    """Restore the installed model's task and preprocessing if a fit fails before replacing it."""
 
     @wraps(fit)
     def wrapper(self, *args, **kwargs):
         installed = getattr(self, "_trained_estimator", None)
-        names = ("_transformer", "_label_transformer", "_classes")
+        names = ("_transformer", "_label_transformer", "_classes", "_estimator_type")
         preprocessing = [getattr(self, name, None) for name in names]
+        state = getattr(self, "_state", None)
+        task = getattr(state, "task", None)
         try:
             return fit(self, *args, **kwargs)
         except BaseException:
             if installed is not None and getattr(self, "_trained_estimator", None) is installed:
                 for name, value in zip(names, preprocessing):
                     setattr(self, name, value)
+                if state is not None:
+                    state.task = task
             raise
 
     return wrapper

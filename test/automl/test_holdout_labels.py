@@ -734,7 +734,7 @@ def test_rejected_native_refit_preserves_installed_class_axis(input_mode, eval_m
     assert automl.predict_proba(X).shape == (120, 3)
 
 
-@pytest.mark.parametrize("input_mode", ["skip", "sparse"])
+@pytest.mark.parametrize("input_mode", ["skip", "sparse", "transform"])
 def test_rejected_task_change_preserves_sampled_probability_axis(input_mode):
     rng = np.random.RandomState(131)
     X = rng.normal(size=(3000, 4))
@@ -770,14 +770,18 @@ def test_rejected_task_change_preserves_sampled_probability_axis(input_mode):
     assert len(installed.classes_) == 2
     classes = automl.classes_.copy()
     probabilities = automl.predict_proba(X_val)
+    predictions = automl.predict(X_val)
     assert probabilities.shape == (80, 3)
 
     with pytest.raises(ValueError, match="metric.*parameter"):
         automl.fit(X, np.arange(3000, dtype=float), task="regression", metric=42, **settings)
 
     assert automl.model is installed
+    assert automl._state.task.name == "multiclass"
+    assert automl._estimator_type == "classifier"
     np.testing.assert_array_equal(automl.classes_, classes)
     np.testing.assert_array_equal(automl.predict_proba(X_val), probabilities)
+    np.testing.assert_array_equal(automl.predict(X_val), predictions)
 
 
 @pytest.mark.parametrize("skip_transform", [True, False])
@@ -829,8 +833,11 @@ def test_rejected_refit_with_new_preprocessing_mode_preserves_installed_model(sk
     np.testing.assert_array_equal(automl.predict(X_val), predictions)
 
 
-@pytest.mark.parametrize("skip_transform", [True, False])
-def test_failed_retrain_from_log_preserves_installed_model(tmp_path, skip_transform):
+@pytest.mark.parametrize(
+    "skip_transform, retrain_task",
+    [(True, "classification"), (False, "classification"), (False, "regression"), (True, "regression")],
+)
+def test_failed_retrain_from_log_preserves_installed_model(tmp_path, skip_transform, retrain_task):
     rng = np.random.RandomState(131)
     X = rng.normal(size=(3000, 4))
     y = np.arange(len(X)) % 2
@@ -861,16 +868,22 @@ def test_failed_retrain_from_log_preserves_installed_model(tmp_path, skip_transf
     probabilities = automl.predict_proba(X_val)
     assert probabilities.shape == (80, 3)
 
+    if retrain_task == "classification":
+        y_retrain, retrain_skip = 10 + 10 * (np.arange(3000) % 2), not skip_transform
+    else:
+        y_retrain, retrain_skip = np.arange(3000, dtype=float), skip_transform
     with pytest.raises(FileNotFoundError):
         automl.retrain_from_log(
             str(tmp_path / "missing.log"),
             X,
-            10 + 10 * (np.arange(3000) % 2),
-            task="classification",
-            skip_transform=not skip_transform,
+            y_retrain,
+            task=retrain_task,
+            skip_transform=retrain_skip,
         )
 
     assert automl.model is installed
+    assert automl._state.task.name == "multiclass"
+    assert automl._estimator_type == "classifier"
     assert automl._transformer is preprocessing[0]
     assert automl._label_transformer is preprocessing[1]
     np.testing.assert_array_equal(automl.classes_, [0, 1, 2])
