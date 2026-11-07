@@ -24,6 +24,6 @@ scipy==1.18.1
 seqeval==1.2.2
 statsmodels==0.15.0
 tensorboardX==2.6.5
-transformers==5.22.1
+transformers==5.22.2
 xgboost==3.4.1
-Current commit hash: 364662cf8a1a1269cf6809cbce02686af74213d5
+Current commit hash: 5ae68f6805d028ad76e22483d0dd145db4124099
