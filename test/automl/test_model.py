@@ -33,6 +33,9 @@ def test_lrl1():
 def test_lrl1_resource_limit_called(monkeypatch):
     import flaml.automl.model as model_mod
 
+    if model_mod.resource is None:
+        pytest.skip("resource module is not available on this platform")
+
     called = []
     orig = model_mod.limit_resource
 
