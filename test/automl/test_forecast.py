@@ -1047,6 +1047,45 @@ def test_log_training_metric_ts_models():
             assert automl.best_estimator == estimator
 
 
+def test_sarimax_overlapping_lags_validation():
+    from flaml.automl.time_series import SARIMAX, TimeSeriesDataset
+
+    n = 120
+    data = pd.DataFrame(
+        {
+            "ds": pd.date_range(start="2010-01-01", periods=n, freq="MS"),
+            "y": np.sin(np.arange(n) / 4) + np.random.RandomState(2023).randn(n) * 0.1,
+        }
+    )
+    # Config from issue #845: p = 4 >= s = 4 with P = 1 > 0 and q = 5 >= s = 4
+    # with Q = 2 > 0, so both AR and MA lags overlap the seasonal lags and
+    # statsmodels would raise ValueError without clamping.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 4, "d": 0, "q": 5, "P": 1, "D": 3, "Q": 2, "s": 4})
+    assert estimator.params["p"] == 3, "p must be clamped below the seasonal period s"
+    assert estimator.params["q"] == 3, "q must be clamped below the seasonal period s"
+    # fitting must complete instead of raising the overlapping-lag ValueError
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    assert len(estimator.predict(6)) == 6
+
+    # AR overlap only: p >= s with P > 0 must clamp p, q < s must stay unchanged.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 3, "d": 0, "q": 2, "P": 2, "D": 1, "Q": 0, "s": 3})
+    assert estimator.params["p"] == 2
+    assert estimator.params["q"] == 2
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    assert len(estimator.predict(6)) == 6
+
+    # MA overlap only: q >= s with Q > 0 must clamp q, p < s must stay unchanged.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 1, "d": 0, "q": 3, "P": 0, "D": 0, "Q": 1, "s": 3})
+    assert estimator.params["p"] == 1
+    assert estimator.params["q"] == 2
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    assert len(estimator.predict(6)) == 6
+
+    # Non-overlapping configs must pass through untouched.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 2, "d": 1, "q": 2, "P": 1, "D": 0, "Q": 1, "s": 12})
+    assert (estimator.params["p"], estimator.params["q"]) == (2, 2)
+
+
 if __name__ == "__main__":
     # test_forecast_automl(60)
     # test_multivariate_forecast_num(5)

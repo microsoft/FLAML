@@ -553,6 +553,20 @@ class SARIMAX(StatsModelsEstimator):
         }
         return space
 
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        # statsmodels rejects configs where a lag (e.g. s) appears in both the
+        # seasonal and non-seasonal autoregressive or moving average components,
+        # i.e. p >= s > 0 with P > 0 (or q >= s > 0 with Q > 0). Clamp the
+        # non-seasonal orders below the first seasonal lag to keep configs valid.
+        s = params.get("s", 0)
+        if s > 0:
+            if params.get("P", 0) > 0 and params.get("p", 0) >= s:
+                params["p"] = max(0, s - 1)
+            if params.get("Q", 0) > 0 and params.get("q", 0) >= s:
+                params["q"] = max(0, s - 1)
+        return params
+
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
@@ -580,35 +594,57 @@ class SARIMAX(StatsModelsEstimator):
         train_df = self._preprocess(train_df)
         # regressors = list(train_df)
         # regressors.remove(target_col)
-        if self.regressors:
+        endog = train_df[[target_col]] if len(self.regressors) else train_df
+        exog = train_df[self.regressors] if len(self.regressors) else None
+        p, d, q = self.params["p"], self.params["d"], self.params["q"]
+        seasonal_order = (self.params["P"], self.params["D"], self.params["Q"], self.params["s"])
+        try:
             model = SARIMAX_estimator(
-                train_df[[target_col]],
-                exog=train_df[self.regressors],
-                order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonal_order=(
-                    self.params["P"],
-                    self.params["D"],
-                    self.params["Q"],
-                    self.params["s"],
-                ),
+                endog,
+                exog=exog,
+                order=(p, d, q),
+                seasonal_order=seasonal_order,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        else:
+            with suppress_stdout_stderr():
+                model = model.fit()
+        except ValueError as e:
+            # Defensive handling for residual configs with lags shared between the
+            # seasonal and non-seasonal AR/MA components (e.g. user-supplied
+            # starting_points bypassing the search space): fall back to a valid
+            # config instead of failing the whole search. Any other ValueError is
+            # unrelated and must propagate.
+            if "are in both the seasonal and non-seasonal" not in str(e):
+                raise
+            s = seasonal_order[3]
+            orig_p, orig_q = p, q
+            p = min(p, max(0, s - 1))
+            q = min(q, max(0, s - 1))
+            self.params["p"], self.params["q"] = p, q
+            logger.warning(
+                "SARIMAX order (%d, %d, %d) with seasonal order %s has lags in both the"
+                " seasonal and non-seasonal AR/MA components (%s); falling back to"
+                " order (%d, %d, %d).",
+                orig_p,
+                d,
+                orig_q,
+                seasonal_order,
+                e,
+                p,
+                d,
+                q,
+            )
             model = SARIMAX_estimator(
-                train_df,
-                order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonal_order=(
-                    self.params["P"],
-                    self.params["D"],
-                    self.params["Q"],
-                    self.params["s"],
-                ),
+                endog,
+                exog=exog,
+                order=(p, d, q),
+                seasonal_order=seasonal_order,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        with suppress_stdout_stderr():
-            model = model.fit()
+            with suppress_stdout_stderr():
+                model = model.fit()
         train_time = time.time() - current_time
         self._model = model
         return train_time
