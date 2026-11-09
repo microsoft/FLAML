@@ -43,10 +43,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.162.0
+fastapi==0.162.2
 fastjsonschema==2.22.3
 filelock==4.2.9
--e git+https://github.com/microsoft/FLAML@4bf0d3e70f1a0fb7be2ae023e629b3bde539079c#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@146ebad855228162396f93c2bfddceba1b0d1d58#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -172,7 +172,7 @@ pyarrow==25.0.1
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.12
-pycryptodome==4.3.0
+pycryptodome==4.4.0
 pydantic==2.14.3
 pydantic_core==2.50.4
 Pygments==2.21.0
@@ -191,7 +191,7 @@ pytz==2026.6
 PyYAML==6.0.3
 pyzmq==27.3.0
 referencing==0.37.0
-regex==2026.11.7
+regex==2026.11.9
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
