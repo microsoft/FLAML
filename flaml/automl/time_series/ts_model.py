@@ -158,7 +158,7 @@ class TimeSeriesEstimator(SKLearnEstimator):
         if self._metric:
             return metric_loss_score(self._metric, y_pred, y_val)
         else:
-            return r2_score(y_pred, y_val)
+            return r2_score(y_val, y_pred)
 
 
 class Orbit(TimeSeriesEstimator):

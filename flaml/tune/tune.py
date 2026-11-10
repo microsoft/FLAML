@@ -827,9 +827,12 @@ def run(
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
                             try:
-                                results = parallel(
-                                    delayed(evaluation_function)(trial_to_run.config) for trial_to_run in trials_to_run
-                                )
+                                # The configured Parallel instance still uses Spark; inline trials need a local backend.
+                                with parallel_backend("threading"):
+                                    results = parallel(
+                                        delayed(evaluation_function)(trial_to_run.config)
+                                        for trial_to_run in trials_to_run
+                                    )
                             except RuntimeError as e:
                                 logger.warning(f"RuntimeError: {e}")
                                 results = None

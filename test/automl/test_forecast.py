@@ -1,6 +1,7 @@
 import datetime
 import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from test._artifact_paths import artifact_path
 from unittest.mock import Mock
 
@@ -207,6 +208,20 @@ def test_seasonal_naive_repeats_last_season():
     last_season = y.iloc[-7:].to_numpy()
     np.testing.assert_allclose(estimator.predict(future), np.tile(last_season, 2))
     np.testing.assert_allclose(estimator.predict(7), last_season)
+
+
+def test_seasonal_naive_delayed_forecast_preserves_seasonal_phase():
+    from flaml.automl.time_series import SeasonalNaive
+
+    dataset, y, future = _weekly_dataset()
+    estimator = SeasonalNaive(season=7)
+    estimator.fit(dataset)
+    future = future.iloc[3:8]
+
+    predictions = estimator.predict(future)
+
+    np.testing.assert_allclose(predictions, np.resize(y.iloc[-7:].to_numpy(), 14)[3:8])
+    assert predictions.index.tolist() == future["ds"].tolist()
 
 
 def test_seasonal_naive_predicts_in_sample_one_season_back():
@@ -861,15 +876,54 @@ def get_stalliion_data():
     return data, special_days
 
 
-# Having tried to install sklearn with setup and teardown for pytest, still doesn't work
-# The import of AutoML immediately after install sklearn=1.1.2 gets import error
-# "ImportError: cannot import name '_OneToOneFeatureMixin' from 'sklearn.base'"
-@pytest.mark.skipif(
-    "3.11" in sys.version and Version(current_sklearn_version) > Version("1.2"),
-    reason="forecasting on py311 needs sklearn <1.2 while autofe needs sklearn >= 1.3",
+@pytest.mark.parametrize(
+    "python_version,forecasting_version,sklearn_version,should_skip",
+    [
+        ((3, 11), None, "1.8.0", True),
+        ((3, 11), "0.10.3", "1.8.0", True),
+        ((3, 11), "0.10.3", "1.1.3", False),
+        ((3, 11), "1.0.0", "1.8.0", False),
+        ((3, 11), "1.8.0", "1.8.0", False),
+        ((3, 12), "1.8.0", "1.8.0", False),
+    ],
 )
+def test_panel_skip_policy_uses_actual_forecasting_version(
+    monkeypatch, python_version, forecasting_version, sklearn_version, should_skip
+):
+    from types import SimpleNamespace
+
+    def installed_version(package):
+        assert package == "pytorch-forecasting"
+        if forecasting_version is None:
+            raise PackageNotFoundError(package)
+        return forecasting_version
+
+    load_data = Mock(side_effect=RuntimeError("panel path enabled"))
+    monkeypatch.setitem(globals(), "sys", SimpleNamespace(version_info=python_version))
+    monkeypatch.setitem(globals(), "version", installed_version)
+    monkeypatch.setitem(globals(), "current_sklearn_version", sklearn_version)
+    monkeypatch.setitem(globals(), "get_stalliion_data", load_data)
+    if should_skip:
+        with pytest.raises(pytest.skip.Exception):
+            test_forecast_panel()
+        load_data.assert_not_called()
+    else:
+        with pytest.raises(RuntimeError, match="panel path enabled"):
+            test_forecast_panel()
+        load_data.assert_called_once_with()
+
+
 def test_forecast_panel(budget=30):
-    pytest.importorskip("pytorch_forecasting", reason="Panel forecasting requires pytorch-forecasting")
+    try:
+        forecasting_version = Version(version("pytorch-forecasting"))
+    except PackageNotFoundError:
+        pytest.skip("pytorch_forecasting not installed")
+    if (
+        sys.version_info[:2] == (3, 11)
+        and forecasting_version < Version("1.0")
+        and Version(current_sklearn_version) > Version("1.2")
+    ):
+        pytest.skip("legacy pytorch_forecasting on Python 3.11 requires scikit-learn <1.2")
     data, special_days = get_stalliion_data()
     time_horizon = 6  # predict six months
     training_cutoff = data["time_idx"].max() - time_horizon
