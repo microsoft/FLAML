@@ -1,6 +1,7 @@
 import pickle
 import sys
 from copy import deepcopy
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ def test_iris(as_frame=True):
         "time_budget": 2,
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "test/iris.log",
+        "log_file_name": artifact_path(__file__, "test/iris.log"),
         "n_jobs": 1,
         "starting_points": "data",
     }

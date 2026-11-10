@@ -624,9 +624,9 @@ class OptunaSearch(Searcher):
         self._space = space
 
         self._points_to_evaluate = points_to_evaluate or []
-        # rewards should be a list of floats, not a dict
-        # After Optuna > 3.5.0, there is a check for NaN in the list "any(math.isnan(x) for x in self._values)"
-        # which will raise an error when encountering a dict
+        # rewards should be list of floats not dict
+        # After optuna > 3.5.0, there is check for NaN in the list "any(math.isnan(x) for x in self._values)"
+        # which will error when encounter dict
         if evaluated_rewards is not None:
             self._evaluated_rewards = [
                 list(item.values())[0] if isinstance(item, dict) else item for item in evaluated_rewards

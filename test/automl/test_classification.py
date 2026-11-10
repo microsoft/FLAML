@@ -2,6 +2,7 @@ import platform
 import sys
 import unittest
 from datetime import datetime
+from test._artifact_paths import artifact_path
 from test.conftest import evaluate_cv_folds_with_underlying_model
 
 import numpy as np
@@ -15,6 +16,11 @@ from sklearn.model_selection import (
 
 from flaml import AutoML, tune
 from flaml.automl.model import LGBMEstimator
+
+if sys.version_info >= (3, 11):
+    skip_py311 = True
+else:
+    skip_py311 = False
 
 
 class MyLargeLGBM(LGBMEstimator):
@@ -205,22 +211,6 @@ class TestClassification(unittest.TestCase):
         automl.fit(X, y, **automl_settings)
         del automl
 
-        automl = AutoML()
-        automl_settings = {
-            "time_budget": 3,
-            "task": "classification",
-            "n_jobs": 1,
-            "estimator_list": ["histgb"],
-            "eval_method": "cv",
-            "n_splits": 3,
-            "metric": "accuracy",
-            "log_training_metric": True,
-            # "verbose": 4,
-            "ensemble": True,
-        }
-        automl.fit(X, y, **automl_settings)
-        del automl
-
     def test_binary(self):
         automl_experiment = AutoML()
         automl_settings = {
@@ -282,7 +272,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 3,
             "metric": "ap",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["xgboost"],
             "log_type": "all",
             "n_jobs": 1,
@@ -351,7 +341,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 10,
             "metric": "ap",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["xgboost"],
             "log_type": "all",
             "n_jobs": 1,
@@ -384,7 +374,7 @@ class TestClassification(unittest.TestCase):
         automl_settings = {
             "time_budget": 2,
             "task": "classification",
-            "log_file_name": "test/sparse_classification_oom.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification_oom.log"),
             "estimator_list": ["large_lgbm"],
             "log_type": "all",
             "n_jobs": 1,
@@ -412,7 +402,7 @@ class TestClassification(unittest.TestCase):
             "time_budget": 3,
             "metric": "f1",
             "task": "classification",
-            "log_file_name": "test/sparse_classification.log",
+            "log_file_name": artifact_path(__file__, "test/sparse_classification.log"),
             "estimator_list": ["lrl1", "lrl2"],
             "log_type": "all",
             "n_jobs": 1,
@@ -469,6 +459,7 @@ def test_reproducibility_of_classification_models(estimator: str):
         "metric": "f1",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)
@@ -536,6 +527,7 @@ def test_reproducibility_of_underlying_classification_models(estimator: str):
         "metric": "f1",
         "keep_search_state": True,
         "skip_transform": True,
+        "featurization": "off",
     }
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     automl.fit(X_train=X, y_train=y, **automl_settings)

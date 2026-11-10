@@ -408,7 +408,7 @@ def test_resampler_holdout_has_disjoint_rows(split_type):
         X_train=X,
         y_train=y,
         resampler=DuplicateMinorityResampler(),
-        **_fit_settings(eval_method="holdout", split_type=split_type, metric=metric),
+        **_fit_settings(eval_method="holdout", split_type=split_type, metric=metric, featurization="off"),
     )
     assert observed
 

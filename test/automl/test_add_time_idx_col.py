@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from flaml.automl.data import add_time_idx_col
 
@@ -84,6 +85,29 @@ def test_sparse_quarter_end_time_idx_counts_quarters():
     X = pd.DataFrame({"ds": dates})
     X = add_time_idx_col(X)
     assert X["time_idx"].tolist() == [0, 1, 3, 4]
+
+
+@pytest.mark.parametrize("frequency", ["D", pd.offsets.MonthEnd()])
+def test_sparse_time_idx_preserves_missing_timestamps(frequency):
+    dates = pd.date_range("2024-01-01", periods=4, freq=frequency)
+    X = add_time_idx_col(pd.DataFrame({"ds": [dates[0], pd.NaT, dates[2], dates[3]]}))
+
+    assert X["time_idx"].dropna().tolist() == [0, 2, 3]
+    assert pd.isna(X["time_idx"].iloc[1])
+    assert isinstance(X["time_idx"].dtype, pd.Int64Dtype)
+
+
+def test_time_idx_preserves_missing_timestamps_and_distinct_dst_fold_hours():
+    dates = list(
+        pd.to_datetime(["2021-11-07 05:30", "2021-11-07 06:30", "2021-12-07 06:30"])
+        .tz_localize("UTC")
+        .tz_convert("America/New_York")
+    )
+    X = add_time_idx_col(pd.DataFrame({"ds": [dates[0], dates[1], pd.NaT, dates[2]]}))
+
+    assert X["time_idx"].dropna().tolist() == [0, 1, 721]
+    assert pd.isna(X["time_idx"].iloc[2])
+    assert isinstance(X["time_idx"].dtype, pd.Int64Dtype)
 
 
 def test_tz_aware_same_day_of_month_time_idx_keeps_both_dst_fold_hours():

@@ -1,4 +1,5 @@
 import pickle
+from test._artifact_paths import artifact_path
 
 import mlflow
 import mlflow.entities
@@ -46,6 +47,7 @@ class TestMLFlowLoggingParam:
 
     def test_should_start_new_run_by_default(self, automl_settings):
         with mlflow.start_run() as parent_run:
+            parent = mlflow.last_active_run()
             automl = AutoML()
             X_train, y_train = load_iris(return_X_y=True)
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
@@ -54,11 +56,12 @@ class TestMLFlowLoggingParam:
             except FileNotFoundError:
                 print("[WARNING]: No file found")
 
-        children = self._get_child_runs(parent_run)
+        children = self._get_child_runs(parent)
         assert len(children) >= 1, f"Expected at least 1 child run, got {len(children)}"
 
     def test_should_not_start_new_run_when_mlflow_logging_set_to_false_in_init(self, automl_settings):
         with mlflow.start_run() as parent_run:
+            parent = mlflow.last_active_run()
             automl = AutoML(mlflow_logging=False)
             X_train, y_train = load_iris(return_X_y=True)
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
@@ -67,11 +70,12 @@ class TestMLFlowLoggingParam:
             except FileNotFoundError:
                 print("[WARNING]: No file found")
 
-        children = self._get_child_runs(parent_run)
+        children = self._get_child_runs(parent)
         assert len(children) == 0, f"Expected 0 child runs, got {len(children)}"
 
     def test_should_not_start_new_run_when_mlflow_logging_set_to_false_in_fit(self, automl_settings):
         with mlflow.start_run() as parent_run:
+            parent = mlflow.last_active_run()
             automl = AutoML()
             X_train, y_train = load_iris(return_X_y=True)
             automl.fit(X_train=X_train, y_train=y_train, mlflow_logging=False, **automl_settings)
@@ -80,11 +84,12 @@ class TestMLFlowLoggingParam:
             except FileNotFoundError:
                 print("[WARNING]: No file found")
 
-        children = self._get_child_runs(parent_run)
+        children = self._get_child_runs(parent)
         assert len(children) == 0, f"Expected 0 child runs, got {len(children)}"
 
     def test_should_start_new_run_when_mlflow_logging_set_to_true_in_fit(self, automl_settings):
         with mlflow.start_run() as parent_run:
+            parent = mlflow.last_active_run()
             automl = AutoML(mlflow_logging=False)
             X_train, y_train = load_iris(return_X_y=True)
             automl.fit(X_train=X_train, y_train=y_train, mlflow_logging=True, **automl_settings)
@@ -93,7 +98,7 @@ class TestMLFlowLoggingParam:
             except FileNotFoundError:
                 print("[WARNING]: No file found")
 
-        children = self._get_child_runs(parent_run)
+        children = self._get_child_runs(parent)
         assert len(children) >= 1, f"Expected at least 1 child run, got {len(children)}"
 
     @staticmethod
@@ -123,12 +128,11 @@ class TestMLFlowLoggingParam:
 
     @pytest.fixture(scope="class")
     def automl_settings(self):
-        mlflow.end_run()
         return {
             "time_budget": 5,  # in seconds
             "metric": "accuracy",
             "task": "classification",
-            "log_file_name": "iris.log",
+            "log_file_name": artifact_path(__file__, "iris.log"),
         }
 
 
@@ -138,7 +142,7 @@ if __name__ == "__main__":
         "time_budget": 5,  # in seconds
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "iris.log",
+        "log_file_name": artifact_path(__file__, "iris.log"),
     }
     s.test_should_start_new_run_by_default(automl_settings)
     s.test_should_start_new_run_when_mlflow_logging_set_to_true_in_fit(automl_settings)
