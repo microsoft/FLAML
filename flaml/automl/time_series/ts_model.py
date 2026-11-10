@@ -553,18 +553,30 @@ class SARIMAX(StatsModelsEstimator):
         }
         return space
 
+    @staticmethod
+    def _clamp_overlapping_orders(params: dict) -> None:
+        """Clamp non-seasonal orders that share lags with the seasonal ones, in place.
+
+        statsmodels rejects configs where a lag (e.g. s) appears in both the
+        seasonal and non-seasonal autoregressive or moving average components,
+        i.e. p >= s > 0 with P > 0 (or q >= s > 0 with Q > 0). Only the
+        overlapping component is clamped below the first seasonal lag; flexible
+        (sparse) lag specifications such as p=(1, 13) are left for statsmodels
+        to validate, since their lags may not overlap s at all.
+        """
+        s = params.get("s", 0)
+        if not isinstance(s, (int, np.integer)) or s <= 0:
+            return
+        p, P = params.get("p", 0), params.get("P", 0)
+        if isinstance(p, (int, np.integer)) and isinstance(P, (int, np.integer)) and P > 0 and p >= s:
+            params["p"] = max(0, s - 1)
+        q, Q = params.get("q", 0), params.get("Q", 0)
+        if isinstance(q, (int, np.integer)) and isinstance(Q, (int, np.integer)) and Q > 0 and q >= s:
+            params["q"] = max(0, s - 1)
+
     def config2params(self, config: dict) -> dict:
         params = super().config2params(config)
-        # statsmodels rejects configs where a lag (e.g. s) appears in both the
-        # seasonal and non-seasonal autoregressive or moving average components,
-        # i.e. p >= s > 0 with P > 0 (or q >= s > 0 with Q > 0). Clamp the
-        # non-seasonal orders below the first seasonal lag to keep configs valid.
-        s = params.get("s", 0)
-        if s > 0:
-            if params.get("P", 0) > 0 and params.get("p", 0) >= s:
-                params["p"] = max(0, s - 1)
-            if params.get("Q", 0) > 0 and params.get("q", 0) >= s:
-                params["q"] = max(0, s - 1)
+        self._clamp_overlapping_orders(params)
         return params
 
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
@@ -617,15 +629,23 @@ class SARIMAX(StatsModelsEstimator):
             # unrelated and must propagate.
             if "are in both the seasonal and non-seasonal" not in str(e):
                 raise
-            s = seasonal_order[3]
             orig_p, orig_q = p, q
-            p = min(p, max(0, s - 1))
-            q = min(q, max(0, s - 1))
+            # Clamp only the overlapping component(s) so valid non-overlapping
+            # orders are preserved.
+            fallback = {
+                "p": p,
+                "q": q,
+                "P": seasonal_order[0],
+                "Q": seasonal_order[2],
+                "s": seasonal_order[3],
+            }
+            self._clamp_overlapping_orders(fallback)
+            p, q = fallback["p"], fallback["q"]
             self.params["p"], self.params["q"] = p, q
             logger.warning(
-                "SARIMAX order (%d, %d, %d) with seasonal order %s has lags in both the"
+                "SARIMAX order (%s, %s, %s) with seasonal order %s has lags in both the"
                 " seasonal and non-seasonal AR/MA components (%s); falling back to"
-                " order (%d, %d, %d).",
+                " order (%s, %s, %s).",
                 orig_p,
                 d,
                 orig_q,

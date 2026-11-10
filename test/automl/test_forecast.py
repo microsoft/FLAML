@@ -1085,6 +1085,30 @@ def test_sarimax_overlapping_lags_validation():
     estimator = SARIMAX(task="ts_forecast", **{"p": 2, "d": 1, "q": 2, "P": 1, "D": 0, "Q": 1, "s": 12})
     assert (estimator.params["p"], estimator.params["q"]) == (2, 2)
 
+    # The defensive fit() fallback must clamp only the overlapping component:
+    # here only AR overlaps (P > 0, Q = 0), so the valid q must be preserved.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 1, "d": 0, "q": 1, "P": 1, "D": 0, "Q": 1, "s": 4})
+    estimator.params.update({"p": 4, "q": 6, "P": 1, "Q": 0})
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    assert (estimator.params["p"], estimator.params["q"]) == (3, 6)
+    assert len(estimator.predict(6)) == 6
+
+    # MA-only overlap (P = 0, Q > 0): the valid p must be preserved.
+    estimator = SARIMAX(task="ts_forecast", **{"p": 1, "d": 0, "q": 1, "P": 1, "D": 0, "Q": 1, "s": 4})
+    estimator.params.update({"p": 6, "q": 4, "P": 0, "Q": 4})
+    estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    assert (estimator.params["p"], estimator.params["q"]) == (6, 3)
+    assert len(estimator.predict(6)) == 6
+
+    # Flexible (sparse) lag specifications must pass through unchanged instead
+    # of raising TypeError when compared against the scalar seasonal period.
+    estimator = SARIMAX(task="ts_forecast", **{"p": (0, 1, 13), "d": 0, "q": (0, 3), "P": 0, "D": 1, "Q": (0, 12), "s": 12})
+    assert estimator.params["p"] == (0, 1, 13)
+    assert estimator.params["Q"] == (0, 12)
+    estimator = SARIMAX(task="ts_forecast", **{"p": (1, 13), "d": 0, "q": 2, "P": 2, "D": 0, "Q": 1, "s": 12})
+    assert estimator.params["p"] == (1, 13)
+    assert estimator.params["q"] == 2
+
 
 if __name__ == "__main__":
     # test_forecast_automl(60)
