@@ -4,7 +4,7 @@ aiohappyeyeballs==2.7.1
 aiohttp==3.14.5
 aiosignal==1.4.0
 alembic==1.20.1
-annotated-doc==0.0.5
+annotated-doc==0.0.6
 annotated-types==0.8.0
 anyio==4.16.0
 argon2-cffi==25.1.0
@@ -33,8 +33,8 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.162.0
-datasets==5.1.0
+databricks-sdk==0.164.0
+datasets==5.2.0
 debugpy==1.8.22
 decorator==5.3.1
 defusedxml==0.7.1
@@ -43,18 +43,18 @@ distlib==0.4.4
 evaluate==0.4.6
 exceptiongroup==1.3.1
 executing==2.3.0
-fastapi==0.162.2
+fastapi==0.162.4
 fastjsonschema==2.22.3
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@40fcaddf391c79cf5d0c4e89f01c6aa5f155b02d#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@cb06fd7b23d6b99447cd1fa59777295149c45ce8#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
 frozenlist==1.8.0
-fsspec==2026.7.0
+fsspec==2026.9.0
 gitdb==4.0.12
 GitPython==3.2.1
-google-auth==2.62.1
+google-auth==2.62.2
 graphviz==0.21
 greenlet==3.5.6
 h11==0.16.0
@@ -79,7 +79,7 @@ Jinja2==3.1.6
 joblib==1.3.2
 joblibspark==0.6.0
 json5==0.17.3
-jsonpointer==3.10
+jsonpointer==3.11
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupyter==1.1.1
@@ -103,7 +103,7 @@ lightning==2.6.6
 lightning-utilities==0.15.3
 lunardate==0.3.0
 Mako==1.4.3
-markdown-it-py==4.2.0
+markdown-it-py==4.3.0
 MarkupSafe==3.0.4
 matplotlib==3.10.9
 matplotlib-inline==0.2.2
@@ -210,7 +210,7 @@ tqdm==4.70.1
 traitlets==5.16.1
 transformers==5.20.2
 truststore==0.10.5
-typer==0.28.0
+typer==0.29.0
 typing-inspection==0.4.5
 typing_extensions==4.16.0
 tzdata==2026.6
@@ -227,6 +227,6 @@ workalendar==17.0.0
 wrapt==2.5.2
 xgboost==1.7.6
 xmltodict==1.0.4
-xxhash==4.0.2
+xxhash==4.1.0
 yarl==1.25.1
 zipp==4.1.2
