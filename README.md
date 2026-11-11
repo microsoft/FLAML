@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh.md">简体中文</a>
+  <b>English</b> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh.md">简体中文</a> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh-TW.md">繁體中文</a>
 </p>
 
 :fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11+ support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.

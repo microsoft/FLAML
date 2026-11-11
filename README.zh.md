@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/microsoft/FLAML/blob/main/README.md">English</a> · <b>简体中文</b>
+  <a href="https://github.com/microsoft/FLAML/blob/main/README.md">English</a> · <b>简体中文</b> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh-TW.md">繁體中文</a>
 </p>
 
 :fire: FLAML 全面支持 [Microsoft Fabric Data Science](https://learn.microsoft.com/zh-cn/fabric/data-science/automated-machine-learning-fabric) 中的 AutoML 与超参数调优。此外，得益于 Microsoft Fabric 产品团队的贡献，我们引入了对 Python 3.11+ 的支持、一系列全新的算法评估器（Estimators），并深度集成了 MLflow。
