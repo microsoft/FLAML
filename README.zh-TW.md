@@ -42,7 +42,7 @@ FLAML 在 [ML.NET](http://dot.net/ml) 中有 .NET 實作；ML.NET 是 .NET 的�
 pip install flaml
 ```
 
-不加額外選項時，只會安裝最精簡的相依套件。你可以依需要的功能安裝額外選項，例如使用以下指令安裝 [`automl`](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML) module.
+不加額外選項時，只會安裝最精簡的相依套件。你可以依需要的功能安裝額外選項，例如使用以下指令安裝 [`automl`](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML) 模組所需的相依套件。
 
 ```bash
 pip install "flaml[automl]"
@@ -53,7 +53,7 @@ pip install "flaml[automl]"
 
 ## 快速開始
 
-- 只要三行程式碼，就能開始使用這個節省成本又快速的 AutoML 引擎，它是 [scikit-learn 風格的估計器](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML).
+- 只要三行程式碼，就能開始使用這個節省成本又快速的 AutoML 引擎，它是 [scikit-learn 風格的估計器](https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML)。
 
 ```python
 from flaml import AutoML
@@ -97,7 +97,7 @@ estimator.fit(X_train, y_train)
 
 - FLAML 相關的[研究](https://microsoft.github.io/FLAML/docs/Research)與[部落格文章](https://microsoft.github.io/FLAML/blog)。
 
-- [Discord](https://discord.gg/Cppx2vSPVP).
+- [Discord](https://discord.gg/Cppx2vSPVP)。
 
 - [貢獻指南](https://microsoft.github.io/FLAML/docs/Contribute)。
 
