@@ -183,6 +183,101 @@ def test_group_split_with_sample_weight_series_alignment():
     assert automl._state.weight_val is not None
 
 
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+@pytest.mark.parametrize("kind", ["list", "tuple", "series_offset_index", "group_kfold_list"])
+def test_group_split_with_non_array_groups(kind, eval_method):
+    """groups may be any array-like: a list, a tuple or a pd.Series whose index is not 0..n-1."""
+    from unittest.mock import patch
+
+    from sklearn.ensemble import RandomForestClassifier
+
+    if kind == "group_kfold_list" and eval_method != "cv":
+        pytest.skip("a splitter object requires eval_method='cv'")
+    n = 200
+    rng = np.random.default_rng(7)
+    X = pd.DataFrame({"id": np.arange(n, dtype=float), "feat": rng.normal(size=n)})
+    group_labels = np.repeat(np.arange(20), 10)
+    y = pd.Series((group_labels % 2).astype(int))
+    groups = {
+        "list": group_labels.tolist(),
+        "tuple": tuple(group_labels.tolist()),
+        "series_offset_index": pd.Series(group_labels, index=np.arange(n) + 500),
+        "group_kfold_list": group_labels.tolist(),
+    }[kind]
+    split_type = GroupKFold(3) if kind == "group_kfold_list" else "group"
+
+    captured = []
+    original_fit = RandomForestClassifier.fit
+
+    def spy_fit(self, X, y, **kwargs):
+        captured.append(np.asarray(X)[:, 0].copy())
+        return original_fit(self, X, y, **kwargs)
+
+    automl = AutoML()
+    with patch.object(RandomForestClassifier, "fit", spy_fit):
+        automl.fit(
+            X_train=X,
+            y_train=y,
+            groups=groups,
+            split_type=split_type,
+            eval_method=eval_method,
+            n_splits=3,
+            task="classification",
+            time_budget=-1,
+            max_iter=2,
+            estimator_list=["rf"],
+            verbose=0,
+        )
+    assert automl.model is not None
+    assert captured
+    for ids in captured:
+        # every fit sees whole groups only: a group is never split between train and validation
+        counts = np.bincount((ids // 10).astype(int), minlength=20)
+        assert set(counts) <= {0, 10}
+
+
+def test_group_holdout_with_permuted_index_series_keeps_group_alignment():
+    """A Series whose index is a permutation of 0..n-1 does not raise, but was indexed by label."""
+    from unittest.mock import patch
+
+    from flaml.automl.task.generic_task import GenericTask
+
+    snapshot = {}
+    original = GenericTask.prepare_data
+
+    def spy(self, state, *args, **kwargs):
+        out = original(self, state, *args, **kwargs)
+        snapshot.update(
+            train_ids=np.asarray(state.X_train)[:, 0].astype(int),
+            val_ids=np.asarray(state.X_val)[:, 0].astype(int),
+            groups=np.asarray(state.groups),
+            groups_val=np.asarray(state.groups_val),
+        )
+        return out
+
+    n = 200
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame({"id": np.arange(n, dtype=float), "feat": rng.normal(size=n)})
+    labels = np.repeat(np.arange(20), 10)
+    y = pd.Series((labels % 2).astype(int))
+    groups = pd.Series(labels, index=rng.permutation(n))  # values in row order, shuffled index labels
+    with patch.object(GenericTask, "prepare_data", spy):
+        AutoML().fit(
+            X_train=X,
+            y_train=y,
+            groups=groups,
+            split_type="group",
+            eval_method="holdout",
+            task="classification",
+            time_budget=-1,
+            max_iter=2,
+            estimator_list=["rf"],
+            verbose=0,
+        )
+    np.testing.assert_array_equal(snapshot["groups"], labels[snapshot["train_ids"]])
+    np.testing.assert_array_equal(snapshot["groups_val"], labels[snapshot["val_ids"]])
+
+
 @pytest.mark.skipif(
     sys.platform == "win32" and platform.machine() == "ARM64", reason="catboost is not available on win-arm64 machine"
 )
