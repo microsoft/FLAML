@@ -841,7 +841,7 @@ class BlendSearch(Searcher):
                 or sign == ">"
                 and value <= threshold
                 or sign == "<"
-                and value > threshold
+                and value >= threshold
             ):
                 self._result[config_signature] = {
                     self._metric: np.inf * self._ls.metric_op,
