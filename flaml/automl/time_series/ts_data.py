@@ -388,10 +388,6 @@ class DataTransformerTS:
         Args:
             X: A numpy array or a pandas dataframe of training data.
             y: A numpy array or a pandas series of labels.
-
-        Returns:
-            X: Processed numpy array or pandas dataframe of training data.
-            y: Processed numpy array or pandas series of labels.
         """
         assert isinstance(X, DataFrame)
         X = X.copy()
