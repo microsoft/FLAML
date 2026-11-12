@@ -155,6 +155,17 @@ def define_by_run_func(trial, space: Dict, path: str = "") -> Optional[Dict[str,
 #     return config
 
 
+def _clip_to_integer_grid(value, domain, q):
+    """Clamp a quantized integer value to the multiples of q inside [lower, upper]
+    (the grid Quantized.sample() draws from)."""
+    q = int(q)
+    grid_lower = -(-int(domain.lower) // q) * q
+    grid_upper = int(domain.upper) // q * q
+    if grid_lower <= grid_upper:
+        value = min(max(value, grid_lower), grid_upper)
+    return value
+
+
 def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
     """Unflatten hierarchical config."""
     hier = {}
@@ -185,7 +196,10 @@ def unflatten_hierarchical(config: Dict, space: Dict) -> Tuple[Dict, Dict]:
                         q = sampler.q
                         sampler = sampler.sampler
                         if isinstance(sampler, sample.LogUniform):
-                            value = domain.cast(np.round(value / q) * q)
+                            value = np.round(value / q) * q
+                            if isinstance(domain, sample.Integer):
+                                value = _clip_to_integer_grid(value, domain, q)
+                            value = domain.cast(value)
             hier[key] = value
     return hier, subspace
 
@@ -418,6 +432,9 @@ def denormalize(
                 # Handle quantized
                 if quantize is not None:
                     config_denorm[key] = np.round(np.divide(config_denorm[key], quantize)) * quantize
+                    if isinstance(domain, sample.Integer):
+                        # rounding to a multiple of q can leave [lower, upper] when a bound is not one
+                        config_denorm[key] = _clip_to_integer_grid(config_denorm[key], domain, quantize)
                 # Handle int (4.6 -> 5)
                 if isinstance(domain, sample.Integer):
                     config_denorm[key] = int(round(config_denorm[key]))
