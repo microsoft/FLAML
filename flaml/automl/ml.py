@@ -473,7 +473,6 @@ def norm_confusion_matrix(y_true: Union[np.array, Series], y_pred: Union[np.arra
     """normalized confusion matrix.
 
     Args:
-        estimator: A multi-class classification estimator.
         y_true: A numpy array or a pandas series of true labels.
         y_pred: A numpy array or a pandas series of predicted labels.
 
