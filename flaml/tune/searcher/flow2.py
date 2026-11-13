@@ -368,49 +368,47 @@ class FLOW2(Searcher):
 
     def lexico_compare(self, result) -> bool:
         if self._histories is None:
+            # Start the history with the incumbent so that the first result is compared with it.
             self._histories, self._f_best = defaultdict(list), {}
             for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            return True
-        else:
-            for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                k_target = (
-                    self.lexico_objectives["targets"][k_metric]
-                    if k_mode == "min"
-                    else -self.lexico_objectives["targets"][k_metric]
+                self._histories[k].append(self.best_obj[k])
+        for k in self.lexico_objectives["metrics"]:
+            self._histories[k].append(result[k])
+        self.update_fbest()
+        for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
+            k_target = (
+                self.lexico_objectives["targets"][k_metric]
+                if k_mode == "min"
+                else -self.lexico_objectives["targets"][k_metric]
+            )
+            if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
+                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
+            else:
+                assert (
+                    self.lexico_objectives["tolerances"][k_metric][-1] == "%"
+                ), f"String tolerance of {k_metric} should use %% as the suffix"
+                tolerance_bound = self._f_best[k_metric] * (
+                    1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
-                if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                    tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                else:
-                    assert (
-                        self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                    ), f"String tolerance of {k_metric} should use %% as the suffix"
-                    tolerance_bound = self._f_best[k_metric] * (
-                        1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                    )
-                if (result[k_metric] < max(tolerance_bound, k_target)) and (
-                    self.best_obj[k_metric]
-                    < max(
-                        tolerance_bound,
-                        k_target,
-                    )
-                ):
-                    continue
-                elif result[k_metric] < self.best_obj[k_metric]:
-                    return True
-                else:
-                    return False
-            for k_metr in self.lexico_objectives["metrics"]:
-                if result[k_metr] == self.best_obj[k_metr]:
-                    continue
-                elif result[k_metr] < self.best_obj[k_metr]:
-                    return True
-                else:
-                    return False
+            if (result[k_metric] < max(tolerance_bound, k_target)) and (
+                self.best_obj[k_metric]
+                < max(
+                    tolerance_bound,
+                    k_target,
+                )
+            ):
+                continue
+            elif result[k_metric] < self.best_obj[k_metric]:
+                return True
+            else:
+                return False
+        for k_metr in self.lexico_objectives["metrics"]:
+            if result[k_metr] == self.best_obj[k_metr]:
+                continue
+            elif result[k_metr] < self.best_obj[k_metr]:
+                return True
+            else:
+                return False
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """
