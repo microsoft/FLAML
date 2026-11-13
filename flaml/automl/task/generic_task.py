@@ -260,6 +260,12 @@ class GenericTask(Task):
         else:
             state.groups_val = groups_val
             state.groups = groups
+        # positional indexing of the group labels (holdout and CV splits) needs an ndarray:
+        # a list has no iloc and a Series with a non-default index would be indexed by label
+        if isinstance(state.groups, (list, tuple, pd.Series)):
+            state.groups = np.asarray(state.groups)
+        if isinstance(state.groups_val, (list, tuple, pd.Series)):
+            state.groups_val = np.asarray(state.groups_val)
 
         automl.data_size_full = len(automl._y_train_all)
 
