@@ -1636,7 +1636,7 @@ class LGBMEstimator(BaseEstimator):
                     n_iter,
                     (
                         int((budget - time.time() + start_time - self._t1) / self._time_per_iter + 1)
-                        if budget is not None
+                        if budget is not None and hasattr(self, "_t1")
                         else n_iter
                     ),
                     (
