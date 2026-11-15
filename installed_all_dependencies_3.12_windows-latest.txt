@@ -9,7 +9,7 @@ annotated-types==0.8.0
 anyio==4.16.0
 argcomplete==3.7.2
 argon2-cffi==25.1.0
-argon2-cffi-bindings==26.1.0
+argon2-cffi-bindings==26.2.0
 arrow==1.4.0
 asttokens==3.0.2
 async-lru==2.4.0
@@ -41,10 +41,10 @@ dill==0.4.1
 distlib==0.4.4
 evaluate==0.4.6
 executing==2.3.0
-fastapi==0.162.5
+fastapi==0.163.0
 fastjsonschema==2.22.3
 filelock==4.2.7
--e git+https://github.com/microsoft/FLAML@63419617fea5fbdef4d85103bc8663ba68e0530d#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@339e7e5233158d26d0e53bb34fb27653f400cc3a#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -186,7 +186,7 @@ setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
-soupsieve==4.1
+soupsieve==4.1.1
 SQLAlchemy==2.1.8
 sqlparse==0.6.1
 stack-data==0.6.3
@@ -205,7 +205,7 @@ torchvision==0.29.2
 tornado==6.6.1
 tqdm==4.70.1
 traitlets==5.16.1
-transformers==5.22.2
+transformers==5.23.0
 truststore==0.10.5
 typer==0.29.1
 typing-inspection==0.4.5
