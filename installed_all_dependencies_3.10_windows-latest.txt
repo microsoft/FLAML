@@ -8,7 +8,7 @@ annotated-doc==0.0.6
 annotated-types==0.8.0
 anyio==4.16.0
 argon2-cffi==25.1.0
-argon2-cffi-bindings==26.1.0
+argon2-cffi-bindings==26.2.0
 arrow==1.4.0
 asttokens==3.0.2
 async-lru==2.4.0
@@ -46,7 +46,7 @@ executing==2.3.0
 fastapi==0.162.5
 fastjsonschema==2.22.3
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@e881cf36d846cd7a892b44ce5b84816c214282ce#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@de6471af246ebba6a9783aafcead24435c01a7b0#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
