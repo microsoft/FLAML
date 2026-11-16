@@ -161,6 +161,55 @@ def test_metric_constraints_custom():
         print(analysis.trials[-1])
 
 
+def test_config_constraints():
+    from sklearn.datasets import make_classification
+
+    from flaml.automl.model import LGBMEstimator
+    from flaml.automl.training_log import training_log_reader
+
+    MAX_N_ESTIMATORS = 16
+
+    class ConstrainedLGBM(LGBMEstimator):
+        """LGBM estimator that caps n_estimators via config_constraints."""
+
+        @classmethod
+        def config_constraints(cls):
+            return [(lambda config: config["n_estimators"], "<=", MAX_N_ESTIMATORS)]
+
+    automl = AutoML()
+    automl.add_learner("constrained_lgbm", ConstrainedLGBM)
+
+    log_file_name = f"test/config_constraints_{dataset}.log"
+    automl_settings = {
+        "estimator_list": ["constrained_lgbm"],
+        "task": "classification",
+        "log_file_name": log_file_name,
+        "n_jobs": 1,
+        "log_type": "all",
+        "keep_search_state": True,
+        "time_budget": 10,
+    }
+
+    X, y = make_classification(n_samples=1000, n_features=20, n_informative=10, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
+
+    # The best config must honor the estimator's constraint.
+    assert automl.best_config["n_estimators"] <= MAX_N_ESTIMATORS, automl.best_config
+
+    # Deterministic guard: every config that was actually trained (and therefore
+    # logged) must satisfy the constraint, i.e. no violating config was explored.
+    n_records = 0
+    with training_log_reader(log_file_name) as reader:
+        for record in reader.records():
+            n_records += 1
+            assert (
+                record.config["n_estimators"] <= MAX_N_ESTIMATORS
+            ), f"a trained config violates the constraint: n_estimators={record.config['n_estimators']}"
+    assert n_records > 0, "no configs were trained; the test did not exercise the search"
+
+
 if __name__ == "__main__":
     test_metric_constraints()
     test_metric_constraints_custom()
+    test_config_constraints()
