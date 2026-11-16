@@ -458,7 +458,7 @@ class BlendSearch(Searcher):
             for i, constraint in enumerate(self._metric_constraints):
                 metric_constraint, sign, threshold = constraint
                 value = result.get(metric_constraint)
-                if value:
+                if value is not None:
                     sign_op = 1 if sign == "<=" else -1
                     violation = (value - threshold) * sign_op
                     if violation > 0:
