@@ -92,6 +92,33 @@ def size(learner_classes: dict, config: dict) -> float:
     return learner_class.size(config)
 
 
+def _estimator_constraint(estimator: str, func: Callable[[dict], float], sign: str) -> Callable[[dict], float]:
+    """Wrap an estimator config-constraint function for the joint search space.
+
+    The wrapped function only applies ``func`` to configs whose selected
+    learner is ``estimator``; for any other learner it returns a value that
+    trivially satisfies the constraint.
+    """
+    satisfying = float("-inf") if sign in ("<=", "<") else float("inf")
+
+    def constraint(config: dict) -> float:
+        config = config.get("ml", config)
+        if config.get("learner") != estimator:
+            return satisfying
+        return func(config)
+
+    return constraint
+
+
+def _joint_config_constraints(learner_classes: dict) -> list:
+    """Collect per-estimator config constraints for a joint search space."""
+    constraints = []
+    for estimator, learner_class in learner_classes.items():
+        for func, sign, threshold in learner_class.config_constraints():
+            constraints.append((_estimator_constraint(estimator, func, sign), sign, threshold))
+    return constraints
+
+
 # metrics that sklearn only computes for binary targets
 BINARY_ONLY_METRICS = ("roc_auc", "roc_auc_weighted", "ap", "f1")
 
@@ -2847,7 +2874,8 @@ class AutoML(BaseEstimator):
                 resource_attr=self.resource_attr,
                 min_resource=min_resource_all_estimator,
                 max_resource=self.max_resource,
-                config_constraints=[(partial(size, self._state.learner_classes), "<=", self._mem_thres)],
+                config_constraints=[(partial(size, self._state.learner_classes), "<=", self._mem_thres)]
+                + _joint_config_constraints(self._state.learner_classes),
                 metric_constraints=self.metric_constraints,
                 seed=self._seed,
                 time_budget_s=time_budget_s,
@@ -3086,7 +3114,8 @@ class AutoML(BaseEstimator):
                         resource_attr=resource_attr,
                         min_resource=min_resource,
                         max_resource=max_resource,
-                        config_constraints=[(learner_class.size, "<=", self._mem_thres)],
+                        config_constraints=[(learner_class.size, "<=", self._mem_thres)]
+                        + list(learner_class.config_constraints()),
                         metric_constraints=self.metric_constraints,
                         seed=self._seed,
                         allow_empty_config=True,
