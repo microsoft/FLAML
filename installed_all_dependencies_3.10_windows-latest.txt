@@ -33,7 +33,7 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.166.0
+databricks-sdk==0.167.0
 datasets==5.2.0
 debugpy==1.8.22
 decorator==5.3.1
@@ -46,7 +46,7 @@ executing==2.3.0
 fastapi==0.162.5
 fastjsonschema==2.22.3
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@de6471af246ebba6a9783aafcead24435c01a7b0#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@1116e9e4b635afd614455d091a4e399eddecb8c4#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -151,7 +151,7 @@ pyarrow==25.0.1
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.4.0
+pycryptodome==4.5.0
 pydantic==2.14.3
 pydantic_core==2.50.4
 Pygments==2.21.0
@@ -189,7 +189,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
 soupsieve==2.10
-SQLAlchemy==2.0.57
+SQLAlchemy==2.0.58
 sqlparse==0.6.1
 stack-data==0.6.3
 starlette==1.7.0
