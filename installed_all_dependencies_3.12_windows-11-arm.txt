@@ -13,7 +13,7 @@ babel==2.18.0
 beautifulsoup4==4.15.0
 bleach==6.4.0
 cachetools==5.5.2
-certifi==2026.10.23
+certifi==2026.11.20
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
@@ -24,10 +24,10 @@ colorlog==6.12.0
 comm==0.2.3
 contourpy==1.4.0
 convertdate==2.5.1
-coverage==7.17.3
+coverage==7.17.4
 cryptography==46.0.3
 cycler==0.12.1
-databricks-sdk==0.168.0
+databricks-sdk==0.169.0
 debugpy==1.8.22
 defusedxml==0.7.1
 dill==0.4.1
@@ -36,14 +36,14 @@ executing==2.3.0
 fastapi==0.165.0
 fastjsonschema==2.22.3
 filelock==4.2.12
--e git+https://github.com/microsoft/FLAML@907cd217915447045ef4544bbdff12f9b7260a0f#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@cd1e9e74c41c2e98d4f1fc13be1ac6e30463022a#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
 fsspec==2026.9.0
 gitdb==4.0.12
 GitPython==3.2.1
-google-auth==2.62.2
+google-auth==2.63.0
 h11==0.16.0
 hcrystalball==0.1.12
 hf-xet==1.8.0
@@ -115,7 +115,7 @@ pandocfilters==1.5.1
 parso==0.8.7
 patsy==1.0.3
 pillow==13.0.0
-platformdirs==4.14.7
+platformdirs==4.14.8
 pluggy==1.7.0
 pre_commit==4.7.0
 prometheus_client==0.26.0
@@ -126,8 +126,8 @@ pure_eval==0.2.4
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.12
-pydantic==2.14.3
-pydantic_core==2.50.4
+pydantic==2.14.4
+pydantic_core==2.50.5
 Pygments==2.21.0
 pyluach==2.3.0
 PyMeeus==0.5.12
@@ -139,7 +139,7 @@ python-dateutil==4.0.0
 python-discovery==1.9.6
 python-json-logger==4.2.0
 pywinpty==3.1.2
-PyYAML==6.0.3
+PyYAML==6.0.4
 pyzmq==27.3.0
 referencing==0.37.0
 regex==2026.11.19
@@ -160,7 +160,7 @@ setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.3
-soupsieve==4.1.2
+soupsieve==4.1.3
 SQLAlchemy==2.1.9
 sqlparse==0.6.1
 stack-data==0.6.3
