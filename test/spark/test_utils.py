@@ -205,24 +205,32 @@ def test_to_pandas_on_spark(capsys):
 def test_train_test_split_pyspark():
     pdf = pd.DataFrame({"x": range(2000), "y": [0, 1] * 1000})
     spark = SparkSession.builder.getOrCreate()
-    sdf = spark.createDataFrame(pdf).repartition(1)
-    psdf = to_pandas_on_spark(sdf).spark.repartition(1)
-    train_sdf, test_sdf = train_test_split_pyspark(sdf, test_fraction=0.5, to_pandas_spark=False, seed=1)
-    train_psdf, test_psdf = train_test_split_pyspark(psdf, test_fraction=0.5, stratify_column="y", seed=1)
-    assert isinstance(train_sdf, pyspark.sql.dataframe.DataFrame)
-    assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
-    assert isinstance(train_psdf, ps.DataFrame)
-    assert isinstance(test_psdf, ps.DataFrame)
-    expected_rows = set(zip(pdf["x"], pdf["y"]))
-    # Spark sampling is approximate, not an exact-size split of each stratum.
-    for train, test in [(train_sdf, test_sdf), (train_psdf.to_spark(), test_psdf.to_spark())]:
-        train_rows = [(row.x, row.y) for row in train.select("x", "y").collect()]
-        test_rows = [(row.x, row.y) for row in test.select("x", "y").collect()]
-        assert len(train_rows) + len(test_rows) == len(pdf)
-        assert set(train_rows).isdisjoint(test_rows)
-        assert set(train_rows) | set(test_rows) == expected_rows
-        for label in (0, 1):
-            assert sum(row[1] == label for row in test_rows) / 1000 == pytest.approx(0.5, abs=0.1)
+    sdf = spark.createDataFrame(pdf).coalesce(1).cache()
+    try:
+        # Both lazy split branches must sample the same ordered input snapshot.
+        sdf.count()
+        psdf = to_pandas_on_spark(sdf)
+        train_sdf, test_sdf = train_test_split_pyspark(sdf, test_fraction=0.5, to_pandas_spark=False, seed=1)
+        train_psdf, test_psdf = train_test_split_pyspark(psdf, test_fraction=0.5, stratify_column="y", seed=1)
+        assert isinstance(train_sdf, pyspark.sql.dataframe.DataFrame)
+        assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
+        assert isinstance(train_psdf, ps.DataFrame)
+        assert isinstance(test_psdf, ps.DataFrame)
+        expected_rows = set(zip(pdf["x"], pdf["y"]))
+        # Spark sampling is approximate, not an exact-size split of each stratum.
+        for kind, train, test in [
+            ("spark", train_sdf, test_sdf),
+            ("pandas", train_psdf.to_spark(), test_psdf.to_spark()),
+        ]:
+            train_rows = [(row.x, row.y) for row in train.select("x", "y").collect()]
+            test_rows = [(row.x, row.y) for row in test.select("x", "y").collect()]
+            assert len(train_rows) + len(test_rows) == len(pdf), kind
+            assert set(train_rows).isdisjoint(test_rows), kind
+            assert set(train_rows) | set(test_rows) == expected_rows, kind
+            for label in (0, 1):
+                assert sum(row[1] == label for row in test_rows) / 1000 == pytest.approx(0.5, abs=0.1), kind
+    finally:
+        sdf.unpersist()
 
 
 def test_unique_pandas_on_spark():
