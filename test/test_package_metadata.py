@@ -160,9 +160,18 @@ def test_ci_matrix_preserves_arm64_and_split_spark_jobs():
         for entry in entries
         if not any(all(entry[key] == value for key, value in exclusion.items()) for exclusion in matrix["exclude"])
     ]
+    spark_job = jobs["spark"]
+    spark_entries = spark_job["strategy"]["matrix"]["include"]
+    included.extend({"os": spark_job["runs-on"], "test-type": "spark", **entry} for entry in spark_entries)
     assert len(included) == 14
     assert sum(entry["os"] == "windows-11-arm" for entry in included) == 3
     assert all(entry["os"] == "ubuntu-latest" for entry in included if entry["test-type"] == "spark")
+    assert {(entry["python-version"], entry["spark-version"]) for entry in spark_entries} == {
+        ("3.11", "3.5.1"),
+        ("3.12", "4.0.1"),
+        ("3.13", "4.1.0"),
+    }
+    assert set(jobs["coverage"]["needs"]) == {"build", "spark"}
     assert "public-install" in jobs
     for job in jobs.values():
         for step in job["steps"]:
@@ -172,15 +181,24 @@ def test_ci_matrix_preserves_arm64_and_split_spark_jobs():
 
 def test_spark_installation_and_pandas_cap_are_limited_to_spark_jobs():
     yaml = pytest.importorskip("yaml")
-    workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
-    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
-    affected = [
-        step
-        for step in steps
-        if "pip install pyspark==" in step.get("run", "") or 'pip install "pandas>=2.0,<3"' in step.get("run", "")
-    ]
-    assert len(affected) == 4
-    assert all("matrix.test-type == 'spark'" in step["if"] for step in affected)
+    root = Path(__file__).resolve().parents[1]
+    workflow = root / ".github" / "workflows" / "python-package.yml"
+    jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
+    assert all(
+        "pyspark==" not in step.get("run", "") and "pandas>=2.0,<3" not in step.get("run", "")
+        for step in jobs["build"]["steps"]
+    )
+    spark_job = jobs["spark"]
+    assert any("docker compose build" in step.get("run", "") for step in spark_job["steps"])
+    assert spark_job["env"]["SPARK_VERSION"] == "${{ matrix.spark-version }}"
+    compose_path = root / spark_job["env"]["COMPOSE_FILE"]
+    services = yaml.safe_load(compose_path.read_text(encoding="utf-8"))["services"]
+    assert services["master"]["image"] == services["worker"]["image"] == services["driver"]["image"]
+    build = services["master"]["build"]
+    dockerfile = compose_path.parent / build["context"] / build["dockerfile"]
+    content = dockerfile.read_text(encoding="utf-8")
+    assert '"pyspark==${SPARK_VERSION}"' in content
+    assert '"pandas>=2.0,<3"' in content
 
 
 def test_offline_nlp_coverage_has_a_maintained_ci_step():
@@ -206,9 +224,9 @@ def test_nlp_execution_is_not_excluded_from_coverage():
     assert not any(fnmatch.fnmatch(source, pattern.strip()) for pattern in config["run"]["omit"].splitlines())
 
 
-@pytest.mark.parametrize("aggregate", [False, True])
+@pytest.mark.parametrize("job_name", ["build", "spark", "coverage"])
 @pytest.mark.parametrize("upstream_status", ["success", "failure", "cancelled"])
-def test_missing_coverage_fails_successful_jobs(tmp_path, aggregate, upstream_status):
+def test_missing_coverage_fails_successful_jobs(tmp_path, job_name, upstream_status):
     import os
     import shutil
     import subprocess
@@ -218,15 +236,27 @@ def test_missing_coverage_fails_successful_jobs(tmp_path, aggregate, upstream_st
     yaml = pytest.importorskip("yaml")
     workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
     jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
-    name = "Combine coverage data and produce XML" if aggregate else "Combine per-job coverage data"
-    step = next(item for item in jobs["coverage" if aggregate else "build"]["steps"] if item.get("name") == name)
-    variable = "BUILD_MATRIX_RESULT" if aggregate else "TEST_JOB_RESULT"
+    names = {
+        "build": "Combine per-job coverage data",
+        "spark": "Combine container coverage",
+        "coverage": "Combine coverage data and produce XML",
+    }
+    step = next(item for item in jobs[job_name]["steps"] if item.get("name") == names[job_name])
+    variable = "BUILD_MATRIX_RESULT" if job_name == "coverage" else "TEST_JOB_RESULT"
     result = subprocess.run(
         ["bash", "-c", step["run"]],
         cwd=tmp_path,
-        env={**os.environ, variable: upstream_status},
+        env={
+            **os.environ,
+            variable: upstream_status,
+            "SPARK_TEST_OUTPUT": str(tmp_path),
+            "COVERAGE_FILE": str(tmp_path / ".coverage"),
+            "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        },
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert result.returncode == (1 if upstream_status == "success" else 0), result.stdout + result.stderr
+    if upstream_status == "success":
+        assert "::error::Successful" in result.stdout
