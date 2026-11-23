@@ -39,7 +39,7 @@ cycler==0.12.1
 databricks-sdk==0.169.0
 datasets==5.2.0
 debugpy==1.8.22
-decorator==5.3.1
+decorator==5.3.2
 defusedxml==0.7.1
 dill==0.4.1
 distlib==0.4.4
@@ -49,7 +49,7 @@ executing==2.3.0
 fastapi==0.162.5
 fastjsonschema==2.22.3
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@7c6dbbe07a5250d28a98e4890157a597a76d3edb#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@a50d7c7cfd451405f0e068a7b5b74f641518763c#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -57,7 +57,7 @@ frozenlist==1.8.0
 fsspec==2026.9.0
 gitdb==4.0.12
 GitPython==3.2.1
-google-auth==2.63.0
+google-auth==2.63.1
 graphviz==0.21
 greenlet==3.5.6
 h11==0.16.0
@@ -105,7 +105,7 @@ liac-arff==2.5.0
 lightgbm==4.7.0
 lightning==2.6.6
 lightning-utilities==0.15.3
-lunardate==0.3.0
+lunardate==0.3.1
 Mako==1.4.3
 markdown-it-py==4.3.0
 MarkupSafe==3.0.4
@@ -173,7 +173,7 @@ pyarrow==25.0.1
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.11
-pycryptodome==4.5.0
+pycryptodome==4.6.0
 pydantic==2.14.4
 pydantic_core==2.50.5
 Pygments==2.21.0
@@ -241,7 +241,7 @@ uri-template==1.3.0
 urllib3==2.8.0
 uvicorn==0.54.0
 virtualenv==21.14.5
-wcwidth==0.9.4
+wcwidth==0.9.5
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
