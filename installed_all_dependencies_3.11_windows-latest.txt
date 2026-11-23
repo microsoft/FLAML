@@ -42,8 +42,8 @@ evaluate==0.4.6
 executing==2.3.0
 fastapi==0.165.0
 fastjsonschema==2.22.3
-filelock==4.2.12
--e git+https://github.com/microsoft/FLAML@f9070867541fa30a2499aa3f5f2f2a7b3853d9f2#egg=FLAML
+filelock==4.3.0
+-e git+https://github.com/microsoft/FLAML@8946cb2f9b3c9ee55d719600e9c825469112332f#egg=FLAML
 fonttools==4.68.0
 formulaic==1.2.2
 fqdn==1.6.0
@@ -51,7 +51,7 @@ frozenlist==1.8.0
 fsspec==2026.9.0
 gitdb==4.0.12
 GitPython==3.2.1
-google-auth==2.63.0
+google-auth==2.63.1
 graphviz==0.21
 h11==0.16.0
 hcrystalball==0.1.12
@@ -98,7 +98,7 @@ liac-arff==2.5.0
 lightgbm==4.7.0
 lightning==2.6.6
 lightning-utilities==0.15.3
-lunardate==0.3.0
+lunardate==0.3.1
 Mako==1.4.3
 markdown-it-py==4.3.0
 MarkupSafe==3.0.4
@@ -148,7 +148,7 @@ pyarrow==25.0.1
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.12
-pycryptodome==4.5.0
+pycryptodome==4.6.0
 pydantic==2.14.4
 pydantic_core==2.50.5
 Pygments==2.21.0
@@ -203,7 +203,7 @@ torchvision==0.29.2
 tornado==6.6.1
 tqdm==4.70.1
 traitlets==5.16.1
-transformers==5.23.0
+transformers==5.24.0
 truststore==0.10.5
 typer==0.29.2
 typing-inspection==0.4.5
@@ -213,7 +213,7 @@ uri-template==1.3.0
 urllib3==2.8.0
 uvicorn==0.54.0
 virtualenv==21.14.5
-wcwidth==0.9.4
+wcwidth==0.9.5
 webcolors==25.10.0
 webencodings==0.6.1
 websocket-client==1.9.2
