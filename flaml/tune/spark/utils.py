@@ -1,9 +1,11 @@
+import hashlib
 import logging
 import os
 import textwrap
 import threading
 import time
 from functools import lru_cache, partial
+from zipfile import ZIP_DEFLATED, ZipFile
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
@@ -124,7 +126,9 @@ def with_parameters(trainable, **kwargs):
 def broadcast_code(custom_code="", file_name="mylearner"):
     """Write customized learner/metric code contents to a file for importing.
     It is necessary for using the customized learner/metric in spark backend.
-    The path of the learner/metric file will be returned.
+    The path of the learner/metric file will be returned. Spark distributes a
+    versioned code archive to current and future executors; no scheduled task
+    is needed to copy files into executor installations.
 
     Args:
         custom_code: str, default="" | code contents of the custom learner/metric.
@@ -170,26 +174,17 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     custom_code = textwrap.dedent(custom_code)
     custom_path = os.path.join(flaml_path, file_name + ".py")
 
-    with open(custom_path, "w") as f:
+    with open(custom_path, "w", encoding="utf-8") as f:
         f.write(custom_code)
 
-    # If using Spark, broadcast the code content to executors
     if spark_available:
         spark = SparkSession.builder.getOrCreate()
-        bc_code = spark.sparkContext.broadcast(custom_code)
-
-        # Execute a job to ensure the code is distributed to all executors
-        def _write_code(bc):
-            code = bc.value
-            import os
-
-            module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name + ".py")
-            os.makedirs(os.path.dirname(module_path), exist_ok=True)
-            with open(module_path, "w") as f:
-                f.write(code)
-            return True
-
-        spark.sparkContext.parallelize(range(1)).map(lambda _: _write_code(bc_code)).collect()
+        digest = hashlib.sha256((file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
+        archive_path = os.path.join(pyspark.SparkFiles.getRootDirectory(), f"{digest}_flaml_custom_code.zip")
+        if not os.path.exists(archive_path):
+            with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
+                archive.writestr(file_name + ".py", custom_code)
+        spark.sparkContext.addPyFile(archive_path)
 
     return custom_path
 

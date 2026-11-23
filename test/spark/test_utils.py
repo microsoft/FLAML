@@ -1,7 +1,10 @@
 import atexit
+import importlib
 import os
+import sys
 from functools import partial
 from timeit import timeit
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -129,10 +132,43 @@ def test_broadcast_code():
             }
     """
 
-    _ = broadcast_code(custom_code=custom_code)
-    from flaml.tune.spark.mylearner import MyLargeLGBM
+    file_name = f"_test_broadcast_learner_{uuid4().hex}"
+    qualified_name = f"flaml.tune.spark.{file_name}"
+    custom_path = broadcast_code(custom_code=custom_code, file_name=file_name)
+    broadcast_learner = None
+    try:
+        module = importlib.import_module(qualified_name)
+        assert isinstance(module.MyLargeLGBM(), LGBMEstimator)
+        context = SparkSession.builder.getOrCreate().sparkContext
+        broadcast_learner = context.broadcast(module.MyLargeLGBM)
 
-    assert isinstance(MyLargeLGBM(), LGBMEstimator)
+        def verify_import_on_worker(_):
+            import socket
+
+            from pyspark import BarrierTaskContext
+
+            BarrierTaskContext.get().barrier()
+            learner = broadcast_learner.value
+            assert isinstance(learner(), LGBMEstimator)
+            return [(socket.gethostname(), learner.__module__)]
+
+        workers = os.environ.get("FLAML_TEST_SPARK_WORKERS")
+        partitions = min(context.defaultParallelism, int(workers or "2"))
+        results = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(verify_import_on_worker)
+            .collect()
+        )
+        assert len(results) == partitions
+        assert all(module_name == qualified_name for _, module_name in results)
+        if workers:
+            assert len({host for host, _ in results}) == int(workers)
+    finally:
+        if broadcast_learner is not None:
+            broadcast_learner.destroy()
+        sys.modules.pop(qualified_name, None)
+        os.remove(custom_path)
 
 
 def test_get_broadcast_data():
@@ -167,7 +203,7 @@ def test_to_pandas_on_spark(capsys):
 
 
 def test_train_test_split_pyspark():
-    pdf = pd.DataFrame({"x": [1, 2, 3, 4], "y": [0, 1, 1, 0]})
+    pdf = pd.DataFrame({"x": range(2000), "y": [0, 1] * 1000})
     spark = SparkSession.builder.getOrCreate()
     sdf = spark.createDataFrame(pdf).repartition(1)
     psdf = to_pandas_on_spark(sdf).spark.repartition(1)
@@ -177,12 +213,16 @@ def test_train_test_split_pyspark():
     assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
     assert isinstance(train_psdf, ps.DataFrame)
     assert isinstance(test_psdf, ps.DataFrame)
-    assert train_sdf.count() == 2
-    assert train_psdf.shape[0] == 2
-    print(train_sdf.toPandas())
-    print(test_sdf.toPandas())
-    print(train_psdf.to_pandas())
-    print(test_psdf.to_pandas())
+    expected_rows = set(zip(pdf["x"], pdf["y"]))
+    # Spark sampling is approximate, not an exact-size split of each stratum.
+    for train, test in [(train_sdf, test_sdf), (train_psdf.to_spark(), test_psdf.to_spark())]:
+        train_rows = [(row.x, row.y) for row in train.select("x", "y").collect()]
+        test_rows = [(row.x, row.y) for row in test.select("x", "y").collect()]
+        assert len(train_rows) + len(test_rows) == len(pdf)
+        assert set(train_rows).isdisjoint(test_rows)
+        assert set(train_rows) | set(test_rows) == expected_rows
+        for label in (0, 1):
+            assert sum(row[1] == label for row in test_rows) / 1000 == pytest.approx(0.5, abs=0.1)
 
 
 def test_unique_pandas_on_spark():

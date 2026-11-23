@@ -1,7 +1,11 @@
 import importlib
+import pickle
 import sys
+import textwrap
+from pathlib import Path
 from threading import Barrier
 from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -126,3 +130,89 @@ def test_automl_spark_single_worker(spark_backend, learner):
     assert spark_backend == [1]
     assert np.isfinite(automl.best_loss)
     assert automl.predict_proba(X).shape == (80, 2)
+
+
+@pytest.fixture
+def broadcast_files(monkeypatch, tmp_path):
+    package = importlib.import_module("flaml.tune.spark")
+    utils = importlib.import_module("flaml.tune.spark.utils")
+    driver = tmp_path / "driver"
+    spark_files = tmp_path / "spark-files"
+    driver.mkdir()
+    spark_files.mkdir()
+    context = Mock()
+    monkeypatch.setattr(utils, "__file__", str(driver / "utils.py"))
+    monkeypatch.setattr(utils, "check_spark", lambda: (True, None))
+    monkeypatch.setattr(
+        utils,
+        "SparkSession",
+        SimpleNamespace(builder=SimpleNamespace(getOrCreate=lambda: SimpleNamespace(sparkContext=context))),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        utils,
+        "pyspark",
+        SimpleNamespace(SparkFiles=SimpleNamespace(getRootDirectory=lambda: str(spark_files))),
+        raising=False,
+    )
+    monkeypatch.setattr(package, "__path__", type(package.__path__)([str(tmp_path / "isolated-worker")]))
+    return utils, context, driver
+
+
+def test_broadcast_code_supports_isolated_and_late_workers(monkeypatch, broadcast_files):
+    utils, context, driver = broadcast_files
+    code = """
+    class Learner:
+        def predict(self, value):
+            return value * 3
+    """
+    name = "_test_distributed_learner"
+    qualified_name = f"flaml.tune.spark.{name}"
+    path = utils.broadcast_code(code, name)
+    assert Path(path) == driver / f"{name}.py"
+    assert Path(path).read_text(encoding="utf-8") == textwrap.dedent(code)
+    archive = context.addPyFile.call_args.args[0]
+    context.parallelize.assert_not_called()
+
+    # The package was imported before Spark added this archive, as on reused workers.
+    monkeypatch.syspath_prepend(archive)
+    try:
+        module = importlib.import_module(qualified_name)
+        payload = pickle.dumps(module.Learner())
+        del sys.modules[qualified_name]
+        assert pickle.loads(payload).predict(7) == 21
+    finally:
+        sys.modules.pop(qualified_name, None)
+
+
+def test_broadcast_code_updates_use_distinct_archives(monkeypatch, broadcast_files):
+    utils, context, _ = broadcast_files
+    name = "_test_updated_learner"
+    qualified_name = f"flaml.tune.spark.{name}"
+    try:
+        utils.broadcast_code("value = 1\n", name)
+        first_archive = context.addPyFile.call_args.args[0]
+        monkeypatch.syspath_prepend(first_archive)
+        module = importlib.import_module(qualified_name)
+        assert module.value == 1
+
+        utils.broadcast_code("value = 2\n", name)
+        second_archive = context.addPyFile.call_args.args[0]
+        assert first_archive != second_archive
+        monkeypatch.syspath_prepend(second_archive)
+        assert importlib.reload(module).value == 2
+
+        archive_bytes = Path(second_archive).read_bytes()
+        utils.broadcast_code("value = 2\n", name)
+        assert context.addPyFile.call_args.args[0] == second_archive
+        assert Path(second_archive).read_bytes() == archive_bytes
+    finally:
+        sys.modules.pop(qualified_name, None)
+
+
+def test_broadcast_code_without_spark_preserves_local_file(monkeypatch, broadcast_files):
+    utils, context, _ = broadcast_files
+    monkeypatch.setattr(utils, "check_spark", lambda: (False, ImportError("no pyspark")))
+    path = utils.broadcast_code("value = 42\n", "_test_local_learner")
+    assert Path(path).read_text(encoding="utf-8") == "value = 42\n"
+    context.addPyFile.assert_not_called()
