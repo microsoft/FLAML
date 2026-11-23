@@ -1,0 +1,65 @@
+# Same shared-image topology as thinkall/joblib-spark-fabric's distributed CI.
+x-node: &node
+  image: flaml-spark-tests:${COMPOSE_PROJECT_NAME:-flaml-spark-ci}
+  init: true
+  environment: &environment
+    TMPDIR: /shared
+    MLFLOW_TRACKING_URI: file:///shared/mlruns
+  volumes:
+    - shared-data:/shared
+    - ${SPARK_TEST_OUTPUT:-./output}:/coverage
+
+services:
+  master:
+    <<: *node
+    hostname: master
+    build:
+      context: ../../..
+      dockerfile: test/spark/containers/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.11}
+        SPARK_VERSION: ${SPARK_VERSION:-3.5.1}
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://master:8080/json/', timeout=5).read()"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+      start_period: 30s
+
+  worker:
+    <<: *node
+    depends_on:
+      master:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export SPARK_LOCAL_IP="$$(python -c 'import socket; print(socket.gethostbyname(socket.gethostname()))')"
+        export SPARK_LOCAL_HOSTNAME="$$SPARK_LOCAL_IP"
+        exec /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker \
+          --host "$$SPARK_LOCAL_IP" --cores 2 --memory 3g spark://master:7077
+
+  driver:
+    <<: *node
+    hostname: driver
+    environment:
+      <<: *environment
+      FLAML_TEST_SPARK_MASTER: spark://master:7077
+      FLAML_TEST_SPARK_WORKERS: "2"
+      COVERAGE_PROCESS_START: /workspace/.coveragerc
+    depends_on:
+      master:
+        condition: service_healthy
+
+volumes:
+  shared-data:

@@ -18,7 +18,7 @@ COMMON_JARS = [
 
 
 def _load_spark_test(name):
-    spec = importlib.util.spec_from_file_location(name, TEST_ROOT / "spark" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(Path(name).stem, TEST_ROOT / "spark" / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -40,7 +40,9 @@ def spark_dependencies(monkeypatch):
     modules = {
         "flaml": SimpleNamespace(__path__=[], AutoML=automl),
         "flaml.automl": SimpleNamespace(__path__=[]),
-        "flaml.automl.spark": SimpleNamespace(disable_spark_ansi_mode=Mock(), restore_spark_ansi_mode=Mock()),
+        "flaml.automl.spark": SimpleNamespace(
+            disable_spark_ansi_mode=Mock(return_value=(None, None, False)), restore_spark_ansi_mode=Mock()
+        ),
         "flaml.tune": SimpleNamespace(__path__=[]),
         "flaml.tune.spark": SimpleNamespace(__path__=[]),
         "flaml.tune.spark.utils": utils,
@@ -107,6 +109,62 @@ def test_init_spark_session_configures_jars_and_preserves_options(spark_dependen
         "spark.mlflow.pysparkml.autolog.logModelAllowlistFile",
         "https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt",
     )
+
+
+@pytest.mark.parametrize("entrypoint", ["init_spark_session", "setup_spark_for_tests"])
+@pytest.mark.parametrize(
+    "configured_master,explicit_master,expected_master",
+    [
+        (None, None, "local[2]"),
+        ("spark://master:7077", None, "spark://master:7077"),
+        ("spark://master:7077", "local[1]", "local[1]"),
+    ],
+)
+def test_spark_setup_honors_cluster_without_changing_local_defaults(
+    monkeypatch, spark_dependencies, entrypoint, configured_master, explicit_master, expected_master
+):
+    module = _load_spark_test("_init_spark")
+    environment = {"FLAML_TEST_SPARK_MASTER": configured_master} if configured_master else {}
+    monkeypatch.setattr(module, "os", SimpleNamespace(name="posix", environ=environment))
+    monkeypatch.setattr(module, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(module, "atexit", SimpleNamespace(register=Mock()))
+
+    kwargs = {"master": explicit_master} if explicit_master else {}
+    getattr(module, entrypoint)(**kwargs)
+
+    spark_dependencies.builder.master.assert_called_once_with(expected_master)
+
+
+@pytest.mark.parametrize(
+    "master,hosts",
+    [
+        ("local[2]", ["worker-1", "worker-2"]),
+        ("spark://master:7077", ["worker-1", "worker-1"]),
+        ("spark://master:7077", ["driver", "worker-2"]),
+    ],
+)
+def test_container_guard_rejects_local_or_incomplete_execution(monkeypatch, master, hosts):
+    module = _load_spark_test(Path("containers") / "run_tests")
+    spark = Mock()
+    spark.sparkContext.master = master
+    spark.sparkContext.parallelize.return_value.barrier.return_value.mapPartitions.return_value.collect.return_value = [
+        (index, host) for index, host in enumerate(hosts)
+    ]
+    monkeypatch.setattr(module, "_wait_for_workers", Mock())
+
+    with pytest.raises(RuntimeError, match="Container tests require master|Expected execution on"):
+        module.verify_cluster(spark, "spark://master:7077", 2)
+    if master.startswith("local"):
+        spark.sparkContext.parallelize.assert_not_called()
+
+
+@pytest.mark.parametrize("master,workers", [("", "0"), ("spark://master:7077", "1")])
+def test_container_runner_requires_an_explicit_multiworker_cluster(monkeypatch, master, workers):
+    module = _load_spark_test(Path("containers") / "run_tests")
+    monkeypatch.setenv("FLAML_TEST_SPARK_MASTER", master)
+    monkeypatch.setenv("FLAML_TEST_SPARK_WORKERS", workers)
+    with pytest.raises(RuntimeError, match="Container tests require"):
+        module.main()
 
 
 @pytest.mark.parametrize("python_version", [(3, 10), (3, 11), (3, 12), (3, 13)])

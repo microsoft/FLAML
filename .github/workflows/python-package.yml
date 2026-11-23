@@ -11,6 +11,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - '.coveragerc'
       - 'pyproject.toml'
       - 'setup.py'
   pull_request:
@@ -20,6 +21,7 @@ on:
       - 'test/**'
       - 'notebook/**'
       - '.github/workflows/python-package.yml'
+      - '.coveragerc'
       - 'pyproject.toml'
       - 'setup.py'
   merge_group:
@@ -86,16 +88,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, windows-11-arm]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-        test-type: [notspark, spark]
+        test-type: [notspark]
         exclude:
-          # OSS CI does not install pyspark on Windows runners.
-          - os: windows-latest
-            test-type: spark
-          - os: windows-11-arm
-            test-type: spark
-          # OSS CI does not install pyspark on Python 3.10.
-          - python-version: "3.10"
-            test-type: spark
           - os: windows-11-arm
             python-version: "3.10"
     steps:
@@ -156,27 +150,6 @@ jobs:
           SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
           echo "import coverage; coverage.process_startup()" > "$SITE_PACKAGES/coverage_subprocess.pth"
           echo "Wrote $SITE_PACKAGES/coverage_subprocess.pth"
-      # Only Spark jobs need this compatibility cap. Non-Spark jobs should
-      # exercise the current pandas version allowed by their dependencies.
-      - name: On Ubuntu with pyspark, pin pandas<3 (pyspark doesn't support pandas 3.0 yet)
-        if: matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
-        run: |
-          pip install "pandas>=2.0,<3"
-      - name: On Ubuntu python 3.11, install pyspark 3.5.1
-        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
-        run: |
-          pip install pyspark==3.5.1
-          pip list | grep "pyspark"
-      - name: On Ubuntu python 3.12, install pyspark 4.0.1
-        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
-        run: |
-          pip install pyspark==4.0.1
-          pip list | grep "pyspark"
-      - name: On Ubuntu python 3.13, install pyspark 4.1.0
-        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest' && matrix.test-type == 'spark'
-        run: |
-          pip install pyspark==4.1.0
-          pip list | grep "pyspark"
       # # TODO: support ray
       # - name: If linux and python<3.11, install ray 2
       #   if: matrix.os == 'ubuntu-latest' && matrix.python-version < '3.11'
@@ -200,10 +173,7 @@ jobs:
       - name: Clear pip cache
         run: |
           pip cache purge
-      # Tests are split into a "notspark" variant (everything except Spark
-      # tests, with `-m "not spark"`) and a "spark" variant (only Spark
-      # tests, with `-m "spark"`), mirroring the internal Azure DevOps
-      # pipeline at .pipelines/build.yml in the internal fork.
+      # Spark-marked tests run in the separate container-cluster job below.
       - name: Test with pytest (notspark)
         if: matrix.test-type == 'notspark'
         # Python 3.10 uses older pinned deps (xgboost<2, etc.) that run
@@ -235,24 +205,6 @@ jobs:
             --ignore=test/automl/test_extra_models.py \
             --reruns 2 --reruns-delay 10 \
             -m "not spark"
-      - name: Test with pytest (spark)
-        if: matrix.test-type == 'spark'
-        timeout-minutes: 120
-        shell: bash
-        env:
-          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
-        run: |
-          # Spark tests are kept serial: SynapseML's SparkSession is a
-          # single global JVM instance and the Spark workers themselves
-          # already parallelize, so pytest-level parallelism would
-          # contend on the same JVM and hurt rather than help. They
-          # already run in ~20 min.
-          coverage run -m pytest test/ \
-            --ignore=test/autogen \
-            --ignore=test/nlp \
-            --ignore=test/spark/test_internal_mlflow.py \
-            --reruns 2 --reruns-delay 10 \
-            -m "spark"
       - name: Test offline NLP utilities and classification heads
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' && matrix.test-type == 'notspark'
         timeout-minutes: 30
@@ -322,6 +274,100 @@ jobs:
           git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
           git push origin "$BRANCH" --force
 
+  spark:
+    name: build (ubuntu-latest, ${{ matrix.python-version }}, spark)
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            spark-version: "3.5.1"
+          - python-version: "3.12"
+            spark-version: "4.0.1"
+          - python-version: "3.13"
+            spark-version: "4.1.0"
+    env:
+      COMPOSE_FILE: test/spark/containers/compose.yml
+      COMPOSE_PROJECT_NAME: flaml-spark-${{ github.run_id }}-${{ github.run_attempt }}
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      SPARK_VERSION: ${{ matrix.spark-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Prepare coverage collection
+        run: |
+          echo "SPARK_TEST_OUTPUT=$RUNNER_TEMP/flaml-spark-results" >> "$GITHUB_ENV"
+          python -m pip install coverage
+      - name: Build matching driver and worker image
+        timeout-minutes: 20
+        run: |
+          mkdir -p "$SPARK_TEST_OUTPUT"
+          docker compose config --quiet
+          docker compose build master
+      - name: Start standalone master and two worker containers
+        timeout-minutes: 5
+        run: docker compose up -d --wait --wait-timeout 180 --scale worker=2 master worker
+      - name: Verify remote executors and run Spark tests
+        timeout-minutes: 120
+        run: docker compose run --name "${COMPOSE_PROJECT_NAME}-driver" --use-aliases driver
+      - name: Collect container logs
+        if: always()
+        run: |
+          mkdir -p "$SPARK_TEST_OUTPUT"
+          docker compose logs --no-color --timestamps > "$SPARK_TEST_OUTPUT/cluster.log"
+          if docker container inspect "${COMPOSE_PROJECT_NAME}-driver" > /dev/null 2>&1; then
+            docker logs --timestamps "${COMPOSE_PROJECT_NAME}-driver" > "$SPARK_TEST_OUTPUT/driver.log" 2>&1
+          fi
+      - name: Stop this job's cluster
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+      - name: Combine container coverage
+        id: spark-coverage
+        if: always()
+        env:
+          TEST_JOB_RESULT: ${{ job.status }}
+          COVERAGE_FILE: ${{ runner.temp }}/flaml-spark-results/.coverage
+        run: |
+          shopt -s nullglob
+          shards=( "$SPARK_TEST_OUTPUT"/.coverage.* )
+          if [ ! -f "$COVERAGE_FILE" ] && [ ${#shards[@]} -eq 0 ]; then
+            if [ "$TEST_JOB_RESULT" = "success" ]; then
+              echo "::error::Successful Spark tests produced no coverage data."
+              exit 1
+            fi
+            echo "No coverage data after an unsuccessful Spark job."
+            exit 0
+          fi
+          if [ ${#shards[@]} -gt 0 ]; then
+            coverage combine "$SPARK_TEST_OUTPUT"
+          fi
+          echo "has-data=true" >> "$GITHUB_OUTPUT"
+      - name: Upload Spark coverage
+        if: always() && steps.spark-coverage.outputs.has-data == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-data-ubuntu-latest-py${{ matrix.python-version }}-spark
+          path: ${{ runner.temp }}/flaml-spark-results/.coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload Spark diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: spark-cluster-py${{ matrix.python-version }}-${{ matrix.spark-version }}
+          path: |
+            ${{ runner.temp }}/flaml-spark-results/*.log
+            ${{ runner.temp }}/flaml-spark-results/pytest.xml
+
   # Combine coverage data files from every test-matrix job into a single
   # XML report and upload it to Codecov as one merged result. Coverage is
   # only collected on Linux runners (see the build job) to avoid path
@@ -329,7 +375,7 @@ jobs:
   coverage:
     name: Combine coverage and upload to Codecov
     if: always()
-    needs: build
+    needs: [build, spark]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -346,7 +392,7 @@ jobs:
       - name: Combine coverage data and produce XML
         shell: bash
         env:
-          BUILD_MATRIX_RESULT: ${{ needs.build.result }}
+          BUILD_MATRIX_RESULT: ${{ needs.build.result == 'success' && needs.spark.result == 'success' && 'success' || 'failure' }}
         run: |
           set -euo pipefail
           shopt -s nullglob

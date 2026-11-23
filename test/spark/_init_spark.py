@@ -44,17 +44,19 @@ def _spark_jars_packages() -> str:
     )
 
 
-def init_spark_session(app_name: str = "MyApp", master: str = "local[2]"):
+def init_spark_session(app_name: str = "MyApp", master: str | None = None):
     """Build (or fetch) the SparkSession used by FLAML's Spark tests.
 
     Imports ``pyspark`` lazily so this module remains importable in
     environments where pyspark is not installed (collection-time safety).
+    An explicit master overrides ``FLAML_TEST_SPARK_MASTER``; otherwise local
+    development continues to use ``local[2]``.
     """
     import pyspark
 
     spark = (
         pyspark.sql.SparkSession.builder.appName(app_name)
-        .master(master)
+        .master(master if master is not None else os.environ.get("FLAML_TEST_SPARK_MASTER", "local[2]"))
         .config("spark.jars.packages", _spark_jars_packages())
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .config("spark.sql.debug.maxToStringFields", "100")
@@ -71,7 +73,7 @@ def init_spark_session(app_name: str = "MyApp", master: str = "local[2]"):
 
 def setup_spark_for_tests(
     app_name: str = "MyApp",
-    master: str = "local[2]",
+    master: str | None = None,
 ) -> tuple[object | None, bool]:
     """Initialise Spark for the importing test module.
 

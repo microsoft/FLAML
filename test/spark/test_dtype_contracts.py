@@ -1,3 +1,4 @@
+import os
 from importlib import import_module
 
 import pytest
@@ -16,13 +17,14 @@ def dtype_spark():
     session = SparkSession.getActiveSession()
     owned = session is None
     if owned:
-        session = (
-            SparkSession.builder.master("local[1]")
+        builder = (
+            SparkSession.builder.master(os.environ.get("FLAML_TEST_SPARK_MASTER", "local[1]"))
             .appName("flaml-dtype-contracts")
             .config("spark.ui.enabled", "false")
-            .config("spark.driver.host", "127.0.0.1")
-            .getOrCreate()
         )
+        if "FLAML_TEST_SPARK_MASTER" not in os.environ:
+            builder = builder.config("spark.driver.host", "127.0.0.1")
+        session = builder.getOrCreate()
     yield session
     if owned:
         session.stop()
