@@ -12,10 +12,15 @@ try:
     from plotly.subplots import make_subplots
 except ModuleNotFoundError as exc:
     if exc.name is not None and exc.name.split(".")[0] == "plotly":
-        raise ImportError("Visualization requires Plotly. Install flaml[fabric_python] to enable plotting.") from exc
+        raise ImportError(
+            "Visualization requires Plotly. Install plotly or flaml[fabric_python] to enable plotting."
+        ) from exc
     raise
 
-from flaml.automl import AutoML
+try:
+    from flaml.automl import AutoML
+except ImportError:
+    AutoML = ()
 from flaml.automl.logger import logger
 from flaml.automl.training_log import training_log_reader
 from flaml.fabric.logger import init_kusto_logger
@@ -65,10 +70,9 @@ def _get_aml_df(aml: AutoML):
     metrics_history = [h["metrics"] for h in history]
     params_history = [h["params"] for h in history]
     metrics_df = pd.DataFrame(metrics_history)
-    params_df = pd.DataFrame(params_history)
-    metrics_df["config"] = params_df.to_dict("records")
+    metrics_df["config"] = [dict(params) for params in params_history]
     metrics_df["score"] = 1 - metrics_df.pop("validation_loss")
-    metrics_df["learner"] = params_df["learner"]
+    metrics_df["learner"] = [params["learner"] for params in params_history]
     return metrics_df
 
 
@@ -281,6 +285,7 @@ def plot_feature_importance(result) -> go.Figure:
             xaxis={"title": "Feature Importance"},
             yaxis={"title": "Feature Name"},
         )
+        fig.update_layout(layout)
         fig.add_annotation(
             text="Feature Importance are None.<br>Try using a tree-based estimator or increasing the time_budget/max_iter.",
             x=0.5,
@@ -480,15 +485,19 @@ def plot_edf(result) -> go.Figure:
     else:
         if isinstance(result, ExperimentAnalysis):
             result = [result]
-        df = pd.DataFrame()
-        if isinstance(result, Dict):
-            iters = result.keys()
-        else:
-            iters = range(len(result))
-        for i in iters:
-            sub_df = _get_tune_df(result[i])
-            sub_df["tune_id"] = f"{i}"
-            df = pd.concat([df, sub_df])
+        if not isinstance(result, (dict, list, tuple)):
+            raise TypeError("result must contain AutoML or ExperimentAnalysis results.")
+        if not result:
+            raise ValueError("At least one tuning result is required.")
+        items = result.items() if isinstance(result, dict) else enumerate(result)
+        frames = []
+        for key, analysis in items:
+            if not isinstance(analysis, ExperimentAnalysis):
+                raise TypeError("Every tuning result must be an ExperimentAnalysis.")
+            sub_df = _get_tune_df(analysis)
+            sub_df["tune_id"] = str(key)
+            frames.append(sub_df)
+        df = pd.concat(frames, ignore_index=True)
         fig = px.ecdf(df, x="score", color="tune_id")
 
     layout = go.Layout(

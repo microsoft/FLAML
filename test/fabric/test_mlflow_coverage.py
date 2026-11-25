@@ -9,10 +9,12 @@ import os
 import pickle
 import tempfile
 import time
+from concurrent.futures import Future
 from types import SimpleNamespace
 from unittest.mock import MagicMock, mock_open, patch
 
 import mlflow
+import mlflow.sklearn
 import pytest
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
@@ -26,6 +28,22 @@ def _end_mlflow_runs():
     yield
     while mlflow.active_run():
         mlflow.end_run()
+
+
+@pytest.fixture(autouse=True)
+def _finish_mocked_logging_inside_patch_scopes(monkeypatch):
+    import flaml.fabric.mlflow as integration_module
+
+    class ImmediateExecutor:
+        def submit(self, function, *args, **kwargs):
+            future = Future()
+            try:
+                future.set_result(function(*args, **kwargs))
+            except Exception as exc:
+                future.set_exception(exc)
+            return future
+
+    monkeypatch.setattr(integration_module, "executor", ImmediateExecutor())
 
 
 def _mock_active_run_none_then_mock(run_id="r1"):
@@ -88,13 +106,17 @@ class TestSparkPipelineModelFallback:
 # convert_requirement (lines 77, 82)
 # ---------------------------------------------------------------------------
 class TestConvertRequirement:
-    def test_convert_requirement_old_mlflow(self):
+    @pytest.mark.parametrize("version", ["2.9.0", "2.16.0"])
+    def test_convert_requirement_old_mlflow(self, version):
+        from packaging.requirements import Requirement
+
         from flaml.fabric.mlflow import convert_requirement
 
         with patch("flaml.fabric.mlflow.mlflow") as mock_mlflow:
-            mock_mlflow.__version__ = "2.16.0"
+            mock_mlflow.__version__ = version
             result = convert_requirement(["numpy>=1.0", "pandas"])
-            assert len(result) == 2
+            assert [requirement.name for requirement in result] == ["numpy", "pandas"]
+            assert all(isinstance(requirement, Requirement) for requirement in result)
 
     def test_convert_requirement_new_mlflow(self):
         from flaml.fabric.mlflow import convert_requirement
@@ -597,42 +619,34 @@ class TestPickleAndLogAutomlArtifacts:
         result = integration.pickle_and_log_automl_artifacts(automl, MagicMock(), "lgbm_spark", run_id="r1")
         assert result is None
 
-    def test_spark_pipeline_model_path(self):
-        from flaml.fabric.mlflow import SparkPipelineModel
+    @pytest.mark.parametrize("with_autofe", [False, True])
+    def test_logged_pipeline_predicts_without_a_task_transformer(self, with_autofe):
+        import numpy as np
+        import pandas as pd
+
+        from flaml.automl.model import RandomForestEstimator
+        from flaml.automl.task.factory import task_factory
+        from flaml.fabric.autofe import Featurization
 
         integration = self._make_integration()
-        automl = MagicMock()
-        mock_spark_pipeline = MagicMock(spec=SparkPipelineModel)
-        mock_spark_pipeline.stages = []
-        automl.feature_transformer = mock_spark_pipeline
-
-        model = MagicMock()
-        with patch.object(integration, "_log_pipeline", return_value="ok"):
-            integration.pickle_and_log_automl_artifacts(automl, model, "lgbm_spark_fake", run_id="r1")
-
-    def test_no_feature_transformer_no_spark(self):
-        integration = self._make_integration()
-        automl = MagicMock()
-        automl.feature_transformer = "not_a_pipeline"  # neither Pipeline nor SparkPipelineModel
-
-        model = MagicMock()
-        model.autofe = MagicMock()  # has autofe
-
-        with patch.object(integration, "_log_pipeline", return_value="ok"):
-            result = integration.pickle_and_log_automl_artifacts(automl, model, "xgboost", run_id="r1")
+        automl = SimpleNamespace(
+            _state=SimpleNamespace(task=task_factory("regression")),
+            _transformer=None,
+            _label_transformer=None,
+        )
+        X = pd.DataFrame({"feature": np.arange(10.0)})
+        y = np.arange(10.0)
+        model = RandomForestEstimator(task="regression", n_estimators=4, n_jobs=1)
+        model.autofe = Featurization(params={"fe.numerical": "scaler_standard"}) if with_autofe else None
+        transformed = model.autofe.fit_transform(X, y) if with_autofe else X
+        model.fit(transformed, y)
+        with patch.object(integration, "_log_pipeline", return_value="ok") as log:
+            result = integration.pickle_and_log_automl_artifacts(automl, model, "rf", run_id="r1")
         assert "Successfully" in result
-
-    def test_no_feature_transformer_no_autofe(self):
-        integration = self._make_integration()
-        automl = MagicMock()
-        automl.feature_transformer = "not_a_pipeline"
-
-        model = MagicMock()
-        model.autofe = None
-
-        with patch.object(integration, "_log_pipeline", return_value="ok"):
-            result = integration.pickle_and_log_automl_artifacts(automl, model, "xgboost", run_id="r1")
-        assert "Successfully" in result
+        log.assert_called_once()
+        logged = log.call_args.args[0]
+        assert ("autofe" in logged.named_steps) is with_autofe
+        np.testing.assert_allclose(logged.predict(X), model.predict(transformed))
 
 
 # ---------------------------------------------------------------------------
@@ -804,7 +818,7 @@ class TestAdoptChildren:
         empty_run.info.start_time = (time.time() + 10) * 1000
         empty_run.data.params = {}
         empty_run.data.metrics = {}
-        empty_run.data.tags = {}
+        empty_run.data.tags = integration.extra_tag.copy()
 
         with patch.object(mlflow, "search_runs", return_value=[empty_run]):
             integration.adopt_children()
@@ -823,7 +837,7 @@ class TestAdoptChildren:
         run1.info.start_time = (time.time() + 10) * 1000
         run1.data.params = {"n_estimators": "100", "lr": "0.1"}
         run1.data.metrics = {"m1": 0.5}
-        run1.data.tags = {}
+        run1.data.tags = integration.extra_tag.copy()
 
         # Duplicate (same params after removing n_estimators)
         run2 = MagicMock()
@@ -831,7 +845,7 @@ class TestAdoptChildren:
         run2.info.start_time = (time.time() + 11) * 1000
         run2.data.params = {"n_estimators": "200", "lr": "0.1"}
         run2.data.metrics = {"m1": 0.6}
-        run2.data.tags = {}
+        run2.data.tags = integration.extra_tag.copy()
 
         integration.infos = [
             {
@@ -861,7 +875,7 @@ class TestAdoptChildren:
         old_run.info.start_time = (integration.start_time - 100) * 1000  # before start
         old_run.data.params = {"p": "v"}
         old_run.data.metrics = {"m": 1}
-        old_run.data.tags = {}
+        old_run.data.tags = integration.extra_tag.copy()
 
         with patch.object(mlflow, "search_runs", return_value=[old_run]):
             integration.adopt_children()
@@ -880,7 +894,7 @@ class TestAdoptChildren:
         child.info.start_time = (time.time() + 10) * 1000
         child.data.params = {"n_estimators": "10"}
         child.data.metrics = {"m1": 0.5}
-        child.data.tags = {}
+        child.data.tags = integration.extra_tag.copy()
 
         integration.infos = [
             {
@@ -918,7 +932,7 @@ class TestAdoptChildren:
         child.info.start_time = (time.time() + 10) * 1000
         child.data.params = {"p": "v"}
         child.data.metrics = {"m": 1}
-        child.data.tags = {}
+        child.data.tags = integration.extra_tag.copy()
 
         with patch.object(mlflow, "search_runs", return_value=[child]):
             integration.adopt_children()
@@ -1070,8 +1084,7 @@ class TestRegisterAutomlPipeline:
         ):
             register_automl_pipeline(automl, signature=custom_sig)
         mock_log.assert_called_once()
-        call_kwargs = mock_log.call_args
-        assert call_kwargs[1].get("signature", call_kwargs[0][3] if len(call_kwargs[0]) > 3 else None) is not None
+        assert mock_log.call_args.kwargs["signature"] is custom_sig
 
 
 # ---------------------------------------------------------------------------

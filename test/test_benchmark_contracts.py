@@ -49,10 +49,13 @@ def test_dataset_extraction_preserves_existing_csv_on_repeat(tmp_path, monkeypat
     destination.mkdir(parents=True)
     untouched = destination / "untouched.csv"
     untouched.write_text("value\n99\n", encoding="utf-8")
+    unrelated_tsv = destination / "untouched.tsv"
+    unrelated_tsv.write_text("value\n123\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     for _ in range(2):
         runpy.run_path(str(script), run_name="__main__")
         assert untouched.read_text(encoding="utf-8") == "value\n99\n"
+        assert unrelated_tsv.read_text(encoding="utf-8") == "value\n123\n"
         assert pd.read_csv(destination / "tsv_values.csv").to_dict("list") == {"feature": [1], "target": [2]}
 
 
@@ -125,6 +128,8 @@ def test_h2o_response_typing_and_untouched_test_partition(monkeypatch, task, lab
         def __init__(self, values, factor=False):
             self.values = values.copy()
             self.factor = factor
+            if "x" in values:
+                frames.append(self)
 
         def __getitem__(self, name):
             return Frame(self.values[[name]], self.factor)
@@ -140,12 +145,7 @@ def test_h2o_response_typing_and_untouched_test_partition(monkeypatch, task, lab
             return self.values.copy()
 
         def split_frame(self, **kwargs):
-            assert self.factor is (task == "classification")
-            middle = len(self.values) // 2
-            train = Frame(self.values.iloc[:middle], self.factor)
-            test = Frame(self.values.iloc[middle:], self.factor)
-            frames.extend([train, test])
-            return train, test
+            raise AssertionError("Benchmark runners must use the same preselected row indices")
 
     pmlb = ModuleType("pmlb")
     pmlb.fetch_data = Mock(return_value=pd.DataFrame({"x": range(len(labels) * 2), "target": labels * 2}))
@@ -154,8 +154,13 @@ def test_h2o_response_typing_and_untouched_test_partition(monkeypatch, task, lab
     performance.accuracy.side_effect = AssertionError("Do not select a threshold using test labels")
     learner = Mock()
     learner.leader.model_performance.return_value = performance
-    predictions = [0, 0] if len(labels) == 2 else [0, 0, 2]
-    learner.leader.predict.return_value = Frame(pd.DataFrame({"predict": predictions}))
+
+    def predict(frame):
+        predictions = frame.values["target"].to_numpy().copy()
+        predictions[0] = (int(predictions[0]) + 1) % len(labels)
+        return Frame(pd.DataFrame({"predict": predictions}))
+
+    learner.leader.predict.side_effect = predict
     h2o = ModuleType("h2o")
     h2o.init = Mock()
     h2o.H2OFrame = Frame
@@ -171,7 +176,11 @@ def test_h2o_response_typing_and_untouched_test_partition(monkeypatch, task, lab
     assert arguments["training_frame"] is frames[0]
     assert "leaderboard_frame" not in arguments
     assert "validation_frame" not in arguments
-    expected = (0.5 if len(labels) == 2 else 2 / 3) if task == "classification" else 0.25
+    expected_train, expected_test = module["_partition_indices"](len(labels) * 2)
+    assert frames[0].values["x"].tolist() == expected_train.tolist()
+    assert frames[1].values["x"].tolist() == expected_test.tolist()
+    assert all(frame.factor is (task == "classification") for frame in frames)
+    expected = 1 - 1 / len(expected_test) if task == "classification" else 0.25
     assert result["score"] == pytest.approx(expected)
     assert isinstance(result["score"], float)
 

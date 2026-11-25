@@ -31,8 +31,7 @@ on:
     - cron: '0 2 */2 * *'
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -46,14 +45,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.13"]
-    env:
-      FLAML_FABRIC_RUNTIME: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test isolated core, AutoML, and AutoFE installations
+      - name: Test isolated core, AutoML, AutoFE, and autozero defaults
         shell: python
         run: |
           import os
@@ -67,6 +64,7 @@ jobs:
               ("core", "", []),
               ("automl", "[automl]", ["--automl"]),
               ("autofe", "[autofe]", ["--autofe"]),
+              ("autozero", "[autozero]", ["--autozero"]),
           ):
               environment = Path(os.environ["RUNNER_TEMP"]) / f"flaml-public-install-{profile}"
               venv.create(environment, with_pip=True)
@@ -98,6 +96,12 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Set up Java 17 for Spark
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version != '3.10'
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       - name: On mac, install libomp to facilitate lgbm and xgboost install
         if: matrix.os == 'macos-latest'
         run: |
@@ -145,6 +149,7 @@ jobs:
       # (set per test step below). See https://coverage.readthedocs.io/
       # en/latest/subprocess.html.
       - name: Enable coverage in subprocesses (for pytest-xdist workers)
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
@@ -188,7 +193,7 @@ jobs:
           # auto-start coverage in pytest-xdist worker processes using
           # this config. Without this, subprocess test code wouldn't
           # be measured.
-          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          COVERAGE_PROCESS_START: ${{ matrix.os == 'ubuntu-latest' && format('{0}/.coveragerc', github.workspace) || '' }}
         run: |
           # -n 2 --dist=loadfile parallelizes tests across 2 worker
           # procs (GitHub-hosted runners have 4 vCPU; 2 workers leaves
@@ -197,7 +202,11 @@ jobs:
           # time more than it helps). loadfile keeps tests from the
           # same file together so module-level fixtures aren't
           # re-imported per test.
-          coverage run -m pytest test/ \
+          runner=(python)
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            runner=(coverage run)
+          fi
+          "${runner[@]}" -m pytest test/ \
             -n 2 --dist=loadfile \
             --ignore=test/autogen \
             --ignore=test/spark \
@@ -206,7 +215,7 @@ jobs:
             --reruns 2 --reruns-delay 10 \
             -m "not spark"
       - name: Test offline NLP utilities and classification heads
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' && matrix.test-type == 'notspark'
+        if: matrix.os != 'windows-11-arm' && matrix.test-type == 'notspark'
         timeout-minutes: 30
         shell: bash
         env:
@@ -214,11 +223,17 @@ jobs:
           TRANSFORMERS_OFFLINE: "1"
           HF_DATASETS_OFFLINE: "1"
           TOKENIZERS_PARALLELISM: "false"
-          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          COVERAGE_PROCESS_START: ${{ matrix.os == 'ubuntu-latest' && format('{0}/.coveragerc', github.workspace) || '' }}
         run: |
-          coverage run -m pytest \
+          runner=(python)
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            runner=(coverage run)
+          fi
+          "${runner[@]}" -m pytest \
             test/nlp/test_hf_utils_coverage.py \
             test/nlp/test_autohf_classificationhead.py \
+            test/nlp/test_default.py::test_build_portfolio \
+            test/nlp/test_default.py::test_starting_point_not_in_search_space \
             --reruns 2 --reruns-delay 10
       # .coveragerc enables `parallel = true`, so each subprocess writes its
       # own .coverage.<host>.<pid>.<rand> shard. Combine them into a single
@@ -252,27 +267,51 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
-      - name: Save dependencies
-        # Run for a single matrix entry on push to main to avoid concurrent
-        # writes to the unit-tests-installed-dependencies branch.
+      - name: Prepare dependency snapshot
         if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11' && matrix.test-type == 'notspark'
         shell: bash
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git config advice.addIgnoredFile false
+          mkdir -p "$RUNNER_TEMP/flaml-dependencies"
+          pip freeze > "$RUNNER_TEMP/flaml-dependencies/installed_all_dependencies_3.11_ubuntu-latest.txt"
+          python test/check_dependency.py > "$RUNNER_TEMP/flaml-dependencies/installed_first_tier_dependencies_3.11_ubuntu-latest.txt"
+          coverage xml -o "$RUNNER_TEMP/flaml-dependencies/coverage_3.11_ubuntu-latest.xml"
+      - name: Upload dependency snapshot
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11' && matrix.test-type == 'notspark'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-snapshot
+          path: ${{ runner.temp }}/flaml-dependencies/
+          if-no-files-found: error
+          retention-days: 1
 
-          BRANCH=unit-tests-installed-dependencies
-          git fetch origin
-          git checkout -B "$BRANCH" "origin/$BRANCH"
-
-          pip freeze > installed_all_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
-          python test/check_dependency.py > installed_first_tier_dependencies_${{ matrix.python-version }}_${{ matrix.os }}.txt
-          git add installed_*dependencies*.txt
-          coverage xml -o ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
-          git add -f ./coverage_${{ matrix.python-version }}_${{ matrix.os }}.xml || true
-          git commit -m "Update installed dependencies for Python ${{ matrix.python-version }} on ${{ matrix.os }}" || exit 0
-          git push origin "$BRANCH" --force
+  save-dependencies:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: flaml-dependency-snapshots
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: unit-tests-installed-dependencies
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dependency-snapshot
+          path: dependency-snapshot
+      - name: Publish completed main-branch snapshot
+        run: |
+          cp dependency-snapshot/installed_all_dependencies_3.11_ubuntu-latest.txt .
+          cp dependency-snapshot/installed_first_tier_dependencies_3.11_ubuntu-latest.txt .
+          cp dependency-snapshot/coverage_3.11_ubuntu-latest.xml .
+          git add -f -- installed_all_dependencies_3.11_ubuntu-latest.txt installed_first_tier_dependencies_3.11_ubuntu-latest.txt coverage_3.11_ubuntu-latest.xml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "Update installed dependencies for Python 3.11 on ubuntu-latest"
+          git push origin HEAD:refs/heads/unit-tests-installed-dependencies
 
   spark:
     name: build (ubuntu-latest, ${{ matrix.python-version }}, spark)
@@ -286,13 +325,16 @@ jobs:
         include:
           - python-version: "3.11"
             spark-version: "3.5.1"
+            runtime-id: py311
           - python-version: "3.12"
             spark-version: "4.0.1"
+            runtime-id: py312
           - python-version: "3.13"
             spark-version: "4.1.0"
+            runtime-id: py313
     env:
       COMPOSE_FILE: test/spark/containers/compose.yml
-      COMPOSE_PROJECT_NAME: flaml-spark-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_PROJECT_NAME: flaml-spark-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runtime-id }}
       PYTHON_VERSION: ${{ matrix.python-version }}
       SPARK_VERSION: ${{ matrix.spark-version }}
     steps:
@@ -377,6 +419,9 @@ jobs:
     if: always()
     needs: [build, spark]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

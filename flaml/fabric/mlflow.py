@@ -6,13 +6,16 @@ import math
 import os
 import pickle
 import random
+import socket
 import sys
 import tempfile
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager, nullcontext
 from importlib import import_module
 from typing import MutableMapping
+from uuid import uuid4
 
 import mlflow
 import pandas as pd
@@ -20,6 +23,7 @@ from mlflow.entities import Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_is_disabled
 from packaging.requirements import Requirement
+from packaging.version import Version
 from scipy.sparse import issparse
 from sklearn import tree
 
@@ -74,14 +78,12 @@ if IS_CLEAN_LOGS == "1":
     logging.getLogger("mlflow.utils").setLevel(logging.CRITICAL)
     logging.getLogger("mlflow.utils.environment").setLevel(logging.CRITICAL)
     logging.getLogger("mlflow.models.model").setLevel(logging.CRITICAL)
-    warnings.simplefilter("ignore", category=FutureWarning)
-    warnings.simplefilter("ignore", category=UserWarning)
 
 
 def convert_requirement(requirement_list: list[str]):
     ret = (
         [Requirement(s.strip().lower()) for s in requirement_list]
-        if mlflow.__version__ <= "2.17.0"
+        if Version(mlflow.__version__) <= Version("2.17.0")
         else requirement_list
     )
     return ret
@@ -262,7 +264,21 @@ def update_and_install_requirements(
     return requirements_path
 
 
+def _apply_autolog_configurations(configurations):
+    global_options = configurations.get("mlflow", {})
+    if global_options:
+        mlflow.autolog(**{key: value for key, value in global_options.items() if key != "globally_configured"})
+    else:
+        mlflow.autolog(disable=True, silent=True)
+    for name, options in configurations.items():
+        if name != "mlflow" and options and not options.get("globally_configured", False):
+            MLflowIntegration._set_flavor_autolog(name, options)
+
+
 def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_tags=None, autolog=False):
+    driver = (socket.gethostname(), os.getpid())
+    configurations = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()}
+
     def wrapped(*args, **kwargs):
         if mlflow_config is not None:
             try:
@@ -273,19 +289,33 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
                 pass
         import mlflow
 
-        if mlflow_exp_id is not None:
+        remote = (socket.gethostname(), os.getpid()) != driver
+        previous = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()} if remote else None
+        if remote and mlflow_exp_id is not None:
             mlflow.set_experiment(experiment_id=mlflow_exp_id)
-        if autolog:
-            if mlflow.__version__ > "2.5.0" and extra_tags is not None:
-                mlflow.autolog(silent=True, extra_tags=extra_tags)
-            else:
-                mlflow.autolog(silent=True)
-            logger.debug("activated mlflow autologging on executor")
-        else:
-            mlflow.autolog(disable=True, silent=True)
-        # with mlflow.start_run(nested=True):
-        result = evaluation_func(*args, **kwargs)
-        return result
+        succeeded = False
+        try:
+            if remote:
+                _apply_autolog_configurations(configurations)
+            run = (
+                mlflow.start_run(experiment_id=mlflow_exp_id, nested=True, tags=extra_tags)
+                if autolog
+                else nullcontext()
+            )
+            with run:
+                result = evaluation_func(*args, **kwargs)
+            succeeded = True
+            return result
+        finally:
+            if previous is not None:
+                try:
+                    _apply_autolog_configurations(previous)
+                    AUTOLOGGING_INTEGRATIONS.clear()
+                    AUTOLOGGING_INTEGRATIONS.update(previous)
+                except Exception:
+                    if succeeded:
+                        raise
+                    logger.exception("MLflow autolog restoration failed while handling an objective error.")
 
     return wrapped
 
@@ -358,6 +388,7 @@ class MLflowIntegration:
             if extra_tag is not None
             else {"extra_tag.sid": f"flaml_{__version__}_{int(time.time())}_{random.randint(1001, 9999)}"}
         )
+        self.extra_tag = {**self.extra_tag, "flaml.owner_id": uuid4().hex}
         self.start_time = time.time()
         self.experiment_type = experiment_type
         self.mlflow_client = None
@@ -384,10 +415,6 @@ class MLflowIntegration:
             self.experiment_id = mlflow.tracking.fluent._active_experiment_id
         self.experiment_name = mlflow.get_experiment(self.experiment_id).name
         self.update_autolog_state()
-
-        if self.autolog:
-            # only end user created parent run in autolog scenario
-            mlflow.end_run()
 
     def _tag(self, name):
         # Older serialized integrations do not have a tag-prefix attribute.
@@ -541,8 +568,7 @@ class MLflowIntegration:
         self.set_best_iter(analysis)
         if self.autolog:
             if self.parent_run_id is not None:
-                mlflow.start_run(run_id=self.parent_run_id, experiment_id=self.experiment_id)
-                mlflow.log_metric("num_child_runs", len(self.infos))
+                self.mlflow_client.log_metric(self.parent_run_id, "num_child_runs", len(self.infos))
             self.adopt_children(analysis)
 
         if self.manual_log:
@@ -561,6 +587,18 @@ class MLflowIntegration:
                 self.copy_mlflow_run(best_mlflow_run_id, self.parent_run_id)
                 self.has_summary = True
 
+    @contextmanager
+    def _artifact_run(self, run_id):
+        active = mlflow.active_run()
+        owned = active is None or (run_id is not None and active.info.run_id != run_id)
+        if owned:
+            active = mlflow.start_run(run_id=run_id, nested=active is not None)
+        try:
+            yield active.info.run_id
+        finally:
+            if owned:
+                mlflow.end_run()
+
     def log_model(self, model, estimator, signature=None, run_id=None):
         if not self._do_log_model:
             return
@@ -570,49 +608,39 @@ class MLflowIntegration:
             [] if estimator in ["transformer", "transformer_ms", "tcn", "tft"] else OPTIONAL_REMOVE_REQUIREMENT_LIST
         )
         run = mlflow.active_run()
-        if run and run.info.run_id == self.parent_run_id:
-            logger.debug(
-                f"Current active run_id {run.info.run_id} == parent_run_id {self.parent_run_id}, Starting run_id {run_id}"
-            )
-            mlflow.start_run(run_id=run_id, nested=True)
-        elif run and run.info.run_id != run_id:
+        if run and run_id is not None and run.info.run_id not in {self.parent_run_id, run_id}:
             ret_message = (
                 f"Error: Should log_model {estimator} to run_id {run_id}, but logged to run_id {run.info.run_id}"
             )
             logger.error(ret_message)
             kusto_logger.error("Model logging run-context mismatch")
-        else:
-            logger.debug(f"No active run, start run_id {run_id}")
-            mlflow.start_run(run_id=run_id)
-        logger.debug(f"logged model {estimator} to run_id {mlflow.active_run().info.run_id}")
-        if estimator.endswith("_spark"):
-            # mlflow.spark.log_model(model, estimator, signature=signature)
-            mlflow.spark.log_model(model, "model", signature=signature)
-        elif estimator in ["lgbm"]:
-            mlflow.lightgbm.log_model(model, estimator, signature=signature)
-        elif estimator in ["transformer", "transformer_ms"]:
-            mlflow.transformers.log_model(model, estimator, signature=signature)
-        elif estimator in ["arima", "sarimax", "holt-winters", "snaive", "naive", "savg", "avg", "ets"]:
-            mlflow.statsmodels.log_model(model, estimator, signature=signature)
-        elif estimator in ["tcn", "tft"]:
-            mlflow.pytorch.log_model(model, estimator, signature=signature)
-        elif estimator in ["prophet"]:
-            mlflow.prophet.log_model(model, estimator, signature=signature)
-        elif estimator in ["orbit"]:
-            logger.warning(f"Unsupported model: {estimator}. No model logged.")
-        else:
-            mlflow.sklearn.log_model(model, estimator, signature=signature)
-        future = executor.submit(
-            lambda: mlflow.models.model.update_model_requirements(
-                model_uri=f"runs:/{run_id}/{'model' if estimator.endswith('_spark') else estimator}",
-                operation="remove",
-                requirement_list=convert_requirement(REMOVE_REQUIREMENT_LIST + optional_remove_list),
+            return ret_message
+        with self._artifact_run(run_id) as run_id:
+            if estimator.endswith("_spark"):
+                mlflow.spark.log_model(model, "model", signature=signature)
+            elif estimator in ["lgbm"]:
+                mlflow.lightgbm.log_model(model, estimator, signature=signature)
+            elif estimator in ["transformer", "transformer_ms"]:
+                mlflow.transformers.log_model(model, estimator, signature=signature)
+            elif estimator in ["arima", "sarimax", "holt-winters", "snaive", "naive", "savg", "avg", "ets"]:
+                mlflow.statsmodels.log_model(model, estimator, signature=signature)
+            elif estimator in ["tcn", "tft"]:
+                mlflow.pytorch.log_model(model, estimator, signature=signature)
+            elif estimator in ["prophet"]:
+                mlflow.prophet.log_model(model, estimator, signature=signature)
+            elif estimator in ["orbit"]:
+                logger.warning(f"Unsupported model: {estimator}. No model logged.")
+                return ret_message
+            else:
+                mlflow.sklearn.log_model(model, estimator, signature=signature)
+            future = executor.submit(
+                lambda: mlflow.models.model.update_model_requirements(
+                    model_uri=f"runs:/{run_id}/{'model' if estimator.endswith('_spark') else estimator}",
+                    operation="remove",
+                    requirement_list=convert_requirement(REMOVE_REQUIREMENT_LIST + optional_remove_list),
+                )
             )
-        )
-        self.futures[future] = f"run_{run_id}_requirements_updated"
-        if not run or run.info.run_id == self.parent_run_id:
-            logger.debug(f"Ending current run_id {mlflow.active_run().info.run_id}")
-            mlflow.end_run()
+            self.futures[future] = f"run_{run_id}_requirements_updated"
         return ret_message
 
     def _pickle_and_log_artifact(self, obj, artifact_name, pickle_fname="temp_.pkl", run_id=None):
@@ -639,38 +667,27 @@ class MLflowIntegration:
             [] if estimator in ["transformer", "transformer_ms", "tcn", "tft"] else OPTIONAL_REMOVE_REQUIREMENT_LIST
         )
         run = mlflow.active_run()
-        if run and run.info.run_id == self.parent_run_id:
-            logger.debug(
-                f"Current active run_id {run.info.run_id} == parent_run_id {self.parent_run_id}, Starting run_id {run_id}"
-            )
-            mlflow.start_run(run_id=run_id, nested=True)
-        elif run and run.info.run_id != run_id:
+        if run and run_id is not None and run.info.run_id not in {self.parent_run_id, run_id}:
             ret_message = f"Error: Should _log_pipeline {flavor_name}:{pipeline_name}:{estimator} model to run_id {run_id}, but logged to run_id {run.info.run_id}"
             logger.error(ret_message)
             kusto_logger.error("Pipeline logging run-context mismatch")
-        else:
-            logger.debug(f"No active run, start run_id {run_id}")
-            mlflow.start_run(run_id=run_id)
-        logger.debug(
-            f"logging pipeline {flavor_name}:{pipeline_name}:{estimator} to run_id {mlflow.active_run().info.run_id}"
-        )
-        if flavor_name == "sklearn":
-            mlflow.sklearn.log_model(pipeline, pipeline_name, signature=signature)
-        elif flavor_name == "spark":
-            mlflow.spark.log_model(pipeline, pipeline_name, signature=signature)
-        else:
-            logger.warning(f"Unsupported pipeline flavor: {flavor_name}. No model logged.")
-        future = executor.submit(
-            lambda: mlflow.models.model.update_model_requirements(
-                model_uri=f"runs:/{run_id}/{pipeline_name}",
-                operation="remove",
-                requirement_list=convert_requirement(REMOVE_REQUIREMENT_LIST + optional_remove_list),
+            return ret_message
+        with self._artifact_run(run_id) as run_id:
+            if flavor_name == "sklearn":
+                mlflow.sklearn.log_model(pipeline, pipeline_name, signature=signature)
+            elif flavor_name == "spark":
+                mlflow.spark.log_model(pipeline, pipeline_name, signature=signature)
+            else:
+                logger.warning(f"Unsupported pipeline flavor: {flavor_name}. No model logged.")
+                return ret_message
+            future = executor.submit(
+                lambda: mlflow.models.model.update_model_requirements(
+                    model_uri=f"runs:/{run_id}/{pipeline_name}",
+                    operation="remove",
+                    requirement_list=convert_requirement(REMOVE_REQUIREMENT_LIST + optional_remove_list),
+                )
             )
-        )
-        self.futures[future] = f"run_{run_id}_requirements_updated"
-        if not run or run.info.run_id == self.parent_run_id:
-            logger.debug(f"Ending current run_id {mlflow.active_run().info.run_id}")
-            mlflow.end_run()
+            self.futures[future] = f"run_{run_id}_requirements_updated"
         return ret_message
 
     def pickle_and_log_automl_artifacts(self, automl, model, estimator, signature=None, run_id=None):
@@ -696,6 +713,9 @@ class MLflowIntegration:
         pipeline = make_automl_pipeline(automl, model)
         self._log_pipeline(pipeline, "sklearn", "model", signature, run_id, estimator)
         return f"Successfully pickle_and_log_automl_artifacts {estimator} to run_id {run_id}"
+
+    def wait_model_futures(self):
+        wait(tuple(self.futures_log_model))
 
     @time_it
     def record_state(self, automl, search_state, estimator, is_log_model=True):
@@ -773,7 +793,7 @@ class MLflowIntegration:
             else:
                 run_name = None
             _t1 = time.time()
-            wait(self.futures_log_model)
+            self.wait_model_futures()
             _t2 = time.time() - _t1
             logger.debug(f"wait futures_log_model in record_state took {_t2} seconds")
             kusto_logger.info(f"wait futures_log_model in record_state took {_t2} seconds")
@@ -782,34 +802,35 @@ class MLflowIntegration:
                 self.futures[future] = f"iter_{automl._track_iter}_log_info_to_run"
                 future = executor.submit(lambda: self._log_automl_configurations(child_run.info.run_id))
                 self.futures[future] = f"iter_{automl._track_iter}_log_automl_configurations"
+                trial_model = (
+                    search_state.trial_model if "trial_model" in vars(search_state) else search_state.trained_estimator
+                )
                 if (
                     automl._state.model_history
                     and is_log_model
                     and self._do_log_model
-                    and search_state.trained_estimator is not None
+                    and trial_model is not None
                     and math.isfinite(search_state.val_loss)
                 ):
-                    if estimator.endswith("_spark"):
-                        future = executor.submit(
-                            lambda: self.log_model(
-                                search_state.trained_estimator._model,
-                                estimator,
-                                automl.estimator_signature,
-                                child_run.info.run_id,
-                            )
-                        )
-                        self.futures_log_model[future] = f"record_state-log_model_{estimator}"
-                    else:
-                        future = executor.submit(
-                            lambda: self.pickle_and_log_automl_artifacts(
-                                automl,
-                                search_state.trained_estimator,
-                                estimator,
-                                automl.pipeline_signature,
-                                child_run.info.run_id,
-                            )
-                        )
-                        self.futures_log_model[future] = f"record_state-pickle_and_log_automl_artifacts_{estimator}"
+                    run_id = child_run.info.run_id
+                    signature = (
+                        automl.estimator_signature if estimator.endswith("_spark") else automl.pipeline_signature
+                    )
+                    cleanup = trial_model is not search_state.trained_estimator
+
+                    def log_trial_model(model=trial_model, run_id=run_id, signature=signature, cleanup=cleanup):
+                        try:
+                            if estimator.endswith("_spark"):
+                                return self.log_model(model._model, estimator, signature, run_id)
+                            return self.pickle_and_log_automl_artifacts(automl, model, estimator, signature, run_id)
+                        finally:
+                            if cleanup:
+                                model.cleanup()
+
+                    future = executor.submit(log_trial_model)
+                    self.futures_log_model[future] = f"record_state-model_{estimator}"
+                    if hasattr(search_state, "trial_model"):
+                        search_state.trial_model = None
                 self.manual_run_ids.append(child_run.info.run_id)
             self.child_counter += 1
         kusto_logger.info(f"Trial-state logging finished: iteration={automl._track_iter}, elapsed={time.time() - _st}")
@@ -963,6 +984,10 @@ class MLflowIntegration:
         with the same experiment name if the MLflow version is less than or equal to "2.5.0".
         """
         if self.autolog:
+            owner = self.extra_tag.get("flaml.owner_id")
+            if not owner:
+                logger.warning("Skipping MLflow child adoption without an ownership marker.")
+                return
             best_iteration = self.best_iteration
             if best_iteration is None:
                 logger.warning("best_iteration is None, cannot identify best run")
@@ -971,9 +996,7 @@ class MLflowIntegration:
                 order_by=["attributes.start_time DESC"],
                 max_results=SEARCH_MAX_RESULTS,
                 output_format="list",
-                filter_string=(
-                    f"tags.extra_tag.sid = '{self.extra_tag['extra_tag.sid']}'" if mlflow.__version__ > "2.5.0" else ""
-                ),
+                filter_string=f"tags.`flaml.owner_id` = '{owner}'",
             )
             self.child_counter = 0
             num_infos = len(self.infos)
@@ -982,16 +1005,21 @@ class MLflowIntegration:
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
             _to_keep_autolog_child_runs = []
             for autolog_child_run in raw_autolog_child_runs:
+                if (
+                    autolog_child_run.data.tags.get("flaml.owner_id") != owner
+                    or autolog_child_run.info.run_id == self.parent_run_id
+                ):
+                    continue
                 child_start_time = autolog_child_run.info.start_time / 1000
 
                 if child_start_time < self.start_time:
                     continue
 
-                _current_child_run_params = autolog_child_run.data.params
+                _current_child_run_params = autolog_child_run.data.params.copy()
                 # remove n_estimators as some models will train with small n_estimators to estimate time budget
                 if self.experiment_type == "automl":
                     _current_child_run_params.pop("n_estimators", None)
-                if _current_child_run_params in _exist_child_run_params:
+                if self.experiment_type == "automl" and _current_child_run_params in _exist_child_run_params:
                     # remove duplicate cross-validation run
                     self.mlflow_client.delete_run(autolog_child_run.info.run_id)
                     continue
@@ -1014,6 +1042,7 @@ class MLflowIntegration:
                         len(autolog_child_run.data.params) == 0,
                         len(autolog_child_run.data.metrics) == 0,
                         child_run_id != self.parent_run_id,
+                        self.child_counter >= num_infos,
                     ]
                 ):
                     # remove empty run

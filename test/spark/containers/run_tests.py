@@ -113,7 +113,6 @@ def main():
                 "test/",
                 "--ignore=test/autogen",
                 "--ignore=test/nlp",
-                "--ignore=test/spark/test_internal_mlflow.py",
                 "--reruns",
                 "2",
                 "--reruns-delay",
@@ -127,6 +126,7 @@ def main():
     finally:
         if guard.spark is not None:
             guard.spark.stop()
+            guard.spark.sparkContext._gateway.shutdown_callback_server()
 
 
 if __name__ == "__main__":

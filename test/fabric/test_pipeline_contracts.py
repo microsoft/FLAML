@@ -50,6 +50,11 @@ def test_exported_pipeline_preserves_target_labels(labels):
     np.testing.assert_array_equal(pipeline.predict(X), automl.predict(X))
     np.testing.assert_array_equal(pipeline.classes_, automl.classes_)
     np.testing.assert_allclose(pipeline.predict_proba(X), automl.predict_proba(X))
+    expected = pipeline.predict(X).copy()
+    expected[0] = labels[int(expected[0] == labels[0])]
+    weights = np.ones(len(X))
+    weights[0] = 100
+    assert pipeline.score(X, expected, sample_weight=weights) == pytest.approx((len(X) - 1) / weights.sum())
     restored = pickle.loads(pickle.dumps(pipeline))
     np.testing.assert_array_equal(restored.predict(X), automl.predict(X))
 

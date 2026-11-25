@@ -77,7 +77,7 @@ assert np.array_equal(automl.predict(X_test), loaded.predict(X_test))
 
 Two practical notes:
 
-- `mlflow_logging=False` disables FLAML's built-in MLflow autologging path inside `fit`. With it enabled, MLflow auto-saves an artifact under `runs:/{run_id}/model`, but on recent MLflow versions reloading that artifact via `mlflow.sklearn.load_model` can return an unfitted `Pipeline`. The explicit `mlflow.sklearn.log_model(automl, ...)` call above sidesteps that issue.
+- `mlflow_logging=False` disables FLAML's built-in MLflow integration inside `fit`. When logging and model artifacts are enabled, FLAML saves a fitted serving pipeline under `runs:/{run_id}/model`; `mlflow.sklearn.load_model` restores its preprocessing and prediction behavior. The explicit `mlflow.sklearn.log_model(automl, ...)` call above is an alternative for storing the complete AutoML object. An autologging `log_models=False` setting suppresses automatic model artifacts.
 - The argument is `artifact_path=` (not `name=`) in MLflow 2.x.
 
 ### 1.3 Pickling just the best estimator — lean serving

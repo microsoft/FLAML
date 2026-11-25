@@ -1,3 +1,5 @@
+import hashlib
+
 import nbformat
 
 all_notebooks = [
@@ -12,32 +14,39 @@ all_notebooks = [
     "notebook/trident/demo_4_tune_lexicographic.ipynb",
     "notebook/automl_time_series_forecast.ipynb",
 ]
-merged_notebook = nbformat.v4.new_notebook()
-pkgs = {'"flaml[synapse,automl,ts_forecast]@git+https://github.com/microsoft/FLAML.git@main"'}
-for notebook_name in all_notebooks:
-    with open(notebook_name, encoding="utf-8") as f:
-        notebook = nbformat.read(f, as_version=4)
-    # filter non-code cell
-    code_cells = []
-    for cell in notebook.cells:
-        if cell["cell_type"] == "code":
-            cell.outputs = []
-            cell.execution_count = None
-            if "%pip install" in cell.source:
-                package_line = cell.source.split("\n")[0]  # 只考虑单元格的第一行
-                packages = package_line.split(" ")[2:]
-                for package in packages:
-                    if not package.startswith('"flaml') and not package.startswith("flaml"):
-                        pkgs.add(package)
-            else:
-                code_cells.append(cell)
 
-    merged_notebook.cells.append(nbformat.v4.new_markdown_cell(f"# {notebook_name}"))
-    merged_notebook.cells.extend(code_cells)
 
-# add install packages
-pip_install_cell = nbformat.v4.new_code_cell(f"%pip install {' '.join(sorted(pkgs))}")
-merged_notebook.cells.insert(0, pip_install_cell)
+def main():
+    merged_notebook = nbformat.v4.new_notebook()
+    pkgs = {'"flaml[synapse,automl,forecast]@git+https://github.com/microsoft/FLAML.git@main"'}
+    for notebook_name in all_notebooks:
+        with open(notebook_name, encoding="utf-8") as f:
+            notebook = nbformat.read(f, as_version=4)
+        code_cells = []
+        for index, cell in enumerate(notebook.cells):
+            if cell["cell_type"] == "code":
+                cell.outputs = []
+                cell.execution_count = None
+                cell["id"] = hashlib.sha256(f"{notebook_name}:{index}".encode()).hexdigest()[:32]
+                if "%pip install" in cell.source:
+                    packages = cell.source.split("\n")[0].split(" ")[2:]
+                    for package in packages:
+                        if not package.startswith('"flaml') and not package.startswith("flaml"):
+                            pkgs.add(package)
+                else:
+                    code_cells.append(cell)
 
-with open("notebook/trident/all_in_one_test.ipynb", "w", encoding="utf-8") as f:
-    nbformat.write(merged_notebook, f)
+        heading = nbformat.v4.new_markdown_cell(f"# {notebook_name}")
+        heading["id"] = hashlib.sha256(f"heading:{notebook_name}".encode()).hexdigest()[:32]
+        merged_notebook.cells.append(heading)
+        merged_notebook.cells.extend(code_cells)
+
+    install = nbformat.v4.new_code_cell(f"%pip install {' '.join(sorted(pkgs))}")
+    install["id"] = "install-public-dependencies"
+    merged_notebook.cells.insert(0, install)
+    with open("notebook/trident/all_in_one_test.ipynb", "w", encoding="utf-8") as f:
+        nbformat.write(merged_notebook, f)
+
+
+if __name__ == "__main__":
+    main()

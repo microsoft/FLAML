@@ -43,11 +43,13 @@ class AutoFEIncompatibleDataError(ValueError):
 class _PartitionAwareLDA(LinearDiscriminantAnalysis):
     def fit(self, X, y):
         values, labels = np.asarray(X), np.asarray(y)
+        if labels.ndim == 2 and labels.shape[1] == 1:
+            labels = labels[:, 0]
         if values.ndim == 2 and labels.ndim == 1 and len(values) == len(labels):
             groups = [values[labels == label] for label in np.unique(labels)]
             if groups and all(len(group) and np.all(group == group[0]) for group in groups):
                 raise AutoFEIncompatibleDataError("LDA requires within-class feature variation.")
-        return super().fit(X, y)
+        return super().fit(X, labels)
 
 
 def get_transformer(stage: str, method: str) -> TransformerMixin:
@@ -123,6 +125,9 @@ def parse_autofe_config(
     """
     empty_search_space = _to_search_space({})
     if raw_config == "off":
+        return empty_search_space
+    if task.is_ts_forecastpanel():
+        logger.warning("Auto featurization is not supported for panel forecasting; preserving the panel schema.")
         return empty_search_space
     if issparse(data):
         logger.warning("Auto featurization is not supported for sparse data. Featurization is turned off.")
@@ -335,8 +340,6 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         if not isinstance(X, pd.DataFrame):
             columns = None if fit else getattr(self, "_input_columns", None)
             X = pd.DataFrame(X, columns=columns)
-            if columns is None:
-                X.columns = [str(c) for c in X.columns]
         if fit:
             if not X.columns.is_unique:
                 raise ValueError("AutoFE requires unique input column labels.")
@@ -385,8 +388,11 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         config = self._config[stage]
         encoder = get_transformer(stage, config["method"])
         columns = config.get("columns", "auto")
-        if not isinstance(columns, str) or (columns != "auto"):
+        if stage not in {"selection", "extraction"} and (not isinstance(columns, str) or columns != "auto"):
             columns = {self._column_mapping.get(column, column) for column in columns}
+            missing = columns - set(features)
+            if missing:
+                raise ValueError(f"Configured {stage} columns are unavailable: {sorted(missing)}")
             features = [feature for feature in features if feature in columns]
         if encoder is not None and len(features) > 0:
             encoder.set_output(transform="pandas")
@@ -416,7 +422,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         self.time_col_ = X.time_col if isinstance(X, TimeSeriesDataset) else None
 
         if isinstance(X, TimeSeriesDataset):
-            y = X.train_data[X.target_names]
+            y = X.y_train
             X = X.train_data.drop(columns=X.target_names + [X.time_col])
 
         X, y, categorical_features, numerical_features = self.static_preprocess(X, y, fit=True)
@@ -545,9 +551,9 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         from flaml.automl.time_series.ts_data import _transform_ts_dataset
 
         check_is_fitted(self)
-        keep_cols = X.target_names + [X.time_col]
 
         def transform_frame(frame):
+            keep_cols = [column for column in X.target_names + [X.time_col] if column in frame]
             return pd.concat([frame[keep_cols], self._transform(frame.drop(columns=keep_cols))], axis=1)
 
         return _transform_ts_dataset(X, transform_frame)
@@ -628,7 +634,10 @@ available_methods = {
     },
     "categorical": {
         "null": None,
-        "ordinal": {"class": OrdinalEncoder, "args": {"handle_unknown": "use_encoded_value", "unknown_value": -1}},
+        "ordinal": {
+            "class": OrdinalEncoder,
+            "args": {"handle_unknown": "use_encoded_value", "unknown_value": -1, "encoded_missing_value": -2},
+        },
     },
     "extraction": {
         "null": None,

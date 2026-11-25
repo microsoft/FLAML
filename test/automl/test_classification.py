@@ -211,6 +211,25 @@ class TestClassification(unittest.TestCase):
         automl.fit(X, y, **automl_settings)
         del automl
 
+    def test_histgb_ensemble(self):
+        X, y = load_breast_cancer(return_X_y=True)
+        automl = AutoML()
+        automl.fit(
+            X,
+            y,
+            max_iter=2,
+            task="classification",
+            n_jobs=1,
+            estimator_list=["histgb"],
+            eval_method="cv",
+            n_splits=3,
+            metric="accuracy",
+            log_training_metric=True,
+            ensemble=True,
+            mlflow_logging=False,
+        )
+        assert len(automl.predict(X)) == len(y)
+
     def test_binary(self):
         automl_experiment = AutoML()
         automl_settings = {

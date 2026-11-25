@@ -50,7 +50,7 @@ class TestRegression(unittest.TestCase):
             "n_jobs": 1,
             "model_history": True,
         }
-        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home=artifact_path(__file__, "datasets"))
         n = int(len(y_train) * 9 // 10)
         automl.fit(X_train=X_train[:n], y_train=y_train[:n], X_val=X_train[n:], y_val=y_train[n:], **automl_settings)
         assert automl._state.eval_method == "holdout"
@@ -160,7 +160,7 @@ class TestRegression(unittest.TestCase):
             "n_concurrent_trials": 10,
             "hpo_method": hpo_method,
         }
-        X_train, y_train = fetch_california_housing(return_X_y=True, data_home="test")
+        X_train, y_train = fetch_california_housing(return_X_y=True, data_home=artifact_path(__file__, "datasets"))
         try:
             automl_experiment.fit(X_train=X_train, y_train=y_train, **automl_settings)
             print(automl_experiment.predict(X_train))
@@ -377,7 +377,7 @@ def test_reproducibility_of_regression_models(estimator: str):
         "retrain_full": True,
         "featurization": "off",
     }
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets"))
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
@@ -427,7 +427,7 @@ def test_reproducibility_of_catboost_regression_model():
         "retrain_full": True,
         "featurization": "off",
     }
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets"))
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
@@ -473,7 +473,7 @@ def test_reproducibility_of_lgbm_regression_model():
         "skip_transform": True,
         "retrain_full": True,
     }
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets"))
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None
@@ -541,7 +541,7 @@ def test_reproducibility_of_underlying_regression_models(estimator: str):
         "featurization": "off",
         "retrain_full": False,
     }
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets"))
     automl.fit(X_train=X, y_train=y, **automl_settings)
     best_model = automl.model
     assert best_model is not None

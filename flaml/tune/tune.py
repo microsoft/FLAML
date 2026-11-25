@@ -502,7 +502,7 @@ def run(
         f"has_search_alg={search_alg is not None}, custom_metric={callable(metric)}, "
         f"use_ray={use_ray is True}, use_spark={use_spark is True}"
     )
-    if is_log_telemetry_tune and not automl_info:
+    if is_log_telemetry_tune and not automl_info and is_fabric_runtime():
         log_telemetry(activity_name="flaml-tune")
         is_log_telemetry_tune = False
     if log_file_name:

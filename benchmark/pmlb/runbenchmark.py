@@ -56,6 +56,10 @@ def flatten_results(results):
     return flattened
 
 
+def _partition_indices(size):
+    return train_test_split(numpy.arange(size), test_size=0.25, random_state=GLOBAL_CONF.get("seed"))
+
+
 def runner_flaml(conf, use_spark=False):
     try:
         X, y = pmlb.fetch_data(conf["dataset"], return_X_y=True)
@@ -63,9 +67,9 @@ def runner_flaml(conf, use_spark=False):
     except (OSError, ValueError) as exc:
         return _download_failure(conf, exc)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=GLOBAL_CONF.get("seed", None)
-    )
+    train_indices, test_indices = _partition_indices(len(y))
+    X_train, X_test = X[train_indices], X[test_indices]
+    y_train, y_test = y[train_indices], y[test_indices]
     import flaml
 
     aml = flaml.AutoML()
@@ -114,10 +118,12 @@ def runner_h2o(conf):
     if conf["task"] == "classification":
         df["target"] = df["target"].astype("int")
 
-    hf = h2o.H2OFrame(df)
+    train_indices, test_indices = _partition_indices(len(df))
+    train = h2o.H2OFrame(df.iloc[train_indices])
+    test = h2o.H2OFrame(df.iloc[test_indices])
     if conf["task"] == "classification":
-        hf["target"] = hf["target"].asfactor()
-    train, test = hf.split_frame(ratios=[0.75], seed=GLOBAL_CONF.get("seed", None))
+        train["target"] = train["target"].asfactor()
+        test["target"] = test["target"].asfactor()
 
     aml = h2o.automl.H2OAutoML(
         max_runtime_secs=GLOBAL_CONF.get("time_budget", None),

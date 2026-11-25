@@ -1,3 +1,4 @@
+import copy
 import logging
 import time
 from typing import List
@@ -149,14 +150,19 @@ class TimeSeriesTask(Task):
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
+            dataframe = dataframe.copy()
             try:
-                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
                 )
 
-            dataframe = remove_ts_duplicates(dataframe, self.time_col)
+            dataframe = remove_ts_duplicates(
+                dataframe,
+                self.time_col,
+                allow_repeated_timestamps=self.is_ts_forecastpanel() or bool(state.fit_kwargs.get("group_ids")),
+            )
 
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
@@ -172,26 +178,31 @@ class TimeSeriesTask(Task):
             )
 
         # TODO: should the transformer be a property of the dataset instead?
-        self._preprocess_for_autofe = getattr(automl, "_featurization", "off") != "off"
+        self.time_col = pre_data.time_col
+        self.target_names = pre_data.target_names
+        self._preprocess_for_autofe = (
+            getattr(automl, "_featurization", "off") != "off" and not self.is_ts_forecastpanel()
+        )
         automl._transformer = DataTransformerTS(self.time_col, label)
-        Xt, yt = automl._transformer.fit_transform(
-            pre_data.X_all, pre_data.y_all, transform_features=not self._preprocess_for_autofe
-        )
-
-        df_t = pd.concat([Xt, yt], axis=1)
-
-        data = TimeSeriesDataset(
-            train_data=df_t.iloc[: len(pre_data.train_data)],
-            time_col=pre_data.time_col,
-            target_names=pre_data.target_names,
-            time_idx=pre_data.time_idx,
-            test_data=df_t.iloc[len(pre_data.train_data) :],
-        )
+        if self._preprocess_for_autofe:
+            # The fitted trial preprocessor owns both feature statistics and target encoding.
+            data = pre_data
+            automl._transformer.label_transformer = None
+        else:
+            Xt, yt = automl._transformer.fit_transform(pre_data.X_all, pre_data.y_all)
+            df_t = pd.concat([Xt, yt], axis=1)
+            data = TimeSeriesDataset(
+                train_data=df_t.iloc[: len(pre_data.train_data)],
+                time_col=pre_data.time_col,
+                target_names=pre_data.target_names,
+                time_idx=pre_data.time_idx,
+                test_data=df_t.iloc[len(pre_data.train_data) :],
+            )
 
         # now setup the properties of all the other relevant objects
 
         # TODO: where are these used? Replace with pointers to data?
-        automl._X_train_all, automl._y_train_all = Xt, yt
+        automl._X_train_all, automl._y_train_all = data.X_train, data.y_train
 
         # TODO: where are these used?
         automl._nrow, automl._ndim = data.X_train.shape
@@ -210,14 +221,13 @@ class TimeSeriesTask(Task):
         automl._state.X_train = data
         automl._state.y_train = None
         automl._state.y_val = None
-        if data.test_data is not None and len(data.test_data) > 0:
-            automl._state.X_train_all = data.move_validation_boundary(len(data.test_data))
-        else:
-            automl._state.X_train_all = data
+        automl._state.X_train_all = TimeSeriesDataset(
+            data.train_data.copy(), data.time_col, data.target_names, time_idx=data.time_idx
+        )
         automl._state.y_train_all = None
 
         automl._state.data_size = data.train_data.shape
-        automl.data_size_full = len(data.all_data)
+        automl.data_size_full = len(data.train_data)
         automl._state.groups = None
         automl._sample_weight_full = None
 
@@ -235,6 +245,8 @@ class TimeSeriesTask(Task):
         sample_weight_full,
         time_col=None,
     ):
+        if self.is_ts_forecastpanel() and eval_method != "holdout":
+            raise ValueError("Panel forecast cross-validation is not supported; use eval_method='holdout'.")
         state.kf = None
         state.data_size_full = len(y_train_all)
 
@@ -287,8 +299,8 @@ class TimeSeriesTask(Task):
                     train_data,
                     ts_data.time_col,
                     ts_data.target_names,
-                    ts_data.frequency,
-                    test_data,
+                    time_idx=ts_data.time_idx,
+                    test_data=test_data,
                 )
                 state.X_val = ts_data
                 state.X_train = ts_data
@@ -300,6 +312,7 @@ class TimeSeriesTask(Task):
                 state.X_val = ts_data.move_validation_boundary(-period)
                 state.X_train = state.X_val
 
+        state.data_size = state.X_train.train_data.shape
         if eval_method != "holdout":
             if self.name != TS_FORECASTPANEL:
                 period = state.fit_kwargs[
@@ -420,12 +433,12 @@ class TimeSeriesTask(Task):
         train_time = pred_time = 0
         total_fold_num = 0
         n = kf.get_n_splits()
-        if self.is_classification():
+        if self.is_classification() and y_train_all is not None:
             labels = np.unique(y_train_all)
         else:
             labels = fit_kwargs.get("label_list")  # pass the label list on to compute the evaluation metric
         ts_data = X_train_all
-        budget_per_train = budget / n
+        budget_per_train = budget / n if budget is not None and budget > 0 else None
         ts_data = X_train_all
         for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size, kf.step_size):
             estimator.cleanup()
@@ -453,7 +466,7 @@ class TimeSeriesTask(Task):
             log_metric_folds.append(metric_i)
             train_time += train_time_i
             pred_time += pred_time_i
-            if time.time() - start_time >= budget:
+            if budget is not None and budget > 0 and time.time() - start_time >= budget:
                 break
         val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
@@ -509,8 +522,10 @@ class TimeSeriesTask(Task):
     def prepare_sample_train_data(automlstate, sample_size):
         # we take the tail, rather than the head, for compatibility with time series
 
-        shift = sample_size - len(automlstate.X_train.train_data)
-        sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
+        if sample_size <= 0:
+            raise ValueError("Forecast sample_size must be positive.")
+        sampled_X_train = copy.copy(automlstate.X_train)
+        sampled_X_train.train_data = automlstate.X_train.train_data.iloc[-sample_size:].copy()
 
         return sampled_X_train, None, None, None
 
@@ -518,14 +533,10 @@ class TimeSeriesTask(Task):
 def remove_ts_duplicates(
     X,
     time_col,
+    *,
+    allow_repeated_timestamps=False,
 ):
-    """
-    Assumes the targets are included
-    @param X:
-    @param time_col:
-    @param y:
-    @return:
-    """
+    """Drop identical labeled rows; reject conflicting timestamps outside panel tasks."""
 
     duplicates = X.duplicated()
 
@@ -533,8 +544,7 @@ def remove_ts_duplicates(
         logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, time_col]}")
         X = X.drop_duplicates()
         logger.warning("Removed duplicate rows based on all columns")
-        assert (
-            X[[X.columns[0]]].duplicated() is None
-        ), "Duplicate timestamp values with different values for other columns."
+    if not allow_repeated_timestamps and X[time_col].duplicated().any():
+        raise ValueError("Duplicate timestamp values have different values for other columns.")
 
     return X

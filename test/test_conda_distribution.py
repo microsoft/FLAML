@@ -6,7 +6,6 @@ from sklearn.datasets import load_iris
 
 import flaml
 from flaml import AutoML
-from flaml.fabric.visualization import get_param_importance
 
 
 @pytest.mark.conda
@@ -44,6 +43,10 @@ def objective(config):
 
 @pytest.mark.conda
 def test_param_importance():
+    pytest.importorskip("plotly")
+    pytest.importorskip("optuna")
+    from flaml.fabric.visualization import get_param_importance
+
     search_space = {
         "x": flaml.tune.randint(1, 10),
         "y": flaml.tune.randint(-10, 10),

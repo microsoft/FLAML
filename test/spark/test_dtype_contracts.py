@@ -133,3 +133,11 @@ def test_supported_spark_threshold_retains_documented_coercion(dtype_spark, valu
     converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0, convert_threshold=0.6)
     assert schema["value"] == expected_type
     assert converted.filter(F.col("value").isNull()).count() == 1
+
+
+def test_fractional_column_preserves_adjacent_large_integers(dtype_spark):
+    values = ["9007199254740992", "9007199254740993", "1.5"]
+    frame = dtype_spark.sql("SELECT * FROM VALUES ('9007199254740992'), ('9007199254740993'), ('1.5') AS input(value)")
+    converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1)
+    assert schema["value"] == "string"
+    assert sorted(row.value for row in converted.collect()) == sorted(values)

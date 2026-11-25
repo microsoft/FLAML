@@ -1,16 +1,9 @@
-import atexit
 import importlib
-import os
-import sys
-import time
-import warnings
+from test._artifact_paths import artifact_path
+from uuid import uuid4
 
-import mlflow
-import pyspark
 import pytest
-from pyspark.ml.evaluation import RegressionEvaluator
-from pyspark.ml.feature import VectorAssembler
-from sklearn.datasets import fetch_california_housing, load_diabetes
+from sklearn.datasets import load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
@@ -18,25 +11,34 @@ from sklearn.model_selection import train_test_split
 import flaml
 from flaml.automl.spark import disable_spark_ansi_mode, restore_spark_ansi_mode
 from flaml.automl.spark.utils import to_pandas_on_spark
+from flaml.fabric import is_fabric_runtime
+
+mlflow = pytest.importorskip("mlflow")
+pyspark = pytest.importorskip("pyspark")
+VectorAssembler = pytest.importorskip("pyspark.ml.feature").VectorAssembler
 
 pytestmark = pytest.mark.spark
-warnings.filterwarnings("ignore")
 
 skip_spark = importlib.util.find_spec("pyspark") is None
-client = mlflow.tracking.MlflowClient()
 
-"""
-The spark used in below tests should be initiated in test_0sparkml.py when run with pytest.
-"""
+
+@pytest.fixture(autouse=True, params=["false", "true"], ids=["public", "fabric"])
+def _runtime_namespace(request, monkeypatch):
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", request.param)
+    yield
+    mlflow.autolog(disable=True)
+    while mlflow.active_run() is not None:
+        mlflow.end_run()
 
 
 def _sklearn_tune(config):
+    config = config.copy()
     is_autolog = config.pop("is_autolog")
     is_parent_run = config.pop("is_parent_run")
     is_parallel = config.pop("is_parallel")
     X, y = load_diabetes(return_X_y=True, as_frame=True)
-    train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.25)
-    rf = RandomForestRegressor(**config)
+    train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.25, random_state=41)
+    rf = RandomForestRegressor(**config, n_jobs=1, random_state=41)
     rf.fit(train_x, train_y)
     pred = rf.predict(test_x)
     r2 = r2_score(test_y, pred)
@@ -47,10 +49,10 @@ def _sklearn_tune(config):
 
 
 def _test_tune(is_autolog, is_parent_run, is_parallel):
-    mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
+    mlflow_exp_name = f"test_mlflow_integration_{uuid4().hex}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     params = {
-        "n_estimators": flaml.tune.randint(100, 1000),
+        "n_estimators": flaml.tune.randint(4, 16),
         "min_samples_leaf": flaml.tune.randint(1, 10),
         "is_autolog": is_autolog,
         "is_parent_run": is_parent_run,
@@ -78,6 +80,7 @@ def _test_tune(is_autolog, is_parent_run, is_parallel):
 
 
 def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_id, is_automl=False, skip_tags=False):
+    client = mlflow.tracking.MlflowClient()
     if isinstance(possible_num_runs, int):
         possible_num_runs = [possible_num_runs]
     if is_parent_run:
@@ -90,7 +93,8 @@ def _check_mlflow_logging(possible_num_runs, metric, is_parent_run, experiment_i
         child_runs = client.search_runs(experiment_ids=[experiment_id])
     experiment_name = client.get_experiment(experiment_id).name
     metrics = [metric in run.data.metrics for run in child_runs]
-    tags = ["synapseml.flaml.version" in run.data.tags for run in child_runs]
+    namespace = "synapseml.flaml" if is_fabric_runtime() else "flaml"
+    tags = [f"{namespace}.version" in run.data.tags for run in child_runs]
     params = ["learner" in run.data.params for run in child_runs]
     assert (
         len(child_runs) in possible_num_runs
@@ -163,12 +167,9 @@ def test_tune_noautolog_parentrun_parallel():
 
 
 def _test_automl_sparkdata(is_autolog, is_parent_run):
-    # TODO: remove the estimator assignment once SynapseML supports spark 4+.
-    from flaml.automl.spark.utils import _spark_major_minor_version
+    estimator_list = ["rf_spark"]
 
-    estimator_list = ["rf_spark"] if _spark_major_minor_version[0] >= 4 else None
-
-    mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
+    mlflow_exp_name = f"test_mlflow_integration_{uuid4().hex}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     if is_autolog:
         mlflow.autolog()
@@ -178,41 +179,39 @@ def _test_automl_sparkdata(is_autolog, is_parent_run):
         mlflow.start_run(run_name=f"automl_sparkdata_autolog_{is_autolog}")
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
     spark, ansi_conf, adjusted = disable_spark_ansi_mode()
-    atexit.register(restore_spark_ansi_mode, spark, ansi_conf, adjusted)
-
-    pd_df = load_diabetes(as_frame=True).frame
-    df = spark.createDataFrame(pd_df)
-    df = df.repartition(4).cache()
-    train, test = df.randomSplit([0.8, 0.2], seed=1)
-    feature_cols = df.columns[:-1]
-    featurizer = VectorAssembler(inputCols=feature_cols, outputCol="features")
-    train_data = featurizer.transform(train)["target", "features"]
-    featurizer.transform(test)["target", "features"]
-    automl = flaml.AutoML()
-    settings = {
-        "max_iter": 3,
-        "metric": "mse",
-        "task": "regression",  # task type
-        "log_file_name": "flaml_experiment.log",  # flaml log file
-        "mlflow_exp_name": mlflow_exp_name,
-        "log_type": "all",
-        "n_splits": 2,
-        "model_history": True,
-        "estimator_list": estimator_list,
-    }
-    df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
-    automl.fit(
-        dataframe=df,
-        label="target",
-        **settings,
-    )
+    cached = None
+    try:
+        pd_df = load_diabetes(as_frame=True).frame
+        cached = spark.createDataFrame(pd_df).repartition(4).cache()
+        train, _ = cached.randomSplit([0.8, 0.2], seed=1)
+        featurizer = VectorAssembler(inputCols=pd_df.columns[:-1].tolist(), outputCol="features")
+        train_data = featurizer.transform(train)["target", "features"]
+        automl = flaml.AutoML()
+        settings = {
+            "max_iter": 3,
+            "metric": "mse",
+            "task": "regression",
+            "log_file_name": artifact_path(__file__, "flaml_experiment.log"),
+            "mlflow_exp_name": mlflow_exp_name,
+            "log_type": "all",
+            "n_splits": 2,
+            "model_history": True,
+            "estimator_list": estimator_list,
+            "custom_hp": {"rf_spark": {"numTrees": {"domain": flaml.tune.randint(2, 5), "init_value": 2}}},
+        }
+        df = to_pandas_on_spark(to_pandas_on_spark(train_data).to_spark(index_col="index"))
+        automl.fit(dataframe=df, label="target", **settings)
+    finally:
+        if cached is not None:
+            cached.unpersist()
+        restore_spark_ansi_mode(spark, ansi_conf, adjusted)
     mlflow.end_run()  # end current run
     mlflow.autolog(disable=True)
     return mlflow_experiment.experiment_id
 
 
 def _test_automl_nonsparkdata(is_autolog, is_parent_run):
-    mlflow_exp_name = f"test_mlflow_integration_{int(time.time())}"
+    mlflow_exp_name = f"test_mlflow_integration_{uuid4().hex}"
     mlflow_experiment = mlflow.set_experiment(mlflow_exp_name)
     if is_autolog:
         mlflow.autolog()
@@ -231,9 +230,12 @@ def _test_automl_nonsparkdata(is_autolog, is_parent_run):
         "log_type": "all",
         "n_splits": 2,
         "model_history": True,
+        "estimator_list": ["rf"],
+        "n_jobs": 1,
+        "custom_hp": {"rf": {"n_estimators": {"domain": flaml.tune.randint(4, 8), "init_value": 4}}},
     }
     X, y = load_diabetes(return_X_y=True, as_frame=True)
-    train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.25)
+    train_x, _, train_y, _ = train_test_split(X, y, test_size=0.25, random_state=41)
     automl_experiment.fit(X_train=train_x, y_train=train_y, **automl_settings)
     mlflow.end_run()  # end current run
     mlflow.autolog(disable=True)
@@ -277,7 +279,7 @@ def test_automl_nonsparkdata_noautolog_parentrun():
 
 
 @pytest.mark.skipif(skip_spark, reason="Spark is not installed. Skip all spark tests.")
-def test_exit_pyspark_autolog():
+def _stop_pyspark_autolog():
     import pyspark
 
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
@@ -311,4 +313,4 @@ if __name__ == "__main__":
     # test_automl_nonsparkdata_noautolog_parentrun()
     # test_automl_nonsparkdata_noautolog_noparentrun()
 
-    test_exit_pyspark_autolog()
+    _stop_pyspark_autolog()

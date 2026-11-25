@@ -535,6 +535,7 @@ class DataTransformerTS:
             self.label_transformer = None
 
     def transform(self, X: Union[DataFrame, np.array], y=None):
+        X = X.copy()
         if getattr(self, "_column_mapping", None):
             X = X.rename(columns=self._column_mapping)
         # TODO: revisit for multivariate series, and recast for a single df input anyway

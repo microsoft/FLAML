@@ -11,10 +11,8 @@ repos:
     rev: v4.4.0
     hooks:
     - id: check-added-large-files
-      exclude: ^notebook/trident/featurization\.ipynb$
     - id: check-ast
     - id: check-yaml
-      exclude: ^conda-build/flaml3\.10/meta\.yaml$|^conda-build/flaml3\.11/meta\.yaml$
     - id: check-toml
     - id: check-json
     - id: check-byte-order-marker

@@ -3,6 +3,7 @@ import platform
 import sys
 import unittest
 from tempfile import TemporaryDirectory
+from test._artifact_paths import artifact_path
 
 from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
@@ -37,7 +38,7 @@ class TestTrainingLog(unittest.TestCase):
                 # Keep model replay equivalence independent of feature-engineering choices.
                 "featurization": "off",
             }
-            X, y = fetch_california_housing(return_X_y=True, data_home="test")
+            X, y = fetch_california_housing(return_X_y=True, data_home=artifact_path(__file__, "datasets"))
             X_train, X_holdout, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
             automl.fit(X_train=X_train, y_train=y_train, **automl_settings)
             # Check if the training log file is populated.

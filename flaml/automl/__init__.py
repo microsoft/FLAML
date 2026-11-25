@@ -1,6 +1,10 @@
-from flaml.automl.automl import AutoML, size
 from flaml.automl.logger import logger_formatter
-from flaml.automl.state import AutoMLState, SearchState
+
+try:
+    from flaml.automl.automl import AutoML, size
+    from flaml.automl.state import AutoMLState, SearchState
+except ImportError:
+    pass
 
 
 def __getattr__(name):

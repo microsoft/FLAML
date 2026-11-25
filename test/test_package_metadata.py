@@ -120,9 +120,18 @@ def test_combined_notebook_generator_uses_public_source(tmp_path, monkeypatch):
     generated = nbformat.read(tmp_path / "notebook" / "trident" / "all_in_one_test.ipynb", as_version=4)
     nbformat.validate(generated)
     assert "git+https://github.com/microsoft/FLAML.git@main" in generated.cells[0].source
+    import shlex
+
+    requirement = next(
+        Requirement(package)
+        for package in shlex.split(generated.cells[0].source)[2:]
+        if package.lower().startswith("flaml")
+    )
+    assert "forecast" in requirement.extras
     committed = nbformat.read(root / "notebook" / "trident" / "all_in_one_test.ipynb", as_version=4)
     assert "git+https://github.com/microsoft/FLAML.git@main" in committed.cells[0].source
     assert all(not cell.get("outputs") for cell in generated.cells if cell.cell_type == "code")
+    assert generated == committed
 
 
 @pytest.mark.parametrize("extra", ["synapse", "fabric_python"])
@@ -130,6 +139,8 @@ def test_fabric_extras_use_lightweight_notebook_dependencies(extra):
     dependencies = requirements_for(extra)
     assert {"ipython", "nbformat", "mlflow-skinny"} <= dependencies.keys()
     assert not {"jupyter", "rouge-score"} & dependencies.keys()
+    assert "1.3.0" in dependencies["scikit-learn"].specifier
+    assert "1.2.0" not in dependencies["scikit-learn"].specifier
 
 
 @pytest.mark.parametrize("python_version,maximum", [("3.12", "1.3.2"), ("3.13", "1.4.2")])
@@ -207,10 +218,25 @@ def test_offline_nlp_coverage_has_a_maintained_ci_step():
     steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
     nlp = next(step for step in steps if step.get("name") == "Test offline NLP utilities and classification heads")
     assert "matrix.test-type == 'notspark'" in nlp["if"]
+    assert "matrix.python-version == '3.10'" not in nlp["if"]
     assert "test/nlp/test_hf_utils_coverage.py" in nlp["run"]
     assert "test/nlp/test_autohf_classificationhead.py" in nlp["run"]
     assert nlp["env"]["HF_HUB_OFFLINE"] == "1"
     assert nlp["env"]["TRANSFORMERS_OFFLINE"] == "1"
+
+
+def test_ci_write_permissions_are_limited_to_publication_jobs():
+    yaml = pytest.importorskip("yaml")
+    workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
+    configuration = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+    assert configuration["permissions"] == {"contents": "read"}
+    jobs = configuration["jobs"]
+    assert jobs["coverage"]["permissions"] == {"contents": "read", "pull-requests": "write"}
+    assert jobs["save-dependencies"]["permissions"] == {"contents": "write"}
+    assert jobs["save-dependencies"]["if"] == "github.ref == 'refs/heads/main'"
+    assert jobs["save-dependencies"]["needs"] == "build"
+    assert "permissions" not in jobs["build"]
+    assert "permissions" not in jobs["public-install"]
 
 
 def test_nlp_execution_is_not_excluded_from_coverage():

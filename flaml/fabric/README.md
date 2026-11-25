@@ -113,9 +113,20 @@ Changing featurizer parameters invalidates its fitted state. Expected
 training-partition incompatibilities, such as variance selection removing every
 feature, are logged as rejected infinite-loss AutoML trials so another candidate
 can be evaluated; unrelated implementation errors still propagate.
-Configuration exports use JSON-compatible column lists and identify the actual
-features seen by each selection/extraction stage. Forecast configuration
+Configuration exports use JSON-compatible column lists. Categorical and numeric
+lists select transformed columns; selection lists record columns dropped by the
+original fit, and extraction lists record its input features. Selection and
+extraction recipes are refitted on the complete surviving feature matrix, even
+when the original selector dropped no columns. Forecast configuration
 reconstruction uses task-aware preprocessing and embedded dataset targets.
+
+Forecast AutoFE fits feature statistics and target encoders on each training
+partition. Explicit validation rows are never eligible for final refitting;
+validation-only target classes raise an error instead of changing training codes.
+Panel/TFT feature engineering is excluded so group identifiers, time indexes, and
+named covariates are not removed by generic feature transforms.
+Panel forecasting currently requires holdout evaluation; unsupported panel CV is
+rejected explicitly rather than using a non-group-aware row splitter.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`. MLflow is optional, and registration
@@ -147,11 +158,20 @@ engineering; prediction and validation rows are never resampled. The same
 sample-weight and group-alignment restrictions apply to exported refits.
 Resampling refits use traditional `step__parameter` fit inputs; routing
 row-aligned metadata through the resampling operation is not supported.
+With a target encoder or resampler, use `fit()` followed by `predict()` instead
+of `fit_predict()`, which would bypass those operations in scikit-learn.
 An early failed refit does not replace the previous label decoder. Exported
 classifiers reject non-integral, non-finite, or incorrectly shaped class-index
 outputs instead of silently truncating them.
 An autologging `log_models=False` setting suppresses automatic model and pipeline
 artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.
+Tune preserves the caller's local autolog configuration and propagates those
+options to remote workers without permanently reconfiguring reused workers.
+Child-run adoption requires an integration-owned tag; unrelated runs in the same
+experiment are not changed. Trial artifacts use that trial's fitted model, and
+fit completion waits for dependent artifact-environment writes.
+Opaque per-estimator fit arguments are reported by argument name only, not by
+value; credentials and training payloads are not configuration metadata.
 The metric-name tag retains its historical spelling: `flaml.meric` publicly and
 `synapseml.flaml.meric` in Fabric. Consumers should use that key, not `*.metric`.
 
@@ -188,6 +208,15 @@ large scientific-notation integers, using decimal rather than float rounding.
 A full-column check can widen an inferred 32-bit type when sampling misses a
 large value. Incompatible finite numeric values raise instead of silently becoming
 null; `skip_columns` can retain the original strings.
+Mixed fractional/integer columns also retain strings when conversion to double
+would collapse distinct large exact values.
+
+`broadcast_code` accepts a non-reserved Python module name and publishes immutable
+code revisions through Spark's file distribution. Reimport the public module on
+the driver after publishing changed code; newly imported classes carry the new
+revision identity while existing class references retain the old implementation.
+As before, the driver package directory must be writable. The returned source
+path is revision-specific; workers do not need writable package installations.
 
 The fANOVA adapter widens replay distributions when recorded trials contain
 values outside the declared search space, preserving compatible log scales and

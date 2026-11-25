@@ -24,7 +24,11 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import ElasticNet, LassoLars, LogisticRegression, SGDClassifier, SGDRegressor
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC
-from xgboost import __version__ as xgboost_version
+
+try:
+    from xgboost import __version__ as xgboost_version
+except ImportError:
+    xgboost_version = "0"
 
 try:
     from sklearn.utils._tags import ClassifierTags, RegressorTags

@@ -1,3 +1,4 @@
+from test._artifact_paths import artifact_path
 from unittest.mock import Mock
 
 import numpy as np
@@ -208,7 +209,8 @@ def test_legacy_step_forecast_preserves_exogenous_values_and_kwargs():
     estimator._model.predict.side_effect = KeyError("unsupported date index")
     estimator._model.forecast.return_value = pd.Series([1.0, 2.0])
     frame = pd.DataFrame({"ds": pd.date_range("2026-01-01", periods=2), "x": [3.0, 4.0]})
-    estimator.predict(frame, custom_flag=True)
+    forecast = estimator.predict(frame, custom_flag=True)
+    pd.testing.assert_index_equal(forecast.index, pd.DatetimeIndex(frame["ds"]))
     arguments = estimator._model.forecast.call_args.kwargs
     np.testing.assert_array_equal(arguments["exog"], frame[["x"]].values)
     assert arguments["custom_flag"] is True
@@ -346,7 +348,7 @@ def test_forecast_stock_data_without_holidays(budget=30):
         "time_budget": budget,
         "metric": "mape",
         "task": "ts_forecast",
-        "log_file_name": "test/stock_forecast.log",
+        "log_file_name": artifact_path(__file__, "test/stock_forecast.log"),
         "eval_method": "holdout",
         "label": "price",
         "estimator_list": ["arima", "sarimax"],

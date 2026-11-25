@@ -284,6 +284,7 @@ def test_telemetry_is_independent_of_mlflow(public_environment):
         """
         import importlib
         import importlib.abc
+        import os
         import sys
         import numpy as np
 
@@ -294,13 +295,13 @@ def test_telemetry_is_independent_of_mlflow(public_environment):
         sys.meta_path.insert(0, BlockMLflow())
         from flaml import AutoML, tune
         import flaml.fabric.telemetry as telemetry
-        from flaml.fabric.logger import init_kusto_logger
+        from flaml.fabric.logger import KustoLogger
         automl_module = importlib.import_module("flaml.automl.automl")
         tune_module = importlib.import_module("flaml.tune.tune")
-        assert automl_module.kusto_logger is init_kusto_logger()
-        assert tune_module.kusto_logger is init_kusto_logger()
+        assert isinstance(automl_module.kusto_logger, KustoLogger)
+        assert isinstance(tune_module.kusto_logger, KustoLogger)
         calls = []
-        telemetry.is_fabric_runtime = lambda: True
+        os.environ["FLAML_FABRIC_RUNTIME"] = "true"
         telemetry.report_usage_telemetry = lambda category, activity, **kwargs: calls.append(activity)
         automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0)
         automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
@@ -383,13 +384,111 @@ def test_usage_reporting_failure_is_nonfatal_and_visible(monkeypatch, caplog):
 def test_optional_diagnostic_logger_failure_is_nonfatal(monkeypatch, caplog):
     module = importlib.import_module("flaml.fabric.logger")
     factory = Mock(side_effect=RuntimeError("diagnostics offline"))
-    monkeypatch.setattr(module, "no_synapse", False)
-    monkeypatch.setattr(module, "get_mds_logger", factory, raising=False)
-    monkeypatch.setattr(module, "default_scrubbers", [], raising=False)
-    monkeypatch.setattr(module, "ArtifactNameScrubber", lambda: object(), raising=False)
-    assert module.init_kusto_logger("test") is module.kusto_logger
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    monkeypatch.setattr(module, "_create_logger", factory)
+    module.init_kusto_logger("test").info("test")
     factory.assert_called_once()
     assert any("diagnostic" in record.message.lower() for record in caplog.records)
+
+
+def test_diagnostic_logger_honors_runtime_changes_without_reimport(monkeypatch):
+    import pickle
+
+    module = importlib.import_module("flaml.fabric.logger")
+    backend = Mock()
+    factory = Mock(return_value=backend)
+    monkeypatch.setattr(module, "_create_logger", factory)
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    logger = module.init_kusto_logger("runtime-test")
+    logger.info("disabled")
+    factory.assert_not_called()
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    logger.info("enabled")
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    logger.info("disabled again")
+    restored = pickle.loads(pickle.dumps(logger))
+    restored.info("disabled after serialization")
+    backend.info.assert_called_once_with("enabled")
+    factory.assert_called_once_with("runtime-test")
+
+
+def test_usage_telemetry_can_enable_after_a_public_automl_call(monkeypatch):
+    automl_module = importlib.import_module("flaml.automl.automl")
+    report = Mock()
+    monkeypatch.setattr(automl_module, "is_log_telemetry", True)
+    monkeypatch.setattr(automl_module, "log_telemetry", report)
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    AutoML()
+    report.assert_not_called()
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    AutoML()
+    AutoML()
+    report.assert_called_once()
+
+
+def test_artifact_scrubber_removes_only_artifact_identifiers():
+    from flaml.fabric.logger import ArtifactNameScrubber
+
+    assert ArtifactNameScrubber().scrub("open Artifact private-name completed") == (
+        "open [artifact name redacted] completed"
+    )
+
+
+def test_lazy_diagnostics_supplies_synapse_scrubbing_contract(monkeypatch):
+    from abc import ABC, abstractmethod
+    from types import ModuleType
+
+    module = importlib.import_module("flaml.fabric.logger")
+    modules = {}
+    for name in (
+        "synapse",
+        "synapse.ml",
+        "synapse.ml.pymds",
+        "synapse.ml.pymds.handler",
+        "synapse.ml.pymds.scrubbers",
+        "synapse.ml.pymds.scrubbers.scrubber",
+    ):
+        modules[name] = ModuleType(name)
+        modules[name].__path__ = []
+        monkeypatch.setitem(sys.modules, name, modules[name])
+
+    class ScrubberInterface(ABC):
+        @abstractmethod
+        def scrub(self, message):
+            pass
+
+    factory = Mock(return_value=Mock())
+    original_scrubber = object()
+    modules["synapse.ml.pymds"].get_mds_logger = factory
+    modules["synapse.ml.pymds.handler"].default_scrubbers = [original_scrubber]
+    modules["synapse.ml.pymds.scrubbers.scrubber"].IScrub = ScrubberInterface
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    module.init_kusto_logger("test").info("message")
+    factory.assert_called_once()
+    options = factory.call_args.kwargs
+    assert options["tableName"] == "SynapseMLLogs"
+    assert options["scrubbers"][0] is original_scrubber
+    scrubber = options["scrubbers"][1]
+    assert isinstance(scrubber, ScrubberInterface)
+    assert scrubber.scrub("Artifact private-name") == "[artifact name redacted]"
+    factory.return_value.info.assert_called_once_with("message")
+
+
+def test_broken_diagnostic_dependency_is_not_treated_as_missing_synapse(monkeypatch):
+    import builtins
+
+    module = importlib.import_module("flaml.fabric.logger")
+    original_import = builtins.__import__
+
+    def broken_dependency(name, *args, **kwargs):
+        if name == "synapse.ml.pymds":
+            raise ModuleNotFoundError("broken optional dependency", name="broken_mds_dependency")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+    monkeypatch.setattr(builtins, "__import__", broken_dependency)
+    with pytest.raises(ModuleNotFoundError, match="broken optional dependency"):
+        module.init_kusto_logger("test").info("message")
 
 
 def test_signature_failure_diagnostics_do_not_include_sample_values(local_mlflow, monkeypatch):

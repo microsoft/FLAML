@@ -375,6 +375,8 @@ def compute_estimator(
         config_dic.pop(param)
 
     autofe = None
+    if fe_params and Featurization is None:
+        raise ImportError("Recorded AutoFE stages require flaml[autofe].")
     if Featurization is not None and fe_params:
         autofe = Featurization(params=fe_params, task=task)
 
@@ -458,6 +460,8 @@ def train_estimator(
         config_dic.pop(param)
 
     autofe = None
+    if fe_params and Featurization is None:
+        raise ImportError("Recorded AutoFE stages require flaml[autofe].")
     if Featurization is not None and fe_params:
         autofe = Featurization(params=fe_params, task=task)
 

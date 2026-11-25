@@ -135,7 +135,9 @@ def test_broadcast_code():
     file_name = f"_test_broadcast_learner_{uuid4().hex}"
     qualified_name = f"flaml.tune.spark.{file_name}"
     custom_path = broadcast_code(custom_code=custom_code, file_name=file_name)
+    paths = [custom_path, os.path.join(os.path.dirname(custom_path), file_name + ".py")]
     broadcast_learner = None
+    broadcast_revisions = None
     try:
         module = importlib.import_module(qualified_name)
         assert isinstance(module.MyLargeLGBM(), LGBMEstimator)
@@ -161,14 +163,48 @@ def test_broadcast_code():
             .collect()
         )
         assert len(results) == partitions
-        assert all(module_name == qualified_name for _, module_name in results)
+        assert all(module_name == module.MyLargeLGBM.__module__ for _, module_name in results)
         if workers:
             assert len({host for host, _ in results}) == int(workers)
+        updated_path = broadcast_code(custom_code.replace("32768", "16384"), file_name)
+        paths.append(updated_path)
+        updated = importlib.import_module(qualified_name).MyLargeLGBM
+        broadcast_revisions = context.broadcast((module.MyLargeLGBM, updated))
+
+        def verify_revisions_on_reused_worker(_):
+            import socket
+
+            from pyspark import BarrierTaskContext
+
+            BarrierTaskContext.get().barrier()
+            before, after = broadcast_revisions.value
+            return [
+                (
+                    socket.gethostname(),
+                    before.search_space()["n_estimators"]["init_value"],
+                    after.search_space()["n_estimators"]["init_value"],
+                )
+            ]
+
+        revisions = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(verify_revisions_on_reused_worker)
+            .collect()
+        )
+        assert all((before, after) == (32768, 16384) for _, before, after in revisions)
+        if workers:
+            assert {host for host, _, _ in revisions} == {host for host, _ in results}
     finally:
         if broadcast_learner is not None:
             broadcast_learner.destroy()
+        if broadcast_revisions is not None:
+            broadcast_revisions.destroy()
         sys.modules.pop(qualified_name, None)
-        os.remove(custom_path)
+        for path in paths:
+            for owned_path in (path, importlib.util.cache_from_source(path)):
+                if os.path.exists(owned_path):
+                    os.remove(owned_path)
 
 
 def test_get_broadcast_data():

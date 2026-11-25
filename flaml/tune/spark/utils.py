@@ -1,6 +1,10 @@
 import hashlib
+import importlib
+import keyword
 import logging
 import os
+import sys
+import tempfile
 import textwrap
 import threading
 import time
@@ -12,6 +16,7 @@ logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
 )
 logger.propagate = False
+_broadcast_code_lock = threading.RLock()
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
     import py4j
@@ -123,12 +128,24 @@ def with_parameters(trainable, **kwargs):
     return partial(trainable, **bc_kwargs)
 
 
+def _publish_code_file(path, contents):
+    descriptor, temporary = tempfile.mkstemp(prefix=".flaml-code-", suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
+            output.write(contents)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def broadcast_code(custom_code="", file_name="mylearner"):
     """Write customized learner/metric code contents to a file for importing.
     It is necessary for using the customized learner/metric in spark backend.
-    The path of the learner/metric file will be returned. Spark distributes a
-    versioned code archive to current and future executors; no scheduled task
-    is needed to copy files into executor installations.
+    The path of the immutable learner/metric source file will be returned.
+    Reimport the public module after publishing changed code; its classes retain
+    revision-specific identities so existing and future Spark workers agree.
+    The driver installation must be writable, as in previous versions.
 
     Args:
         custom_code: str, default="" | code contents of the custom learner/metric.
@@ -166,25 +183,52 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
-    # Check if Spark is available
+    if (
+        not isinstance(file_name, str)
+        or not file_name.isidentifier()
+        or keyword.iskeyword(file_name)
+        or file_name.casefold() in {"__init__", "utils"}
+    ):
+        raise ValueError("file_name must be a non-reserved Python module name.")
     spark_available, _ = check_spark()
-
-    # Write to local driver file system
     flaml_path = os.path.dirname(os.path.abspath(__file__))
     custom_code = textwrap.dedent(custom_code)
-    custom_path = os.path.join(flaml_path, file_name + ".py")
-
-    with open(custom_path, "w", encoding="utf-8") as f:
-        f.write(custom_code)
-
-    if spark_available:
-        spark = SparkSession.builder.getOrCreate()
-        digest = hashlib.sha256((file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
-        archive_path = os.path.join(pyspark.SparkFiles.getRootDirectory(), f"{digest}_flaml_custom_code.zip")
-        if not os.path.exists(archive_path):
-            with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
-                archive.writestr(file_name + ".py", custom_code)
-        spark.sparkContext.addPyFile(archive_path)
+    digest = hashlib.sha256(("flaml-code-v2\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
+    revision = f"_flaml_custom_{file_name}_{digest}"
+    custom_path = os.path.join(flaml_path, revision + ".py")
+    alias_path = os.path.join(flaml_path, file_name + ".py")
+    alias = (
+        f"from . import {revision} as _flaml_revision\n"
+        "globals().update({key: value for key, value in vars(_flaml_revision).items() "
+        "if key not in {'__name__', '__loader__', '__package__', '__spec__', '__file__', '__cached__', '__builtins__'}})\n"
+    )
+    with _broadcast_code_lock:
+        if not os.path.exists(custom_path):
+            _publish_code_file(custom_path, custom_code)
+        _publish_code_file(alias_path, alias)
+        cached_alias = importlib.util.cache_from_source(alias_path)
+        if os.path.exists(cached_alias):
+            os.unlink(cached_alias)
+        if spark_available:
+            spark = SparkSession.builder.getOrCreate()
+            archive_path = os.path.join(pyspark.SparkFiles.getRootDirectory(), f"{digest}_flaml_custom_code.zip")
+            if not os.path.exists(archive_path):
+                descriptor, temporary = tempfile.mkstemp(dir=os.path.dirname(archive_path), suffix=".zip")
+                os.close(descriptor)
+                try:
+                    with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
+                        archive.writestr(revision + ".py", custom_code)
+                        archive.writestr(file_name + ".py", alias)
+                    os.replace(temporary, archive_path)
+                finally:
+                    if os.path.exists(temporary):
+                        os.unlink(temporary)
+            spark.sparkContext.addPyFile(archive_path)
+        sys.modules.pop(f"flaml.tune.spark.{file_name}", None)
+        package = sys.modules.get("flaml.tune.spark")
+        if package is not None:
+            package.__dict__.pop(file_name, None)
+        importlib.invalidate_caches()
 
     return custom_path
 

@@ -1,5 +1,6 @@
 import platform
 import sys
+from test._artifact_paths import artifact_path
 from urllib.error import URLError
 
 import numpy as np
@@ -23,7 +24,7 @@ def _test(split_type):
         "time_budget": 2,
         # "metric": 'accuracy',
         "task": "classification",
-        "log_file_name": f"test/{dataset}.log",
+        "log_file_name": artifact_path(__file__, f"test/{dataset}.log"),
         "model_history": True,
         "log_training_metric": True,
         "split_type": split_type,

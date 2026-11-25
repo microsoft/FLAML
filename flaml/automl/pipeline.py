@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.pipeline import Pipeline
+from sklearn.utils.metaestimators import available_if
 from sklearn.utils.validation import check_is_fitted
 
 
@@ -40,9 +41,11 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                 time_idx = X.time_idx
                 test_data = X.test_data
             else:
-                if getattr(task, "time_col", None) is None:
-                    task.time_col = X.columns[0] if isinstance(X, pd.DataFrame) else "ds"
-                if getattr(task, "target_names", None) is None:
+                if isinstance(X, pd.DataFrame):
+                    task.time_col = X.columns[0]
+                elif getattr(task, "time_col", None) is None:
+                    task.time_col = "ds"
+                if y is not None or getattr(task, "target_names", None) is None:
                     task.target_names = (
                         list(y.columns) if isinstance(y, pd.DataFrame) else [getattr(y, "name", None) or "y"]
                     )
@@ -54,6 +57,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
             )
             if isinstance(frame, TimeSeriesDataset):
                 frame = frame.train_data.copy()
+            frame[task.time_col] = pd.to_datetime(frame[task.time_col])
             features = frame.drop(columns=task.target_names)
             labels = frame[task.target_names]
             self.transformer_ = DataTransformerTS(task.time_col, task.target_names, time_idx=time_idx)
@@ -113,9 +117,18 @@ class AutoMLPipeline(Pipeline):
         super().__init__(steps, memory=memory, verbose=verbose)
 
     def fit(self, X, y=None, **params):
+        from flaml.automl.time_series.ts_data import TimeSeriesDataset
+
         label_transformer = clone(self.label_transformer) if self.label_transformer is not None else None
         if label_transformer is not None:
-            y = label_transformer.fit_transform(y)
+            if isinstance(X, TimeSeriesDataset):
+                X = deepcopy(X)
+                target = X.target_names[0]
+                X.train_data[target] = label_transformer.fit_transform(X.y_train)
+                if target in X.test_data and len(X.test_data):
+                    X.test_data[target] = label_transformer.transform(X.test_data[target])
+            else:
+                y = label_transformer.fit_transform(y)
         if self.resampler is None:
             result = super().fit(X, y, **params)
             self.label_transformer_ = label_transformer
@@ -148,6 +161,14 @@ class AutoMLPipeline(Pipeline):
         estimator.fit(X, y, **step_params[estimator_name])
         self.label_transformer_ = label_transformer
         return self
+
+    @available_if(lambda self: hasattr(self._final_estimator, "fit_predict"))
+    def fit_predict(self, X, y=None, **params):
+        if self.label_transformer is not None or self.resampler is not None:
+            raise NotImplementedError(
+                "fit_predict cannot apply target transforms or fit-only resampling; use fit() followed by predict()."
+            )
+        return super().fit_predict(X, y, **params)
 
     def predict(self, X, **params):
         prediction = super().predict(X, **params)
@@ -215,7 +236,10 @@ def make_automl_pipeline(automl, estimator):
     """Snapshot fitted preprocessing and the supplied model without sharing mutable state."""
     steps = _preprocessing_steps(automl, estimator)
     steps.append(("estimator", estimator))
-    label_transformer = getattr(automl, "_label_transformer", None)
+    label_transformer = getattr(automl, "label_transformer", getattr(automl, "_label_transformer", None))
+    preprocessor = getattr(estimator, "_flaml_preprocessor", None)
+    if preprocessor is not None and preprocessor.task_.is_ts_forecast():
+        label_transformer = getattr(preprocessor.transformer_, "label_transformer", None)
     if label_transformer is False:
         label_transformer = None
     return deepcopy(

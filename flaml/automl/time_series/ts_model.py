@@ -423,6 +423,11 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = self._model.forecast(steps=len(forecast_dates), exog=exog, **forecast_kwargs)
                 else:
                     forecast = self._model.forecast(steps=len(forecast_dates), **forecast_kwargs)
+                if len(forecast) != len(forecast_dates):
+                    raise ValueError("Forecast output length does not match the requested time grid.")
+                if "index" not in kwargs and not isinstance(forecast.index, pd.DatetimeIndex):
+                    forecast = forecast.copy()
+                    forecast.index = forecast_dates.rename(self.time_col)
                 if len(forecast_dates) != len(requested_dates):
                     forecast = forecast.iloc[positions]
             elif train_end_date is not None and end > train_end_date:
@@ -440,6 +445,11 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                     forecast = self._model.get_forecast(steps=len(X), **forecast_kwargs).predicted_mean
                 else:
                     forecast = self._model.forecast(steps=len(X), **forecast_kwargs)
+                if len(forecast) != len(requested_dates):
+                    raise ValueError("Forecast output length does not match the requested timestamps.")
+                if "index" not in kwargs and not isinstance(forecast.index, pd.DatetimeIndex):
+                    forecast = forecast.copy()
+                    forecast.index = requested_dates
             else:
                 fitted_index = getattr(getattr(self._model, "model", None), "_index", None)
                 if not isinstance(fitted_index, pd.DatetimeIndex):

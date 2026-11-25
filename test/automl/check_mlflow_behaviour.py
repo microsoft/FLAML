@@ -1,3 +1,7 @@
+"""Manual MLflow scenarios; assertion-based coverage lives in the maintained test suites."""
+
+from test._artifact_paths import artifact_path
+
 import mlflow
 from sklearn.datasets import load_diabetes, load_iris
 from sklearn.ensemble import RandomForestRegressor
@@ -7,16 +11,16 @@ from sklearn.model_selection import train_test_split
 import flaml
 from flaml import AutoML
 
-mlflow.set_experiment("mlflow_behaviour")
-
 
 def _automl_example():
     automl = AutoML()
     automl_settings = {
-        "time_budget": 2,  # in seconds
+        "estimator_list": ["rf"],
+        "max_iter": 3,
+        "n_jobs": 1,
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "iris.log",
+        "log_file_name": artifact_path(__file__, "iris.log"),
         "mlflow_exp_name": "mlflow_behaviour",
     }
     X_train, y_train = load_iris(return_X_y=True)
@@ -26,15 +30,15 @@ def _automl_example():
 def _tune_example():
     def _sklearn_tune(config):
         X, y = load_diabetes(return_X_y=True, as_frame=True)
-        train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.25)
-        rf = RandomForestRegressor(**config)
+        train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.25, random_state=41)
+        rf = RandomForestRegressor(**config, n_jobs=1, random_state=41)
         rf.fit(train_x, train_y)
         pred = rf.predict(test_x)
         r2 = r2_score(test_y, pred)
         return {"r2": r2}
 
     params = {
-        "n_estimators": flaml.tune.randint(100, 1000),
+        "n_estimators": flaml.tune.randint(4, 16),
         "min_samples_leaf": flaml.tune.randint(1, 10),
     }
     n_child_runs = 3
@@ -91,3 +95,23 @@ def test_tune_noauto_run():
 
 def test_tune_noauto_norun():
     _tune_example()
+
+
+if __name__ == "__main__":
+    mlflow.set_experiment("mlflow_behaviour")
+    for scenario in (
+        test_automl_autolog_run,
+        test_automl_autolog_norun,
+        test_automl_noauto_run,
+        test_automl_noauto_norun,
+        test_tune_autolog_run,
+        test_tune_autolog_norun,
+        test_tune_noauto_run,
+        test_tune_noauto_norun,
+    ):
+        try:
+            scenario()
+        finally:
+            while mlflow.active_run() is not None:
+                mlflow.end_run()
+            mlflow.autolog(disable=True)

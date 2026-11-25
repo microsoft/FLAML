@@ -109,6 +109,16 @@ class SearchState:
                     "Ignoring unsupported AutoFE starting-point choices with featurization=%s.", featurization
                 )
                 point = {name: value for name, value in point.items() if name not in disabled}
+            if featurization == "force":
+                invalid = [
+                    name
+                    for name, value in point.items()
+                    if name.startswith("fe.")
+                    and name in search_space
+                    and not self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
+                ]
+                if invalid:
+                    raise ValueError(f"AutoFE starting choices are incompatible with force mode: {invalid}")
             return point
 
         if isinstance(starting_point, dict):
@@ -184,7 +194,7 @@ class SearchState:
         self.sample_size = None
         self.trial_time = 0
 
-    def update(self, result, time_used):
+    def update(self, result, time_used, *, retain_trial_model=False):
         if result:
             config = result["config"]
             if config and "FLAML_sample_size" in config:
@@ -209,6 +219,7 @@ class SearchState:
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
+        self.trial_model = trained_estimator if retain_trial_model else None
         self.trial_time = time2eval
         self.total_time_used += time_used if self._budget >= 0 else 1
         self.total_iter += 1
@@ -232,7 +243,7 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
-        elif trained_estimator:
+        elif trained_estimator and not retain_trial_model:
             trained_estimator.cleanup()
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
@@ -405,12 +416,16 @@ class AutoMLState:
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
             estimator
         ).copy()  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+        sampling_state = self
+        if isinstance(self.X_train_all, TimeSeriesDataset):
+            sampling_state = copy.copy(self)
+            sampling_state.X_train = self.X_train_all
         (
             sampled_X_train,
             sampled_y_train,
             sampled_weight,
             groups,
-        ) = self.task.prepare_sample_train_data(self, sample_size)
+        ) = self.task.prepare_sample_train_data(sampling_state, sample_size)
         if sampled_weight is not None:
             weight = this_estimator_kwargs[
                 "sample_weight"

@@ -1,9 +1,9 @@
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 
 
-def len_labels(y: np.ndarray, return_labels=False) -> Union[int, Optional[np.ndarray]]:
+def len_labels(y: np.ndarray, return_labels=False) -> Union[int, Tuple[int, np.ndarray]]:
     """Get the number of unique labels in y. The non-spark version of
     flaml.automl.spark.utils.len_labels"""
     labels = np.unique(y)

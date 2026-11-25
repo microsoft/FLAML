@@ -18,8 +18,8 @@ def telemetry_reporter(monkeypatch):
 
 @pytest.mark.parametrize("fabric_runtime", [False, True])
 def test_automl_telemetry(monkeypatch, telemetry_reporter, fabric_runtime):
-    module, reporter = telemetry_reporter
-    monkeypatch.setattr(module, "is_fabric_runtime", lambda: fabric_runtime)
+    _, reporter = telemetry_reporter
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric_runtime))
     monkeypatch.setattr("flaml.automl.automl.is_log_telemetry", True)
     monkeypatch.setattr("flaml.automl.automl.internal_mlflow", True)
     X = np.arange(40).reshape(20, 2)
@@ -39,8 +39,8 @@ def test_automl_telemetry(monkeypatch, telemetry_reporter, fabric_runtime):
 
 @pytest.mark.parametrize("fabric_runtime", [False, True])
 def test_tune_telemetry(monkeypatch, telemetry_reporter, fabric_runtime):
-    module, reporter = telemetry_reporter
-    monkeypatch.setattr(module, "is_fabric_runtime", lambda: fabric_runtime)
+    _, reporter = telemetry_reporter
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", str(fabric_runtime))
     monkeypatch.setattr("flaml.tune.tune.is_log_telemetry_tune", True)
     monkeypatch.setattr("flaml.tune.tune.internal_mlflow", True)
     for exponent in (2, 3):

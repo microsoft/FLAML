@@ -33,27 +33,24 @@ def pytest_configure(config):
     # the override below, all workers would share the main process's
     # tracking dir and race on writes. We therefore force-override the
     # URI in xdist workers when the inherited value is one we previously
-    # set ourselves (path contains ``flaml_mlruns_``); a URI set
+    # set ourselves (the exact URI is recorded in a private environment marker); a URI set
     # externally by the user is left untouched.
     worker_id = os.environ.get("PYTEST_XDIST_WORKER")
     existing_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
-    inherited_from_main = bool(worker_id) and "flaml_mlruns_" in existing_uri
+    inherited_from_main = bool(worker_id) and existing_uri == os.environ.get("FLAML_TEST_MLFLOW_TRACKING_URI")
     if not existing_uri or inherited_from_main:
         import tempfile
         from pathlib import Path
 
         tag = worker_id or "main"
-        # IMPORTANT: do NOT pre-create this directory. ``FileStore.__init__``
-        # only bootstraps the default ``Experiment(id="0")`` (which several
-        # tests in ``test/fabric/test_mlflow_coverage.py`` implicitly rely on
-        # via ``mlflow.start_run()``) when the root directory does not yet
-        # exist. Pre-creating the dir would leave the store without a
-        # Default experiment, breaking those tests with
-        # ``MlflowException: Could not find experiment with ID 0``.
-        tracking_dir = os.path.join(tempfile.gettempdir(), f"flaml_mlruns_{tag}_{os.getpid()}")
+        owned = tempfile.TemporaryDirectory(prefix=f"flaml_mlruns_{tag}_")
+        config.add_cleanup(owned.cleanup)
+        # FileStore bootstraps experiment zero only when this child does not exist.
+        tracking_dir = os.path.join(owned.name, "tracking")
         # ``file:`` URIs need POSIX-style forward slashes even on Windows;
         # ``Path.as_uri()`` handles the platform-specific prefix correctly.
         os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
+        os.environ["FLAML_TEST_MLFLOW_TRACKING_URI"] = os.environ["MLFLOW_TRACKING_URI"]
 
 
 @pytest.fixture(autouse=True)

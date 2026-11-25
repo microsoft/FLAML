@@ -169,7 +169,7 @@ def test_broadcast_code_supports_isolated_and_late_workers(monkeypatch, broadcas
     name = "_test_distributed_learner"
     qualified_name = f"flaml.tune.spark.{name}"
     path = utils.broadcast_code(code, name)
-    assert Path(path) == driver / f"{name}.py"
+    assert Path(path).parent == driver
     assert Path(path).read_text(encoding="utf-8") == textwrap.dedent(code)
     archive = context.addPyFile.call_args.args[0]
     context.parallelize.assert_not_called()
@@ -182,7 +182,9 @@ def test_broadcast_code_supports_isolated_and_late_workers(monkeypatch, broadcas
         del sys.modules[qualified_name]
         assert pickle.loads(payload).predict(7) == 21
     finally:
-        sys.modules.pop(qualified_name, None)
+        for key in list(sys.modules):
+            if key == qualified_name or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
 
 
 def test_broadcast_code_updates_use_distinct_archives(monkeypatch, broadcast_files):
@@ -190,24 +192,31 @@ def test_broadcast_code_updates_use_distinct_archives(monkeypatch, broadcast_fil
     name = "_test_updated_learner"
     qualified_name = f"flaml.tune.spark.{name}"
     try:
-        utils.broadcast_code("value = 1\n", name)
+        code = "class Learner:\n    def predict(self):\n        return 1\n"
+        utils.broadcast_code(code, name)
         first_archive = context.addPyFile.call_args.args[0]
         monkeypatch.syspath_prepend(first_archive)
         module = importlib.import_module(qualified_name)
-        assert module.value == 1
+        first = module.Learner
+        assert first().predict() == 1
 
-        utils.broadcast_code("value = 2\n", name)
+        utils.broadcast_code(code.replace("return 1", "return 2"), name)
         second_archive = context.addPyFile.call_args.args[0]
         assert first_archive != second_archive
         monkeypatch.syspath_prepend(second_archive)
-        assert importlib.reload(module).value == 2
+        second = importlib.import_module(qualified_name).Learner
+        assert second().predict() == 2
+        assert first.__module__ != second.__module__
+        assert [learner().predict() for learner in pickle.loads(pickle.dumps((first, second)))] == [1, 2]
 
         archive_bytes = Path(second_archive).read_bytes()
-        utils.broadcast_code("value = 2\n", name)
+        utils.broadcast_code(code.replace("return 1", "return 2"), name)
         assert context.addPyFile.call_args.args[0] == second_archive
         assert Path(second_archive).read_bytes() == archive_bytes
     finally:
-        sys.modules.pop(qualified_name, None)
+        for key in list(sys.modules):
+            if key == qualified_name or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
 
 
 def test_broadcast_code_without_spark_preserves_local_file(monkeypatch, broadcast_files):
@@ -215,4 +224,13 @@ def test_broadcast_code_without_spark_preserves_local_file(monkeypatch, broadcas
     monkeypatch.setattr(utils, "check_spark", lambda: (False, ImportError("no pyspark")))
     path = utils.broadcast_code("value = 42\n", "_test_local_learner")
     assert Path(path).read_text(encoding="utf-8") == "value = 42\n"
+    context.addPyFile.assert_not_called()
+
+
+@pytest.mark.parametrize("name", ["../outside", "nested/module", "", None, "class", "utils", "__init__", "UTILS"])
+def test_broadcast_code_rejects_nonmodule_and_reserved_names(broadcast_files, name):
+    utils, context, driver = broadcast_files
+    with pytest.raises(ValueError, match="module"):
+        utils.broadcast_code("value = 42", name)
+    assert not list(driver.iterdir())
     context.addPyFile.assert_not_called()

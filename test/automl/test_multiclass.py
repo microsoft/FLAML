@@ -247,6 +247,8 @@ class TestMultiClass(unittest.TestCase):
             "dataframe": df,
             "label": "label",
             "time_budget": 5,
+            "max_iter": 6,
+            "estimator_list": ["rf", "extra_tree"],
             "eval_method": "cv",
             "metric": custom_metric,
             "task": "classification",
@@ -257,7 +259,7 @@ class TestMultiClass(unittest.TestCase):
             "model_history": True,
             "sample_weight": np.ones(len(y)),
             "pred_time_limit": 1e-5,
-            "ensemble": False,  # if True, joblib 1.2.0 will raise error
+            "ensemble": True,
         }
         automl = AutoML(**settings)  # test safe_json_dumps
         automl.fit(dataframe=df, label="label")

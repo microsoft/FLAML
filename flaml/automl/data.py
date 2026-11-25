@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import logging
 import math
 import os
 import random
@@ -15,7 +16,6 @@ from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
-from flaml.automl.logger import init_logger
 from flaml.automl.spark import DataFrame, F, Series, T, pd, ps, psDataFrame, psSeries
 from flaml.automl.training_log import training_log_reader
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from flaml.automl.task import Task
 
 
-logger = init_logger(__name__)
+logger = logging.getLogger(__name__)
 
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
@@ -344,13 +344,16 @@ def _make_column_name_mapping(columns):
         raise ValueError("Feature column labels must be unique.")
     names = {column for column in columns if isinstance(column, str)}
     mapping = {}
-    for index, column in enumerate(columns):
-        if not isinstance(column, str):
-            name = f"flaml_column_{index}"
-            while name in names:
-                name = "flaml_" + name
-            names.add(name)
-            mapping[column] = name
+    nonstring_columns = sorted(
+        (column for column in columns if not isinstance(column, str)),
+        key=lambda column: (type(column).__module__, type(column).__qualname__, repr(column)),
+    )
+    for index, column in enumerate(nonstring_columns):
+        name = f"flaml_column_{index}"
+        while name in names:
+            name = "flaml_" + name
+        names.add(name)
+        mapping[column] = name
     return mapping
 
 
@@ -483,13 +486,15 @@ class DataTransformer:
                     elif X[column].dtype.name == "category":
                         if preserve_features:
                             X[column] = X[column].cat.remove_unused_categories()
-                        current_categories = X[column].cat.categories
-                        if "__NAN__" not in current_categories:
-                            X[column] = X[column].cat.add_categories("__NAN__")
-                        X[column] = X[column].fillna("__NAN__")
+                        else:
+                            current_categories = X[column].cat.categories
+                            if "__NAN__" not in current_categories:
+                                X[column] = X[column].cat.add_categories("__NAN__")
+                            X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                     else:
-                        X[column] = X[column].fillna("__NAN__")
+                        if not preserve_features:
+                            X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                 elif not preserve_features and X[column].nunique(dropna=True) < 2:
                     X = X.drop(columns=column)
@@ -529,13 +534,17 @@ class DataTransformer:
                 from sklearn.preprocessing import OrdinalEncoder
 
                 categories = [X[column].cat.categories.to_numpy(dtype=object) for column in cat_columns]
-                self._ordinal_encoder = OrdinalEncoder(
-                    categories=[np.arange(len(values)) for values in categories],
-                    handle_unknown="use_encoded_value",
-                    unknown_value=-1,
-                )
-                self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
-                self._ordinal_encoder.categories_ = categories
+                if preserve_features:
+                    self._ordinal_encoder = None
+                    self._cat_categories = dict(zip(cat_columns, categories))
+                else:
+                    self._ordinal_encoder = OrdinalEncoder(
+                        categories=[np.arange(len(values)) for values in categories],
+                        handle_unknown="use_encoded_value",
+                        unknown_value=-1,
+                    )
+                    self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
+                    self._ordinal_encoder.categories_ = categories
             if num_columns:
                 X_num = X[num_columns]
                 try:
@@ -643,6 +652,8 @@ class DataTransformer:
             if self._task.is_ts_forecast():
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
+                if getattr(self, "_preserve_features", False):
+                    continue
                 if X[column].dtype.name in ("object", "string", "str"):
                     X[column] = X[column].fillna("__NAN__")
                 elif X[column].dtype.name == "category":
@@ -664,7 +675,10 @@ class DataTransformer:
                 #      whatever `astype("category")` inferred above.
                 encoder = getattr(self, "_ordinal_encoder", None)
                 saved_cats_map = getattr(self, "_cat_categories", None)
-                if encoder is not None:
+                if getattr(self, "_preserve_features", False) and saved_cats_map:
+                    for column in cat_columns:
+                        X[column] = pd.Categorical(X[column], categories=saved_cats_map[column])
+                elif encoder is not None:
                     for col_idx, column in enumerate(cat_columns):
                         known_cats = list(encoder.categories_[col_idx])
                         # Include "__NAN__" as the sentinel slot even if the
@@ -871,6 +885,19 @@ def _spark_integral_value(col_name: str):
     near_whole = decimal_value.isNotNull() & (F.abs(decimal_value % 1) <= _SPARK_INT_WHOLE_TOL)
     rounded = F.expr(f"try_cast(round({decimal_sql}) as bigint)")
     return F.coalesce(_spark_try_cast(col_name, "bigint"), F.when(near_whole, rounded))
+
+
+def _spark_numeric_precision_loss(col_name: str):
+    escaped = col_name.replace("`", "``")
+    numeric = _spark_try_cast(col_name, "double")
+    exact = F.expr(f"try_cast(`{escaped}` as decimal(38,18))")
+    roundtrip = F.expr(f"try_cast(try_cast(`{escaped}` as double) as decimal(38,18))")
+    literal = F.trim(_spark_column(col_name)).rlike(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+    finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
+    return literal & (
+        ~finite
+        | ((F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING) & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip)))
+    )
 
 
 def _validate_na_values_list(na_values, *, arg_name: str = "na_values"):
@@ -1220,6 +1247,10 @@ def auto_convert_dtypes_spark(
                         F.sum(F.when(finite & value.isNull(), 1).otherwise(0)).alias(f"invalid_{index}"),
                     ]
                 )
+            elif schema[name] == "double":
+                checks.append(
+                    F.max(F.when(_spark_numeric_precision_loss(name), 1).otherwise(0)).alias(f"lossy_{index}")
+                )
         validation = df.agg(*checks).collect()[0]
         for index, name in enumerate(conversion_columns):
             total = validation[f"total_{index}"]
@@ -1239,6 +1270,9 @@ def auto_convert_dtypes_spark(
                     )
                 if validation[f"wide_{index}"]:
                     schema[name] = "bigint"
+            elif schema[name] == "double" and validation[f"lossy_{index}"]:
+                logger.warning("Column %r cannot be converted losslessly to double; preserving strings.", name)
+                schema[name] = "string"
 
     # Apply inferred schema
     for colname, inferred_type in schema.items():
@@ -1325,6 +1359,35 @@ _TIMEDELTA_LIKE_PATTERN = re.compile(
 # fails the smell test, so any column with even one date-shaped entry still
 # gets a chance to be classified as a timestamp.
 _DATETIME_LIKE_HINT = re.compile(r"\d{4}|:|[A-Za-z]{3,}|^\s*\d{1,2}[./-]\d{1,2}[./-]\d{2}\s*$")
+
+
+def _numeric_conversion_loses_precision(source, parsed):
+    if isinstance(source, str):
+        try:
+            exact = Decimal(source.strip())
+        except InvalidOperation:
+            return False
+    elif isinstance(source, Decimal):
+        exact = source
+    elif isinstance(source, (int, np.integer)):
+        exact = Decimal(int(source))
+    else:
+        return False
+    if not exact.is_finite():
+        return False
+    try:
+        value = float(parsed)
+    except (TypeError, ValueError, OverflowError):
+        return True
+    return not math.isfinite(value) or (
+        exact.copy_abs() >= _FLOAT64_SAFE_INT_CEILING and Decimal.from_float(value) != exact
+    )
+
+
+def _has_datetime_hint(values):
+    values = values.dropna()
+    strings = values[values.map(lambda value: isinstance(value, str))]
+    return len(strings) != len(values) or strings.empty or strings.str.contains(_DATETIME_LIKE_HINT, regex=True).any()
 
 
 def auto_convert_dtypes_pandas(
@@ -1770,10 +1833,9 @@ def auto_convert_dtypes_pandas(
                         def _precise_int_or_na(src, parsed_float):
                             if pd.isna(parsed_float):
                                 return pd.NA
-                            if isinstance(src, str):
-                                s = src.strip()
+                            if isinstance(src, (str, Decimal)):
                                 try:
-                                    exact = Decimal(s)
+                                    exact = src if isinstance(src, Decimal) else Decimal(src.strip())
                                 except InvalidOperation as exc:
                                     raise ValueError("Numeric input cannot be parsed losslessly") from exc
                                 if not exact.is_finite() or exact != exact.to_integral_value():
@@ -1856,6 +1918,13 @@ def auto_convert_dtypes_pandas(
                     # (e.g., out-of-range values). Programmer errors
                     # like ``AttributeError`` / ``NameError`` propagate.
                     pass
+            if any(
+                _numeric_conversion_loses_precision(value, parsed) for value, parsed in zip(full_cleaned, numeric_full)
+            ):
+                logger.warning("Column %r cannot be converted losslessly to double; preserving strings.", col)
+                df_converted[col] = full_cleaned.astype("string")
+                schema[col] = "string"
+                continue
             df_converted[col] = numeric_full.astype("double")
             schema[col] = "double"
             continue
@@ -1985,8 +2054,7 @@ def auto_convert_dtypes_pandas(
             # (notably Windows + pandas 3.x, which parses ``"5-6"`` as
             # ``0005-06-01``) and mis-classifying categorical labels like
             # ``"1-2"`` or ``"60+"`` as timestamps.
-            str_sample = inf_cleaned.dropna().astype(str)
-            if not str_sample.empty and not str_sample.str.contains(_DATETIME_LIKE_HINT, regex=True).any():
+            if not _has_datetime_hint(inf_cleaned):
                 datetime_inf = None
             else:
                 datetime_inf = pd.to_datetime(inf_cleaned, errors="coerce")
@@ -2008,11 +2076,7 @@ def auto_convert_dtypes_pandas(
                 # column has no date-shaped strings, skip ``pd.to_datetime``
                 # entirely to avoid mis-classifying range/bucket labels as
                 # timestamps on platforms with permissive parsing.
-                full_str_sample = full_cleaned.dropna().astype(str)
-                if (
-                    not full_str_sample.empty
-                    and not full_str_sample.str.contains(_DATETIME_LIKE_HINT, regex=True).any()
-                ):
+                if not _has_datetime_hint(full_cleaned):
                     datetime_full = None
                 else:
                     datetime_full = pd.to_datetime(full_cleaned, errors="coerce")

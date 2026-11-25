@@ -9,13 +9,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--automl", action="store_true")
     parser.add_argument("--autofe", action="store_true")
+    parser.add_argument("--autozero", action="store_true")
     args = parser.parse_args()
 
     import flaml
     from flaml import tune
 
     assert not Path(flaml.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
-    assert flaml.has_automl is (args.automl or args.autofe)
+    assert flaml.has_automl is (args.automl or args.autofe or args.autozero)
+    from flaml.automl.training_log import training_log_reader
+
+    assert callable(training_log_reader)
     assert importlib.util.find_spec("mlflow") is None
     assert importlib.util.find_spec("pyspark") is None
     analysis = tune.run(
@@ -53,6 +57,17 @@ def main():
         data = pd.DataFrame({"feature": [1.0, 2.0, 3.0]})
         features = Featurization(params={"fe.numerical": "scaler_standard"}).fit_transform(data)
         np.testing.assert_allclose(features["feature"], [-1.22474487, 0.0, 1.22474487])
+
+    if args.autozero:
+        import numpy as np
+
+        from flaml.default import RandomForestClassifier
+
+        assert importlib.util.find_spec("xgboost") is None
+        assert importlib.util.find_spec("lightgbm") is None
+        X = np.arange(80).reshape(40, 2)
+        model = RandomForestClassifier(n_estimators=4, max_depth=2, n_jobs=1).fit(X, np.tile([0, 1], 20))
+        assert len(model.predict(X[:3])) == 3
 
 
 if __name__ == "__main__":
