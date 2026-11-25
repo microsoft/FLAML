@@ -466,6 +466,24 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
         return 1.0
 
     @classmethod
+    def config_constraints(cls) -> list:
+        """[optional method] config constraints for the estimator.
+
+        Override this to restrict the search to configs that satisfy
+        estimator-specific constraints, expressed in the same syntax as
+        ``flaml.tune`` config_constraints.
+
+        Returns:
+            A list of ``(function, operator, threshold)`` tuples, where
+            ``function`` maps a hyperparameter-config dict to a float,
+            ``operator`` is one of ``"<="``, ``">="``, ``"<"`` or ``">"``,
+            and ``threshold`` is a float. A config that violates any
+            constraint is not trained, whichever ``hpo_method`` is used.
+            Returns an empty list (no constraints) by default.
+        """
+        return []
+
+    @classmethod
     def cost_relative2lgbm(cls) -> float:
         """[optional method] relative cost compared to lightgbm."""
         return 1.0

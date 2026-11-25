@@ -10,6 +10,9 @@ from flaml.automl.logger import logger
 from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
+from flaml.tune import sample
+from flaml.tune.searcher.blendsearch import MAX_CONSTRAINT_SAMPLES, config_constraints_violated
+from flaml.tune.space import normalize
 
 
 class SearchState:
@@ -23,6 +26,67 @@ class SearchState:
             self.time_best_found - self.time_best_found_old,
             self.total_time_used - self.time_best_found,
         )
+
+    def _apply_config_constraints(self, config_constraints, search_space, user_starting_point, seed=None):
+        """Make the search start from configs that satisfy the estimator's config constraints.
+
+        User-provided starting points that violate the constraints are removed.
+        If the default (low-cost) starting config violates them, it is replaced by
+        the feasible config closest to it among random samples of the search
+        space, so that the search does not get stuck at an infeasible start.
+        """
+        defaults = {
+            name: space["init_value"]
+            for name, space in search_space.items()
+            if space["domain"] is not None and "init_value" in space
+        }
+        defaults.update(self.low_cost_partial_config)
+
+        def violated(config):
+            try:
+                return config_constraints_violated(config, config_constraints)
+            except KeyError:
+                # a partial config that the constraints can't be evaluated on;
+                # it is checked again once the searcher completes it
+                return False
+
+        if user_starting_point:
+            feasible = [c for c in self.init_config if not violated({**defaults, **c})]
+            if len(feasible) < len(self.init_config):
+                logger.warning(
+                    "Starting points that violate the config constraints are removed. "
+                    f"Remaining starting points for {self.learner_class}: {feasible}"
+                )
+            self.init_config = feasible
+        if not violated(defaults):
+            return
+        rng = np.random.RandomState(seed)
+        reference = normalize(defaults, self._search_space_domain, defaults, {})
+        best, best_dist = None, np.inf
+        for _ in range(MAX_CONSTRAINT_SAMPLES):
+            candidate = {
+                name: domain.sample(random_state=rng) if isinstance(domain, sample.Domain) else domain
+                for name, domain in self._search_space_domain.items()
+            }
+            if violated(candidate):
+                continue
+            normalized = normalize(candidate, self._search_space_domain, candidate, {})
+            dist = sum(
+                (normalized[name] - value) ** 2
+                for name, value in reference.items()
+                if isinstance(value, (int, float)) and isinstance(normalized.get(name), (int, float))
+            )
+            if dist < best_dist:
+                best, best_dist = candidate, dist
+        if best is None:
+            logger.warning(
+                f"No config satisfying the config constraints of {self.learner_class} was found "
+                "to start the search from."
+            )
+            return
+        self.low_cost_partial_config = {name: best[name] for name in self.low_cost_partial_config}
+        if not user_starting_point:
+            self.init_config = [best]
 
     def valid_starting_point_one_dim(self, value_one_dim, domain_one_dim):
         from flaml.tune.space import sample
@@ -65,6 +129,7 @@ class SearchState:
         max_iter=None,
         budget=None,
         featurization="auto",
+        seed=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -137,6 +202,10 @@ class SearchState:
             self.init_config = starting_point
         else:
             self.init_config = [] if self.init_config is None else [self.init_config]
+
+        config_constraints = learner_class.config_constraints()
+        if config_constraints:
+            self._apply_config_constraints(config_constraints, search_space, starting_point is not None, seed)
 
         self._hp_names = list(self._search_space_domain.keys())
         self.search_alg = None
@@ -264,6 +333,24 @@ class AutoMLState:
         estimator: str,
         is_report: bool = True,
     ) -> dict:
+        learner_class = state.learner_classes.get(estimator)
+        if learner_class is not None and config_constraints_violated(
+            {k: v for k, v in config_w_resource.items() if k != "FLAML_sample_size"},
+            learner_class.config_constraints(),
+        ):
+            # Not every search algorithm enforces config constraints (e.g.
+            # optuna), so check the estimator's constraints before training.
+            result = {
+                "pred_time": 0,
+                "wall_clock_time": time.time() - state._start_time_flag,
+                "metric_for_logging": np.inf,
+                "val_loss": np.inf,
+                "trained_estimator": None,
+            }
+            if is_report is True:
+                tune.report(**result)
+            return result
+
         if "FLAML_sample_size" in config_w_resource:
             sample_size = int(config_w_resource["FLAML_sample_size"])
         else:
