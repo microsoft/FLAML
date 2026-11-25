@@ -11,10 +11,11 @@ from sklearn.utils.validation import check_is_fitted
 class _TaskPreprocessor(TransformerMixin, BaseEstimator):
     """Adapt FLAML task preprocessing to sklearn's feature-only interface."""
 
-    def __init__(self, task, transformer=None, *, preserve_features=False):
+    def __init__(self, task, transformer=None, *, preserve_features=False, feature_only=False):
         self.task = task
         self.transformer = transformer
         self.preserve_features = preserve_features
+        self.feature_only = feature_only
         self._is_fitted = False
 
     def __sklearn_is_fitted__(self):
@@ -41,29 +42,56 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                 time_idx = X.time_idx
                 test_data = X.test_data
             else:
-                if isinstance(X, pd.DataFrame):
+                if isinstance(X, pd.DataFrame) and getattr(task, "time_col", None) not in X.columns:
                     task.time_col = X.columns[0]
                 elif getattr(task, "time_col", None) is None:
                     task.time_col = "ds"
-                if y is not None or getattr(task, "target_names", None) is None:
+                if isinstance(y, pd.DataFrame) or getattr(y, "name", None) is not None:
                     task.target_names = (
                         list(y.columns) if isinstance(y, pd.DataFrame) else [getattr(y, "name", None) or "y"]
                     )
-            frame = normalize_ts_data(
-                X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
-                task.target_names,
-                task.time_col,
-                None if y is None else np.asarray(y),
-            )
-            if isinstance(frame, TimeSeriesDataset):
-                frame = frame.train_data.copy()
-            frame[task.time_col] = pd.to_datetime(frame[task.time_col])
-            features = frame.drop(columns=task.target_names)
-            labels = frame[task.target_names]
+                elif getattr(task, "target_names", None) is None:
+                    task.target_names = ["y"]
+            if getattr(self, "feature_only", False):
+                features = (
+                    X.X_train.copy()
+                    if isinstance(X, TimeSeriesDataset)
+                    else normalize_ts_data(
+                        X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
+                        task.target_names,
+                        task.time_col,
+                    )
+                )
+                labels = X.y_train if isinstance(X, TimeSeriesDataset) and y is None else y
+                if labels is not None:
+                    labels = pd.DataFrame(
+                        np.asarray(labels).reshape(len(features), -1),
+                        index=features.index,
+                        columns=task.target_names,
+                    )
+            else:
+                frame = normalize_ts_data(
+                    X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
+                    task.target_names,
+                    task.time_col,
+                    None if y is None else np.asarray(y),
+                )
+                if isinstance(frame, TimeSeriesDataset):
+                    frame = frame.train_data.copy()
+                if not all(name in frame for name in task.target_names):
+                    raise ValueError("Forecast model refits require target labels.")
+                features = frame.drop(columns=task.target_names)
+                labels = frame[task.target_names]
+            features[task.time_col] = pd.to_datetime(features[task.time_col])
             self.transformer_ = DataTransformerTS(task.time_col, task.target_names, time_idx=time_idx)
-            features, labels = self.transformer_.fit_transform(
-                features, labels, preserve_features=self.preserve_features
-            )
+            transformed = self.transformer_.fit_transform(features, labels, preserve_features=self.preserve_features)
+            if labels is None:
+                features = transformed
+            else:
+                features, labels = transformed
+            if getattr(self, "feature_only", False):
+                self._is_fitted = True
+                return features
             if test_data is not None and len(test_data):
                 test_data = self._transform_forecast_frame(test_data)
             data = TimeSeriesDataset(
@@ -90,7 +118,13 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
         if isinstance(X, TimeSeriesDataset):
+            if getattr(self, "feature_only", False):
+                return self.transformer_.transform(X.X_train)
             return self._transform_validation_data(X)[0]
+        if self.task_.is_ts_forecast() and isinstance(X, pd.DataFrame):
+            X = X.copy()
+            if self.task_.time_col in X:
+                X[self.task_.time_col] = pd.to_datetime(X[self.task_.time_col])
         return self.task_.preprocess(X, self.transformer_)
 
     def _transform_validation_data(self, X):
@@ -128,10 +162,16 @@ class AutoMLPipeline(Pipeline):
                 if target in X.test_data and len(X.test_data):
                     X.test_data[target] = label_transformer.transform(X.test_data[target])
             else:
-                y = label_transformer.fit_transform(y)
+                encoded = label_transformer.fit_transform(np.asarray(y).reshape(-1))
+                if isinstance(y, pd.Series):
+                    y = pd.Series(encoded, index=y.index, name=y.name)
+                elif isinstance(y, pd.DataFrame):
+                    y = pd.DataFrame(encoded, index=y.index, columns=y.columns)
+                else:
+                    y = encoded
         if self.resampler is None:
             result = super().fit(X, y, **params)
-            self.label_transformer_ = label_transformer
+            self._set_label_transformer(label_transformer)
             return result
 
         from flaml.automl.ml import _resample_training_data, _validate_resampler
@@ -159,8 +199,14 @@ class AutoMLPipeline(Pipeline):
             self.steps = preprocessing.steps + [(estimator_name, estimator)]
         X, y = _resample_training_data(X, y, resampler=self.resampler)
         estimator.fit(X, y, **step_params[estimator_name])
-        self.label_transformer_ = label_transformer
+        self._set_label_transformer(label_transformer)
         return self
+
+    def _set_label_transformer(self, transformer):
+        self.label_transformer_ = transformer
+        for _, step in self.steps[:-1]:
+            if transformer is not None and isinstance(step, _TaskPreprocessor) and step.task_.is_ts_forecast():
+                step.transformer_.label_transformer = transformer
 
     @available_if(lambda self: hasattr(self._final_estimator, "fit_predict"))
     def fit_predict(self, X, y=None, **params):
@@ -199,8 +245,10 @@ class AutoMLPipeline(Pipeline):
         return prediction
 
     def score(self, X, y=None, sample_weight=None, **params):
+        from flaml.automl.time_series.ts_data import TimeSeriesDataset
+
         transformer = getattr(self, "label_transformer_", self.label_transformer)
-        if transformer is not None:
+        if transformer is not None and not (isinstance(X, TimeSeriesDataset) and y is None):
             y = transformer.transform(y)
         return super().score(X, y, sample_weight=sample_weight, **params)
 
@@ -229,7 +277,9 @@ def _preprocessing_steps(automl, estimator):
 
 def make_automl_feature_transformer(automl, estimator):
     """Snapshot only preprocessing without copying the fitted learner."""
-    return deepcopy(Pipeline(_preprocessing_steps(automl, estimator)))
+    pipeline = deepcopy(Pipeline(_preprocessing_steps(automl, estimator)))
+    pipeline.named_steps["feature_transformer"].feature_only = True
+    return pipeline
 
 
 def make_automl_pipeline(automl, estimator):

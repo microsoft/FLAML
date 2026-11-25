@@ -141,3 +141,20 @@ def test_fractional_column_preserves_adjacent_large_integers(dtype_spark):
     converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1)
     assert schema["value"] == "string"
     assert sorted(row.value for row in converted.collect()) == sorted(values)
+
+
+@pytest.mark.parametrize("sampled", [False, True])
+def test_integer_candidate_rejects_numeric_literal_overflow(dtype_spark, monkeypatch, sampled):
+    frame = dtype_spark.sql("SELECT * FROM VALUES ('1'), ('2'), ('1e400') AS input(value)")
+    if sampled:
+        monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") != "1e400"))
+    with pytest.raises(ValueError, match="numeric values incompatible"):
+        auto_convert_dtypes_spark(frame, sample_ratio=1.0)
+
+
+def test_double_candidate_preserves_a_large_fraction_rounded_to_an_integer(dtype_spark):
+    values = ["4503599627370496.5", "1.5", "2.5"]
+    frame = dtype_spark.sql("SELECT * FROM VALUES ('4503599627370496.5'), ('1.5'), ('2.5') AS input(value)")
+    converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0)
+    assert schema["value"] == "string"
+    assert sorted(row.value for row in converted.collect()) == sorted(values)

@@ -20,6 +20,10 @@ def main():
     from flaml.automl.training_log import training_log_reader
 
     assert callable(training_log_reader)
+    public = {}
+    exec("from flaml.automl import *", public)
+    assert callable(public["register_automl_pipeline"])
+    assert ("AutoML" in public) is flaml.has_automl
     assert importlib.util.find_spec("mlflow") is None
     assert importlib.util.find_spec("pyspark") is None
     analysis = tune.run(
@@ -57,6 +61,18 @@ def main():
         data = pd.DataFrame({"feature": [1.0, 2.0, 3.0]})
         features = Featurization(params={"fe.numerical": "scaler_standard"}).fit_transform(data)
         np.testing.assert_allclose(features["feature"], [-1.22474487, 0.0, 1.22474487])
+        automl = flaml.AutoML(
+            estimator_list=["rf"],
+            max_iter=2,
+            n_jobs=1,
+            featurization="auto",
+            verbose=0,
+            starting_points={"rf": {"n_estimators": 4}},
+        )
+        X = pd.DataFrame({"first": np.arange(60.0), "second": np.arange(60.0) ** 2})
+        automl.fit(X, np.tile([0, 1], 30))
+        assert automl.automl_pipeline is not None
+        np.testing.assert_array_equal(automl.automl_pipeline.predict(X), automl.predict(X))
 
     if args.autozero:
         import numpy as np

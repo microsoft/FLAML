@@ -167,6 +167,146 @@ def test_container_runner_requires_an_explicit_multiworker_cluster(monkeypatch, 
         module.main()
 
 
+@pytest.mark.parametrize("measured_context", ["spark-worker:worker-1:123", "driver"])
+def test_container_coverage_gate_requires_actual_worker_context(tmp_path, measured_context):
+    import coverage
+
+    from flaml.tune.spark.utils import get_broadcast_data
+
+    module = _load_spark_test(Path("containers") / "run_tests")
+    filename = str(tmp_path / "worker.coverage")
+    data = coverage.CoverageData(basename=filename)
+    data.set_context(measured_context)
+    data.add_lines({"flaml/tune/spark/utils.py": [get_broadcast_data.__code__.co_firstlineno + 1]})
+    data.write()
+    results = [
+        (
+            0,
+            "worker-1",
+            (3, 11),
+            "3.5.1",
+            "2.8.0",
+            {"file": filename, "context": "spark-worker:worker-1:123", "pid": 123},
+        )
+    ]
+    if measured_context == "driver":
+        with pytest.raises(RuntimeError, match="executed FLAML code"):
+            module._verify_worker_coverage(results)
+    else:
+        module._verify_worker_coverage(results)
+
+
+def test_container_coverage_gate_rejects_missing_shards(tmp_path):
+    module = _load_spark_test(Path("containers") / "run_tests")
+    with pytest.raises(RuntimeError, match="coverage shard"):
+        module._verify_worker_coverage(
+            [
+                (
+                    0,
+                    "worker",
+                    (3, 11),
+                    "3.5.1",
+                    "2.8.0",
+                    {"file": str(tmp_path / "missing"), "context": "spark-worker:worker:1", "pid": 1},
+                )
+            ]
+        )
+
+
+def test_executor_guard_flushes_real_flaml_coverage(tmp_path):
+    import subprocess
+    import textwrap
+
+    code = textwrap.dedent(
+        f"""
+        import sys
+        from types import ModuleType, SimpleNamespace
+        import coverage
+        import flaml
+        from test.spark.containers.run_tests import _executor_identity, _verify_worker_coverage
+
+        fake = ModuleType("pyspark")
+        fake.__version__ = "test-runtime"
+        fake.TaskContext = SimpleNamespace(get=lambda: object())
+        sys.modules["pyspark"] = fake
+        collector = coverage.Coverage(
+            source=["flaml"], branch=True, data_file={str(tmp_path / "worker.coverage")!r}, data_suffix=True
+        )
+        collector.start()
+        try:
+            result = _executor_identity(7)
+            assert result[0] == 7
+            _verify_worker_coverage([result])
+        finally:
+            collector.stop()
+            collector.save()
+        print("worker-coverage-verified")
+    """
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "worker-coverage-verified" in result.stdout
+
+
+@pytest.mark.parametrize("invalid", ["spark-runtime", "joblib-host", "joblib-runtime"])
+def test_container_guard_rejects_runtime_or_joblib_mismatch(monkeypatch, invalid):
+    from contextlib import nullcontext
+
+    import flaml
+
+    module = _load_spark_test(Path("containers") / "run_tests")
+    runtime = (sys.version_info[:2], "3.5.1", flaml.__version__)
+    results = [(index, f"worker-{index}", *runtime) for index in range(2)]
+    joblib_results = list(results)
+    if invalid == "spark-runtime":
+        results[0] = (0, "worker-0", (0, 0), *runtime[1:])
+    elif invalid == "joblib-host":
+        joblib_results[0] = (0, "driver", *runtime)
+    else:
+        joblib_results[0] = (0, "worker-0", (0, 0), *runtime[1:])
+    spark = Mock()
+    spark.sparkContext.master = "spark://master:7077"
+    spark.sparkContext.parallelize.return_value.barrier.return_value.mapPartitions.return_value.collect.return_value = (
+        results
+    )
+    monkeypatch.setattr(module, "_wait_for_workers", Mock())
+    monkeypatch.setattr(module, "_verify_worker_coverage", Mock())
+    monkeypatch.setitem(sys.modules, "pyspark", SimpleNamespace(__version__="3.5.1"))
+    monkeypatch.setitem(sys.modules, "joblibspark", SimpleNamespace(register_spark=lambda: None))
+    monkeypatch.setitem(
+        sys.modules,
+        "joblib",
+        SimpleNamespace(
+            Parallel=lambda **kwargs: lambda jobs: joblib_results,
+            delayed=lambda function: lambda value: (function, value),
+            parallel_backend=lambda name: nullcontext(),
+        ),
+    )
+    with pytest.raises(RuntimeError, match="runtime mismatch|Joblib did not execute"):
+        module.verify_cluster(spark, "spark://master:7077", 2)
+
+
+@pytest.mark.parametrize("hosts", [("worker-a", "worker-b"), ("worker-a", "worker-a")])
+def test_container_registration_wait_requires_distinct_alive_workers(monkeypatch, hosts):
+    import io
+    import json
+
+    module = _load_spark_test(Path("containers") / "run_tests")
+    payload = json.dumps({"workers": [{"state": "ALIVE", "host": host} for host in hosts]}).encode()
+    request = Mock(side_effect=lambda *args, **kwargs: io.BytesIO(payload))
+    clock = SimpleNamespace(monotonic=Mock(side_effect=[0, 1, 121]), sleep=Mock())
+    monkeypatch.setattr(module, "urlopen", request)
+    monkeypatch.setattr(module, "time", clock)
+    if len(set(hosts)) == 1:
+        with pytest.raises(RuntimeError, match="distinct registered Spark workers"):
+            module._wait_for_workers(2)
+        clock.sleep.assert_called_once_with(1)
+    else:
+        module._wait_for_workers(2)
+        clock.sleep.assert_not_called()
+    request.assert_called_once_with("http://master:8080/json/", timeout=5)
+
+
 @pytest.mark.parametrize("python_version", [(3, 10), (3, 11), (3, 12), (3, 13)])
 def test_ensemble_is_not_skipped_on_supported_python(monkeypatch, spark_dependencies, python_version):
     with monkeypatch.context() as version_patch:

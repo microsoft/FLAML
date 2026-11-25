@@ -221,8 +221,38 @@ def test_offline_nlp_coverage_has_a_maintained_ci_step():
     assert "matrix.python-version == '3.10'" not in nlp["if"]
     assert "test/nlp/test_hf_utils_coverage.py" in nlp["run"]
     assert "test/nlp/test_autohf_classificationhead.py" in nlp["run"]
+    for selector in ("test_build_portfolio", "test_starting_point_not_in_search_space", "test_build_error_portfolio"):
+        assert f"test/nlp/test_default.py::{selector}" in nlp["run"]
     assert nlp["env"]["HF_HUB_OFFLINE"] == "1"
     assert nlp["env"]["TRANSFORMERS_OFFLINE"] == "1"
+
+
+@pytest.mark.parametrize("outcome", ["passed", "skipped", "missing"])
+def test_offline_nlp_gate_rejects_missing_training_execution(tmp_path, outcome):
+    import subprocess
+    import sys
+    import xml.etree.ElementTree as ET
+
+    yaml = pytest.importorskip("yaml")
+    workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
+    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
+    command = next(
+        step["run"] for step in steps if step.get("name") == "Test offline NLP utilities and classification heads"
+    )
+    gate = command.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    root = ET.Element("testsuite")
+    if outcome != "missing":
+        for task in ("seq-classification", "seq-regression"):
+            case = ET.SubElement(
+                root, "testcase", name=f"test_offline_automl_fit_and_predict_with_local_checkpoint[{task}]"
+            )
+            if outcome == "skipped":
+                ET.SubElement(case, "skipped")
+    ET.ElementTree(root).write(tmp_path / "offline-nlp.xml")
+    result = subprocess.run([sys.executable, "-c", gate], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert (result.returncode == 0) is (outcome == "passed")
+    if outcome != "passed":
+        assert "Offline AutoML classification and regression" in result.stderr
 
 
 def test_ci_write_permissions_are_limited_to_publication_jobs():
@@ -248,6 +278,30 @@ def test_nlp_execution_is_not_excluded_from_coverage():
     config.read(root / ".coveragerc", encoding="utf-8")
     source = (root / "flaml" / "automl" / "nlp" / "huggingface" / "utils.py").as_posix()
     assert not any(fnmatch.fnmatch(source, pattern.strip()) for pattern in config["run"]["omit"].splitlines())
+
+
+def test_public_overview_uses_explicit_final_test_evaluation_and_no_editorial_metadata():
+    import ast
+    import json
+
+    root = Path(__file__).resolve().parents[1]
+    source = json.loads((root / "notebook" / "trident" / "FLAML Demo - Overview.ipynb").read_text(encoding="utf-8"))
+    assert not any("ms_comments" in cell.get("metadata", {}) for cell in source["cells"])
+    cells = ["".join(cell.get("source", [])) for cell in source["cells"] if cell["cell_type"] == "code"]
+    definition = ast.parse(next(cell for cell in cells if "def predict(" in cell)).body[0]
+    assert not definition.args.defaults
+    for metric in ("default_metrics", "automl_metrics"):
+        tree = ast.parse(next(cell for cell in cells if f"{metric} = predict(" in cell))
+        assignment = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == metric for target in node.targets)
+        )
+        assert isinstance(assignment.value.args[1], ast.Name)
+        assert assignment.value.args[1].id == "test_data"
+    combined = json.loads((root / "notebook" / "trident" / "all_in_one_test.ipynb").read_text(encoding="utf-8"))
+    assert not any("ms_comments" in cell.get("metadata", {}) for cell in combined["cells"])
 
 
 @pytest.mark.parametrize("job_name", ["build", "spark", "coverage"])

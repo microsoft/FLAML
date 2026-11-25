@@ -6,9 +6,9 @@ from copy import deepcopy
 import numpy as np
 
 from flaml.automl.data import DataTransformer
-from flaml.automl.spark.utils import len_labels
 from flaml.automl.task.factory import task_factory
 from flaml.automl.task.task import CLASSIFICATION, get_classification_objective
+from flaml.automl.utils import len_labels
 from flaml.version import __version__
 
 try:

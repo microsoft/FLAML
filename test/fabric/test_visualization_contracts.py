@@ -405,6 +405,73 @@ def test_tune_timeline_labels_missing_time_metadata_as_approximate():
     np.testing.assert_allclose(np.asarray(figure.data[0].base, dtype=float), [0.0, 2.0])
 
 
+@pytest.mark.parametrize("recorded", [False, True])
+def test_timeline_retains_durations_when_duration_is_the_objective(recorded):
+    from flaml.fabric.visualization import get_hp_df, plot_timeline
+    from flaml.tune.tune import ExperimentAnalysis
+
+    trials = [
+        SimpleNamespace(
+            trial_id=str(index),
+            config={"x": index},
+            start_time=100 + index if recorded else None,
+            last_result={"config": {"x": index}, "time_total_s": duration},
+        )
+        for index, duration in enumerate([2.0, 3.0])
+    ]
+    result = ExperimentAnalysis(trials, metric="time_total_s", mode="min")
+    _, scores = get_hp_df(result)
+    np.testing.assert_allclose(scores, [2.0, 3.0])
+    figure = plot_timeline(result)
+    np.testing.assert_allclose(figure.data[0].x, [2.0, 3.0])
+    np.testing.assert_allclose(np.asarray(figure.data[0].base, dtype=float), [0, 1 if recorded else 2])
+
+
+@pytest.mark.parametrize("last_result", [None, {}])
+def test_resultless_trials_do_not_discard_successful_tune_history(last_result):
+    from flaml.fabric.visualization import get_hp_df
+    from flaml.tune.tune import ExperimentAnalysis
+
+    trials = [
+        SimpleNamespace(trial_id="good", config={"x": 1}, last_result={"config": {"x": 1}, "loss": 0.4}),
+        SimpleNamespace(trial_id="stopped", config={"x": 2}, last_result=last_result),
+    ]
+    analysis = ExperimentAnalysis(trials, metric="loss", mode="min")
+    frame, scores = get_hp_df(analysis)
+    assert frame["x"].tolist() == [1, 2]
+    assert scores.iloc[0] == 0.4 and pd.isna(scores.iloc[1])
+    figure = plot_slice(analysis)
+    np.testing.assert_allclose(figure.data[0].y, [0.4, np.nan], equal_nan=True)
+
+
+def test_importance_without_optuna_reports_the_missing_optional_dependency(monkeypatch):
+    from flaml.fabric.visualization import optuna_space
+    from flaml.tune.searcher import suggestion
+
+    result = history_result()
+    result._search_states = {"arima": SimpleNamespace(search_space={"p": tune.randint(0, 4)})}
+    monkeypatch.setattr(suggestion, "ot", None)
+    assert plot_slice(result).data
+    with pytest.raises(ImportError, match="[Oo]ptuna"):
+        optuna_space(result)
+
+
+@pytest.mark.parametrize("importance", [{}, {"p": 0.75, "q": 0.25}])
+def test_parameter_importance_plot_preserves_weights_and_empty_fallback(monkeypatch, importance):
+    from flaml.fabric import visualization
+
+    monkeypatch.setattr(visualization, "get_param_importance", lambda *args, **kwargs: importance)
+    figure = visualization.plot_param_importance(history_result())
+    if importance:
+        np.testing.assert_allclose(figure.data[0].x, [0.75, 0.25])
+        assert list(figure.data[0].y) == ["p", "q"]
+        assert figure.data[0].orientation == "h"
+        assert "arima" in figure.layout.title.text
+    else:
+        assert not figure.data
+        assert "variance" in figure.layout.annotations[0].text
+
+
 @pytest.mark.parametrize("learner_name", ["catboost", "nameless"])
 def test_feature_importance_uses_the_fitted_reduced_schema(learner_name):
     from flaml.automl.model import RandomForestEstimator

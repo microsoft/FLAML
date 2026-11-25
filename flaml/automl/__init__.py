@@ -4,7 +4,9 @@ try:
     from flaml.automl.automl import AutoML, size
     from flaml.automl.state import AutoMLState, SearchState
 except ImportError:
-    pass
+    __all__ = ["logger_formatter", "register_automl_pipeline"]
+else:
+    __all__ = ["AutoML", "AutoMLState", "SearchState", "logger_formatter", "size", "register_automl_pipeline"]
 
 
 def __getattr__(name):
@@ -20,14 +22,3 @@ def register_automl_pipeline(automl, model_name=None, signature=None, artifact_p
     from flaml.fabric.mlflow import register_automl_pipeline as register_pipeline
 
     return register_pipeline(automl, model_name, signature, artifact_path)
-
-
-__all__ = [
-    "AutoML",
-    "AutoMLState",
-    "SearchState",
-    "logger_formatter",
-    "size",
-    "Featurization",
-    "register_automl_pipeline",
-]

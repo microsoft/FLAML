@@ -51,14 +51,19 @@ def _augment_rare_classes(X, y, data_is_df):
     for label, rare_count in zip(label_set[counts < rare_threshold].tolist(), counts[counts < rare_threshold]):
         count = rare_count
         rare_index = y == label
-        n = len(y)
+        if isinstance(X, (psDataFrame, psSeries)):
+            rows = X.loc[rare_index]
+            labels = y.loc[rare_index]
+        else:
+            rare_index = np.asarray(rare_index, dtype=bool)
+            rows = X.iloc[rare_index] if data_is_df else X[rare_index, :]
+            labels = y.iloc[rare_index] if isinstance(y, pd.Series) else y[rare_index]
         while count < rare_threshold:
-            rows = X.iloc[:n].loc[rare_index] if data_is_df else X[:n][rare_index, :]
             X = concat(X, rows)
             if isinstance(y, (pd.Series, psSeries)):
-                y = concat(y, y.iloc[:n].loc[rare_index])
+                y = concat(y, labels)
             else:
-                y = np.concatenate([y, y[:n][rare_index]])
+                y = np.concatenate([y, labels])
             count += rare_count
         logger.info(f"class {label} augmented from {rare_count} to {count}")
     return X, y

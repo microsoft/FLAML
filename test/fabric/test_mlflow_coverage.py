@@ -46,19 +46,11 @@ def _finish_mocked_logging_inside_patch_scopes(monkeypatch):
     monkeypatch.setattr(integration_module, "executor", ImmediateExecutor())
 
 
-def _mock_active_run_none_then_mock(run_id="r1"):
-    """Return None first (no active run), then a mock for subsequent calls."""
+def _mock_matching_active_run(run_id="r1"):
+    """Keep the caller's already-active artifact run stable across checks."""
     mock = MagicMock()
     mock.info.run_id = run_id
-    first = [True]
-
-    def side_effect():
-        if first[0]:
-            first[0] = False
-            return None
-        return mock
-
-    return side_effect
+    return lambda: mock
 
 
 # ---------------------------------------------------------------------------
@@ -437,7 +429,7 @@ class TestLogModel:
     def test_log_model_lgbm(self):
         integration = self._make_integration()
         integration.parent_run_id = "other_id"
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.lightgbm.log_model"):
@@ -450,12 +442,17 @@ class TestLogModel:
         mock_run = MagicMock()
         mock_run.info.run_id = "spark_run"
         integration.parent_run_id = "spark_run"  # match parent_run_id to trigger first branch
-        with patch.object(mlflow, "active_run", return_value=mock_run):
-            with patch.object(mlflow, "start_run"):
-                with patch.object(mlflow, "end_run"):
-                    with patch("mlflow.spark.log_model"):
-                        with patch.object(mlflow.models.model, "update_model_requirements"):
-                            result = integration.log_model(MagicMock(), "lgbm_spark", run_id="r1")
+        model = MagicMock()
+        with patch.object(mlflow, "active_run", return_value=mock_run), patch.object(
+            mlflow, "start_run", return_value=SimpleNamespace(info=SimpleNamespace(run_id="r1"))
+        ) as start, patch.object(mlflow, "end_run") as end, patch("mlflow.spark.log_model") as log, patch.object(
+            mlflow.models.model, "update_model_requirements"
+        ) as requirements:
+            result = integration.log_model(model, "lgbm_spark", run_id="r1")
+        start.assert_called_once_with(run_id="r1", nested=True)
+        end.assert_called_once_with()
+        log.assert_called_once_with(model, "model", signature=None)
+        assert requirements.call_args.kwargs["model_uri"] == "runs:/r1/model"
         assert "Successfully" in result
 
     def test_log_model_wrong_active_run(self):
@@ -471,7 +468,7 @@ class TestLogModel:
 
     def test_log_model_transformer(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.transformers.log_model"):
@@ -481,7 +478,7 @@ class TestLogModel:
 
     def test_log_model_statsmodels(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.statsmodels.log_model"):
@@ -491,7 +488,7 @@ class TestLogModel:
 
     def test_log_model_pytorch(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.pytorch.log_model"):
@@ -501,7 +498,7 @@ class TestLogModel:
 
     def test_log_model_prophet(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.prophet.log_model"):
@@ -511,11 +508,15 @@ class TestLogModel:
 
     def test_log_model_orbit_unsupported(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
-            with patch.object(mlflow, "start_run"):
-                with patch.object(mlflow, "end_run"):
-                    with patch.object(mlflow.models.model, "update_model_requirements"):
-                        result = integration.log_model(MagicMock(), "orbit", run_id="r1")
+        with patch.object(mlflow, "active_run", return_value=None), patch.object(
+            mlflow, "start_run", return_value=SimpleNamespace(info=SimpleNamespace(run_id="r1"))
+        ) as start, patch.object(mlflow, "end_run") as end, patch.object(
+            mlflow.models.model, "update_model_requirements"
+        ) as requirements:
+            result = integration.log_model(MagicMock(), "orbit", run_id="r1")
+        start.assert_called_once_with(run_id="r1", nested=False)
+        end.assert_called_once_with()
+        requirements.assert_not_called()
         assert "Successfully" in result
 
 
@@ -574,17 +575,22 @@ class TestLogPipeline:
 
     def test_log_pipeline_no_active_run(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
-            with patch.object(mlflow, "start_run"):
-                with patch.object(mlflow, "end_run"):
-                    with patch("mlflow.sklearn.log_model"):
-                        with patch.object(mlflow.models.model, "update_model_requirements"):
-                            result = integration._log_pipeline(MagicMock(), "sklearn", "model", None, "r1")
+        pipeline = MagicMock()
+        with patch.object(mlflow, "active_run", return_value=None), patch.object(
+            mlflow, "start_run", return_value=SimpleNamespace(info=SimpleNamespace(run_id="r1"))
+        ) as start, patch.object(mlflow, "end_run") as end, patch("mlflow.sklearn.log_model") as log, patch.object(
+            mlflow.models.model, "update_model_requirements"
+        ) as requirements:
+            result = integration._log_pipeline(pipeline, "sklearn", "model", None, "r1")
+        start.assert_called_once_with(run_id="r1", nested=False)
+        end.assert_called_once_with()
+        log.assert_called_once_with(pipeline, "model", signature=None)
+        assert requirements.call_args.kwargs["model_uri"] == "runs:/r1/model"
         assert "Successfully" in result
 
     def test_log_pipeline_spark_flavor(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
+        with patch.object(mlflow, "active_run", side_effect=_mock_matching_active_run("r1")):
             with patch.object(mlflow, "start_run"):
                 with patch.object(mlflow, "end_run"):
                     with patch("mlflow.spark.log_model"):
@@ -594,11 +600,15 @@ class TestLogPipeline:
 
     def test_log_pipeline_unsupported_flavor(self):
         integration = self._make_integration()
-        with patch.object(mlflow, "active_run", side_effect=_mock_active_run_none_then_mock("r1")):
-            with patch.object(mlflow, "start_run"):
-                with patch.object(mlflow, "end_run"):
-                    with patch.object(mlflow.models.model, "update_model_requirements"):
-                        result = integration._log_pipeline(MagicMock(), "unknown_flavor", "model", None, "r1")
+        with patch.object(mlflow, "active_run", return_value=None), patch.object(
+            mlflow, "start_run", return_value=SimpleNamespace(info=SimpleNamespace(run_id="r1"))
+        ) as start, patch.object(mlflow, "end_run") as end, patch.object(
+            mlflow.models.model, "update_model_requirements"
+        ) as requirements:
+            result = integration._log_pipeline(MagicMock(), "unknown_flavor", "model", None, "r1")
+        start.assert_called_once_with(run_id="r1", nested=False)
+        end.assert_called_once_with()
+        requirements.assert_not_called()
         assert "Successfully" in result
 
 
@@ -680,8 +690,12 @@ class TestLogAutoml:
 
         with patch.object(mlflow, "start_run"), patch.object(mlflow, "log_metrics"), patch.object(
             integration, "adopt_children"
-        ), patch.object(integration, "pickle_and_log_automl_artifacts"):
+        ), patch.object(integration, "pickle_and_log_automl_artifacts") as log:
             integration.log_automl(automl)
+            assert not integration.has_model
+            log.assert_not_called()
+            integration.log_final_model(automl)
+            log.assert_called_once_with(automl, automl.model, "xgboost", None, integration.parent_run_id)
         assert integration.has_model is True
 
     def test_log_automl_autolog_spark_model(self):
@@ -701,8 +715,12 @@ class TestLogAutoml:
 
         with patch.object(mlflow, "start_run"), patch.object(mlflow, "log_metrics"), patch.object(
             integration, "adopt_children"
-        ), patch.object(integration, "log_model"):
+        ), patch.object(integration, "log_model") as log:
             integration.log_automl(automl)
+            assert not integration.has_model
+            log.assert_not_called()
+            integration.log_final_model(automl)
+            log.assert_called_once_with(automl.model.model, "lgbm_spark", None, integration.parent_run_id)
         assert integration.has_model is True
 
 
@@ -743,8 +761,12 @@ class TestLogAutomlManualSpark:
 
         with patch.object(integration, "copy_mlflow_run"), patch.object(
             integration, "_log_automl_configurations"
-        ), patch.object(integration, "log_model"):
+        ), patch.object(integration, "log_model") as log:
             integration.log_automl(automl)
+            assert not integration.has_model
+            log.assert_not_called()
+            integration.log_final_model(automl)
+            log.assert_called_once_with(automl.model.model, "lgbm_spark", None, integration.parent_run_id)
         assert integration.has_model is True
 
 
@@ -786,12 +808,17 @@ class TestLogInfoToRun:
             },
         }
         integration.mlflow_client.log_batch = MagicMock()
+        integration.mlflow_client.create_run = MagicMock(
+            return_value=SimpleNamespace(info=SimpleNamespace(run_id="sub_run_id"))
+        )
+        integration.mlflow_client.set_terminated = MagicMock()
         with patch.object(mlflow, "start_run") as mock_start:
-            mock_run = MagicMock()
-            mock_run.__enter__ = MagicMock(return_value=MagicMock(info=MagicMock(run_id="sub_run_id")))
-            mock_run.__exit__ = MagicMock(return_value=False)
-            mock_start.return_value = mock_run
             result = integration._log_info_to_run(info, "run_id", log_params=True)
+        mock_start.assert_not_called()
+        integration.mlflow_client.create_run.assert_called_once_with(
+            experiment_id=integration.experiment_id, tags={"mlflow.parentRunId": "run_id"}
+        )
+        integration.mlflow_client.set_terminated.assert_called_once_with("sub_run_id", "FINISHED")
         assert "Successfully" in result
 
 

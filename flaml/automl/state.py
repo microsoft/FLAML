@@ -90,16 +90,24 @@ class SearchState:
             search_space = learner_class.search_space(data_size=data_size, task=task)
 
         self.data_size = data_size
+        feature_space = {}
         if parse_autofe_config is not None:
-            result = parse_autofe_config(featurization, data, task, learner_class, estimator_name=estimator_name)
-            search_space.update(result)
+            feature_space = parse_autofe_config(featurization, data, task, learner_class, estimator_name=estimator_name)
+            search_space.update(feature_space)
         elif featurization != "off":
             raise ImportError("AutoFE is unavailable. Install flaml[autofe] to enable featurization.")
 
         if custom_hp is not None:
             search_space.update(custom_hp)
-        if featurization == "off":
+        if not feature_space:
             search_space = {name: space for name, space in search_space.items() if not name.startswith("fe.")}
+        elif featurization == "force":
+            for name, space in (custom_hp or {}).items():
+                if name.startswith("fe."):
+                    domain = space.get("domain")
+                    choices = getattr(domain, "categories", [domain])
+                    if any(value is None or value == "null" for value in choices):
+                        raise ValueError(f"AutoFE custom choices are incompatible with force mode: {name}")
 
         def normalize_starting_point(point):
             point = AutoMLState.sanitize(point)
@@ -409,15 +417,15 @@ class AutoMLState:
         sample_size: Optional[int] = None,
         is_retrain: bool = False,
     ):
-        if not sample_size:
-            sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
+        if sample_size is None:
+            sample_size = config_w_resource.get("FLAML_sample_size", self.data_size_full)
         config = AutoMLState.sanitize(config_w_resource)
 
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
             estimator
         ).copy()  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
         sampling_state = self
-        if isinstance(self.X_train_all, TimeSeriesDataset):
+        if isinstance(self.X_train_all, TimeSeriesDataset) and sample_size > self.data_size[0]:
             sampling_state = copy.copy(self)
             sampling_state.X_train = self.X_train_all
         (
@@ -426,6 +434,9 @@ class AutoMLState:
             sampled_weight,
             groups,
         ) = self.task.prepare_sample_train_data(sampling_state, sample_size)
+        if isinstance(sampled_X_train, TimeSeriesDataset):
+            sampled_X_train = copy.copy(sampled_X_train)
+            sampled_X_train.test_data = sampled_X_train.train_data.iloc[:0].copy()
         if sampled_weight is not None:
             weight = this_estimator_kwargs[
                 "sample_weight"

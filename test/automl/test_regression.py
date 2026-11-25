@@ -43,7 +43,16 @@ class TestRegression(unittest.TestCase):
     def test_regression(self):
         automl = AutoML()
         automl_settings = {
-            "time_budget": 2,
+            "time_budget": 6,
+            "max_iter": 2,
+            "estimator_list": ["rf"],
+            "sample": False,
+            "custom_hp": {
+                "rf": {
+                    "n_estimators": {"domain": 8, "init_value": 8},
+                    "random_state": {"domain": 7, "init_value": 7},
+                }
+            },
             "task": "regression",
             "log_file_name": artifact_path(__file__, "test/california.log"),
             "log_training_metric": True,
@@ -70,6 +79,7 @@ class TestRegression(unittest.TestCase):
             y_train=y_train,
             train_full=True,
             time_budget=1,
+            n_jobs=1,
         )
         automl.retrain_from_log(
             task="regression",
@@ -77,6 +87,7 @@ class TestRegression(unittest.TestCase):
             X_train=X_train,
             y_train=y_train,
             time_budget=0,
+            n_jobs=1,
         )
         automl = AutoML()
         automl.retrain_from_log(
@@ -85,20 +96,12 @@ class TestRegression(unittest.TestCase):
             X_train=X_train[:n],
             y_train=y_train[:n],
             train_full=True,
+            n_jobs=1,
         )
         print(automl.model.estimator)
         y_pred2 = automl.predict(X_train)
-        # Either retrain used a reduced n_estimators (so different predictions are
-        # expected), or the predictions stay close. Exact equality is too strict because:
-        #   - LGBMEstimator does not seed random_state by default, so LGBM's internal
-        #     feature_fraction_seed/bagging_seed differ across fits.
-        #   - The first fit uses n_jobs=1 while retrain_from_log defaults to n_jobs=-1,
-        #     making LGBM histogram construction thread-schedule dependent.
-        #   - The first fit uses early-stopping callbacks (X_val provided), while the
-        #     train_full=True retrain disables them.
-        assert n_iter != automl.model.estimator.get_params().get("n_estimators") or np.allclose(
-            y_pred, y_pred2, rtol=0.5, atol=0.5
-        )
+        assert n_iter == automl.model.estimator.get_params()["n_estimators"] == 8
+        np.testing.assert_array_equal(y_pred, y_pred2)
 
     @pytest.mark.skipif(
         sys.platform == "win32" and platform.machine() == "ARM64",

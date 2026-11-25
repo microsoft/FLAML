@@ -39,6 +39,50 @@ def test_download_failure_can_be_written_to_benchmark_report(monkeypatch, runner
     h2o.init.assert_not_called()
 
 
+@pytest.mark.parametrize("score", [True, np.bool_(False), None, float("nan"), float("inf"), float("-inf")])
+def test_successful_benchmark_rows_require_finite_numeric_scores(monkeypatch, score):
+    pmlb = ModuleType("pmlb")
+    monkeypatch.setitem(sys.modules, "pmlb", pmlb)
+    script = Path(__file__).resolve().parents[1] / "benchmark" / "pmlb" / "runbenchmark.py"
+    module = runpy.run_path(str(script))
+    result = {"score": score, "duration": 1.0, "metric": "r2", "status": "ok", "error": None}
+    with pytest.raises(ValueError, match="finite scalar"):
+        module["flatten_results"]({"dataset": {"flaml": result}})
+
+
+def test_flaml_benchmark_fits_real_model_on_disjoint_training_rows(monkeypatch):
+    import flaml
+
+    original = flaml.AutoML
+    seen = {}
+
+    class ObservedAutoML(original):
+        def fit(self, X_train, y_train, **kwargs):
+            seen["training"] = X_train[:, 0].copy()
+            return super().fit(X_train=X_train, y_train=y_train, **kwargs)
+
+        def predict(self, X, **kwargs):
+            seen["test"] = X[:, 0].copy()
+            return super().predict(X, **kwargs)
+
+    monkeypatch.setattr(flaml, "AutoML", lambda: ObservedAutoML(n_jobs=1, verbose=0, mlflow_logging=False))
+    pmlb = ModuleType("pmlb")
+    X = np.column_stack([np.arange(40.0), np.arange(40.0) ** 2])
+    pmlb.fetch_data = Mock(return_value=(X, X[:, 1]))
+    monkeypatch.setitem(sys.modules, "pmlb", pmlb)
+    script = Path(__file__).resolve().parents[1] / "benchmark" / "pmlb" / "runbenchmark.py"
+    module = runpy.run_path(str(script))
+    module["GLOBAL_CONF"].update(num_iter=1, time_budget=-1)
+    result = module["runner_flaml"]({"dataset": "local", "metric": "r2", "task": "regression"})
+    assert result["status"] == "ok" and np.isfinite(result["score"])
+    assert len(seen["training"]) == 30 and len(seen["test"]) == 10
+    assert set(seen["training"]).isdisjoint(seen["test"])
+    assert set(seen["training"]) | set(seen["test"]) == set(range(40))
+    flattened = module["flatten_results"]({"local": {"flaml": result}})
+    assert flattened["local"]["flaml_score"] == result["score"]
+    assert flattened["local"]["metric"] == "r2"
+
+
 def test_dataset_extraction_preserves_existing_csv_on_repeat(tmp_path, monkeypatch):
     script = Path(__file__).resolve().parents[1] / "benchmark" / "pmlb" / "extract_dataset.py"
     source = tmp_path / "benchmark" / "pmlb" / "datasets" / "pmlb" / "datasets" / "tsv_values"

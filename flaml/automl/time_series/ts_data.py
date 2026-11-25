@@ -441,12 +441,23 @@ class DataTransformerTS:
         self.num_columns = []
         self.datetime_columns = []
         self.drop_columns = []
+        self.transformer = None
+        self.label_transformer = None
+        self._preserve_features = False
 
     @property
     def _drop(self):
         return len(self.drop_columns)
 
-    def fit(self, X: Union[DataFrame, np.array], y, *, transform_features=True, preserve_features=False):
+    def fit(
+        self,
+        X: Union[DataFrame, np.array],
+        y=None,
+        *,
+        transform_features=True,
+        preserve_features=False,
+        protected_columns=(),
+    ):
         """Fit transformer.
 
         Args:
@@ -461,6 +472,8 @@ class DataTransformerTS:
         X = X.copy()
         n = X.shape[0]
         self._skip_feature_transform = not transform_features
+        self._preserve_features = preserve_features
+        protected_columns = set(protected_columns)
         self._column_mapping = {}
         if preserve_features:
             from flaml.automl.data import _make_column_name_mapping
@@ -484,16 +497,20 @@ class DataTransformerTS:
 
             # sklearn/utils/validation.py needs int/float values
             if X[column].dtype.name in ("object", "category", "string", "str"):
-                if not preserve_features and (
-                    # drop columns where all values are the same
-                    X[column].nunique() == 1
-                    # this drops UID-type cols
-                    or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
+                if (
+                    not preserve_features
+                    and column not in protected_columns
+                    and (
+                        # drop columns where all values are the same
+                        X[column].nunique() == 1
+                        # this drops UID-type cols
+                        or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
+                    )
                 ):
                     self.drop_columns.append(column)
                 elif column != self.time_idx:
                     self.cat_columns.append(column)
-            elif not preserve_features and X[column].nunique(dropna=True) < 2:
+            elif not preserve_features and column not in protected_columns and X[column].nunique(dropna=True) < 2:
                 self.drop_columns.append(column)
             elif X[column].dtype.name in ["datetime64[ns]", "datetime64[s]"]:
                 pass  # these will be processed at model level,
@@ -518,6 +535,9 @@ class DataTransformerTS:
             self.transformer = None
 
         # TODO: revisit for multivariate series, and recast for a single df input anyway
+        if y is None:
+            self.label_transformer = None
+            return
         if isinstance(y, Series):
             y = y.rename(self.label)
 
@@ -559,7 +579,9 @@ class DataTransformerTS:
         X.drop(columns=self.drop_columns, inplace=True)
 
         for col in self.cat_columns:
-            if X[col].dtype.name == "category":
+            if getattr(self, "_preserve_features", False):
+                X[col] = X[col].astype("category")
+            elif X[col].dtype.name == "category":
                 if "__NAN__" not in X[col].cat.categories:
                     X[col] = X[col].cat.add_categories("__NAN__").fillna("__NAN__")
             else:
@@ -576,7 +598,7 @@ class DataTransformerTS:
             return X
         return X, y
 
-    def fit_transform(self, X: Union[DataFrame, np.array], y, **fit_params):
+    def fit_transform(self, X: Union[DataFrame, np.array], y=None, **fit_params):
         self.fit(X, y, **fit_params)
         return self.transform(X, y)
 

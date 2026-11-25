@@ -286,7 +286,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
     def config(self) -> List[Dict]:
         """Get the config of the featurization pipeline. Could be use for reconstruct. Also an alias for self.detail_config"""
         conf = self.detail_config
-        if len(conf) == 0:
+        if not self.__sklearn_is_fitted__():
             logger.warning("You have to fit the model first to get complete config")
         return conf
 
@@ -310,7 +310,9 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         from flaml.automl.data import DataTransformer
         from flaml.automl.pipeline import _TaskPreprocessor
 
-        self.flaml_transformer = _TaskPreprocessor(self.task, DataTransformer(), preserve_features=True)
+        self.flaml_transformer = _TaskPreprocessor(
+            self.task, DataTransformer(), preserve_features=True, feature_only=True
+        )
         res_config = {}
         for stage_config in config:
             if stage_config["stage"] not in available_methods:
@@ -417,6 +419,8 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         detail_config = []
         transformers = []
         column_transformers = []
+        if isinstance(X, TimeSeriesDataset) and y is None:
+            y = X.y_train
         if self.flaml_transformer is not None:
             X = self.flaml_transformer.fit_transform(X, y)
         self.time_col_ = X.time_col if isinstance(X, TimeSeriesDataset) else None
@@ -424,6 +428,16 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         if isinstance(X, TimeSeriesDataset):
             y = X.y_train
             X = X.train_data.drop(columns=X.target_names + [X.time_col])
+        elif isinstance(X, pd.DataFrame):
+            task = getattr(self.flaml_transformer, "task_", self.task)
+            if isinstance(task, str):
+                from flaml.automl.task.factory import task_factory
+
+                task = task_factory(task)
+            if task is not None and task.is_ts_forecast():
+                time_col = getattr(task, "time_col", None)
+                self.time_col_ = time_col if time_col in X else X.columns[0]
+                X = X.drop(columns=[self.time_col_])
 
         X, y, categorical_features, numerical_features = self.static_preprocess(X, y, fit=True)
         categorical_inputs = list(categorical_features)

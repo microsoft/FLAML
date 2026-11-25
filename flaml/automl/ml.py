@@ -491,7 +491,8 @@ def train_estimator(
         X_train, y_train = _resample_training_data(X_train, y_train, task)
         train_time = estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     else:
-        estimator = estimator.estimator_class(**estimator.params)
+        if not task.is_ts_forecast():
+            estimator = estimator.estimator_class(**estimator.params)
         if autofe is not None:
             estimator = Pipeline([("autofe", autofe), ("estimator", estimator)])
     train_time = time.time() - start_time

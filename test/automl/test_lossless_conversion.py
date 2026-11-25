@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -31,6 +33,57 @@ def test_large_integer_conversion_preserves_boolean_cells(boolean):
     converted, schema = auto_convert_dtypes_pandas(frame)
     assert schema["value"] == "int"
     assert converted["value"].tolist() == [9007199254740993, 9007199254740994, int(boolean)]
+
+
+@pytest.mark.parametrize("fraction", [Decimal("4503599627370496.5"), "4503599627370496.5"])
+@pytest.mark.parametrize("companion", [2, "1.5"])
+def test_fractional_sources_below_safe_integer_ceiling_do_not_round_to_whole_values(fraction, companion):
+    source = [fraction, 1, companion]
+    converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": pd.Series(source, dtype=object)}))
+    assert schema["value"] == "string"
+    assert converted["value"].tolist() == list(map(str, source))
+
+
+def test_numeric_overflow_in_integer_candidate_is_not_replaced_with_missing():
+    source = ["1", "2", "1e400"]
+    converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": source}))
+    assert schema["value"] == "string"
+    assert converted["value"].tolist() == source
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_direct_nullable_integer_path_preserves_decimal_digits(missing):
+    source = ["9007199254740993", "-9007199254740993", "9223372036854775807"]
+    expected = [9007199254740993, -9007199254740993, 2**63 - 1]
+    if missing:
+        source.append("NA")
+        expected.append(pd.NA)
+    converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": source}))
+    assert schema["value"] == "int"
+    pd.testing.assert_series_equal(converted["value"], pd.Series(expected, dtype="Int64", name="value"))
+
+
+def test_direct_integer_overflow_preserves_original_identifier_digits():
+    source = ["9223372036854775808", "-9223372036854775809", "1"]
+    converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": source}))
+    assert schema["value"] == "string"
+    assert converted["value"].tolist() == source
+
+
+def test_sampled_datetime_candidates_are_parsed_only_once(monkeypatch):
+    frame = pd.DataFrame({"date": pd.date_range("2026-01-01", periods=200).strftime("%Y-%m-%d")})
+    original = pd.to_datetime
+    parsed_sizes = []
+
+    def parse(values, *args, **kwargs):
+        parsed_sizes.append(len(values))
+        return original(values, *args, **kwargs)
+
+    monkeypatch.setattr(pd, "to_datetime", parse)
+    converted, schema = auto_convert_dtypes_pandas(frame, sample_ratio=0.1)
+    assert schema["date"] == "timestamp"
+    assert pd.api.types.is_datetime64_any_dtype(converted["date"])
+    assert parsed_sizes == [len(frame)]
 
 
 @pytest.mark.parametrize("days,expected", [([0, 1, 3], [0, 1, 3]), ([0, 2, 5, 7], [0, 2, 5, 7])])

@@ -107,6 +107,12 @@ class TimeSeriesTask(Task):
         groups_val=None,
         groups=None,
     ):
+        group_ids = state.fit_kwargs.get("group_ids")
+        if group_ids or self.is_ts_forecastpanel():
+            if not isinstance(group_ids, list) or not group_ids:
+                raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
+            self.name = TS_FORECASTPANEL
+        automl._df = True
         # first beat the data into a TimeSeriesDataset shape
         if isinstance(X_train_all, TimeSeriesDataset):
             # in this case, we're most likely being called by another FLAML instance
@@ -126,7 +132,7 @@ class TimeSeriesTask(Task):
             else:
                 target_names = label
 
-            if self.time_col is None:
+            if getattr(self, "time_col", None) is None:
                 if isinstance(X_train_all, pd.DataFrame):
                     assert dataframe is None, "One of dataframe and X arguments must be None"
                     self.time_col = X_train_all.columns[0]
@@ -180,6 +186,14 @@ class TimeSeriesTask(Task):
         # TODO: should the transformer be a property of the dataset instead?
         self.time_col = pre_data.time_col
         self.target_names = pre_data.target_names
+        if self.is_ts_forecastpanel():
+            for frame in (pre_data.train_data, pre_data.test_data):
+                if len(frame) and (
+                    pre_data.time_idx not in frame
+                    or frame[pre_data.time_idx].dtype.kind != "i"
+                    or frame[pre_data.time_idx].isna().any()
+                ):
+                    raise ValueError("Panel time_idx must contain nonmissing signed integer values.")
         self._preprocess_for_autofe = (
             getattr(automl, "_featurization", "off") != "off" and not self.is_ts_forecastpanel()
         )
@@ -189,7 +203,11 @@ class TimeSeriesTask(Task):
             data = pre_data
             automl._transformer.label_transformer = None
         else:
-            Xt, yt = automl._transformer.fit_transform(pre_data.X_all, pre_data.y_all)
+            Xt, yt = automl._transformer.fit_transform(
+                pre_data.X_all,
+                pre_data.y_all,
+                protected_columns=pre_data.X_train.columns if self.is_ts_forecastpanel() else (),
+            )
             df_t = pd.concat([Xt, yt], axis=1)
             data = TimeSeriesDataset(
                 train_data=df_t.iloc[: len(pre_data.train_data)],
@@ -268,8 +286,6 @@ class TimeSeriesTask(Task):
                 X_train_all = ts_data.X_train
                 y_train_all = ts_data.y_train
 
-                X_train_all["time_idx"] -= X_train_all["time_idx"].min()
-                X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
                 ids = state.fit_kwargs["group_ids"].copy()
                 ids.append(ts_data.time_col)
                 ids.append("time_idx")

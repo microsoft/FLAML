@@ -125,8 +125,11 @@ partition. Explicit validation rows are never eligible for final refitting;
 validation-only target classes raise an error instead of changing training codes.
 Panel/TFT feature engineering is excluded so group identifiers, time indexes, and
 named covariates are not removed by generic feature transforms.
-Panel forecasting currently requires holdout evaluation; unsupported panel CV is
-rejected explicitly rather than using a non-group-aware row splitter.
+Panel forecasting chooses holdout for automatic evaluation; an explicit panel CV
+request is rejected rather than using a non-group-aware row splitter. Declared
+group/covariate columns and caller-supplied absolute integer time indexes are
+preserved through search, final refitting, and prediction. Panel indexes must be
+signed integers without missing values, as required by TFT.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`. MLflow is optional, and registration
@@ -153,6 +156,10 @@ feature-only pipeline with the same preprocessing step names. The lower-level
 `model` still expects processed features; use `AutoML.predict()` or the full
 exported pipeline for raw inputs. A log-derived unfitted recipe still requires
 the appropriately preprocessed data described above.
+Unsupervised forecast feature-only refits do not require targets and return
+feature DataFrames with caller row order and timestamps retained. LDA still
+requires training labels. Full forecast pipeline refits preserve named targets
+and an existing explicit timestamp column even when it is not the first column.
 Configured resampling remains a cloneable, fit-only operation after feature
 engineering; prediction and validation rows are never resampled. The same
 sample-weight and group-alignment restrictions apply to exported refits.
@@ -167,9 +174,14 @@ An autologging `log_models=False` setting suppresses automatic model and pipelin
 artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.
 Tune preserves the caller's local autolog configuration and propagates those
 options to remote workers without permanently reconfiguring reused workers.
+Worker restoration includes the active experiment, and parallel trial/run
+matching uses trial identities rather than task start order.
 Child-run adoption requires an integration-owned tag; unrelated runs in the same
 experiment are not changed. Trial artifacts use that trial's fitted model, and
 fit completion waits for dependent artifact-environment writes.
+Fluent model writes stay on the run-owning thread; only client-addressed metadata
+and requirement updates are asynchronous. The parent artifact is published after
+the final refit or ensemble is selected, without ending the caller's run.
 Opaque per-estimator fit arguments are reported by argument name only, not by
 value; credentials and training payloads are not configuration metadata.
 The metric-name tag retains its historical spelling: `flaml.meric` publicly and
@@ -215,6 +227,9 @@ would collapse distinct large exact values.
 code revisions through Spark's file distribution. Reimport the public module on
 the driver after publishing changed code; newly imported classes carry the new
 revision identity while existing class references retain the old implementation.
+Package API, metadata, and generated-revision names are reserved. Archive modules
+live under a private prefix rather than shadowing top-level imports; a failed
+Spark distribution leaves the previous driver alias unchanged.
 As before, the driver package directory must be writable. The returned source
 path is revision-specific; workers do not need writable package installations.
 

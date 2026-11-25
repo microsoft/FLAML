@@ -211,6 +211,7 @@ jobs:
           fi
           "${runner[@]}" -m pytest test/ \
             -n 2 --dist=loadfile \
+            -vv --durations=20 -o faulthandler_timeout=120 \
             --ignore=test/autogen \
             --ignore=test/spark \
             --ignore=test/nlp \
@@ -237,7 +238,19 @@ jobs:
             test/nlp/test_autohf_classificationhead.py \
             test/nlp/test_default.py::test_build_portfolio \
             test/nlp/test_default.py::test_starting_point_not_in_search_space \
-            --reruns 2 --reruns-delay 10
+            test/nlp/test_default.py::test_build_error_portfolio \
+            --reruns 2 --reruns-delay 10 --junitxml=offline-nlp.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          required = [
+              case for case in ET.parse("offline-nlp.xml").iter("testcase")
+              if case.get("name", "").startswith("test_offline_automl_fit_and_predict_with_local_checkpoint")
+          ]
+          assert len(required) >= 2 and all(case.find("skipped") is None for case in required), (
+              "Offline AutoML classification and regression integration tests must execute."
+          )
+          PY
       # .coveragerc enables `parallel = true`, so each subprocess writes its
       # own .coverage.<host>.<pid>.<rand> shard. Combine them into a single
       # per-job .coverage file so one artifact = one job's coverage.

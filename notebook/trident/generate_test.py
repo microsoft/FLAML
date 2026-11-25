@@ -27,6 +27,7 @@ def main():
             if cell["cell_type"] == "code":
                 cell.outputs = []
                 cell.execution_count = None
+                cell.metadata.pop("ms_comments", None)
                 cell["id"] = hashlib.sha256(f"{notebook_name}:{index}".encode()).hexdigest()[:32]
                 if "%pip install" in cell.source:
                     packages = cell.source.split("\n")[0].split(" ")[2:]

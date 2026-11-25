@@ -1588,6 +1588,10 @@ class LGBMEstimator(BaseEstimator):
         return X
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        if self.estimator_class is None:
+            raise ImportError(
+                "The LightGBM learner requires lightgbm. Install flaml[automl] or select an installed learner."
+            )
         if "is_retrain" in kwargs:
             is_retrain = kwargs.pop("is_retrain")
         else:

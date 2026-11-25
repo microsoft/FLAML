@@ -9,6 +9,7 @@ import textwrap
 import threading
 import time
 from functools import lru_cache, partial
+from types import ModuleType
 from zipfile import ZIP_DEFLATED, ZipFile
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ logger_formatter = logging.Formatter(
 )
 logger.propagate = False
 _broadcast_code_lock = threading.RLock()
+_published_code_aliases = set()
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
     import py4j
@@ -187,13 +189,15 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         not isinstance(file_name, str)
         or not file_name.isidentifier()
         or keyword.iskeyword(file_name)
-        or file_name.casefold() in {"__init__", "utils"}
+        or file_name.casefold() in {"__init__", "utils", "sys", "os"}
+        or file_name.startswith("__")
+        or file_name.casefold().startswith("_flaml_")
     ):
         raise ValueError("file_name must be a non-reserved Python module name.")
     spark_available, _ = check_spark()
     flaml_path = os.path.dirname(os.path.abspath(__file__))
     custom_code = textwrap.dedent(custom_code)
-    digest = hashlib.sha256(("flaml-code-v2\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(("flaml-code-v3\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
     revision = f"_flaml_custom_{file_name}_{digest}"
     custom_path = os.path.join(flaml_path, revision + ".py")
     alias_path = os.path.join(flaml_path, file_name + ".py")
@@ -203,12 +207,28 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         "if key not in {'__name__', '__loader__', '__package__', '__spec__', '__file__', '__cached__', '__builtins__'}})\n"
     )
     with _broadcast_code_lock:
+        package = sys.modules.get("flaml.tune.spark")
+        if package is not None:
+            existing = vars(package).get(file_name)
+            existing_revision = getattr(existing, "_flaml_revision", None)
+            owned_alias = (
+                isinstance(existing, ModuleType)
+                and existing.__name__ == f"flaml.tune.spark.{file_name}"
+                and isinstance(existing_revision, ModuleType)
+                and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
+            )
+            reserved = {
+                name.casefold()
+                for name in vars(package)
+                if name not in _published_code_aliases and not (name == file_name and owned_alias)
+            }
+            if file_name.casefold() in reserved or (
+                existing is not None
+                and not (isinstance(existing, ModuleType) and existing.__name__ == f"flaml.tune.spark.{file_name}")
+            ):
+                raise ValueError("file_name must not replace the Spark package's existing module API.")
         if not os.path.exists(custom_path):
             _publish_code_file(custom_path, custom_code)
-        _publish_code_file(alias_path, alias)
-        cached_alias = importlib.util.cache_from_source(alias_path)
-        if os.path.exists(cached_alias):
-            os.unlink(cached_alias)
         if spark_available:
             spark = SparkSession.builder.getOrCreate()
             archive_path = os.path.join(pyspark.SparkFiles.getRootDirectory(), f"{digest}_flaml_custom_code.zip")
@@ -217,17 +237,21 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                 os.close(descriptor)
                 try:
                     with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
-                        archive.writestr(revision + ".py", custom_code)
-                        archive.writestr(file_name + ".py", alias)
+                        archive.writestr(f"_flaml_code/{revision}.py", custom_code)
+                        archive.writestr(f"_flaml_code/{file_name}.py", alias)
                     os.replace(temporary, archive_path)
                 finally:
                     if os.path.exists(temporary):
                         os.unlink(temporary)
             spark.sparkContext.addPyFile(archive_path)
+        _publish_code_file(alias_path, alias)
+        cached_alias = importlib.util.cache_from_source(alias_path)
+        if os.path.exists(cached_alias):
+            os.unlink(cached_alias)
         sys.modules.pop(f"flaml.tune.spark.{file_name}", None)
-        package = sys.modules.get("flaml.tune.spark")
         if package is not None:
             package.__dict__.pop(file_name, None)
+        _published_code_aliases.add(file_name)
         importlib.invalidate_caches()
 
     return custom_path

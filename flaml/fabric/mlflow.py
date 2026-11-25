@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 import warnings
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextlib import contextmanager, nullcontext
 from importlib import import_module
 from typing import MutableMapping
@@ -265,6 +265,12 @@ def update_and_install_requirements(
 
 
 def _apply_autolog_configurations(configurations):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS as registry
+
+    for name, options in list(registry.items()):
+        if name != "mlflow" and options and not options.get("disable", False):
+            MLflowIntegration._set_flavor_autolog(name, {**options, "disable": True})
+    registry.clear()
     global_options = configurations.get("mlflow", {})
     if global_options:
         mlflow.autolog(**{key: value for key, value in global_options.items() if key != "globally_configured"})
@@ -279,7 +285,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     driver = (socket.gethostname(), os.getpid())
     configurations = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()}
 
-    def wrapped(*args, **kwargs):
+    def wrapped(*args, _flaml_trial_id=None, **kwargs):
         if mlflow_config is not None:
             try:
                 from synapse.ml.mlflow import set_mlflow_env_config
@@ -288,20 +294,24 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
             except Exception:
                 pass
         import mlflow
+        from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS as worker_registry
 
         remote = (socket.gethostname(), os.getpid()) != driver
-        previous = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()} if remote else None
-        if remote and mlflow_exp_id is not None:
-            mlflow.set_experiment(experiment_id=mlflow_exp_id)
+        previous = {name: options.copy() for name, options in worker_registry.items()} if remote else None
+        previous_experiment = mlflow.tracking.fluent._active_experiment_id
+        experiment_environment = {
+            name: os.environ.get(name) for name in ("MLFLOW_EXPERIMENT_ID", "MLFLOW_EXPERIMENT_NAME")
+        }
         succeeded = False
         try:
             if remote:
+                if mlflow_exp_id is not None:
+                    mlflow.set_experiment(experiment_id=mlflow_exp_id)
                 _apply_autolog_configurations(configurations)
-            run = (
-                mlflow.start_run(experiment_id=mlflow_exp_id, nested=True, tags=extra_tags)
-                if autolog
-                else nullcontext()
-            )
+            tags = dict(extra_tags or {})
+            if _flaml_trial_id is not None:
+                tags["flaml.trial_id"] = str(_flaml_trial_id)
+            run = mlflow.start_run(experiment_id=mlflow_exp_id, nested=True, tags=tags) if autolog else nullcontext()
             with run:
                 result = evaluation_func(*args, **kwargs)
             succeeded = True
@@ -309,9 +319,17 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
         finally:
             if previous is not None:
                 try:
-                    _apply_autolog_configurations(previous)
-                    AUTOLOGGING_INTEGRATIONS.clear()
-                    AUTOLOGGING_INTEGRATIONS.update(previous)
+                    try:
+                        _apply_autolog_configurations(previous)
+                    finally:
+                        worker_registry.clear()
+                        worker_registry.update(previous)
+                        mlflow.tracking.fluent._active_experiment_id = previous_experiment
+                        for name, value in experiment_environment.items():
+                            if value is None:
+                                os.environ.pop(name, None)
+                            else:
+                                os.environ[name] = value
                 except Exception:
                     if succeeded:
                         raise
@@ -515,7 +533,8 @@ class MLflowIntegration:
             _tags = [
                 RunTag(key, str(value))
                 for key, value in src_run.data.tags.items()
-                if key.startswith("flaml") or key.startswith("synapseml")
+                if (key.startswith("flaml") or key.startswith("synapseml"))
+                and key not in {"flaml.owner_id", "flaml.trial_id"}
             ]
         else:
             _tags = []
@@ -550,6 +569,10 @@ class MLflowIntegration:
                 "values": [],
             },
         }
+        trial_id = getattr(trial, "trial_id", None)
+        if isinstance(trial_id, (str, int)):
+            info["trial_id"] = str(trial_id)
+            info["tags"]["flaml.trial_id"] = str(trial_id)
 
         self.infos.append(info)
 
@@ -827,7 +850,12 @@ class MLflowIntegration:
                             if cleanup:
                                 model.cleanup()
 
-                    future = executor.submit(log_trial_model)
+                    # Keep fluent run lifecycle on the owning thread; client-only writes remain asynchronous.
+                    future = Future()
+                    try:
+                        future.set_result(log_trial_model())
+                    except Exception as exc:
+                        future.set_exception(exc)
                     self.futures_log_model[future] = f"record_state-model_{estimator}"
                     if hasattr(search_state, "trial_model"):
                         search_state.trial_model = None
@@ -841,31 +869,17 @@ class MLflowIntegration:
         self.set_best_iter(automl)
         if self.autolog:
             if self.parent_run_id is not None:
-                mlflow.start_run(run_id=self.parent_run_id, experiment_id=self.experiment_id)
-                mlflow.log_metrics(
-                    {
-                        "best_validation_loss": automl._state.best_loss,
-                        "best_iteration": automl._best_iteration,
-                        "num_child_runs": len(self.infos),
-                    }
+                metrics = {
+                    "best_validation_loss": automl._state.best_loss,
+                    "best_iteration": automl._best_iteration,
+                    "num_child_runs": len(self.infos),
+                }
+                self.mlflow_client.log_batch(
+                    run_id=self.parent_run_id,
+                    metrics=[Metric(key, value, int(time.time() * 1000), 0) for key, value in metrics.items()],
+                    params=[],
+                    tags=[],
                 )
-                if (
-                    automl._trained_estimator is not None
-                    and not self.has_model
-                    and automl._trained_estimator._model is not None
-                ):
-                    if automl.best_estimator.endswith("_spark"):
-                        self.log_model(
-                            automl._trained_estimator._model,
-                            automl.best_estimator,
-                            automl.estimator_signature,
-                            self.parent_run_id,
-                        )
-                    else:
-                        self.pickle_and_log_automl_artifacts(
-                            automl, automl.model, automl.best_estimator, automl.pipeline_signature, self.parent_run_id
-                        )
-                    self.has_model = True
 
             self.adopt_children(automl)
 
@@ -898,35 +912,27 @@ class MLflowIntegration:
                     _t2 = time.time() - _t1
                     logger.debug(f"wait futures_log_model in log_automl took {_t2} seconds")
                     kusto_logger.info(f"wait futures_log_model in log_automl took {_t2} seconds")
-                    if (
-                        automl._trained_estimator is not None
-                        and not self.has_model
-                        and automl._trained_estimator._model is not None
-                    ):
-                        if automl.best_estimator.endswith("_spark"):
-                            future = executor.submit(
-                                lambda: self.log_model(
-                                    automl._trained_estimator._model,
-                                    automl.best_estimator,
-                                    signature=automl.estimator_signature,
-                                    run_id=self.parent_run_id,
-                                )
-                            )
-                            self.futures_log_model[future] = f"log_automl-log_model_{automl.best_estimator}"
-                        else:
-                            future = executor.submit(
-                                lambda: self.pickle_and_log_automl_artifacts(
-                                    automl,
-                                    automl.model,
-                                    automl.best_estimator,
-                                    signature=automl.pipeline_signature,
-                                    run_id=self.parent_run_id,
-                                )
-                            )
-                            self.futures_log_model[
-                                future
-                            ] = f"log_automl-pickle_and_log_automl_artifacts_{automl.best_estimator}"
-                        self.has_model = True
+
+    def log_final_model(self, automl):
+        model = automl.model
+        if (
+            self.only_history
+            or not self._do_log_model
+            or self.parent_run_id is None
+            or self.has_model
+            or model is None
+            or getattr(model, "_model", model) is None
+        ):
+            return
+        if automl.best_estimator.endswith("_spark"):
+            self.log_model(
+                model.model, automl.best_estimator, getattr(automl, "estimator_signature", None), self.parent_run_id
+            )
+        else:
+            self.pickle_and_log_automl_artifacts(
+                automl, model, automl.best_estimator, getattr(automl, "pipeline_signature", None), self.parent_run_id
+            )
+        self.has_model = True
 
     def resume_mlflow(self):
         # The module can be cleared before __del__ runs during interpreter shutdown.
@@ -969,11 +975,17 @@ class MLflowIntegration:
 
         if len(info["submetrics"]["values"]) > 0:
             for each_entry in info["submetrics"]["values"]:
-                with mlflow.start_run(nested=True) as run:
-                    each_entry.update({"iter_counter": info["submetrics"]["iter_counter"]})
-                    _metrics = [Metric(key, value, int(time.time() * 1000), 0) for key, value in each_entry.items()]
-                    _tags = [RunTag("mlflow.parentRunId", run_id)]
-                    self.mlflow_client.log_batch(run_id=run.info.run_id, metrics=_metrics, params=[], tags=_tags)
+                run = self.mlflow_client.create_run(
+                    experiment_id=self.experiment_id, tags={"mlflow.parentRunId": run_id}
+                )
+                status = "FAILED"
+                try:
+                    values = {**each_entry, "iter_counter": info["submetrics"]["iter_counter"]}
+                    _metrics = [Metric(key, value, int(time.time() * 1000), 0) for key, value in values.items()]
+                    self.mlflow_client.log_batch(run_id=run.info.run_id, metrics=_metrics, params=[], tags=[])
+                    status = "FINISHED"
+                finally:
+                    self.mlflow_client.set_terminated(run.info.run_id, status)
             del info["submetrics"]["values"]
         return f"Successfully _log_info_to_run to run_id {run_id}"
 
@@ -1000,6 +1012,11 @@ class MLflowIntegration:
             )
             self.child_counter = 0
             num_infos = len(self.infos)
+            trial_infos = {
+                info["trial_id"]: (index, info)
+                for index, info in enumerate(self.infos)
+                if self.experiment_type == "tune" and "trial_id" in info
+            }
 
             # From latest to earliest, remove duplicate cross-validation runs
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
@@ -1033,6 +1050,12 @@ class MLflowIntegration:
                 child_run_id = autolog_child_run.info.run_id
                 child_run_parent_id = autolog_child_run.data.tags.get("mlflow.parentRunId", None)
                 child_start_time = autolog_child_run.info.start_time / 1000
+                info_index = self.child_counter
+                if trial_infos:
+                    matched = trial_infos.get(autolog_child_run.data.tags.get("flaml.trial_id"))
+                    if matched is None:
+                        continue
+                    info_index = matched[0]
 
                 if child_start_time < self.start_time:
                     continue
@@ -1066,9 +1089,9 @@ class MLflowIntegration:
                             self.mlflow_client.set_tag(
                                 child_run_id,
                                 "mlflow.runName",
-                                f"{self.parent_run_name}_child_{self.child_counter}",
+                                f"{self.parent_run_name}_child_{info_index}",
                             )
-                        self.mlflow_client.set_tag(child_run_id, self._tag("child_counter"), self.child_counter)
+                        self.mlflow_client.set_tag(child_run_id, self._tag("child_counter"), info_index)
 
                     # Merge autolog child run and corresponding FLAML trial info (if available).
                     # In nested scenarios (e.g., Tune -> AutoML -> MLflow autolog), MLflow can create
@@ -1076,8 +1099,8 @@ class MLflowIntegration:
                     # TODO: need more tests in nested scenarios.
                     flaml_info = None
                     child_run = None
-                    if self.child_counter < num_infos:
-                        flaml_info = self.infos[self.child_counter]
+                    if info_index < num_infos:
+                        flaml_info = self.infos[info_index]
                         child_run = self.mlflow_client.get_run(child_run_id)
                         self._log_info_to_run(flaml_info, child_run_id, log_params=False)
 
@@ -1096,7 +1119,7 @@ class MLflowIntegration:
                             num_infos,
                         )
 
-                    if flaml_info is not None and self.child_counter == best_iteration:
+                    if flaml_info is not None and info_index == best_iteration:
                         self.mlflow_client.set_tag(child_run_id, self._tag("best_run"), True)
                         if result is not None:
                             if child_run is None:

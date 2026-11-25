@@ -142,17 +142,22 @@ def test_broadcast_code():
         module = importlib.import_module(qualified_name)
         assert isinstance(module.MyLargeLGBM(), LGBMEstimator)
         context = SparkSession.builder.getOrCreate().sparkContext
+        assert context.getConf().get("spark.python.worker.reuse", "true").lower() == "true"
         broadcast_learner = context.broadcast(module.MyLargeLGBM)
+        reuse_marker = f"_flaml_test_reuse_{file_name}"
 
         def verify_import_on_worker(_):
+            import os
             import socket
+            import sys
 
             from pyspark import BarrierTaskContext
 
             BarrierTaskContext.get().barrier()
             learner = broadcast_learner.value
             assert isinstance(learner(), LGBMEstimator)
-            return [(socket.gethostname(), learner.__module__)]
+            setattr(sys.modules["flaml.tune.spark"], reuse_marker, learner.__module__)
+            return [(socket.gethostname(), os.getpid(), learner.__module__)]
 
         workers = os.environ.get("FLAML_TEST_SPARK_WORKERS")
         partitions = min(context.defaultParallelism, int(workers or "2"))
@@ -163,24 +168,28 @@ def test_broadcast_code():
             .collect()
         )
         assert len(results) == partitions
-        assert all(module_name == module.MyLargeLGBM.__module__ for _, module_name in results)
+        assert all(module_name == module.MyLargeLGBM.__module__ for _, _, module_name in results)
         if workers:
-            assert len({host for host, _ in results}) == int(workers)
+            assert len({host for host, _, _ in results}) == int(workers)
         updated_path = broadcast_code(custom_code.replace("32768", "16384"), file_name)
         paths.append(updated_path)
         updated = importlib.import_module(qualified_name).MyLargeLGBM
         broadcast_revisions = context.broadcast((module.MyLargeLGBM, updated))
 
         def verify_revisions_on_reused_worker(_):
+            import os
             import socket
+            import sys
 
             from pyspark import BarrierTaskContext
 
             BarrierTaskContext.get().barrier()
             before, after = broadcast_revisions.value
+            assert vars(sys.modules["flaml.tune.spark"]).pop(reuse_marker, None) == before.__module__
             return [
                 (
                     socket.gethostname(),
+                    os.getpid(),
                     before.search_space()["n_estimators"]["init_value"],
                     after.search_space()["n_estimators"]["init_value"],
                 )
@@ -192,9 +201,10 @@ def test_broadcast_code():
             .mapPartitions(verify_revisions_on_reused_worker)
             .collect()
         )
-        assert all((before, after) == (32768, 16384) for _, before, after in revisions)
+        assert all((before, after) == (32768, 16384) for _, _, before, after in revisions)
+        assert {(host, pid) for host, pid, _, _ in revisions} == {(host, pid) for host, pid, _ in results}
         if workers:
-            assert {host for host, _, _ in revisions} == {host for host, _ in results}
+            assert {host for host, _, _, _ in revisions} == {host for host, _, _ in results}
     finally:
         if broadcast_learner is not None:
             broadcast_learner.destroy()

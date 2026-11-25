@@ -48,13 +48,19 @@ __all__ = [
 
 def _get_tune_df(analysis: ExperimentAnalysis):
     metric = analysis.default_metric
-    df = pd.DataFrame(analysis.results).T
-    conf_cols = [col for col in df.columns if col.startswith("config/")]
-    if metric != "score":
-        df["score"] = df.pop(metric)
-    starts = {trial.trial_id: getattr(trial, "start_time", None) for trial in analysis.trials}
-    timing = [starts.get(trial_id) for trial_id in df.index]
-    df = df.reset_index().drop(columns=conf_cols + ["index"])
+    rows = []
+    timing = []
+    for trial in analysis.trials:
+        row = dict(trial.last_result) if isinstance(trial.last_result, dict) else {}
+        if not isinstance(row.get("config"), dict):
+            row["config"] = getattr(trial, "config", {}) or {}
+        row["score"] = row.get(metric, np.nan)
+        row.setdefault("time_total_s", np.nan)
+        rows.append(row)
+        timing.append(getattr(trial, "start_time", None))
+    df = pd.DataFrame(rows) if rows else pd.DataFrame(columns=["config", "score", "time_total_s"])
+    conf_cols = [col for col in df.columns if isinstance(col, str) and col.startswith("config/")]
+    df = df.drop(columns=conf_cols)
     df.attrs["trial_start_times"] = timing
     return df
 
@@ -90,6 +96,7 @@ def get_hp_df(result, learner=None, params=None):
 
     configurations = []
     for config in df["config"]:
+        config = config if isinstance(config, dict) else {}
         if isinstance(result, AutoML) and isinstance(config.get("ml"), dict):
             config = config["ml"]
         configurations.append(flatten_dict(config, prevent_delimiter=True))

@@ -830,7 +830,14 @@ def run(
                                 # The configured Parallel instance still uses Spark; inline trials need a local backend.
                                 with parallel_backend("threading"):
                                     results = parallel(
-                                        delayed(evaluation_function)(trial_to_run.config)
+                                        delayed(evaluation_function)(
+                                            trial_to_run.config,
+                                            **(
+                                                {"_flaml_trial_id": trial_to_run.trial_id}
+                                                if _internal_mlflow and mlflow_integration.autolog
+                                                else {}
+                                            ),
+                                        )
                                         for trial_to_run in trials_to_run
                                     )
                             except RuntimeError as e:
@@ -926,7 +933,14 @@ def run(
                     logger.info(f"trial {num_trials} config: {trial_to_run.config}")
                 result = None
                 with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
-                    result = evaluation_function(trial_to_run.config)
+                    result = evaluation_function(
+                        trial_to_run.config,
+                        **(
+                            {"_flaml_trial_id": trial_to_run.trial_id}
+                            if _internal_mlflow and mlflow_integration.autolog
+                            else {}
+                        ),
+                    )
                 logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
                     if _internal_mlflow:

@@ -896,6 +896,7 @@ def _spark_numeric_precision_loss(col_name: str):
     finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
     return literal & (
         ~finite
+        | ((numeric % 1 == 0) & (exact % 1 != 0))
         | ((F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING) & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip)))
     )
 
@@ -1244,7 +1245,11 @@ def auto_convert_dtypes_spark(
                         F.max(
                             F.when(value.isNotNull() & ~value.between(-(2**31), 2**31 - 1), 1).otherwise(0)
                         ).alias(f"wide_{index}"),
-                        F.sum(F.when(finite & value.isNull(), 1).otherwise(0)).alias(f"invalid_{index}"),
+                        F.sum(
+                            F.when(
+                                (finite & value.isNull()) | (~finite & _spark_numeric_precision_loss(name)), 1
+                            ).otherwise(0)
+                        ).alias(f"invalid_{index}"),
                     ]
                 )
             elif schema[name] == "double":
@@ -1380,7 +1385,10 @@ def _numeric_conversion_loses_precision(source, parsed):
     except (TypeError, ValueError, OverflowError):
         return True
     return not math.isfinite(value) or (
-        exact.copy_abs() >= _FLOAT64_SAFE_INT_CEILING and Decimal.from_float(value) != exact
+        value.is_integer()
+        and exact != exact.to_integral_value()
+        or exact.copy_abs() >= _FLOAT64_SAFE_INT_CEILING
+        and Decimal.from_float(value) != exact
     )
 
 
@@ -1405,9 +1413,9 @@ def auto_convert_dtypes_pandas(
     and categorical fields.
 
     Integer and numeric decisions always inspect the full column to preserve
-    values. Sampling can bound the initial datetime, timedelta, and categorical
-    heuristics, but conversions are still applied to every row and validated
-    against the full column before being written back.
+    values. Sampling supplies cheap datetime hints only; timedelta, datetime,
+    and categorical decisions are validated on the full column without
+    repeating expensive parsing on a sample.
 
     Args:
         df: A pandas DataFrame to convert.
@@ -1497,8 +1505,13 @@ def auto_convert_dtypes_pandas(
     else:
         sample_ratio_to_use = 1.0
         target_n = 0
-    if 0 < target_n < n_full:
-        inference_df = df.sample(n=target_n, random_state=0)
+    candidate_columns = [
+        name
+        for name in df.columns
+        if name not in skip_set and (df[name].dtype == object or isinstance(df[name].dtype, pd.StringDtype))
+    ]
+    if 0 < target_n < n_full and candidate_columns:
+        inference_df = df[candidate_columns].sample(n=target_n, random_state=0)
     else:
         inference_df = df
 
@@ -1512,7 +1525,7 @@ def auto_convert_dtypes_pandas(
             continue
 
         full_series = df[col]
-        inf_series = inference_df[col] if sampled else full_series
+        inf_series = inference_df[col] if sampled and col in inference_df else full_series
 
         # Replace NA-like values for any string-like dtype (``object`` *or*
         # pandas ``StringDtype``). Without this, ``StringDtype`` columns
@@ -1778,28 +1791,14 @@ def auto_convert_dtypes_pandas(
                 # nullable container, and the non-Int64 fast path lands
                 # here precisely because some values failed the strict
                 # integer regex above and were coerced to NaN). For
-                # mixed columns where the surviving numeric values
-                # include integers above ``2**53``, the float64
-                # intermediate has already silently rounded them — e.g.,
-                # the string ``"9007199254740993"`` (2**53+1) becomes
-                # ``9.007199254740992e15`` (== 2**53) in float64 and the
-                # subsequent ``astype("Int64")`` writes back the rounded
-                # value. This is exactly the data-corruption mode the
-                # direct-Int64 fast path above was added to prevent, but
-                # the fast path is bypassed for mixed columns. Detect
-                # the precision-loss case here by checking whether the
-                # max absolute float64 value reaches the safe-integer
-                # ceiling, and when it does, re-derive the Int64 values
-                # directly from ``full_cleaned`` via Python ``int(...)``
-                # (arbitrary precision) so the original digits round-trip
-                # exactly. Use ``2**53`` (exclusive) as the threshold:
-                # values strictly below it are exactly representable in
-                # float64; values at or above need precision-preserving
-                # re-derivation.
+                # mixed columns, exact strings/Decimals can lose fractional
+                # parts even below 2**53. Validate their source integrality,
+                # not just the already-rounded float projection.
                 nf_nonnull = numeric_full.dropna()
                 needs_precision_preserve = (not nf_nonnull.empty) and (
-                    nf_nonnull.abs() >= _FLOAT64_SAFE_INT_CEILING
-                ).any()
+                    (nf_nonnull.abs() >= _FLOAT64_SAFE_INT_CEILING).any()
+                    or any(isinstance(value, (str, Decimal)) for value in full_cleaned)
+                )
                 if needs_precision_preserve:
                     try:
                         # Re-parse each source value via Python ``int``
@@ -1831,19 +1830,23 @@ def auto_convert_dtypes_pandas(
                         # the user explicitly stored it as a float —
                         # there's nothing more precise to recover).
                         def _precise_int_or_na(src, parsed_float):
-                            if pd.isna(parsed_float):
-                                return pd.NA
                             if isinstance(src, (str, Decimal)):
                                 try:
                                     exact = src if isinstance(src, Decimal) else Decimal(src.strip())
                                 except InvalidOperation as exc:
+                                    if pd.isna(parsed_float):
+                                        return pd.NA
                                     raise ValueError("Numeric input cannot be parsed losslessly") from exc
+                                if not exact.is_finite() and pd.isna(parsed_float):
+                                    return pd.NA
                                 if not exact.is_finite() or exact != exact.to_integral_value():
                                     raise ValueError("Numeric input is not an exact integer")
                                 limits = np.iinfo(np.int64)
                                 if exact < int(limits.min) or exact > int(limits.max):
                                     raise OverflowError("Numeric input is outside the nullable Int64 range")
                                 return int(exact)
+                            if pd.isna(parsed_float):
+                                return pd.NA
                             if isinstance(src, (bool, np.bool_)):
                                 return int(src)
                             # Integer sources (``int``, ``np.integer``)
@@ -1929,159 +1932,36 @@ def auto_convert_dtypes_pandas(
             schema[col] = "double"
             continue
 
-        # Try timedelta FIRST, before datetime, so bare time-only values
-        # like ``"01:02:03"`` (which ``pd.to_datetime`` would silently
-        # parse as today + the given clock and classify as ``timestamp``)
-        # are routed to the timedelta branch where they semantically
-        # belong. The strict ``_TIMEDELTA_LIKE_PATTERN`` ensures date
-        # strings like ``"2024-01-15"`` or full datetime strings like
-        # ``"2024-01-15 01:02:03"`` do NOT match (no recognized timedelta
-        # unit / shape), so genuine timestamps still fall through to the
-        # datetime branch below unchanged.
+        # Check durations before dates so time-only values do not become today's timestamps.
         try:
-            non_na = inf_cleaned.dropna()
-            if len(non_na) > 0 or (sampled and n_full_nonnull > 0):
-                # Only probe timedelta patterns on string-like scalar
-                # values. Object columns can contain non-scalar values
-                # (lists, dicts, custom classes); casting those to
-                # ``str`` produces representations like ``"[1, 2]"`` or
-                # ``"{'a': 1}"`` that can accidentally inflate the
-                # match count and route fundamentally non-scalar data
-                # into ``pd.to_timedelta`` — which would either raise
-                # or silently coerce to nonsense deltas.
-                #
-                # Fast-path: ``pd.api.types.infer_dtype`` runs a single
-                # C-level pass over the values to classify the column's
-                # element type. When the answer is ``"string"`` every
-                # value is already a ``str``, so the expensive Python-
-                # level ``.map(isinstance, str)`` filter (and the
-                # ``full_cleaned`` filter below) can be skipped entirely.
-                # The ``.map`` fallback only runs for genuinely mixed
-                # object columns, where it's the only correct option.
-                inf_kind = pd.api.types.infer_dtype(non_na, skipna=True)
-                if inf_kind == "string":
-                    looks_like_td = non_na.str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).sum()
-                    inf_all_str = True
+            if n_full_nonnull > 0:
+                if pd.api.types.infer_dtype(full_cleaned, skipna=True) == "string":
+                    full_matches = full_cleaned.str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).astype(bool)
                 else:
-                    is_str_inf = non_na.map(lambda v: isinstance(v, str))
-                    if is_str_inf.any():
-                        looks_like_td = non_na[is_str_inf].str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).sum()
-                    else:
-                        looks_like_td = 0
-                    inf_all_str = False
-
-                # Always re-validate against the FULL column when sampling is
-                # in effect: a small fixed-size sample (~100 rows) can
-                # spuriously fail the sample-level threshold for a column
-                # whose full distribution actually does meet
-                # ``convert_threshold`` (e.g., sample happened to draw the
-                # non-timedelta rows). The early
-                # ``full_matches.sum() >= n_full_nonnull * convert_threshold``
-                # gate below cheaply rejects columns that can't possibly
-                # pass the full check, so the only extra work in the
-                # "sample failed but we try anyway" branch is a single
-                # ``str.fullmatch`` on the full column — bounded by the
-                # column length and C-vectorized in pandas.
-                sample_pass = n_inf_nonnull > 0 and looks_like_td >= n_inf_nonnull * convert_threshold
-                if sample_pass or (sampled and n_full_nonnull > 0):
-                    # Always mask non-matching values to NaN on the FULL
-                    # column before delegating to ``pd.to_timedelta``.
-                    # Otherwise a mixed column (genuine timedeltas plus a
-                    # few categorical labels like "31-40", "60+") would
-                    # still have those labels silently coerced into small
-                    # nanosecond deltas. This is the same hazard the
-                    # column-level prefilter prevents, applied at the
-                    # value level so it covers both the sampled and
-                    # non-sampled inference paths.
-                    #
-                    # Same fast-path applies to the full column: when the
-                    # sample was 100% strings AND the full column is the
-                    # same series (un-sampled path) OR the full column's
-                    # ``infer_dtype`` also reports ``"string"``, skip the
-                    # ``.map(isinstance, str)`` Python-level iteration.
-                    if inf_all_str and (not sampled or pd.api.types.infer_dtype(full_cleaned, skipna=True) == "string"):
-                        full_matches = (
-                            full_cleaned.str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False)
-                            # ``fullmatch`` returns NA for NA inputs; the
-                            # outer ``fillna(False)`` already converts
-                            # those, but ``where`` below uses the mask
-                            # as a boolean indexer so it must be a
-                            # plain bool Series — coerce defensively.
-                            .astype(bool)
+                    is_str_full = full_cleaned.map(lambda value: isinstance(value, str))
+                    full_matches = pd.Series(False, index=full_cleaned.index)
+                    if is_str_full.any():
+                        full_matches.loc[is_str_full] = (
+                            full_cleaned.loc[is_str_full].str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).values
                         )
-                    else:
-                        is_str_full = full_cleaned.map(lambda v: isinstance(v, str))
-                        full_matches = pd.Series(False, index=full_cleaned.index)
-                        if is_str_full.any():
-                            full_matches.loc[is_str_full] = (
-                                full_cleaned.loc[is_str_full]
-                                .str.fullmatch(_TIMEDELTA_LIKE_PATTERN)
-                                .fillna(False)
-                                .values
-                            )
-                    # Cheap pattern-level pre-check on the full column:
-                    # short-circuit before the expensive ``pd.to_timedelta``
-                    # when the full column itself can't possibly satisfy
-                    # ``convert_threshold``. This both bounds the cost of
-                    # the "sample failed but we try anyway" branch and
-                    # avoids handing a clearly-unsuitable column to
-                    # ``pd.to_timedelta``.
-                    if n_full_nonnull > 0 and full_matches.sum() >= n_full_nonnull * convert_threshold:
-                        timedelta_full = pd.to_timedelta(full_cleaned.where(full_matches, np.nan), errors="coerce")
-                        if timedelta_full.notna().sum() >= n_full_nonnull * convert_threshold:
-                            df_converted[col] = timedelta_full
-                            schema[col] = "timedelta"
-                            continue
+                if full_matches.sum() >= n_full_nonnull * convert_threshold:
+                    timedelta_full = pd.to_timedelta(full_cleaned.where(full_matches, np.nan), errors="coerce")
+                    if timedelta_full.notna().sum() >= n_full_nonnull * convert_threshold:
+                        df_converted[col] = timedelta_full
+                        schema[col] = "timedelta"
+                        continue
         except (TypeError, ValueError):
             pass
 
-        # Try datetime. ``pd.to_datetime`` can raise ``TypeError`` for
-        # non-scalar objects similar to ``pd.to_numeric``; treat the same way.
-        # When sampling is in effect, ALSO validate against the full
-        # column even if the sample-level threshold isn't met — same
-        # rationale as the timedelta branch above (small samples can
-        # spuriously fail for columns whose full distribution actually
-        # parses as datetime). The full-column ``pd.to_datetime`` call
-        # is the expensive step but only runs in the "sample failed but
-        # we try anyway" branch when ``sampled and n_full_nonnull > 0``;
-        # unsampled callers go through the same ``datetime_inf`` path
-        # they did before.
+        # A failed sample hint cannot rule out valid dates elsewhere in the column.
         datetime_full = None
         try:
-            # Pre-filter: if the sample contains zero date-shaped strings,
-            # don't even ask pandas to parse it. This guards against
-            # ``pd.to_datetime`` being overly permissive on some platforms
-            # (notably Windows + pandas 3.x, which parses ``"5-6"`` as
-            # ``0005-06-01``) and mis-classifying categorical labels like
-            # ``"1-2"`` or ``"60+"`` as timestamps.
-            if not _has_datetime_hint(inf_cleaned):
-                datetime_inf = None
-            else:
-                datetime_inf = pd.to_datetime(inf_cleaned, errors="coerce")
+            if n_full_nonnull > 0 and (
+                n_inf_nonnull > 0 and _has_datetime_hint(inf_cleaned) or sampled and _has_datetime_hint(full_cleaned)
+            ):
+                datetime_full = pd.to_datetime(full_cleaned, errors="coerce")
         except (TypeError, ValueError):
-            datetime_inf = None
-
-        if (
-            datetime_inf is not None
-            and n_inf_nonnull > 0
-            and datetime_inf.notna().sum() >= n_inf_nonnull * convert_threshold
-        ):
-            try:
-                datetime_full = pd.to_datetime(full_cleaned, errors="coerce") if sampled else datetime_inf
-            except (TypeError, ValueError):
-                datetime_full = None
-        elif sampled and n_full_nonnull > 0:
-            try:
-                # Same pre-filter as the inference-sample path: if the full
-                # column has no date-shaped strings, skip ``pd.to_datetime``
-                # entirely to avoid mis-classifying range/bucket labels as
-                # timestamps on platforms with permissive parsing.
-                if not _has_datetime_hint(full_cleaned):
-                    datetime_full = None
-                else:
-                    datetime_full = pd.to_datetime(full_cleaned, errors="coerce")
-            except (TypeError, ValueError):
-                datetime_full = None
+            datetime_full = None
 
         if (
             datetime_full is not None
@@ -2092,37 +1972,9 @@ def auto_convert_dtypes_pandas(
             schema[col] = "timestamp"
             continue
 
-        # Try category. The unique-ratio is estimated from the inference sample
-        # but the categorical column is materialized from the full data. When
-        # sampling is in effect the decision is ALWAYS re-validated on the full
-        # column (in both the "sample says yes" AND "sample says no" branches):
-        # with a small fixed-size sample (~100 rows) a truly low-cardinality
-        # column can look high-cardinality in the sample (e.g., 60 distinct
-        # values in 100 rows = 0.6 > category_threshold, but the same 60
-        # distinct values in 10000 rows = 0.006) and would otherwise be
-        # incorrectly cast to string. Symmetrically a small sample with few
-        # unique values cannot wrongly classify a genuinely high-cardinality
-        # column as ``category``.
-        #
-        # Use the NON-NULL row count as the denominator (``n_full_nonnull`` /
-        # ``n_inf_nonnull``) so the unique-ratio matches the Spark path
-        # (which computes ``countDistinct(col) / sample_count`` after
-        # ``dropna()``). Using ``n_full`` here would let a high-cardinality
-        # but mostly-null column slip below ``category_threshold`` purely
-        # because the null rows inflate the denominator, producing
-        # categorical/Spark-string skew on identical data.
+        # Full-column, non-null cardinality avoids sample and missing-value bias.
         try:
-            if sampled:
-                denom = n_full_nonnull
-            else:
-                denom = n_inf_nonnull
-            if denom > 0:
-                if sampled:
-                    unique_ratio_full = full_cleaned.nunique(dropna=True) / denom
-                else:
-                    unique_ratio_full = inf_cleaned.nunique(dropna=True) / denom
-            else:
-                unique_ratio_full = 1.0
+            unique_ratio_full = full_cleaned.nunique(dropna=True) / n_full_nonnull if n_full_nonnull > 0 else 1.0
             if unique_ratio_full <= category_threshold:
                 df_converted[col] = full_cleaned.astype("category")
                 schema[col] = "category"

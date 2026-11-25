@@ -17,6 +17,18 @@ from flaml import AutoML
 @pytest.mark.parametrize(
     "blocked,imports",
     [
+        (["sklearn", "pandas", "xgboost"], "from flaml.automl import *\nassert callable(register_automl_pipeline)"),
+        (
+            ["lightgbm", "xgboost"],
+            "from flaml import AutoML\nimport numpy as np\n"
+            "try:\n"
+            "    AutoML(max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False).fit("
+            "np.arange(80).reshape(40, 2), np.tile([0, 1], 20))\n"
+            "except ImportError as error:\n"
+            "    assert 'flaml[automl]' in str(error)\n"
+            "else:\n"
+            "    raise AssertionError('Missing default learner dependency was not reported')",
+        ),
         (
             ["sklearn", "pandas", "xgboost"],
             "from flaml.automl import logger_formatter; from flaml.automl.training_log import training_log_reader",
@@ -280,6 +292,7 @@ def test_panel_cv_fails_with_actionable_holdout_guidance(task_name):
         {
             "ds": list(pd.date_range("2026-01-01", periods=10)) * 2,
             "group": ["a"] * 10 + ["b"] * 10,
+            "time_idx": list(range(10)) * 2,
             "target": np.arange(20.0),
         }
     )

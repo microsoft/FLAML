@@ -356,6 +356,10 @@ class StatsModelsEstimator(TimeSeriesEstimator):
             return np.ones(X if isinstance(X, int) else X.shape[0])
 
         train_end_date = getattr(self, "train_end_date", None)
+        if train_end_date is None:
+            fitted_index = getattr(getattr(self._model, "model", None), "_index", None)
+            if isinstance(fitted_index, pd.DatetimeIndex) and len(fitted_index):
+                train_end_date = fitted_index[-1]
         if isinstance(X, int) and train_end_date is not None:
             X = create_forward_frame(self._forecast_frequency(), X, train_end_date, self.time_col)
 
@@ -393,7 +397,6 @@ class StatsModelsEstimator(TimeSeriesEstimator):
                 )
             start, end = requested_dates[0], requested_dates[-1]
             exog = self._preprocess(X[self.regressors]).values if len(self.regressors) else None
-            train_end_date = getattr(self, "train_end_date", None)
             if train_end_date is not None and start > train_end_date:
                 # A regular CV training fold can have a different calendar from the full dataset.
                 frequency = self._forecast_frequency()
@@ -754,6 +757,7 @@ class HoltWinters(StatsModelsEstimator):
             train_df[[target_col]],
             damped_trend=self.params["damped_trend"],
             seasonal=self.params["seasonal"],
+            seasonal_periods=self.params["seasonal_periods"] if self.params["seasonal"] else None,
             trend=self.params["trend"],
             initialization_method="estimated",
         )

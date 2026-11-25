@@ -227,6 +227,56 @@ def test_configuration_metadata_tracks_each_fit(public_environment, constructor_
     assert automl._automl_user_configurations["featurization"] == "off"
 
 
+def test_reporting_tracks_resolved_constructor_options_and_fit_overrides(public_environment, monkeypatch):
+    def aggregate(losses, metrics):
+        return sum(losses) / len(losses), {}
+
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        seed=42,
+        preserve_checkpoint=False,
+        free_mem_ratio=0.2,
+        allow_label_overlap=False,
+        metric_constraints=[("pred_time", "<=", 100.0)],
+        cv_score_agg_func=aggregate,
+    )
+
+    class ReachedSearch(Exception):
+        pass
+
+    monkeypatch.setattr(automl, "_search", Mock(side_effect=ReachedSearch))
+    X, y = np.arange(120).reshape(60, 2), np.tile([0, 1], 30)
+    for options, seed, preserve, free_memory in (
+        ({}, 42, False, 0.2),
+        ({"seed": 19, "preserve_checkpoint": True, "free_mem_ratio": 0.05}, 19, True, 0.05),
+    ):
+        with pytest.raises(ReachedSearch):
+            automl.fit(X, y, **options)
+        reported = automl._automl_user_configurations
+        assert reported["seed"] == automl._seed == seed
+        assert reported["preserve_checkpoint"] == automl.preserve_checkpoint == preserve
+        assert reported["free_mem_ratio"] == automl._state.free_mem_ratio == free_memory
+        assert reported["allow_label_overlap"] is False
+        assert reported["metric_constraints"] == automl._metric_constraints
+        assert reported["cv_score_agg_func"] is aggregate
+        assert reported["metric"] == automl._state.metric != "auto"
+        assert reported["eval_method"] == automl._state.eval_method != "auto"
+
+
+def test_constructor_reporting_redacts_fit_payload_without_changing_training_options(public_environment):
+    import json
+
+    settings = {"rf": {"opaque_payload": "synthetic-private-value"}}
+    automl = AutoML(fit_kwargs_by_estimator=settings)
+    assert "synthetic-private-value" not in json.dumps(automl._automl_user_configurations)
+    assert automl._automl_user_configurations["fit_kwargs_by_estimator"] == {"rf": ["opaque_payload"]}
+    assert automl._settings["fit_kwargs_by_estimator"] == settings
+
+
 def test_ensemble_reports_featurization_exclusion(public_environment, monkeypatch, caplog):
     class ReachedSearch(Exception):
         pass
@@ -432,6 +482,32 @@ def test_artifact_scrubber_removes_only_artifact_identifiers():
     assert ArtifactNameScrubber().scrub("open Artifact private-name completed") == (
         "open [artifact name redacted] completed"
     )
+
+
+@pytest.mark.parametrize("name", [None, "flaml-test-owned-logger"])
+@pytest.mark.parametrize("existing_handler", [False, True])
+def test_logger_initialization_is_idempotent_and_preserves_caller_handlers(monkeypatch, capsys, name, existing_handler):
+    import io
+    import logging
+
+    from flaml.automl.logger import init_logger, logger
+
+    target = logger if name is None else logging.getLogger(name)
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    monkeypatch.setattr(target, "handlers", [handler] if existing_handler else [])
+    monkeypatch.setattr(target, "propagate", True)
+    monkeypatch.setattr(target, "level", logging.WARNING)
+    monkeypatch.setattr(target, "disabled", False)
+    assert init_logger(name) is init_logger(name) is target
+    target.warning("one owned message")
+    output = stream.getvalue() if existing_handler else capsys.readouterr().out
+    assert output.count("one owned message") == 1
+    assert len(target.handlers) == 1
+    if existing_handler:
+        assert target.handlers == [handler]
+    for owned in target.handlers:
+        owned.close()
 
 
 def test_lazy_diagnostics_supplies_synapse_scrubbing_contract(monkeypatch):

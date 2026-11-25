@@ -906,6 +906,8 @@ class OptunaSearch(Searcher):
 
         if not domain_vars and not grid_vars:
             return {}
+        if ot is None:
+            raise ImportError("Optuna search-space conversion requires optuna. Install optuna or flaml[blendsearch].")
 
         if grid_vars:
             raise ValueError("Grid search parameters cannot be automatically converted " "to an Optuna search space.")

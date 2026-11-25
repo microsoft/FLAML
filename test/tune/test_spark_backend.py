@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Barrier
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock
+from zipfile import ZipFile
 
 import numpy as np
 import pytest
@@ -136,6 +137,9 @@ def test_automl_spark_single_worker(spark_backend, learner):
 def broadcast_files(monkeypatch, tmp_path):
     package = importlib.import_module("flaml.tune.spark")
     utils = importlib.import_module("flaml.tune.spark.utils")
+    for name in ("sys", "os", "check_spark", "get_n_cpus", "with_parameters", "broadcast_code", "_SparkCodePaths"):
+        if hasattr(package, name):
+            monkeypatch.setattr(package, name, getattr(package, name))
     driver = tmp_path / "driver"
     spark_files = tmp_path / "spark-files"
     driver.mkdir()
@@ -200,6 +204,7 @@ def test_broadcast_code_updates_use_distinct_archives(monkeypatch, broadcast_fil
         first = module.Learner
         assert first().predict() == 1
 
+        utils._published_code_aliases.discard(name)
         utils.broadcast_code(code.replace("return 1", "return 2"), name)
         second_archive = context.addPyFile.call_args.args[0]
         assert first_archive != second_archive
@@ -227,10 +232,70 @@ def test_broadcast_code_without_spark_preserves_local_file(monkeypatch, broadcas
     context.addPyFile.assert_not_called()
 
 
-@pytest.mark.parametrize("name", ["../outside", "nested/module", "", None, "class", "utils", "__init__", "UTILS"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../outside",
+        "nested/module",
+        "",
+        None,
+        "class",
+        "utils",
+        "__init__",
+        "UTILS",
+        "sys",
+        "os",
+        "check_spark",
+        "get_n_cpus",
+        "with_parameters",
+        "broadcast_code",
+        "_SparkCodePaths",
+        "__path__",
+        "_flaml_custom_previous_revision",
+    ],
+)
 def test_broadcast_code_rejects_nonmodule_and_reserved_names(broadcast_files, name):
     utils, context, driver = broadcast_files
     with pytest.raises(ValueError, match="module"):
         utils.broadcast_code("value = 42", name)
     assert not list(driver.iterdir())
     context.addPyFile.assert_not_called()
+
+
+def test_broadcast_archive_does_not_publish_top_level_imports(monkeypatch, broadcast_files):
+    utils, context, _ = broadcast_files
+    name = "_test_private_archive_learner"
+    qualified = f"flaml.tune.spark.{name}"
+    utils.broadcast_code("value = 7\n", name)
+    archive_path = context.addPyFile.call_args.args[0]
+    with ZipFile(archive_path) as archive:
+        assert all(path.startswith("_flaml_code/") for path in archive.namelist())
+    monkeypatch.syspath_prepend(archive_path)
+    try:
+        assert importlib.util.find_spec(name) is None
+        assert importlib.import_module(qualified).value == 7
+    finally:
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
+
+
+def test_failed_distribution_does_not_publish_a_new_driver_alias(monkeypatch, broadcast_files):
+    utils, context, driver = broadcast_files
+    name = "_test_failed_update"
+    qualified = f"flaml.tune.spark.{name}"
+    utils.broadcast_code("value = 1\n", name)
+    monkeypatch.syspath_prepend(context.addPyFile.call_args.args[0])
+    original = importlib.import_module(qualified)
+    alias = (driver / f"{name}.py").read_bytes()
+    context.addPyFile.side_effect = RuntimeError("distribution unavailable")
+    try:
+        with pytest.raises(RuntimeError, match="distribution unavailable"):
+            utils.broadcast_code("value = 2\n", name)
+        assert (driver / f"{name}.py").read_bytes() == alias
+        assert importlib.import_module(qualified) is original
+        assert original.value == 1
+    finally:
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
