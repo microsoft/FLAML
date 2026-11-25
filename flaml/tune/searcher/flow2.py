@@ -367,11 +367,14 @@ class FLOW2(Searcher):
             feasible_index = feasible_index.take(feasible_index_filter)
 
     def lexico_compare(self, result) -> bool:
+        # Objectives are minimized here. NaN fails every comparison, so rank it as the worst value.
+        result = {k: np.inf if np.isnan(v) else v for k, v in result.items()}
+        best_obj = {k: np.inf if np.isnan(v) else v for k, v in self.best_obj.items()}
         if self._histories is None:
             # Start the history with the incumbent so that the first result is compared with it.
             self._histories, self._f_best = defaultdict(list), {}
             for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(self.best_obj[k])
+                self._histories[k].append(best_obj[k])
         for k in self.lexico_objectives["metrics"]:
             self._histories[k].append(result[k])
         self.update_fbest()
@@ -392,21 +395,21 @@ class FLOW2(Searcher):
                 )
             # Inclusive bounds, as in update_fbest, so a tie on this objective moves on to the next one.
             if (result[k_metric] <= max(tolerance_bound, k_target)) and (
-                self.best_obj[k_metric]
+                best_obj[k_metric]
                 <= max(
                     tolerance_bound,
                     k_target,
                 )
             ):
                 continue
-            elif result[k_metric] < self.best_obj[k_metric]:
+            elif result[k_metric] < best_obj[k_metric]:
                 return True
             else:
                 return False
         for k_metr in self.lexico_objectives["metrics"]:
-            if result[k_metr] == self.best_obj[k_metr]:
+            if result[k_metr] == best_obj[k_metr]:
                 continue
-            elif result[k_metr] < self.best_obj[k_metr]:
+            elif result[k_metr] < best_obj[k_metr]:
                 return True
             else:
                 return False
