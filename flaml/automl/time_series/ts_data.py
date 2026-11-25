@@ -473,8 +473,8 @@ class DataTransformerTS:
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
 
         for column in X.columns if transform_features else []:
-            # Never treat the time column as a feature for sklearn preprocessing
-            if column == self.time_col:
+            # Imputation must not drop structural time fields or promote integer indexes to floats.
+            if column in (self.time_col, self.time_idx):
                 continue
 
             # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)

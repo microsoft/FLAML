@@ -81,6 +81,9 @@ jobs:
   build:
 
     runs-on: ${{ matrix.os }}
+    env:
+      # Avoid Tk lifecycle crashes during asynchronous MLflow logging on Windows.
+      MPLBACKEND: Agg
     strategy:
       fail-fast: false
       matrix:

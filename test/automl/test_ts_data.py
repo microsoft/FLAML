@@ -488,3 +488,76 @@ def test_automl_cv_scores_latest_observation():
     # Every training fold contains only zeros. The final validation observation
     # must contribute its error to the mean across all three five-row folds.
     assert automl.best_loss == pytest.approx(100.0 / 15)
+
+
+@pytest.mark.parametrize(
+    "task_name,featurization,explicit_validation",
+    [
+        ("ts_forecast_panel", "off", False),
+        ("ts_forecast_panel", "off", True),
+        ("ts_forecast_panel", "auto", False),
+        ("ts_forecast", "auto", False),
+    ],
+)
+def test_panel_time_index_remains_integer_during_search_refit_and_prediction(
+    task_name, featurization, explicit_validation
+):
+    from sklearn.dummy import DummyRegressor
+
+    from flaml.automl.time_series.ts_model import TimeSeriesEstimator
+
+    fitted_rows = []
+
+    class IndexCheckingEstimator(TimeSeriesEstimator):
+        @classmethod
+        def search_space(cls, **kwargs):
+            return {}
+
+        def fit(self, X_train, y_train=None, **kwargs):
+            super().fit(X_train, y_train, **kwargs)
+            frame = X_train.train_data
+            assert frame["time_idx"].dtype.kind == "i"
+            assert not frame["feature"].isna().any()
+            fitted_rows.append(len(frame))
+            self._model = DummyRegressor().fit(np.zeros((len(frame), 1)), frame["target"])
+            return 0.0
+
+        def predict(self, X, **kwargs):
+            frame = X.test_data if isinstance(X, TimeSeriesDataset) else X
+            assert frame["time_idx"].dtype.kind == "i"
+            return self._model.predict(np.zeros((len(frame), 1)))
+
+    frame = pd.DataFrame(
+        {
+            "ds": list(pd.date_range("2026-01-01", periods=10)) * 2,
+            "group": ["a"] * 10 + ["b"] * 10,
+            "time_idx": list(range(10)) * 2,
+            "feature": np.arange(20.0),
+            "target": np.tile(np.arange(10.0), 2),
+        }
+    )
+    frame.loc[2, "feature"] = np.nan
+    original = frame.copy(deep=True)
+    train = frame[frame["time_idx"] < 8] if explicit_validation else frame
+    validation = frame[frame["time_idx"] >= 8]
+    options = {"X_val": validation.drop(columns="target"), "y_val": validation["target"]} if explicit_validation else {}
+    automl = AutoML(
+        max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, featurization=featurization, retrain_full=True
+    )
+    automl.add_learner("panel_index", IndexCheckingEstimator)
+    automl.fit(
+        dataframe=train,
+        label="target",
+        task=task_name,
+        estimator_list=["panel_index"],
+        group_ids=["group"],
+        period=2,
+        eval_method="holdout",
+        metric="mae",
+        **options,
+    )
+    assert len(fitted_rows) >= 2
+    assert fitted_rows[:-1] == [16] * (len(fitted_rows) - 1)
+    assert fitted_rows[-1] == (16 if explicit_validation else 20)
+    assert len(automl.predict(validation.drop(columns="target"))) == len(validation)
+    pd.testing.assert_frame_equal(frame, original)

@@ -743,7 +743,11 @@ def test_real_global_autolog_registry_roundtrip(
     )
     import json
 
-    environment = {**os.environ, "MLFLOW_TRACKING_URI": (tmp_path / "tracking").as_uri()}
+    environment = {
+        **os.environ,
+        "MLFLOW_TRACKING_URI": (tmp_path / "tracking").as_uri(),
+        "MPLBACKEND": "Agg",
+    }
     environment.pop("MLFLOW_EXPERIMENT_ID", None)
     environment.pop("MLFLOW_EXPERIMENT_NAME", None)
     arguments = json.dumps({"flavor": explicit_flavor, "parent": active_parent, "failure": training_failure})
