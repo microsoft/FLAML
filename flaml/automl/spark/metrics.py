@@ -10,7 +10,7 @@ from pyspark.ml.evaluation import (
     RegressionEvaluator,
 )
 
-from flaml.automl.spark import F, T, psDataFrame, psSeries, sparkDataFrame
+from flaml.automl.spark import F, T, ps, psDataFrame, psSeries, sparkDataFrame
 
 
 def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:
@@ -22,12 +22,6 @@ def ps_group_counts(groups: Union[psSeries, np.ndarray]) -> np.ndarray:
     return c[np.argsort(i)].tolist()
 
 
-def _process_df(df, label_col, prediction_col):
-    df = df.withColumn(label_col, F.array([df[label_col]]))
-    df = df.withColumn(prediction_col, F.array([df[prediction_col]]))
-    return df
-
-
 def _compute_label_from_probability(df, probability_col, prediction_col):
     # array_max finds the maximum value in the 'probability' array
     # array_position finds the index of the maximum value in the 'probability' array
@@ -35,6 +29,36 @@ def _compute_label_from_probability(df, probability_col, prediction_col):
     # Create a new column 'prediction' based on the maximum probability value
     df = df.withColumn(prediction_col, max_index_expr.cast("double"))
     return df
+
+
+def _with_rank_discounts(df, sort_col, k=None):
+    """Rank the rows of df by sort_col, highest first, with Spark's distributed sort and
+    add the DCG discount of each row's position (0 from position k on)."""
+    ranked = df.orderBy(F.desc(sort_col)).rdd.zipWithIndex().map(lambda row: (*row[0], row[1]))
+    ranked = ranked.toDF(T.StructType(df.schema.fields + [T.StructField("position", T.LongType())]))
+    discount = 1 / F.log2(F.col("position") + 2)
+    if k is not None:
+        discount = F.when(F.col("position") < k, discount).otherwise(0.0)
+    return ranked.withColumn("discount", discount)
+
+
+def _ndcg_single_query(df, label_col, prediction_col, k=None):
+    """NDCG of all rows of df as one query, computed like sklearn's ndcg_score, where rows
+    with tied predictions share the mean of their gains, without loading the rows in one place."""
+    df = df.select(label_col, prediction_col)
+    if df.count() == 1:
+        # a query with one document is always ranked perfectly
+        return 1.0
+    dcg = (
+        _with_rank_discounts(df, prediction_col, k)
+        .groupBy(prediction_col)
+        .agg((F.avg(label_col) * F.sum("discount")).alias("dcg"))
+        .agg(F.sum("dcg"))
+        .first()[0]
+    )
+    ideal_dcg = _with_rank_discounts(df, label_col, k).agg(F.sum(F.col(label_col) * F.col("discount"))).first()[0]
+    # like sklearn, a query without relevant documents scores 0
+    return dcg / ideal_dcg if ideal_dcg else 0.0
 
 
 def string_to_array(s):
@@ -187,43 +211,43 @@ def spark_metric_loss_score(
             predictionCol=prediction_col,
         )
     elif "ndcg" in metric_name:
-        # TODO: check if spark.ml ranker has the same format with
-        # synapseML ranker, may need to adjust the format of df
-        if "@" in metric_name:
-            k = int(metric_name.split("@", 1)[-1])
-            if groups is None:
-                evaluator = RankingEvaluator(
-                    metricName="ndcgAtK",
-                    labelCol=label_col,
-                    predictionCol=prediction_col,
-                    k=k,
-                )
-                df = _process_df(df, label_col, prediction_col)
-                score = 1 - evaluator.evaluate(df)
-            else:
-                counts = ps_group_counts(groups)
-                score = 0
-                psum = 0
-                for c in counts:
-                    y_true_ = y_true[psum : psum + c]
-                    y_predict_ = y_predict[psum : psum + c]
-                    df = y_true_.to_frame().join(y_predict_).to_spark()
-                    df = _process_df(df, label_col, prediction_col)
-                    evaluator = RankingEvaluator(
-                        metricName="ndcgAtK",
-                        labelCol=label_col,
-                        predictionCol=prediction_col,
-                        k=k,
-                    )
-                    score -= evaluator.evaluate(df)
-                    psum += c
-                score /= len(counts)
-                score += 1
+        # RankingEvaluator compares arrays of ranked and relevant item ids, not
+        # prediction scores and graded relevance labels, so rank the documents of
+        # each query by score here, the same way as sklearn_metric_loss_score.
+        # Each query is scored on the executors, only the mean reaches the driver.
+        k = int(metric_name.split("@", 1)[-1]) if "@" in metric_name else None
+        group_col = "group"
+        if groups is None:
+            # all rows are one query, which can be too large for one pandas group
+            return 1 - _ndcg_single_query(df, label_col, prediction_col, k)
         else:
-            evaluator = RankingEvaluator(metricName="ndcgAtK", labelCol=label_col, predictionCol=prediction_col)
-            df = _process_df(df, label_col, prediction_col)
-            score = 1 - evaluator.evaluate(df)
-        return score
+            # match the groups to the rows by index, since they can cover more rows
+            # than y_true, e.g. the training loss of a cross-validation fold
+            if not isinstance(groups, psSeries):
+                groups = np.asarray(groups)
+                # array-like groups follow the rows of y_true by position; longer
+                # ones carry no index to find the rows of y_true in them
+                if len(groups) != len(y_true):
+                    raise ValueError(
+                        f"groups has {len(groups)} entries but there are {len(y_true)} rows. "
+                        "Pass one group per row, or a pandas-on-Spark Series indexed like the data."
+                    )
+                groups = ps.Series(groups, index=y_true.index.to_numpy())
+            df = y_predict.to_frame().join(y_true).join(groups.rename(group_col)).to_spark()
+
+        def query_ndcg(pdf):
+            import pandas as pd
+            from sklearn.metrics import ndcg_score
+
+            if len(pdf) == 1:
+                # a query with one document is always ranked perfectly
+                score = 1.0
+            else:
+                score = ndcg_score([pdf[label_col].to_numpy()], [pdf[prediction_col].to_numpy()], k=k)
+            return pd.DataFrame({"ndcg": [score]})
+
+        ndcg = df.groupBy(group_col).applyInPandas(query_ndcg, schema="ndcg double")
+        return 1 - ndcg.agg(F.avg("ndcg")).first()[0]
     else:
         raise ValueError(f"Unknown metric name: {metric_name} for spark models.")
 
