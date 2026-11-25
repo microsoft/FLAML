@@ -32,7 +32,34 @@ from .search_thread import SearchThread
 
 SEARCH_THREAD_EPS = 1.0
 PENALTY = 1e10  # penalty term for constraints
+# max number of random configs drawn when looking for one that satisfies the
+# config constraints
+MAX_CONSTRAINT_SAMPLES = 100
 logger = logging.getLogger(__name__)
+
+
+def config_constraints_violated(
+    config: Dict, config_constraints: Optional[List[Tuple[Callable[[dict], float], str, float]]]
+) -> bool:
+    """Return True if ``config`` violates any of ``config_constraints``.
+
+    Each constraint is a ``(function, sign, threshold)`` tuple, where ``sign``
+    is one of ``"<="``, ``">="``, ``"<"`` or ``">"``.
+    """
+    for func, sign, threshold in config_constraints or ():
+        value = func(config)
+        if (
+            sign == "<="
+            and value > threshold
+            or sign == ">="
+            and value < threshold
+            or sign == ">"
+            and value <= threshold
+            or sign == "<"
+            and value >= threshold
+        ):
+            return True
+    return False
 
 
 class BlendSearch(Searcher):
@@ -828,26 +855,12 @@ class BlendSearch(Searcher):
         """check if config violates config constraints.
         If so, set the result to worst and return True.
         """
-        if not self._config_constraints:
-            return False
-        for constraint in self._config_constraints:
-            func, sign, threshold = constraint
-            value = func(config)
-            if (
-                sign == "<="
-                and value > threshold
-                or sign == ">="
-                and value < threshold
-                or sign == ">"
-                and value <= threshold
-                or sign == "<"
-                and value > threshold
-            ):
-                self._result[config_signature] = {
-                    self._metric: np.inf * self._ls.metric_op,
-                    "time_total_s": 1,
-                }
-                return True
+        if config_constraints_violated(config, self._config_constraints):
+            self._result[config_signature] = {
+                self._metric: np.inf * self._ls.metric_op,
+                "time_total_s": 1,
+            }
+            return True
         return False
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
@@ -1148,8 +1161,11 @@ class RandomSearch(CFO):
     def suggest(self, trial_id: str) -> Optional[Dict]:
         if self._points_to_evaluate:
             return super().suggest(trial_id)
-        config, _ = self._ls.complete_config({})
-        return config
+        for _ in range(MAX_CONSTRAINT_SAMPLES):
+            config, _ = self._ls.complete_config({})
+            if not config_constraints_violated(config, self._config_constraints):
+                return config
+        return None
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         return

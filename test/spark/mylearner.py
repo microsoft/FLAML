@@ -17,3 +17,14 @@ class MyLargeLGBM(LGBMEstimator):
                 "low_cost_init_value": 4,
             },
         }
+
+
+class MinEstimatorsLGBM(LGBMEstimator):
+    """LGBM estimator that requires n_estimators >= 16 via config_constraints.
+
+    The low-cost initial n_estimators (4) violates the constraint.
+    """
+
+    @classmethod
+    def config_constraints(cls):
+        return [(lambda config: config["n_estimators"], ">=", 16)]

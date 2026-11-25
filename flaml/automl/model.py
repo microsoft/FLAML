@@ -478,8 +478,8 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             ``function`` maps a hyperparameter-config dict to a float,
             ``operator`` is one of ``"<="``, ``">="``, ``"<"`` or ``">"``,
             and ``threshold`` is a float. A config that violates any
-            constraint is skipped during search. Returns an empty list
-            (no constraints) by default.
+            constraint is not trained, whichever ``hpo_method`` is used.
+            Returns an empty list (no constraints) by default.
         """
         return []
 

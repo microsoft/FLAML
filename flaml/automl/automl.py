@@ -2744,6 +2744,7 @@ class AutoML(BaseEstimator):
                 custom_hp=custom_hp and custom_hp.get(estimator_name),
                 max_iter=max_iter / len(estimator_list) if self._learner_selector == "roundrobin" else max_iter,
                 budget=self._state.time_budget,
+                seed=self._seed,
             )
         logger.info(f"List of ML learners in AutoML Run: {estimator_list}")
         self.estimator_list = estimator_list

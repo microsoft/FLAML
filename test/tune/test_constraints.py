@@ -27,3 +27,30 @@ def test_config_constraint():
 
     assert analysis.best_config["x"] > analysis.best_config["y"]
     assert analysis.trials[0].config["x"] > analysis.trials[0].config["y"]
+
+
+def test_config_constraint_boundary():
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import config_constraints_violated
+
+    def x(config):
+        return config["x"]
+
+    # strict inequalities reject the threshold itself; non-strict ones allow it
+    assert config_constraints_violated({"x": 16}, [(x, "<", 16)])
+    assert config_constraints_violated({"x": 16}, [(x, ">", 16)])
+    assert not config_constraints_violated({"x": 16}, [(x, "<=", 16)])
+    assert not config_constraints_violated({"x": 16}, [(x, ">=", 16)])
+    assert not config_constraints_violated({"x": 15}, [(x, "<", 16)])
+
+    analysis = tune.run(
+        lambda config: {"metric": config["x"]},
+        config={"x": tune.randint(lower=1, upper=32)},
+        points_to_evaluate=[{"x": 16}, {"x": 15}],
+        config_constraints=[(x, "<", 16)],
+        metric="metric",
+        mode="max",
+        num_samples=10,
+    )
+    evaluated = [trial.config["x"] for trial in analysis.trials]
+    assert evaluated and all(value < 16 for value in evaluated), evaluated

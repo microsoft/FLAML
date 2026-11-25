@@ -1,6 +1,8 @@
 from functools import partial
 from urllib.error import URLError
 
+import pytest
+
 from sklearn.datasets import fetch_openml
 from sklearn.externals._arff import ArffException
 from sklearn.model_selection import train_test_split
@@ -207,6 +209,90 @@ def test_config_constraints():
                 record.config["n_estimators"] <= MAX_N_ESTIMATORS
             ), f"a trained config violates the constraint: n_estimators={record.config['n_estimators']}"
     assert n_records > 0, "no configs were trained; the test did not exercise the search"
+
+
+@pytest.mark.parametrize("hpo_method", ["cfo", "bs", "random", "optuna"])
+@pytest.mark.parametrize("sign, threshold", [("<=", 4), ("<", 16), (">=", 16)])
+def test_config_constraints_enforced(hpo_method, sign, threshold):
+    """Every config that is trained honors the estimator's config constraints.
+
+    ``<= 4`` only allows the smallest n_estimators, which random and optuna
+    search would otherwise exceed; ``< 16`` checks that the bound is strict;
+    ``>= 16`` excludes the low-cost initial n_estimators (4), so the search has
+    to start from a feasible config instead.
+    """
+    import operator
+
+    from sklearn.datasets import make_classification
+
+    from flaml.automl.model import LGBMEstimator
+
+    satisfied = {"<=": operator.le, "<": operator.lt, ">=": operator.ge}[sign]
+    trained = []
+
+    class ConstrainedLGBM(LGBMEstimator):
+        @classmethod
+        def config_constraints(cls):
+            return [(lambda config: config["n_estimators"], sign, threshold)]
+
+        def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+            trained.append(self.params["n_estimators"])
+            return super().fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **kwargs)
+
+    automl = AutoML()
+    automl.add_learner("constrained_lgbm", ConstrainedLGBM)
+    X, y = make_classification(n_samples=600, n_features=10, random_state=0)
+    automl.fit(
+        X,
+        y,
+        task="classification",
+        estimator_list=["constrained_lgbm"],
+        hpo_method=hpo_method,
+        max_iter=6,
+        time_budget=-1,
+        n_jobs=1,
+        retrain_full=False,
+        verbose=0,
+    )
+    assert trained, "no config was trained"
+    assert all(satisfied(n, threshold) for n in trained), trained
+    assert satisfied(automl.best_config["n_estimators"], threshold), automl.best_config
+
+
+def test_config_constraints_starting_point():
+    """A starting point that violates the config constraints is not trained."""
+    from sklearn.datasets import make_classification
+
+    from flaml.automl.model import LGBMEstimator
+
+    trained = []
+
+    class ConstrainedLGBM(LGBMEstimator):
+        @classmethod
+        def config_constraints(cls):
+            return [(lambda config: config["n_estimators"], ">=", 16)]
+
+        def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+            trained.append(self.params["n_estimators"])
+            return super().fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **kwargs)
+
+    automl = AutoML()
+    automl.add_learner("constrained_lgbm", ConstrainedLGBM)
+    X, y = make_classification(n_samples=600, n_features=10, random_state=0)
+    automl.fit(
+        X,
+        y,
+        task="classification",
+        estimator_list=["constrained_lgbm"],
+        starting_points={"constrained_lgbm": [{"n_estimators": 8}, {"n_estimators": 32}]},
+        max_iter=4,
+        time_budget=-1,
+        n_jobs=1,
+        retrain_full=False,
+        verbose=0,
+    )
+    assert trained and all(n >= 16 for n in trained), trained
+    assert 32 in trained, trained
 
 
 if __name__ == "__main__":

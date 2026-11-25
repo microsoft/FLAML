@@ -10,14 +10,14 @@ from flaml.tune.spark.utils import check_spark
 # For spark, we need to put customized learner in a separate file
 if os.path.exists(os.path.join(os.getcwd(), "test", "spark", "mylearner.py")):
     try:
-        from test.spark.mylearner import MyLargeLGBM
+        from test.spark.mylearner import MinEstimatorsLGBM, MyLargeLGBM
 
         skip_my_learner = False
     except ImportError:
         skip_my_learner = True
-        MyLargeLGBM = None
+        MyLargeLGBM = MinEstimatorsLGBM = None
 else:
-    MyLargeLGBM = None
+    MyLargeLGBM = MinEstimatorsLGBM = None
     skip_my_learner = True
 
 os.environ["FLAML_MAX_CONCURRENT"] = "2"
@@ -104,6 +104,50 @@ def test_custom_learner(data_size=1000):
     print(automl_experiment.best_model_for_estimator("large_lgbm"))
     print(automl_experiment.best_iteration)
     print(automl_experiment.best_estimator)
+
+
+@pytest.mark.skipif(
+    skip_my_learner,
+    reason="please run pytest in the root directory of FLAML, i.e., the directory that contains the setup.py file",
+)
+@pytest.mark.parametrize("hpo_method", ["cfo", "bs"])
+def test_config_constraints_joint_search(hpo_method):
+    """Estimator config constraints are enforced in the joint (parallel) search.
+
+    The constraint excludes the low-cost initial n_estimators (4), so the search
+    must start the constrained learner from a feasible config.
+    """
+    from sklearn.datasets import make_classification
+
+    from flaml.automl.training_log import training_log_reader
+
+    log_file_name = f"test/config_constraints_joint_{hpo_method}.log"
+    automl_experiment = AutoML()
+    automl_experiment.add_learner(learner_name="min_lgbm", learner_class=MinEstimatorsLGBM)
+    X_train, y_train = make_classification(n_samples=600, n_features=10, random_state=0)
+    automl_experiment.fit(
+        X_train=X_train,
+        y_train=y_train,
+        task="classification",
+        estimator_list=["min_lgbm", "rf"],
+        hpo_method=hpo_method,
+        time_budget=10,
+        n_concurrent_trials=2,
+        use_spark=True,
+        n_jobs=1,
+        log_file_name=log_file_name,
+        log_type="all",
+    )
+    trained = []
+    with training_log_reader(log_file_name) as reader:
+        for record in reader.records():
+            config = record.config.get("ml", record.config)
+            if record.learner == "min_lgbm" and record.validation_loss != np.inf:
+                trained.append(config["n_estimators"])
+    assert trained, "the constrained learner was never trained"
+    assert all(n >= 16 for n in trained), trained
+    if automl_experiment.best_estimator == "min_lgbm":
+        assert automl_experiment.best_config["n_estimators"] >= 16
 
 
 if __name__ == "__main__":
