@@ -390,9 +390,10 @@ class FLOW2(Searcher):
                 tolerance_bound = self._f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
-            if (result[k_metric] < max(tolerance_bound, k_target)) and (
+            # Inclusive bounds, as in update_fbest, so a tie on this objective moves on to the next one.
+            if (result[k_metric] <= max(tolerance_bound, k_target)) and (
                 self.best_obj[k_metric]
-                < max(
+                <= max(
                     tolerance_bound,
                     k_target,
                 )

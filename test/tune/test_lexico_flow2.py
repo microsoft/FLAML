@@ -36,3 +36,21 @@ def test_lexico_flow2_compares_first_result_with_incumbent(mode, values, expecte
     assert _incumbent_values(mode, values) == expected
     # With one objective, lexicographic FLOW2 must keep the same incumbent.
     assert _incumbent_values(mode, values, lexico_objectives) == expected
+
+
+def test_lexico_flow2_breaks_primary_tie_with_secondary_objective():
+    searcher = FLOW2(
+        init_config={"x": 0.5},
+        metric="a",
+        mode="min",
+        space={"x": tune.uniform(0.0, 1.0)},
+        lexico_objectives={"metrics": ["a", "b"], "modes": ["min", "min"], "tolerances": {}, "targets": {}},
+    )
+    incumbents = []
+    for i, (a, b) in enumerate([(1, 5), (1, 3), (1, 4), (1, 2), (2, 0), (0.5, 9)]):
+        trial_id = str(i)
+        assert searcher.suggest(trial_id) is not None
+        searcher.on_trial_complete(trial_id, {"a": a, "b": b})
+        incumbents.append((searcher.best_obj["a"], searcher.best_obj["b"]))
+    # A tie on "a" is broken by "b"; a worse "a" is never accepted.
+    assert incumbents == [(1, 5), (1, 3), (1, 3), (1, 2), (1, 2), (0.5, 9)]
