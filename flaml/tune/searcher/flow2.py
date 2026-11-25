@@ -368,8 +368,9 @@ class FLOW2(Searcher):
 
     def lexico_compare(self, result) -> bool:
         # Objectives are minimized here. NaN fails every comparison, so rank it as the worst value.
-        result = {k: np.inf if np.isnan(v) else v for k, v in result.items()}
-        best_obj = {k: np.inf if np.isnan(v) else v for k, v in self.best_obj.items()}
+        # v != v is only true for NaN; unlike np.isnan, it also works for values such as Fraction.
+        result = {k: np.inf if v != v else v for k, v in result.items()}
+        best_obj = {k: np.inf if v != v else v for k, v in self.best_obj.items()}
         if self._histories is None:
             # Start the history with the incumbent so that the first result is compared with it.
             self._histories, self._f_best = defaultdict(list), {}
