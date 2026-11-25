@@ -736,7 +736,7 @@ def test_forecast_classification(budget=5):
     import numpy as np
 
     df["above_mean_sales"] = np.where(df["Sales"] > df["Sales"].mean(), 1, 0)
-    df.reset_index(inplace=True)
+    df = df.reset_index()
     train_df = df[:-time_horizon]
     test_df = df[-time_horizon:]
     X_train, X_test = (

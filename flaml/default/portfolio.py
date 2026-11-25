@@ -178,7 +178,7 @@ def main():
 
     meta_features = pd.read_csv(args.metafeatures, index_col=0).groupby(level=0).first()
     if args.exclude:
-        meta_features.drop(args.exclude, inplace=True)
+        meta_features = meta_features.drop(args.exclude)
 
     baseline_best = None
     all_results = None
@@ -205,7 +205,7 @@ def main():
         )
         configsource = meta_predictor["configsource"]
         all = all.loc[configsource]
-        all.rename({x: f"{estimator}/{x}" for x in regret.index.values}, inplace=True)
+        all = all.rename({x: f"{estimator}/{x}" for x in regret.index.values})
         baseline_best = baseline if baseline_best is None else pd.DataFrame({0: baseline_best, 1: baseline}).max(1)
         all_results = all if all_results is None else pd.concat([all_results, all])
         # analyze(regret, meta_predictor)

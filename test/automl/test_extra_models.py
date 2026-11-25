@@ -134,7 +134,7 @@ def _test_spark_models(estimator_list, task):
         pd_df = pd.read_csv(
             "https://raw.githubusercontent.com/CamDavidsonPilon/lifelines/master/lifelines/datasets/rossi.csv"
         )
-        pd_df.rename(columns={"week": "target"}, inplace=True)
+        pd_df = pd_df.rename(columns={"week": "target"})
         final_cols += ["arrest"]
         extra_args["censorCol"] = "arrest"
     else:

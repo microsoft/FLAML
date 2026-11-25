@@ -320,8 +320,8 @@ def date_feature_dict(timestamps: pd.Series) -> dict:
         f"{column}_hour": tmp_dt.hour,
         f"{column}_minute": tmp_dt.minute,
         f"{column}_second": tmp_dt.second,
-        f"{column}_dayofweek": tmp_dt.dayofweek,
-        f"{column}_dayofyear": tmp_dt.dayofyear,
+        f"{column}_dayofweek": tmp_dt.day_of_week if hasattr(tmp_dt, "day_of_week") else tmp_dt.dayofweek,
+        f"{column}_dayofyear": tmp_dt.day_of_year if hasattr(tmp_dt, "day_of_year") else tmp_dt.dayofyear,
         f"{column}_quarter": tmp_dt.quarter,
     }
 
@@ -472,7 +472,7 @@ class DataTransformerTS:
             y_tr = self.label_transformer.transform(ycol)
             y.iloc[:] = y_tr.reshape(y.shape)
 
-        X.drop(columns=self.drop_columns, inplace=True)
+        X = X.drop(columns=self.drop_columns)
 
         for col in self.cat_columns:
             if X[col].dtype.name == "category":
