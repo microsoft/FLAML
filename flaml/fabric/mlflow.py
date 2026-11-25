@@ -278,7 +278,11 @@ def _apply_autolog_configurations(configurations):
         mlflow.autolog(disable=True, silent=True)
     for name, options in configurations.items():
         if name != "mlflow" and options and not options.get("globally_configured", False):
-            MLflowIntegration._set_flavor_autolog(name, options)
+            # Failed optional global integrations can leave an unmarked, already-applied configuration.
+            if options.get("disable", False) or registry.get(name) == options:
+                registry[name] = options.copy()
+            else:
+                MLflowIntegration._set_flavor_autolog(name, options)
 
 
 def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_tags=None, autolog=False):

@@ -34,6 +34,13 @@ def _simple_eval(config):
     return {"metric": config.get("x", 1) ** 2}
 
 
+def _mock_mlflow_wrapper(evaluation_function):
+    def wrapped(config, *, _flaml_trial_id):
+        return evaluation_function(config)
+
+    return wrapped
+
+
 def _eval_returns_scalar(config):
     """Return a scalar result."""
     return config.get("x", 1) ** 2
@@ -678,7 +685,8 @@ class TestMLflowIntegration:
 
         mock_mlflow_cls = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.wrap_evaluation_function.side_effect = lambda fn: fn
+        mock_instance.autolog = True
+        mock_instance.wrap_evaluation_function.side_effect = _mock_mlflow_wrapper
         mock_mlflow_cls.return_value = mock_instance
 
         try:
@@ -838,7 +846,8 @@ class TestEdgeCases:
 
         mock_mlflow_cls = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.wrap_evaluation_function.side_effect = lambda fn: fn
+        mock_instance.autolog = True
+        mock_instance.wrap_evaluation_function.side_effect = _mock_mlflow_wrapper
         mock_mlflow_cls.return_value = mock_instance
 
         try:
@@ -870,7 +879,8 @@ class TestEdgeCases:
 
         mock_mlflow_cls = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.wrap_evaluation_function.side_effect = lambda fn: fn
+        mock_instance.autolog = True
+        mock_instance.wrap_evaluation_function.side_effect = _mock_mlflow_wrapper
 
         def fake_log_tune(analysis, metric):
             analysis.best_run_id = "run123"

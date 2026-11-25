@@ -285,7 +285,8 @@ def test_unique_pandas_on_spark():
     sdf = spark.createDataFrame(pdf)
     psdf = to_pandas_on_spark(sdf)
     label_set, counts = unique_pandas_on_spark(psdf)
-    assert np.array_equal(label_set, np.array([2, 1, 3]))
+    assert len(label_set) == len(counts) == 3
+    assert dict(zip(label_set, counts)) == {1: 1, 2: 2, 3: 1}
     assert np.array_equal(counts, np.array([2, 1, 1]))
 
 

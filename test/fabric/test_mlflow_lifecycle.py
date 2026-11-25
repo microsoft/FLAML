@@ -163,6 +163,46 @@ def test_serialized_remote_objective_restores_actual_worker_configuration(tracki
     assert mlflow.active_run() is None
 
 
+@pytest.mark.parametrize("global_autolog", [False, True])
+def test_remote_autolog_preserves_disabled_unavailable_flavor(tracking, global_autolog):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from sklearn.linear_model import LinearRegression
+
+    from flaml.fabric.mlflow import _apply_autolog_configurations
+
+    disabled = {"disable": True, "log_models": False}
+    AUTOLOGGING_INTEGRATIONS["unavailable_for_test"] = disabled.copy()
+    configurations = {"unavailable_for_test": disabled.copy()}
+    if global_autolog:
+        configurations["mlflow"] = {"log_models": False, "silent": True}
+    with mlflow.start_run() as run:
+        _apply_autolog_configurations(configurations)
+        LinearRegression().fit([[0], [1], [2]], [0, 2, 4])
+    assert ("fit_intercept" in tracking.get_run(run.info.run_id).data.params) is global_autolog
+    assert AUTOLOGGING_INTEGRATIONS["unavailable_for_test"] == disabled
+    assert configurations["unavailable_for_test"] == disabled
+
+
+def test_global_autolog_partial_configuration_is_not_retried_as_explicit(tracking, monkeypatch):
+    from importlib import import_module
+
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_integration
+
+    from flaml.fabric.mlflow import _apply_autolog_configurations
+
+    @autologging_integration("sklearn")
+    def unavailable_autolog(log_models=True, disable=False, silent=False):
+        raise ImportError("optional training backend is unavailable")
+
+    monkeypatch.setattr(import_module("mlflow.sklearn"), "autolog", unavailable_autolog)
+    mlflow.autolog(log_models=False, silent=True)
+    configurations = copy.deepcopy(AUTOLOGGING_INTEGRATIONS)
+    assert configurations["sklearn"]["disable"] is False
+    assert not configurations["sklearn"].get("globally_configured", False)
+    _apply_autolog_configurations(configurations)
+    assert AUTOLOGGING_INTEGRATIONS["sklearn"] == configurations["sklearn"]
+
+
 def test_summary_copy_preserves_parent_trial_identity(tracking):
     from flaml.fabric.mlflow import MLflowIntegration
 
