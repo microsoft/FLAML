@@ -33,7 +33,7 @@ convertdate==2.5.1
 coverage==7.16.2
 cryptography==50.0.2
 cycler==0.12.1
-databricks-sdk==0.170.0
+databricks-sdk==0.171.0
 datasets==5.2.0
 debugpy==1.8.22
 decorator==5.3.2
@@ -46,7 +46,7 @@ executing==2.3.0
 fastapi==0.162.5
 fastjsonschema==2.22.3
 filelock==4.1.0
--e git+https://github.com/microsoft/FLAML@b831893fa87cabc36c7567f93b263326309ab45b#egg=FLAML
+-e git+https://github.com/microsoft/FLAML@68dcd250bb5b30be6d9889f52b95332af490ae22#egg=FLAML
 fonttools==4.65.0
 formulaic==1.2.2
 fqdn==1.6.0
