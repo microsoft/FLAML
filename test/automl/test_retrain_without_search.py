@@ -52,13 +52,14 @@ def test_fresh_retrain_respects_finite_budget(estimator):
 def test_no_search_best_config_reports_fitted_size(estimator):
     X, y = make_classification(n_samples=200, n_features=6, random_state=0)
     automl = AutoML()
+    starting_points = {estimator: {"n_estimators": 100}}
     automl.fit(
         X,
         y,
         task="classification",
         time_budget=1e-6,
         max_iter=0,
-        starting_points={estimator: {"n_estimators": 100}},
+        starting_points=starting_points,
         estimator_list=[estimator],
         verbose=0,
     )
@@ -66,8 +67,9 @@ def test_no_search_best_config_reports_fitted_size(estimator):
     assert fitted < 100
     assert fitted == len(automl.model.estimator.estimators_)
     assert automl.best_config["n_estimators"] == fitted
-    # the caller's starting point is left untouched
     assert automl.best_config_per_estimator[estimator]["n_estimators"] == fitted
+    # the caller's starting point is left untouched
+    assert starting_points[estimator]["n_estimators"] == 100
 
 
 def test_no_search_best_config_unchanged_without_cap():
@@ -100,7 +102,6 @@ def test_fresh_retrain_does_not_probe_past_budget(monkeypatch):
         requested.append(self.params["n_estimators"])
         return 0.9 if self.params["n_estimators"] == 1 else 0.01
 
-    monkeypatch.setattr(RandomForestEstimator, "_fit", fake_fit)
     clock = {"now": 1000.0}
     monkeypatch.setattr(time, "time", lambda: clock["now"])
 
