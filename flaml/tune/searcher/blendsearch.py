@@ -750,6 +750,12 @@ class BlendSearch(Searcher):
                     # use CFO's init point
                     init_config = self._ls.init_config
                     config, space = self._ls.complete_config(init_config, self._ls_bound_min, self._ls_bound_max)
+                    config_signature = self._ls.config_signature(config, space)
+                    if self._violate_config_constriants(config, config_signature):
+                        if not use_rs:
+                            # retire the rejected global proposal: its trial is never registered for completion
+                            self._cancel_proposal(choice, trial_id)
+                        return
                     self._trial_proposed_by[trial_id] = choice
                     self._search_thread_pool[choice].running += 1
                 else:
@@ -841,7 +847,7 @@ class BlendSearch(Searcher):
                 or sign == ">"
                 and value <= threshold
                 or sign == "<"
-                and value > threshold
+                and value >= threshold
             ):
                 self._result[config_signature] = {
                     self._metric: np.inf * self._ls.metric_op,
@@ -849,6 +855,16 @@ class BlendSearch(Searcher):
                 }
                 return True
         return False
+
+    def _cancel_proposal(self, choice, trial_id):
+        """retire a proposal of thread `choice` that is dropped before it is registered:
+        fail its backend trial and release its running slot, without recording a result.
+        """
+        thread = self._search_thread_pool[choice]
+        search_alg = thread._search_alg
+        if getattr(search_alg, "_ot_trials", None) and trial_id in search_alg._ot_trials:
+            search_alg.on_trial_complete(trial_id, None, error=True)
+        thread.running -= 1
 
     def _should_skip(self, choice, trial_id, config, space) -> bool:
         """if config is None or config's result is known or constraints are violated
