@@ -230,10 +230,123 @@ def test_group_split_with_non_array_groups(kind, eval_method):
         )
     assert automl.model is not None
     assert captured
-    for ids in captured:
+    all_counts = [np.bincount((ids // 10).astype(int), minlength=20) for ids in captured]
+    for counts in all_counts:
         # every fit sees whole groups only: a group is never split between train and validation
-        counts = np.bincount((ids // 10).astype(int), minlength=20)
         assert set(counts) <= {0, 10}
+    # at least one fit actually holds some groups out
+    assert any(0 in counts for counts in all_counts)
+
+
+def _spy_val_loss_calls():
+    """record the rows, the training group labels and the validation group labels of every evaluated fold"""
+    from flaml.automl import ml
+
+    calls = []
+    original = ml.get_val_loss  # the CV path calls the same function through generic_task
+
+    def spy(config, estimator, X_train, y_train, X_val, y_val, weight_val, groups_val, *args, **kwargs):
+        fit_kwargs = kwargs.get("fit_kwargs") or (args[-1] if args and isinstance(args[-1], dict) else {})
+        calls.append(
+            {
+                "train_ids": np.asarray(X_train)[:, 0].astype(int),
+                "val_ids": np.asarray(X_val)[:, 0].astype(int),
+                "groups": fit_kwargs.get("groups"),
+                "groups_val": groups_val,
+            }
+        )
+        return original(config, estimator, X_train, y_train, X_val, y_val, weight_val, groups_val, *args, **kwargs)
+
+    return calls, spy
+
+
+@pytest.mark.parametrize("eval_method", ["holdout", "cv"])
+@pytest.mark.parametrize("kind", ["list", "series_offset_index", "series_permuted_index"])
+def test_group_labels_follow_rows_in_every_fold(kind, eval_method):
+    """the group labels handed to each fold are the labels of the rows in that fold"""
+    from unittest.mock import patch
+
+    n = 200
+    rng = np.random.default_rng(3)
+    X = pd.DataFrame({"id": np.arange(n, dtype=float), "feat": rng.normal(size=n)})
+    labels = np.repeat(np.arange(20), 10)
+    y = pd.Series((labels % 2).astype(int))
+    groups = {
+        "list": labels.tolist(),
+        "series_offset_index": pd.Series(labels, index=np.arange(n) + 500),
+        "series_permuted_index": pd.Series(labels, index=rng.permutation(n)),
+    }[kind]
+    calls, spy = _spy_val_loss_calls()
+    with patch("flaml.automl.ml.get_val_loss", spy), patch("flaml.automl.task.generic_task.get_val_loss", spy):
+        AutoML().fit(
+            X_train=X,
+            y_train=y,
+            groups=groups,
+            split_type="group",
+            eval_method=eval_method,
+            n_splits=3,
+            task="classification",
+            time_budget=-1,
+            max_iter=2,
+            estimator_list=["rf"],
+            verbose=0,
+        )
+    assert calls
+    held_out = False
+    for call in calls:
+        assert call["groups_val"] is not None
+        np.testing.assert_array_equal(np.asarray(call["groups_val"]), labels[call["val_ids"]])
+        if call["groups"] is not None:
+            np.testing.assert_array_equal(np.asarray(call["groups"]), labels[call["train_ids"]])
+        train_groups, val_groups = set(labels[call["train_ids"]]), set(labels[call["val_ids"]])
+        assert not train_groups & val_groups
+        held_out |= bool(val_groups)
+    assert held_out
+
+
+@pytest.mark.parametrize("kind", ["list", "tuple", "series_offset_index"])
+def test_group_labels_with_caller_supplied_validation_data(kind):
+    """X_val / y_val with non-array groups and groups_val: labels stay aligned with their rows"""
+    from unittest.mock import patch
+
+    n_train = 160
+    rng = np.random.default_rng(5)
+    X_all = pd.DataFrame({"id": np.arange(200, dtype=float), "feat": rng.normal(size=200)})
+    labels_all = np.repeat(np.arange(20), 10)
+    y_all = pd.Series((labels_all % 2).astype(int))
+    X_train, X_val = X_all.iloc[:n_train], X_all.iloc[n_train:].reset_index(drop=True)
+    y_train, y_val = y_all.iloc[:n_train], y_all.iloc[n_train:].reset_index(drop=True)
+    labels_train, labels_val = labels_all[:n_train], labels_all[n_train:]
+    wrap = {
+        "list": lambda a: a.tolist(),
+        "tuple": lambda a: tuple(a.tolist()),
+        "series_offset_index": lambda a: pd.Series(a, index=np.arange(len(a)) + 500),
+    }[kind]
+    calls, spy = _spy_val_loss_calls()
+    with patch("flaml.automl.ml.get_val_loss", spy), patch("flaml.automl.task.generic_task.get_val_loss", spy):
+        automl = AutoML()
+        automl.fit(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            groups=wrap(labels_train),
+            groups_val=wrap(labels_val),
+            split_type="group",
+            eval_method="holdout",
+            task="classification",
+            time_budget=-1,
+            max_iter=2,
+            estimator_list=["rf"],
+            verbose=0,
+        )
+    assert automl.model is not None
+    assert calls
+    for call in calls:
+        np.testing.assert_array_equal(call["val_ids"], X_val["id"].to_numpy().astype(int))
+        np.testing.assert_array_equal(np.asarray(call["groups_val"]), labels_val)
+        if call["groups"] is not None:
+            np.testing.assert_array_equal(np.asarray(call["groups"]), labels_train[call["train_ids"]])
 
 
 def test_group_holdout_with_permuted_index_series_keeps_group_alignment():
