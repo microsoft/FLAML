@@ -150,3 +150,28 @@ def test_lexico_flow2_percentage_tolerance_on_negative_values(modes, tolerance, 
     # A maximized "a" is negated, so its best value is negative. 10% must still allow a slightly
     # worse "a", here 10 against 11, and must not leave every result outside the bound.
     assert incumbents == expected
+
+
+def test_lexico_flow2_set_search_properties_resets_history():
+    searcher = FLOW2(
+        init_config={"x": 0.5},
+        metric="a",
+        mode="min",
+        space={"x": tune.uniform(0.0, 1.0)},
+        lexico_objectives={"metrics": ["a", "b"], "modes": ["min", "min"], "tolerances": {}, "targets": {}},
+    )
+    incumbents = []
+
+    def complete(trial_id, a, b):
+        assert searcher.suggest(trial_id) is not None
+        searcher.on_trial_complete(trial_id, {"a": a, "b": b})
+        incumbents.append((searcher.best_obj["a"], searcher.best_obj["b"]))
+
+    complete("0", 100, 5)
+    complete("1", 90, 6)
+    # A new space resets the incumbent, so the history of the old incumbents must not be kept.
+    searcher.set_search_properties(config={"x": tune.uniform(0.0, 1.0)})
+    complete("2", 1, 10)
+    complete("3", 2, 0)
+    # (2, 0) has a worse "a" than the incumbent (1, 10) and zero tolerance, so it must be rejected.
+    assert incumbents == [(100, 5), (90, 6), (1, 10), (1, 10)]

@@ -188,6 +188,8 @@ class FLOW2(Searcher):
         self.incumbent = {}
         self.incumbent = self.normalize(self.best_config)  # flattened
         self.best_obj = self.cost_incumbent = None
+        # The lexicographic history starts from the incumbent, so it is reset with it.
+        self._histories = self._f_best = None
         self.dim = len(self._tunable_keys)  # total # tunable dimensions
         self._direction_tried = None
         self._num_complete4incumbent = self._cost_complete4incumbent = 0
