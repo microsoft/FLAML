@@ -188,6 +188,8 @@ class FLOW2(Searcher):
         self.incumbent = {}
         self.incumbent = self.normalize(self.best_config)  # flattened
         self.best_obj = self.cost_incumbent = None
+        # The lexicographic history starts from the incumbent, so it is reset with it.
+        self._histories = self._f_best = None
         self.dim = len(self._tunable_keys)  # total # tunable dimensions
         self._direction_tried = None
         self._num_complete4incumbent = self._cost_complete4incumbent = 0
@@ -339,78 +341,85 @@ class FLOW2(Searcher):
             self._init_search()
         return True
 
+    def _tolerance_bound(self, k_metric):
+        tolerance = self.lexico_objectives["tolerances"][k_metric]
+        f_best = self._f_best[k_metric]
+        if not isinstance(tolerance, str):
+            return f_best + tolerance
+        assert tolerance[-1] == "%", f"String tolerance of {k_metric} should use %% as the suffix"
+        if f_best in (np.inf, -np.inf):
+            return f_best
+        # The values are minimized, so a "max" objective has negative values here. Move a negative
+        # best value up as well, so that the percentage loosens the bound instead of tightening it.
+        percentage = 0.01 * float(tolerance.replace("%", ""))
+        return f_best * (1 + percentage) if f_best >= 0 else f_best * (1 - percentage)
+
     def update_fbest(
         self,
     ):
         obj_initial = self.lexico_objectives["metrics"][0]
         feasible_index = np.array([*range(len(self._histories[obj_initial]))])
-        for k_metric in self.lexico_objectives["metrics"]:
+        for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
             k_values = np.array(self._histories[k_metric])
+            # The histories are minimized, so the target of a "max" objective is negated, as in lexico_compare.
+            k_target = (
+                self.lexico_objectives["targets"][k_metric]
+                if k_mode == "min"
+                else -self.lexico_objectives["targets"][k_metric]
+            )
             feasible_value = k_values.take(feasible_index)
             self._f_best[k_metric] = np.min(feasible_value)
-            if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-            else:
-                assert (
-                    self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                ), f"String tolerance of {k_metric} should use %% as the suffix"
-                tolerance_bound = self._f_best[k_metric] * (
-                    1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                )
+            tolerance_bound = self._tolerance_bound(k_metric)
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
                     tolerance_bound,
-                    self.lexico_objectives["targets"][k_metric],
+                    k_target,
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
 
     def lexico_compare(self, result) -> bool:
+        # Objectives are minimized here. NaN fails every comparison, so rank it as the worst value.
+        # v != v is only true for NaN; unlike np.isnan, it also works for values such as Fraction.
+        result = {k: np.inf if v != v else v for k, v in result.items()}
+        best_obj = {k: np.inf if v != v else v for k, v in self.best_obj.items()}
         if self._histories is None:
+            # Start the history with the incumbent so that the first result is compared with it.
             self._histories, self._f_best = defaultdict(list), {}
             for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            return True
-        else:
-            for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
-                k_target = (
-                    self.lexico_objectives["targets"][k_metric]
-                    if k_mode == "min"
-                    else -self.lexico_objectives["targets"][k_metric]
+                self._histories[k].append(best_obj[k])
+        for k in self.lexico_objectives["metrics"]:
+            self._histories[k].append(result[k])
+        self.update_fbest()
+        for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
+            k_target = (
+                self.lexico_objectives["targets"][k_metric]
+                if k_mode == "min"
+                else -self.lexico_objectives["targets"][k_metric]
+            )
+            tolerance_bound = self._tolerance_bound(k_metric)
+            # Inclusive bounds, as in update_fbest, so a tie on this objective moves on to the next one.
+            if (result[k_metric] <= max(tolerance_bound, k_target)) and (
+                best_obj[k_metric]
+                <= max(
+                    tolerance_bound,
+                    k_target,
                 )
-                if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                    tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                else:
-                    assert (
-                        self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                    ), f"String tolerance of {k_metric} should use %% as the suffix"
-                    tolerance_bound = self._f_best[k_metric] * (
-                        1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                    )
-                if (result[k_metric] < max(tolerance_bound, k_target)) and (
-                    self.best_obj[k_metric]
-                    < max(
-                        tolerance_bound,
-                        k_target,
-                    )
-                ):
-                    continue
-                elif result[k_metric] < self.best_obj[k_metric]:
-                    return True
-                else:
-                    return False
-            for k_metr in self.lexico_objectives["metrics"]:
-                if result[k_metr] == self.best_obj[k_metr]:
-                    continue
-                elif result[k_metr] < self.best_obj[k_metr]:
-                    return True
-                else:
-                    return False
+            ):
+                continue
+            elif result[k_metric] < best_obj[k_metric]:
+                return True
+            else:
+                return False
+        for k_metr in self.lexico_objectives["metrics"]:
+            if result[k_metr] == best_obj[k_metr]:
+                continue
+            elif result[k_metr] < best_obj[k_metr]:
+                return True
+            else:
+                return False
+        return False
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """
