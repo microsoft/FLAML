@@ -1606,29 +1606,36 @@ class LGBMEstimator(BaseEstimator):
                     return self._t1
                 mem1 = psutil.virtual_memory().available if psutil is not None else 1
                 self._mem1 = mem0 - mem1
-                self.params[self.ITER_HP] = min(n_iter, 4)
-                self._t2 = self._fit(X_train, y_train, **kwargs)
-                mem2 = psutil.virtual_memory().available if psutil is not None else 1
-                self._mem2 = max(mem0 - mem2, self._mem1)
-                # if self._mem1 <= 0:
-                #     self._mem_per_iter = self._mem2 / (self.params[self.ITER_HP] + 1)
-                # elif self._mem2 <= 0:
-                #     self._mem_per_iter = self._mem1
-                # else:
-                self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
-                # if self._mem_per_iter <= 1 and psutil is not None:
-                #     n_iter = self.params[self.ITER_HP]
-                self._time_per_iter = (
-                    (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
-                    if self._t2 > self._t1
-                    else self._t1
-                    if self._t1
-                    else 0.001
-                )
-                self._train_size = X_train.shape[0]
-                if budget is not None and self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
-                    # self.params[self.ITER_HP] = n_iter
-                    return time.time() - start_time
+                if is_retrain:
+                    # fresh retrain under a finite budget: the one-tree probe is the only measurement, so the
+                    # budget and memory caps below size the final fit instead of a larger probe
+                    self._mem_per_iter = self._mem1
+                    self._time_per_iter = self._t1 if self._t1 else 0.001
+                    self._train_size = X_train.shape[0]
+                else:
+                    self.params[self.ITER_HP] = min(n_iter, 4)
+                    self._t2 = self._fit(X_train, y_train, **kwargs)
+                    mem2 = psutil.virtual_memory().available if psutil is not None else 1
+                    self._mem2 = max(mem0 - mem2, self._mem1)
+                    # if self._mem1 <= 0:
+                    #     self._mem_per_iter = self._mem2 / (self.params[self.ITER_HP] + 1)
+                    # elif self._mem2 <= 0:
+                    #     self._mem_per_iter = self._mem1
+                    # else:
+                    self._mem_per_iter = min(self._mem1, self._mem2 / self.params[self.ITER_HP])
+                    # if self._mem_per_iter <= 1 and psutil is not None:
+                    #     n_iter = self.params[self.ITER_HP]
+                    self._time_per_iter = (
+                        (self._t2 - self._t1) / (self.params[self.ITER_HP] - 1)
+                        if self._t2 > self._t1
+                        else self._t1
+                        if self._t1
+                        else 0.001
+                    )
+                    self._train_size = X_train.shape[0]
+                    if budget is not None and self._t1 + self._t2 >= budget or n_iter == self.params[self.ITER_HP]:
+                        # self.params[self.ITER_HP] = n_iter
+                        return time.time() - start_time
                 trained = True
             # logger.debug(mem0)
             # logger.debug(self._mem_per_iter)

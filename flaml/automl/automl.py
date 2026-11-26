@@ -3473,6 +3473,12 @@ class AutoML(BaseEstimator):
                     )
                     logger.info(f"retrain {self._best_estimator} for {retrain_time:.1f}s")
                     state.best_config_train_time = retrain_time
+                    if self._max_iter < 1 and self._trained_estimator:
+                        # no search: report the size actually fitted when a finite budget capped it
+                        iter_hp = getattr(self._trained_estimator, "ITER_HP", None)
+                        fitted = self._trained_estimator.params.get(iter_hp)
+                        if iter_hp in state.best_config and fitted not in (None, state.best_config[iter_hp]):
+                            state.best_config = {**state.best_config, iter_hp: fitted}
                     if self._trained_estimator:
                         logger.info(f"retrained model: {self._trained_estimator.model}")
                         if self.best_run_id is not None:
