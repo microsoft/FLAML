@@ -1597,7 +1597,8 @@ class LGBMEstimator(BaseEstimator):
                     and psutil is not None
                 )
                 and n_iter > 1
-                and not is_retrain
+                # a retrain reuses the timing of an earlier fit; a fresh estimator under a finite budget has none
+                and not (is_retrain and (budget is None or self._time_per_iter))
             ):
                 self.params[self.ITER_HP] = 1
                 self._t1 = self._fit(X_train, y_train, **kwargs)
