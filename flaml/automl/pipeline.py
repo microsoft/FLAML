@@ -8,6 +8,16 @@ from sklearn.utils.metaestimators import available_if
 from sklearn.utils.validation import check_is_fitted
 
 
+def _forecast_time_column(task, X):
+    current = getattr(task, "time_col", None)
+    if not isinstance(X, pd.DataFrame):
+        return current or "ds"
+    if current in X.columns:
+        return current
+    datetimes = [name for name in X if pd.api.types.is_datetime64_any_dtype(X[name])]
+    return datetimes[0] if len(datetimes) == 1 else X.columns[0]
+
+
 class _TaskPreprocessor(TransformerMixin, BaseEstimator):
     """Adapt FLAML task preprocessing to sklearn's feature-only interface."""
 
@@ -42,10 +52,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                 time_idx = X.time_idx
                 test_data = X.test_data
             else:
-                if isinstance(X, pd.DataFrame) and getattr(task, "time_col", None) not in X.columns:
-                    task.time_col = X.columns[0]
-                elif getattr(task, "time_col", None) is None:
-                    task.time_col = "ds"
+                task.time_col = _forecast_time_column(task, X)
                 if isinstance(y, pd.DataFrame) or getattr(y, "name", None) is not None:
                     task.target_names = (
                         list(y.columns) if isinstance(y, pd.DataFrame) else [getattr(y, "name", None) or "y"]
@@ -119,7 +126,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             if getattr(self, "feature_only", False):
-                return self.transformer_.transform(X.X_train)
+                return self._transform_forecast_frame(X.X_train)
             return self._transform_validation_data(X)[0]
         if self.task_.is_ts_forecast() and isinstance(X, pd.DataFrame):
             X = X.copy()
@@ -136,6 +143,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
     def _transform_forecast_frame(self, frame):
         targets = self.task_.target_names
         features = frame.drop(columns=targets, errors="ignore").copy()
+        features[self.task_.time_col] = pd.to_datetime(features[self.task_.time_col])
         if not all(name in frame for name in targets):
             return self.transformer_.transform(features)
         features, labels = self.transformer_.transform(features, frame[targets].copy())
@@ -203,10 +211,13 @@ class AutoMLPipeline(Pipeline):
         return self
 
     def _set_label_transformer(self, transformer):
-        self.label_transformer_ = transformer
         for _, step in self.steps[:-1]:
-            if transformer is not None and isinstance(step, _TaskPreprocessor) and step.task_.is_ts_forecast():
-                step.transformer_.label_transformer = transformer
+            if isinstance(step, _TaskPreprocessor) and step.task_.is_ts_forecast():
+                if transformer is None:
+                    transformer = step.transformer_.label_transformer
+                elif transformer is not None:
+                    step.transformer_.label_transformer = transformer
+        self.label_transformer_ = transformer
 
     @available_if(lambda self: hasattr(self._final_estimator, "fit_predict"))
     def fit_predict(self, X, y=None, **params):
@@ -258,6 +269,31 @@ class AutoMLPipeline(Pipeline):
         return transformer.classes_ if transformer is not None else super().classes_
 
 
+class _ForecastFeaturePipeline(Pipeline):
+    def _prepare_fit(self, X, y):
+        from flaml.automl.task.factory import task_factory
+        from flaml.automl.time_series.ts_data import TimeSeriesDataset
+
+        preprocessor = self.named_steps["feature_transformer"]
+        task = task_factory(preprocessor.task) if isinstance(preprocessor.task, str) else deepcopy(preprocessor.task)
+        if isinstance(X, TimeSeriesDataset):
+            task.time_col = X.time_col
+            task.target_names = X.target_names
+            y = X.y_train if y is None else y
+        else:
+            task.time_col = _forecast_time_column(task, X)
+        preprocessor.task = task
+        if "autofe" in self.named_steps:
+            self.named_steps["autofe"].task = task
+        return y
+
+    def fit(self, X, y=None, **params):
+        return super().fit(X, self._prepare_fit(X, y), **params)
+
+    def fit_transform(self, X, y=None, **params):
+        return super().fit_transform(X, self._prepare_fit(X, y), **params)
+
+
 def _preprocessing_steps(automl, estimator):
     preprocessor = getattr(estimator, "_flaml_preprocessor", None)
     if preprocessor is None:
@@ -277,7 +313,8 @@ def _preprocessing_steps(automl, estimator):
 
 def make_automl_feature_transformer(automl, estimator):
     """Snapshot only preprocessing without copying the fitted learner."""
-    pipeline = deepcopy(Pipeline(_preprocessing_steps(automl, estimator)))
+    pipeline_class = _ForecastFeaturePipeline if automl._state.task.is_ts_forecast() else Pipeline
+    pipeline = deepcopy(pipeline_class(_preprocessing_steps(automl, estimator)))
     pipeline.named_steps["feature_transformer"].feature_only = True
     return pipeline
 

@@ -921,10 +921,12 @@ def test_registration_uses_the_current_pipeline_artifact(local_mlflow, monkeypat
     version = object()
     log_model = Mock(return_value=artifact)
     register_model = Mock(return_value=version)
+    start_run = Mock(side_effect=mlflow.start_run)
     monkeypatch.setattr(
         module,
         "mlflow",
         SimpleNamespace(
+            start_run=start_run,
             sklearn=SimpleNamespace(log_model=log_model),
             register_model=register_model,
             get_run=Mock(return_value=SimpleNamespace(info=SimpleNamespace(run_id=best_run_id))),
@@ -934,6 +936,7 @@ def test_registration_uses_the_current_pipeline_artifact(local_mlflow, monkeypat
     result = module.register_automl_pipeline(automl, artifact_path="current-pipeline")
     log_model.assert_called_once_with(pipeline, "current-pipeline", signature=None)
     register_model.assert_called_once_with(artifact.model_uri, (experiment_name or "flaml") + "_pipeline")
+    start_run.assert_called_once_with(nested=True, run_name=(experiment_name or "flaml") + "_pipeline_registration")
     assert result is version
 
 

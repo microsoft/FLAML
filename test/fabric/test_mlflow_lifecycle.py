@@ -75,7 +75,6 @@ def test_each_trial_artifact_retains_its_own_model_and_pruned_requirements(
 ):
     from packaging.requirements import Requirement
 
-    from flaml.automl.pipeline import make_automl_pipeline
     from flaml.fabric.mlflow import MLflowIntegration
 
     X = pd.DataFrame({"value": np.arange(60.0), "squared": np.arange(60.0) ** 2})
@@ -85,7 +84,8 @@ def test_each_trial_artifact_retains_its_own_model_and_pruned_requirements(
 
     def record(self, automl, state, estimator, *args, **kwargs):
         model = getattr(state, "trial_model", None) or state.trained_estimator
-        expected.append(make_automl_pipeline(automl, model).predict(X))
+        features = model.autofe.transform(model._flaml_preprocessor.transform(X))
+        expected.append((model.predict(features), np.asarray(features)))
         return original(self, automl, state, estimator, *args, **kwargs)
 
     monkeypatch.setattr(MLflowIntegration, "record_state", record)
@@ -102,8 +102,8 @@ def test_each_trial_artifact_retains_its_own_model_and_pruned_requirements(
         metric=lambda X, y, estimator, *args, **kwargs: (0.1 if estimator.params["n_estimators"] == 4 else 0.9, {}),
         starting_points={
             "rf": [
-                {"n_estimators": 4, "fe.numerical": "scaler_standard"},
-                {"n_estimators": 8, "fe.numerical": "scaler_minmax"},
+                {"n_estimators": 4, "fe.extraction": "PCA"},
+                {"n_estimators": 8, "fe.extraction": "LDA"},
             ]
         },
     )
@@ -111,9 +111,14 @@ def test_each_trial_artifact_retains_its_own_model_and_pruned_requirements(
         automl.fit(X, y)
         run_ids = automl.mlflow_integration.manual_run_ids
         assert len(run_ids) == len(expected) == 2
-        for run_id, predictions, trees in zip(run_ids, expected, (4, 8)):
+        assert expected[0][1].shape[1] != expected[1][1].shape[1]
+        for run_id, (predictions, features), trees in zip(run_ids, expected, (4, 8)):
             restored = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
             np.testing.assert_array_equal(restored.predict(X), predictions)
+            restored_features = restored.named_steps["autofe"].transform(
+                restored.named_steps["feature_transformer"].transform(X)
+            )
+            np.testing.assert_allclose(restored_features, features)
             assert restored.steps[-1][1].estimator.n_estimators == trees
             requirements = tracking.download_artifacts(run_id, "model/requirements.txt")
             with open(requirements, encoding="utf-8") as file:
@@ -217,19 +222,35 @@ def test_summary_copy_preserves_parent_trial_identity(tracking):
         assert stored.data.metrics["score"] == 0.5
 
 
-def test_failed_fit_drains_artifact_producers_before_restoring_autolog():
+@pytest.mark.parametrize("drain_fails", [False, True])
+def test_failed_fit_drains_artifact_producers_before_restoring_autolog(drain_fails):
+    import importlib
+
     from flaml.automl.automl import _restore_mlflow_after_fit
 
     order = []
     integration = SimpleNamespace(resume_mlflow=lambda: order.append("restore"))
-    instance = SimpleNamespace(mlflow_integration=integration, wait_futures=lambda: order.append("drain"))
+
+    def drain():
+        order.append("drain")
+        if drain_fails:
+            raise RuntimeError("artifact drain failed")
+
+    instance = SimpleNamespace(mlflow_integration=integration, wait_futures=drain)
 
     def fail(self):
         raise ValueError("original training error")
 
-    with pytest.raises(ValueError, match="original training error"):
+    with patch.object(importlib.import_module("flaml.automl.automl").logger, "exception") as logged, pytest.raises(
+        ValueError, match="original training error"
+    ):
         _restore_mlflow_after_fit(fail)(instance)
     assert order == ["drain", "restore"]
+    if drain_fails:
+        logged.assert_called_once()
+        assert "draining" in logged.call_args.args[0]
+    else:
+        logged.assert_not_called()
 
 
 def test_parallel_tune_adoption_joins_trial_identity_not_start_order(monkeypatch):
@@ -321,3 +342,230 @@ def test_new_winning_learner_does_not_clean_retained_model_history():
         model = automl.best_model_for_estimator(learner)
         assert model is not None
         assert len(model.predict(X)) == len(y)
+
+
+@pytest.mark.parametrize("clock_offset_ms", [0, -60000])
+def test_owned_trial_adoption_uses_identity_not_worker_clock(tracking, clock_offset_ms):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    with mlflow.start_run() as parent:
+        integration = MLflowIntegration("tune")
+        integration.autolog, integration.manual_log = True, False
+        trial = SimpleNamespace(trial_id="trial", config={"x": 1})
+        integration.record_trial({"loss": 0.1}, trial, "loss")
+        integration.set_best_iter(SimpleNamespace(best_iteration=0, best_trial=trial))
+        child = tracking.create_run(
+            integration.experiment_id,
+            start_time=int(integration.start_time * 1000) + clock_offset_ms,
+            tags={**integration.extra_tag, "flaml.trial_id": trial.trial_id},
+        )
+        result = SimpleNamespace()
+        integration.adopt_children(result)
+        assert result.best_run_id == child.info.run_id
+        stored = tracking.get_run(child.info.run_id)
+        assert stored.data.tags["mlflow.parentRunId"] == parent.info.run_id
+        assert stored.data.metrics["loss"] == 0.1
+
+
+def test_adoption_cleans_only_unrecorded_owned_empty_runs(tracking):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog, integration.manual_log = True, False
+    integration.record_trial({"loss": 0.1}, SimpleNamespace(trial_id="recorded", config={}), "loss")
+    created = {}
+    for name, tags in {
+        "recorded": {**integration.extra_tag, "flaml.trial_id": "recorded"},
+        "stopped": {**integration.extra_tag, "flaml.trial_id": "stopped"},
+        "unrelated": {"flaml.owner_id": "other", "flaml.trial_id": "stopped"},
+    }.items():
+        created[name] = tracking.create_run(
+            integration.experiment_id, start_time=int((integration.start_time + 1) * 1000), tags=tags
+        ).info.run_id
+    integration.adopt_children()
+    assert tracking.get_run(created["recorded"]).info.lifecycle_stage == "active"
+    assert tracking.get_run(created["stopped"]).info.lifecycle_stage == "deleted"
+    assert tracking.get_run(created["unrelated"]).info.lifecycle_stage == "active"
+
+
+def test_manual_tune_winner_uses_trial_identity_after_resultless_trial(tracking):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    with mlflow.start_run():
+        integration = MLflowIntegration("tune")
+        winner = SimpleNamespace(trial_id="winner", config={"x": 1})
+        integration.record_trial({"loss": 0.1}, winner, "loss")
+        result = SimpleNamespace(
+            best_iteration=1, best_trial=winner, best_config=winner.config, best_result={"loss": 0.1}
+        )
+        integration.log_tune(result, "loss")
+        assert result.best_run_id == integration.manual_run_ids[0]
+
+
+def test_tune_report_results_are_logged_without_returning_a_value(tracking):
+    from flaml import tune
+
+    def objective(config):
+        tune.report(loss=config["x"])
+
+    with mlflow.start_run() as parent:
+        result = tune.run(
+            objective,
+            config={"x": tune.choice([1, 2])},
+            metric="loss",
+            mode="min",
+            num_samples=2,
+            use_ray=False,
+            verbose=0,
+        )
+        assert len(result.trials) == 2
+        assert result.best_run_id
+        best = tracking.get_run(result.best_run_id)
+        assert best.data.tags["flaml.trial_id"] == result.best_trial.trial_id
+        assert best.data.metrics["loss"] == result.best_result["loss"]
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_tune_adopts_successful_metrics_once(tracking):
+    from flaml import tune
+
+    mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run():
+        result = tune.run(
+            lambda config: {"loss": config["x"]},
+            config={"x": tune.choice([1, 2])},
+            metric="loss",
+            mode="min",
+            num_samples=2,
+            use_ray=False,
+            verbose=0,
+        )
+        assert result.best_run_id
+        assert len(tracking.get_metric_history(result.best_run_id, "loss")) == 1
+
+
+def test_tune_cleanup_failure_preserves_original_objective_error(tracking, monkeypatch):
+    from flaml import tune
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    def fail(config):
+        raise ValueError("original objective failure")
+
+    monkeypatch.setattr(MLflowIntegration, "adopt_children", Mock(side_effect=RuntimeError("tracking unavailable")))
+    with mlflow.start_run(), pytest.raises(ValueError, match="original objective failure"):
+        tune.run(fail, config={"x": 1}, num_samples=1, use_ray=False, verbose=0)
+
+
+def test_remote_trial_lineage_does_not_use_unrelated_active_worker_run(tracking, monkeypatch):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    with mlflow.start_run() as driver:
+
+        def objective(config):
+            return mlflow.active_run().info.run_id
+
+        wrapped = _mlflow_wrapper(objective, driver.info.experiment_id, autolog=True)
+    with mlflow.start_run() as worker:
+        monkeypatch.setattr("socket.gethostname", lambda: "remote-worker")
+        child_id = wrapped({}, _flaml_trial_id="trial")
+        assert mlflow.active_run().info.run_id == worker.info.run_id
+        assert tracking.get_run(worker.info.run_id).info.status == "RUNNING"
+    assert tracking.get_run(child_id).data.tags["mlflow.parentRunId"] == driver.info.run_id
+
+
+def test_repeated_pipeline_registration_keeps_immutable_version_sources(tracking, explicit_requirements):
+    from uuid import uuid4
+
+    from sklearn.dummy import DummyClassifier
+    from sklearn.pipeline import Pipeline
+
+    from flaml.fabric.mlflow import register_automl_pipeline
+
+    X, y = np.arange(12).reshape(6, 2), np.array([0, 1] * 3)
+    name = "registered-" + uuid4().hex
+    versions = []
+    with mlflow.start_run() as parent:
+        for value in (0, 1):
+            pipeline = Pipeline([("model", DummyClassifier(strategy="constant", constant=value))]).fit(X, y)
+            versions.append(register_automl_pipeline(SimpleNamespace(automl_pipeline=pipeline), model_name=name))
+            assert mlflow.active_run().info.run_id == parent.info.run_id
+        for value, version in enumerate(versions):
+            restored = mlflow.sklearn.load_model(f"models:/{name}/{version.version}")
+            np.testing.assert_array_equal(restored.predict(X), np.full(len(y), value))
+    assert versions[0].source != versions[1].source
+
+
+def test_final_model_mismatch_is_not_marked_as_published(tracking):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False)
+    automl.fit(np.arange(80).reshape(40, 2), np.tile([0, 1], 20))
+    with mlflow.start_run():
+        integration = MLflowIntegration("automl")
+        with mlflow.start_run(nested=True), pytest.raises(RuntimeError, match="run"):
+            integration.log_final_model(automl)
+        assert not integration.has_model
+
+
+def test_completed_model_futures_are_observed_once_and_released(tracking):
+    import importlib
+    from concurrent.futures import Future
+
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("automl")
+    future = Future()
+    future.set_exception(ValueError("trial artifact failure"))
+    integration.futures_log_model[future] = "artifact"
+    with patch.object(importlib.import_module("flaml.fabric.mlflow").logger, "warning") as logged:
+        integration.wait_model_futures()
+        integration.wait_model_futures()
+    assert not integration.futures_log_model
+    logged.assert_called_once()
+    assert str(logged.call_args.args[-1]) == "trial artifact failure"
+
+
+@pytest.mark.parametrize("autolog", [False, True])
+def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, autolog):
+    import importlib
+    import sys
+    from types import ModuleType
+
+    from flaml import tune
+
+    module = importlib.import_module("flaml.tune.tune")
+    current_trial = None
+    trials = [
+        SimpleNamespace(trial_id="empty", config={"x": 0}, last_result=None),
+        SimpleNamespace(trial_id="winner", config={"x": 1}, last_result=None),
+    ]
+    returned = SimpleNamespace(trials=trials, best_trial=trials[1], best_config={"x": 1}, best_result={"loss": 1.0})
+
+    def ray_run(objective, **kwargs):
+        nonlocal current_trial
+        for trial in trials:
+            current_trial = trial.trial_id
+            trial.last_result = objective(trial.config)
+        return returned
+
+    ray = ModuleType("ray")
+    ray.tune = SimpleNamespace(run=ray_run, get_context=lambda: SimpleNamespace(get_trial_id=lambda: current_trial))
+    monkeypatch.setitem(sys.modules, "ray", ray)
+    monkeypatch.setattr(module, "ray_available", False)
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        result = tune.run(
+            lambda config: {"loss": 1.0} if config["x"] else None,
+            config={"x": tune.choice([0, 1])},
+            metric="loss",
+            mode="min",
+            use_ray=True,
+            num_samples=2,
+            verbose=0,
+        )
+        assert result is returned
+        best = tracking.get_run(result.best_run_id)
+        assert best.data.tags["flaml.trial_id"] == "winner"
+        assert best.data.tags["mlflow.parentRunId"] == parent.info.run_id
+        assert best.data.metrics["loss"] == 1.0

@@ -298,14 +298,22 @@ def test_groups_with_sample_weights():
 )
 def test_stratified_groupkfold():
     from minio.error import ServerError
+    from requests.exceptions import RequestException
     from sklearn.model_selection import StratifiedGroupKFold
 
     from flaml.automl.data import load_openml_dataset
 
+    availability_errors = (ServerError, RequestException, URLError)
     try:
-        X_train, _, y_train, _ = load_openml_dataset(dataset_id=1169, data_dir="test/")
-    except (ServerError, Exception):
-        return
+        from openml.exceptions import OpenMLServerException
+
+        availability_errors += (OpenMLServerException,)
+    except ImportError:
+        pass
+    try:
+        X_train, _, y_train, _ = load_openml_dataset(dataset_id=1169, data_dir=artifact_path(__file__, "datasets"))
+    except availability_errors as exc:
+        pytest.skip(f"OpenML dataset is unavailable ({type(exc).__name__}).")
     splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0)
 
     automl = AutoML()

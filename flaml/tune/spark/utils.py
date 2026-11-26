@@ -19,6 +19,8 @@ logger_formatter = logging.Formatter(
 logger.propagate = False
 _broadcast_code_lock = threading.RLock()
 _published_code_aliases = set()
+_published_code_revisions = {}
+_publication_sequence = 0
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
     import py4j
@@ -185,6 +187,7 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
+    global _publication_sequence
     if (
         not isinstance(file_name, str)
         or not file_name.isidentifier()
@@ -197,25 +200,27 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     spark_available, _ = check_spark()
     flaml_path = os.path.dirname(os.path.abspath(__file__))
     custom_code = textwrap.dedent(custom_code)
-    digest = hashlib.sha256(("flaml-code-v3\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(("flaml-code-v4\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
     revision = f"_flaml_custom_{file_name}_{digest}"
     custom_path = os.path.join(flaml_path, revision + ".py")
     alias_path = os.path.join(flaml_path, file_name + ".py")
-    alias = (
-        f"from . import {revision} as _flaml_revision\n"
-        "globals().update({key: value for key, value in vars(_flaml_revision).items() "
-        "if key not in {'__name__', '__loader__', '__package__', '__spec__', '__file__', '__cached__', '__builtins__'}})\n"
-    )
     with _broadcast_code_lock:
         package = sys.modules.get("flaml.tune.spark")
         if package is not None:
             existing = vars(package).get(file_name)
-            existing_revision = getattr(existing, "_flaml_revision", None)
+            existing_revision = vars(existing).get("_flaml_revision") if isinstance(existing, ModuleType) else None
+            initial_revision = (
+                vars(existing).get("_flaml_initial_revision", "") if isinstance(existing, ModuleType) else ""
+            )
             owned_alias = (
                 isinstance(existing, ModuleType)
                 and existing.__name__ == f"flaml.tune.spark.{file_name}"
-                and isinstance(existing_revision, ModuleType)
-                and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
+                and (
+                    isinstance(initial_revision, str)
+                    and initial_revision.startswith(f"_flaml_custom_{file_name}_")
+                    or isinstance(existing_revision, ModuleType)
+                    and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
+                )
             )
             reserved = {
                 name.casefold()
@@ -229,9 +234,24 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                 raise ValueError("file_name must not replace the Spark package's existing module API.")
         if not os.path.exists(custom_path):
             _publish_code_file(custom_path, custom_code)
+        spark = SparkSession.builder.getOrCreate() if spark_available else None
+        root = pyspark.SparkFiles.getRootDirectory() if spark_available else None
+        previous = _published_code_revisions.get(file_name)
+        if previous and previous[:2] == (digest, root) and (previous[3] is None or os.path.exists(previous[3])):
+            sequence, archive_path = previous[2:]
+        else:
+            _publication_sequence = max(_publication_sequence + 1, time.time_ns())
+            sequence = _publication_sequence
+            archive_path = (
+                os.path.join(root, f"{sequence:020d}_{file_name}_{digest}_flaml_custom_code.zip")
+                if root is not None
+                else None
+            )
+        alias = (
+            "from . import _install_code_alias as _flaml_install_alias\n"
+            f"_flaml_install_alias(__name__, {revision!r}, {sequence})\n"
+        )
         if spark_available:
-            spark = SparkSession.builder.getOrCreate()
-            archive_path = os.path.join(pyspark.SparkFiles.getRootDirectory(), f"{digest}_flaml_custom_code.zip")
             if not os.path.exists(archive_path):
                 descriptor, temporary = tempfile.mkstemp(dir=os.path.dirname(archive_path), suffix=".zip")
                 os.close(descriptor)
@@ -252,6 +272,7 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         if package is not None:
             package.__dict__.pop(file_name, None)
         _published_code_aliases.add(file_name)
+        _published_code_revisions[file_name] = (digest, root, sequence, archive_path)
         importlib.invalidate_caches()
 
     return custom_path

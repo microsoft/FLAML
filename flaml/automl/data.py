@@ -39,10 +39,32 @@ TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
 
 
+def _write_openml_cache(filepath, dataset):
+    import pickle
+    import tempfile
+
+    directory = os.path.dirname(os.path.abspath(filepath))
+    os.makedirs(directory, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=".openml-", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            pickle.dump(dataset, output, pickle.HIGHEST_PROTOCOL)
+        try:
+            os.replace(temporary, filepath)
+        except PermissionError:
+            # A competing writer may have published a cache now held open by a Windows reader.
+            if not os.path.isfile(filepath):
+                raise
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_format="dataframe"):
     """Load dataset from open ML.
 
     If the file is not cached locally, download it from open ML.
+    Cache publication is atomic so concurrent readers do not observe partial pickles.
 
     Args:
         dataset_id: An integer of the dataset id in openml.
@@ -76,10 +98,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
     else:
         logger.info("download dataset from openml")
         dataset = openml.datasets.get_dataset(dataset_id) if openml else None
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        with open(filepath, "wb") as f:
-            pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
+        _write_openml_cache(filepath, dataset)
     if dataset:
         logger.info("Dataset name: %s", dataset.name)
     try:
@@ -87,7 +106,7 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
     except (ValueError, AttributeError, TypeError):
         from sklearn.datasets import fetch_openml
 
-        X, y = fetch_openml(data_id=dataset_id, return_X_y=True)
+        X, y = fetch_openml(data_id=dataset_id, return_X_y=True, data_home=data_dir)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
     logger.info(
         "X_train.shape: %s, y_train.shape: %s;\nX_test.shape: %s, y_test.shape: %s",
@@ -104,6 +123,7 @@ def load_openml_task(task_id, data_dir):
 
     Use the first fold of the task.
     If the file is not cached locally, download it from open ML.
+    Cache publication is atomic so concurrent readers do not observe partial pickles.
 
     Args:
         task_id: An integer of the task id in openml.
@@ -129,8 +149,7 @@ def load_openml_task(task_id, data_dir):
     else:
         logger.info("load_openml_task: downloading task_id=%s from openml", task_id)
         dataset = task.get_dataset()
-        with open(filepath, "wb") as f:
-            pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
+        _write_openml_cache(filepath, dataset)
     X, y, _, _ = dataset.get_data(task.target_name)
     train_indices, test_indices = task.get_train_test_split_indices(
         repeat=0,
@@ -842,10 +861,6 @@ _SPARK_CAST_ALLOWED_TYPES = frozenset(
     {"int", "bigint", "long", "double", "float", "string", "boolean", "timestamp", "date"}
 )
 
-# Share the near-whole tolerance between sampled inference and exact decimal
-# conversion. Different boundaries would create unexpected missing values.
-_SPARK_INT_WHOLE_TOL = 1e-6
-
 # Float64 mantissa is 52 bits, so integers in the range ``[-2**53, 2**53]``
 # (53 bits including the implicit leading 1) are exactly representable.
 # Values at or beyond ``2**53`` start losing the unit's place — e.g.,
@@ -878,13 +893,35 @@ def _spark_column(col_name: str):
     return F.col(f"`{col_name.replace('`', '``')}`")
 
 
+def _spark_decimal_key(column):
+    """Normalize numeric text without first rounding it through a fixed-scale decimal."""
+    text = F.trim(column.cast("string"))
+    valid = text.rlike(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+    pattern = r"^[+-]?(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$"
+    whole = F.regexp_extract(text, pattern, 1)
+    fraction = F.regexp_extract(text, pattern, 2)
+    exponent_text = F.regexp_extract(text, pattern, 3)
+    exponent = F.when(exponent_text == "", F.lit(0)).when(F.length(exponent_text) <= 9, exponent_text.cast("int"))
+    digits = F.regexp_replace(F.concat(whole, fraction), r"^0+", "")
+    significant = F.regexp_replace(digits, r"0+$", "")
+    zero = significant == ""
+    power = exponent - F.length(fraction) + F.length(digits) - F.length(significant)
+    return F.when(
+        valid & exponent.isNotNull(),
+        F.struct(
+            F.when(zero, F.lit(False)).otherwise(text.startswith("-")).alias("negative"),
+            F.when(zero, F.lit("0")).otherwise(significant).alias("digits"),
+            F.when(zero, F.lit(0)).otherwise(power).alias("exponent"),
+        ),
+    )
+
+
 def _spark_integral_value(col_name: str):
     escaped = col_name.replace("`", "``")
     decimal_sql = f"try_cast(`{escaped}` as decimal(38,18))"
-    decimal_value = F.expr(decimal_sql)
-    near_whole = decimal_value.isNotNull() & (F.abs(decimal_value % 1) <= _SPARK_INT_WHOLE_TOL)
     rounded = F.expr(f"try_cast(round({decimal_sql}) as bigint)")
-    return F.coalesce(_spark_try_cast(col_name, "bigint"), F.when(near_whole, rounded))
+    whole = _spark_decimal_key(_spark_column(col_name))["exponent"] >= 0
+    return F.when(whole, F.coalesce(_spark_try_cast(col_name, "bigint"), rounded))
 
 
 def _spark_numeric_precision_loss(col_name: str):
@@ -896,6 +933,7 @@ def _spark_numeric_precision_loss(col_name: str):
     finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
     return literal & (
         ~finite
+        | ~_spark_decimal_key(_spark_column(col_name)).eqNullSafe(_spark_decimal_key(numeric))
         | ((numeric % 1 == 0) & (exact % 1 != 0))
         | ((F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING) & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip)))
     )
@@ -1100,7 +1138,7 @@ def auto_convert_dtypes_spark(
         # Sample once at an appropriate ratio (constant across columns).
         col_sample = (
             df.select(_spark_column(colname))
-            .sample(withReplacement=False, fraction=sample_ratio_to_use)
+            .sample(withReplacement=False, fraction=sample_ratio_to_use, seed=0)
             .filter(_spark_column(colname).isNotNull())
         )
 
@@ -1122,37 +1160,8 @@ def auto_convert_dtypes_spark(
         # Consolidate ALL per-column metrics into a single ``.agg(...)``
         # so the entire inference for this column requires exactly one
         # Spark action (one job) instead of the historical 2-3 actions
-        # (``col_sample.count()`` + ``numeric_sample.count()`` + one of
-        # ``filter(...).count()`` / ``ts_col.filter(...).count()`` /
-        # ``countDistinct().collect()``). For wide tables (hundreds of
-        # columns) the per-action scheduler / task-setup overhead
-        # dominates the actual work on a 10%-sample, so collapsing
-        # them yields a large per-column speedup at no semantic cost
-        # (the agg expressions encode exactly the same predicates
-        # the prior per-action code used).
-        #
-        # ``_spark_try_cast`` returns NULL for malformed values rather
-        # than raising under Spark ANSI mode; reusing the same cast
-        # expression in multiple aggregate sums lets Catalyst dedupe
-        # the projection in the physical plan. Filter both null AND
-        # NaN values from the cast-to-double sample: Spark treats
-        # ``Double.NaN`` as non-null (``isNotNull()`` returns True
-        # for NaN), but a NaN double makes ``F.col("n") % 1``
-        # evaluate to NaN — and the ``> _SPARK_INT_WHOLE_TOL``
-        # predicate against NaN yields ``null`` (treated as
-        # ``false`` by ``.filter``). The whole-number test would
-        # therefore quietly count NaN rows as "whole", letting a
-        # column with NaN-like values infer as ``int`` and then
-        # silently null-out those rows on the subsequent
-        # ``try_cast(... as int)``. Apply the same reasoning to
-        # +/-Infinity values: an overflow-to-infinity ``try_cast``
-        # (e.g., string ``"1e400"``) passes ``isNotNull()`` AND
-        # ``~isnan()``, but ``inf % 1`` evaluates to ``null`` in
-        # Spark, so the ``> tol`` predicate also yields ``null``
-        # (false in filter), letting infinities be silently
-        # counted as "whole" and skewing inference toward ``int``.
-        # Add ``~isin(inf, -inf)`` to the predicate so whole-number
-        # inference operates strictly on finite numerics.
+        # Integer inference uses the original literal, not a rounded double.
+        # Invalid casts remain null under ANSI mode; NaN/Infinity are not whole values.
         double_col = _spark_try_cast(colname, "double")
         is_finite_num = double_col.isNotNull() & ~F.isnan(double_col) & ~double_col.isin(float("inf"), float("-inf"))
         integral_value = _spark_integral_value(colname)
@@ -1160,9 +1169,9 @@ def auto_convert_dtypes_spark(
         metrics = col_sample.agg(
             F.count("*").alias("sample_count"),
             F.sum(F.when(is_finite_num, 1).otherwise(0)).alias("numeric_count"),
-            F.sum(F.when(is_finite_num & (F.abs(double_col % 1) <= _SPARK_INT_WHOLE_TOL), 1).otherwise(0)).alias(
-                "whole_count"
-            ),
+            F.sum(
+                F.when(is_finite_num & (_spark_decimal_key(_spark_column(colname))["exponent"] >= 0), 1).otherwise(0)
+            ).alias("whole_count"),
             F.sum(F.when(integral_value.between(-(2**31), 2**31 - 1), 1).otherwise(0)).alias("int32_count"),
             F.sum(F.when(integral_value.isNotNull(), 1).otherwise(0)).alias("int64_count"),
             F.sum(F.when(ts_parsed.isNotNull(), 1).otherwise(0)).alias("ts_count"),
@@ -1181,11 +1190,6 @@ def auto_convert_dtypes_spark(
             continue
 
         if numeric_count >= sample_count * convert_threshold:
-            # ``all_whole`` mirrors the prior
-            # ``numeric_sample.filter(... > tol).count() == 0`` test:
-            # every finite numeric row had a (near-)zero fractional
-            # part, i.e. ``whole_count`` reached parity with
-            # ``numeric_count``.
             all_whole = whole_count == numeric_count
             if not all_whole:
                 inferred_type = "double"
@@ -1240,6 +1244,8 @@ def auto_convert_dtypes_spark(
                 ]
             )
             if schema[name] in {"int", "bigint"}:
+                precision_loss = _spark_numeric_precision_loss(name)
+                fractional = _spark_decimal_key(_spark_column(name))["exponent"] < 0
                 checks.extend(
                     [
                         F.max(
@@ -1247,9 +1253,14 @@ def auto_convert_dtypes_spark(
                         ).alias(f"wide_{index}"),
                         F.sum(
                             F.when(
-                                (finite & value.isNull()) | (~finite & _spark_numeric_precision_loss(name)), 1
+                                (finite & value.isNull() & (~fractional | precision_loss)) | (~finite & precision_loss),
+                                1,
                             ).otherwise(0)
                         ).alias(f"invalid_{index}"),
+                        F.max(F.when(finite & fractional & value.isNull() & ~precision_loss, 1).otherwise(0)).alias(
+                            f"fractional_{index}"
+                        ),
+                        F.max(F.when(precision_loss, 1).otherwise(0)).alias(f"lossy_{index}"),
                     ]
                 )
             elif schema[name] == "double":
@@ -1273,7 +1284,9 @@ def auto_convert_dtypes_spark(
                         f"Column {name!r} has finite numeric values incompatible with its inferred integer type. "
                         "Use skip_columns to preserve the original values."
                     )
-                if validation[f"wide_{index}"]:
+                if validation[f"fractional_{index}"]:
+                    schema[name] = "string" if validation[f"lossy_{index}"] else "double"
+                elif validation[f"wide_{index}"]:
                     schema[name] = "bigint"
             elif schema[name] == "double" and validation[f"lossy_{index}"]:
                 logger.warning("Column %r cannot be converted losslessly to double; preserving strings.", name)
@@ -1385,7 +1398,8 @@ def _numeric_conversion_loses_precision(source, parsed):
     except (TypeError, ValueError, OverflowError):
         return True
     return not math.isfinite(value) or (
-        value.is_integer()
+        Decimal(str(value)) != exact
+        or value.is_integer()
         and exact != exact.to_integral_value()
         or exact.copy_abs() >= _FLOAT64_SAFE_INT_CEILING
         and Decimal.from_float(value) != exact

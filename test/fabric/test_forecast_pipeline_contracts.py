@@ -10,7 +10,7 @@ from flaml.automl.time_series.ts_data import TimeSeriesDataset
 from flaml.fabric.autofe import Featurization
 
 
-def _forecast():
+def _forecast(extraction="null"):
     frame = pd.DataFrame(
         {
             "y": np.arange(36.0),
@@ -20,7 +20,7 @@ def _forecast():
     )
     automl = AutoML(
         estimator_list=["rf"],
-        max_iter=2,
+        max_iter=1 if extraction != "null" else 2,
         n_jobs=1,
         verbose=0,
         mlflow_logging=False,
@@ -28,7 +28,7 @@ def _forecast():
         task="ts_forecast_classification",
         eval_method="holdout",
         metric="accuracy",
-        starting_points={"rf": {"n_estimators": 4, "fe.selection": "null", "fe.extraction": "null"}},
+        starting_points={"rf": {"n_estimators": 4, "fe.selection": "null", "fe.extraction": extraction}},
     )
     automl.fit(TimeSeriesDataset(frame, "date", "target"), period=2)
     return automl, frame.drop(columns="target"), frame["target"]
@@ -155,3 +155,108 @@ def test_first_rare_class_repeats_positionally_without_reusing_index_masks(label
     assert len(augmented) == len(labels) == 40
     assert set(augmented.loc[np.asarray(labels) == 0, "feature"]) == {0, 1}
     assert (labels == 0).sum() == 20
+
+
+def test_forecast_feature_refit_uses_embedded_targets_for_lda():
+    automl, X, y = _forecast("LDA")
+    features = clone(automl.feature_transformer).fit_transform(TimeSeriesDataset(X.assign(target=y), "date", "target"))
+    assert isinstance(features, pd.DataFrame)
+    assert features.shape == (len(X), 2)
+    pd.testing.assert_series_equal(features["date"], X["date"])
+
+
+@pytest.mark.parametrize("as_dataset", [False, True])
+def test_forecast_feature_refit_propagates_a_renamed_nonleading_timestamp(as_dataset):
+    automl, X, y = _forecast()
+    X = X.rename(columns={"date": "new_date"})
+    data = TimeSeriesDataset(X.assign(target=y), "new_date", "target") if as_dataset else X
+    features = clone(automl.feature_transformer).fit_transform(data, None if as_dataset else y)
+    assert "y" in features
+    pd.testing.assert_series_equal(features["y"], X["y"])
+    pd.testing.assert_series_equal(features["new_date"], X["new_date"])
+
+
+def test_forecast_pipeline_refit_learns_new_string_target_labels():
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-01", periods=36),
+            "feature": np.arange(36.0),
+            "target": np.tile([0, 1], 18),
+        }
+    )
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        task="ts_forecast_classification",
+        featurization="auto",
+        starting_points={"rf": {"n_estimators": 4, "fe.extraction": "null"}},
+    )
+    automl.fit(TimeSeriesDataset(frame, "date", "target"), period=2)
+    frame["target"] = np.tile(["cold", "warm"], 18)
+    pipeline = clone(automl.automl_pipeline).fit(TimeSeriesDataset(frame, "date", "target"), estimator__period=2)
+    future = pd.DataFrame({"date": pd.date_range("2026-02-06", periods=2), "feature": [36.0, 37.0]})
+    assert set(pipeline.classes_) == {"cold", "warm"}
+    assert set(pipeline.predict(future)) <= {"cold", "warm"}
+
+
+@pytest.mark.parametrize("mode", ["auto", "force"])
+def test_tft_cannot_receive_generic_autofe_for_a_nonpanel_task(mode):
+    from flaml.automl.time_series import RF_TS
+
+    frame = pd.DataFrame({"date": pd.date_range("2026-01-01", periods=30), "target": range(30)})
+    state = SearchState(
+        RF_TS,
+        TimeSeriesDataset(frame, "date", "target"),
+        task_factory("ts_forecast"),
+        period=2,
+        max_iter=1,
+        budget=-1,
+        featurization=mode,
+        estimator_name="tft",
+    )
+    assert not any(name.startswith("fe.") for name in state.search_space)
+
+
+def test_tabular_autofe_rejects_a_time_holdout_class_absent_from_training():
+    X = pd.DataFrame({"feature": np.arange(40.0)})
+    y = pd.Series(["A", "C"] * 15 + ["B"] * 10)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=1,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        split_type="time",
+        split_ratio=0.25,
+        eval_method="holdout",
+        retrain_full=False,
+        metric="accuracy",
+    )
+    with pytest.raises(ValueError, match="every class.*training"):
+        automl.fit(X, y)
+
+
+def test_unused_tft_structural_kwargs_do_not_change_the_forecast_task():
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-01", periods=30),
+            "series": ["a"] * 30,
+            "feature": np.arange(30.0),
+            "target": np.arange(30.0),
+        }
+    )
+    automl = AutoML(max_iter=1, n_jobs=1, verbose=0, mlflow_logging=False, featurization="auto")
+    automl.fit(
+        dataframe=frame,
+        label="target",
+        task="ts_forecast",
+        period=2,
+        estimator_list=["rf"],
+        fit_kwargs_by_estimator={"tft": {"group_ids": ["series"]}},
+    )
+    assert not automl._state.task.is_ts_forecastpanel()
+    assert automl._state.task._preprocess_for_autofe

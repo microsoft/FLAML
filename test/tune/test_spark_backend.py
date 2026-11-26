@@ -1,5 +1,8 @@
 import importlib
+import json
+import os
 import pickle
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -96,15 +99,23 @@ def test_spark_tuning_forest_prediction(spark_backend, estimator_class, n_concur
     assert analysis.best_result["loss"] == pytest.approx(expected_loss)
 
 
-def test_spark_tuning_restores_backend_after_error(spark_backend):
+@pytest.mark.parametrize("error_type", [ValueError, RuntimeError])
+def test_spark_tuning_restores_backend_after_error(spark_backend, monkeypatch, error_type):
+    sleep = Mock()
+    monkeypatch.setattr(importlib.import_module("flaml.tune.tune").time, "sleep", sleep)
+    calls = []
+
     def evaluate(config):
-        raise ValueError("trial failed")
+        calls.append(config)
+        raise error_type("trial failed")
 
     with parallel_backend("threading", n_jobs=2):
         original_backend = get_active_backend()[0]
-        with pytest.raises(ValueError, match="trial failed"):
+        with pytest.raises(error_type, match="trial failed"):
             tune.run(evaluate, config={}, num_samples=1, use_spark=True, n_concurrent_trials=1, verbose=0)
         assert get_active_backend()[0] is original_backend
+    assert len(calls) == 1
+    sleep.assert_not_called()
 
 
 @pytest.mark.parametrize("learner", ["rf", "extra_tree"])
@@ -222,6 +233,57 @@ def test_broadcast_code_updates_use_distinct_archives(monkeypatch, broadcast_fil
         for key in list(sys.modules):
             if key == qualified_name or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
                 sys.modules.pop(key, None)
+
+
+@pytest.mark.parametrize("worker_kind", ["reused", "late"])
+def test_worker_alias_imports_follow_publication_order_and_reverts(broadcast_files, worker_kind):
+    utils, context, _ = broadcast_files
+    name = "_test_worker_public_alias"
+    archives = []
+    for value in (1, 2, 1):
+        utils.broadcast_code(f"class Learner:\n    def predict(self):\n        return {value}\n", name)
+        archives.append(context.addPyFile.call_args.args[0])
+    if worker_kind == "reused":
+        requests = [archives[:1], archives[:2], archives]
+        expected = [1, 2, 1]
+    else:
+        requests = [archives[:2]]
+        expected = [2]
+    script = """
+import importlib
+import json
+import os
+import pickle
+import sys
+retained = []
+module = None
+for line in sys.stdin:
+    request = json.loads(line)
+    sys.path[:] = request["paths"] + [path for path in sys.path if not path.endswith("_flaml_custom_code.zip")]
+    previous = module
+    module = importlib.import_module(request["module"])
+    retained.append(pickle.dumps(module.Learner()))
+    print(json.dumps({
+        "value": module.Learner().predict(), "retained": [pickle.loads(item).predict() for item in retained],
+        "pid": os.getpid(), "same_module": previous is None or previous is module,
+    }), flush=True)
+"""
+    messages = "\n".join(json.dumps({"paths": paths, "module": f"flaml.tune.spark.{name}"}) for paths in requests)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        input=messages + "\n",
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[2],
+        env={**os.environ, "FLAML_FABRIC_RUNTIME": "false"},
+        timeout=30,
+        check=True,
+    )
+    responses = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+    assert [row["value"] for row in responses] == expected
+    assert responses[-1]["retained"] == expected
+    assert len({row["pid"] for row in responses}) == 1
+    assert all(row["same_module"] for row in responses)
 
 
 def test_broadcast_code_without_spark_preserves_local_file(monkeypatch, broadcast_files):

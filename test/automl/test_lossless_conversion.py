@@ -44,6 +44,14 @@ def test_fractional_sources_below_safe_integer_ceiling_do_not_round_to_whole_val
     assert converted["value"].tolist() == list(map(str, source))
 
 
+@pytest.mark.parametrize("factory", [str, Decimal])
+def test_distinct_fractional_literals_do_not_collapse_to_the_same_double(factory):
+    source = [factory("0.50000000000000001"), factory("0.50000000000000002")]
+    converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": pd.Series(source, dtype=object)}))
+    assert schema["value"] == "string"
+    assert converted["value"].tolist() == list(map(str, source))
+
+
 def test_numeric_overflow_in_integer_candidate_is_not_replaced_with_missing():
     source = ["1", "2", "1e400"]
     converted, schema = auto_convert_dtypes_pandas(pd.DataFrame({"value": source}))

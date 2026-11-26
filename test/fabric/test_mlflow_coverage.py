@@ -688,10 +688,17 @@ class TestLogAutoml:
         automl.pipeline_signature = None
         automl.estimator_signature = None
 
-        with patch.object(mlflow, "start_run"), patch.object(mlflow, "log_metrics"), patch.object(
+        with patch.object(mlflow, "start_run") as start, patch.object(mlflow, "log_metrics") as metrics, patch.object(
             integration, "adopt_children"
         ), patch.object(integration, "pickle_and_log_automl_artifacts") as log:
             integration.log_automl(automl)
+            start.assert_not_called()
+            metrics.assert_not_called()
+            assert integration.mlflow_client.get_run(integration.parent_run_id).data.metrics == {
+                "best_validation_loss": 0.1,
+                "best_iteration": 0.0,
+                "num_child_runs": 0.0,
+            }
             assert not integration.has_model
             log.assert_not_called()
             integration.log_final_model(automl)
@@ -713,10 +720,17 @@ class TestLogAutoml:
         automl.best_estimator = "lgbm_spark"
         automl.estimator_signature = None
 
-        with patch.object(mlflow, "start_run"), patch.object(mlflow, "log_metrics"), patch.object(
+        with patch.object(mlflow, "start_run") as start, patch.object(mlflow, "log_metrics") as metrics, patch.object(
             integration, "adopt_children"
         ), patch.object(integration, "log_model") as log:
             integration.log_automl(automl)
+            start.assert_not_called()
+            metrics.assert_not_called()
+            assert integration.mlflow_client.get_run(integration.parent_run_id).data.metrics == {
+                "best_validation_loss": 0.1,
+                "best_iteration": 0.0,
+                "num_child_runs": 0.0,
+            }
             assert not integration.has_model
             log.assert_not_called()
             integration.log_final_model(automl)

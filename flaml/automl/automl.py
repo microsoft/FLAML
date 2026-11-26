@@ -1341,6 +1341,7 @@ class AutoML(BaseEstimator):
         self._featurization = (
             "auto" if any(name.startswith("fe.") for name in AutoMLState.sanitize(best_config)) else "off"
         )
+        self._state._requested_estimators = [best_estimator]
         task.validate_data(self, self._state, X_train, y_train, dataframe, label, groups=groups)
         sample_size = len(self._y_train_all) if train_full else best.sample_size
 
@@ -1363,11 +1364,34 @@ class AutoML(BaseEstimator):
             self._state.fit_kwargs,
             self._state.groups,
         )
-        eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
         self._allow_label_overlap = self._settings.get("allow_label_overlap", True)
-        self._prepare_data(eval_method, split_ratio, n_splits)
+        training_info = getattr(best, "training_info", None)
+        if task.is_ts_forecast() and (
+            train_full or training_info is not None and eval_method in ("auto", training_info.get("eval_method"))
+        ):
+            dataset = self._state.X_train_all
+            frame = dataset.train_data
+            if not train_full:
+                if "time_idx_cutoff" in training_info:
+                    frame = frame.loc[frame[dataset.time_idx] <= training_info["time_idx_cutoff"]]
+                else:
+                    frame = frame.iloc[: training_info["training_size"]]
+                if len(frame) != training_info["training_size"]:
+                    raise ValueError("The supplied forecast data cannot reconstruct the recorded training boundary.")
+            self._state.X_train = TimeSeriesDataset(
+                frame.copy(), dataset.time_col, dataset.target_names, time_idx=dataset.time_idx
+            )
+            self._state.X_val = self._state.X_train
+            self._state.data_size = frame.shape
+            self._state.data_size_full = len(dataset.train_data)
+            self._state.kf = None
+        else:
+            if task.is_ts_forecast() and eval_method == "auto":
+                eval_method = "holdout" if best.sample_size < len(self._y_train_all) else "cv"
+            eval_method = self._decide_eval_method(eval_method, time_budget)
+            self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = -1
         self._state.free_mem_ratio = 0
         self._state.n_jobs = n_jobs
@@ -2606,6 +2630,7 @@ class AutoML(BaseEstimator):
                     "automl", mlflow_exp_name, extra_tag=self.autolog_extra_tag, only_history=not logging_active
                 )
                 self._mlflow_exp_name = self.mlflow_integration.experiment_name
+        self._state._requested_estimators = estimator_list
         task.validate_data(
             self,
             self._state,
@@ -3150,6 +3175,15 @@ class AutoML(BaseEstimator):
 
     def _log_trial(self, search_state, estimator):
         if self._training_log:
+            training_info = None
+            if isinstance(self._state.X_train, TimeSeriesDataset):
+                dataset = self._state.X_train
+                training_info = {
+                    "eval_method": self._state.eval_method,
+                    "training_size": len(dataset.train_data),
+                }
+                if self._state.task.is_ts_forecastpanel():
+                    training_info["time_idx_cutoff"] = int(dataset.train_data[dataset.time_idx].max())
             self._training_log.append(
                 self._iter_per_learner[estimator],
                 search_state.metric_for_logging,
@@ -3159,6 +3193,7 @@ class AutoML(BaseEstimator):
                 search_state.config,
                 estimator,
                 search_state.sample_size,
+                **({"training_info": training_info} if training_info is not None else {}),
             )
 
     def _search_sequential(self):
@@ -3692,7 +3727,7 @@ class AutoML(BaseEstimator):
             logger.debug("Collecting results from submitted record_state tasks")
             t1 = time.perf_counter()
             for future in as_completed(tuple(self.mlflow_integration.futures_log_model)):
-                _task = self.mlflow_integration.futures_log_model[future]
+                _task = self.mlflow_integration.futures_log_model.pop(future)
                 try:
                     result = future.result()
                     logger.debug(f"Result for log_model task {_task}: {result}")
@@ -3700,7 +3735,7 @@ class AutoML(BaseEstimator):
                     logger.warning(f"Exception for log_model task {_task}: {e}")
                     kusto_logger.warning(f"Model artifact logging failed: {type(e).__name__}")
             for future in as_completed(tuple(self.mlflow_integration.futures)):
-                _task = self.mlflow_integration.futures[future]
+                _task = self.mlflow_integration.futures.pop(future)
                 try:
                     result = future.result()
                     logger.debug(f"Result for record_state task {_task}: {result}")

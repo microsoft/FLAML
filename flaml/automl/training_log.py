@@ -24,6 +24,7 @@ class TrainingLogRecord:
         config: dict,
         learner: str,
         sample_size: int,
+        training_info=None,
     ):
         self.record_id = record_id
         self.iter_per_learner = iter_per_learner
@@ -34,6 +35,8 @@ class TrainingLogRecord:
         self.config = config
         self.learner = learner
         self.sample_size = sample_size
+        if training_info is not None:
+            self.training_info = training_info
 
     def dump(self, fp: IO[str]):
         d = vars(self)
@@ -100,6 +103,7 @@ class TrainingLogWriter:
         config,
         learner,
         sample_size,
+        training_info=None,
     ):
         if self.file is None:
             raise OSError("Call open() to open the output file first.")
@@ -115,6 +119,7 @@ class TrainingLogWriter:
             config,
             learner,
             sample_size,
+            training_info,
         )
         if (
             validation_loss < self.current_best_loss

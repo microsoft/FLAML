@@ -714,6 +714,10 @@ def _eval_estimator(
     fit_kwargs={},
 ):
     if isinstance(eval_metric, str):
+        num_val_rows = len(X_val.test_data) if isinstance(X_val, TimeSeriesDataset) else X_val.shape[0]
+        if not num_val_rows:
+            logger.warning("Skipping prediction for an empty validation partition.")
+            return np.inf, {"pred_time": 0.0}, 0.0
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 

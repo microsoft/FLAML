@@ -145,6 +145,9 @@ def parse_autofe_config(
     if estimator_name is not None and estimator_name.endswith("_spark"):
         logger.warning("Auto featurization is not supported for spark data. Featurization is turned off.")
         return empty_search_space
+    if estimator_name == "tft":
+        logger.warning("Auto featurization is not supported for TFT; preserving its structural columns.")
+        return empty_search_space
 
     tree_based_estimators = {
         "xgboost",

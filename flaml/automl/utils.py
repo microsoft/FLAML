@@ -1,11 +1,14 @@
-from typing import Tuple, Union
+from typing import Any, Tuple, Union
 
 import numpy as np
 
 
-def len_labels(y: np.ndarray, return_labels=False) -> Union[int, Tuple[int, np.ndarray]]:
-    """Get the number of unique labels in y. The non-spark version of
-    flaml.automl.spark.utils.len_labels"""
+def len_labels(y: Any, return_labels=False) -> Union[int, Tuple[int, Any]]:
+    """Count labels locally, importing Spark only for an already-distributed input."""
+    if any(base.__module__.startswith("pyspark.pandas.") for base in type(y).__mro__):
+        from flaml.automl.spark.utils import len_labels as spark_len_labels
+
+        return spark_len_labels(y, return_labels=return_labels)
     labels = np.unique(y)
     if return_labels:
         return len(labels), labels

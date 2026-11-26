@@ -553,6 +553,19 @@ def run(
             evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
             _internal_mlflow = True
 
+    mlflow_finalized = False
+
+    def cleanup_mlflow():
+        if not _internal_mlflow or mlflow_finalized:
+            return
+        original_error = sys.exc_info()[0]
+        try:
+            mlflow_integration.adopt_children()
+        except Exception:
+            if original_error is None:
+                raise
+            logger.exception("MLflow cleanup failed while handling an objective error.")
+
     from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
     if lexico_objectives is not None:
@@ -692,6 +705,17 @@ def run(
             from ray import tune
         except ImportError:
             raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
+        if _internal_mlflow and mlflow_integration.autolog:
+            wrapped_evaluation = evaluation_function
+
+            def ray_evaluation(config):
+                from ray import tune as ray_tune
+
+                get_context = getattr(ray_tune, "get_context", None)
+                trial_id = get_context().get_trial_id() if get_context is not None else ray_tune.get_trial_id()
+                return wrapped_evaluation(config, _flaml_trial_id=trial_id)
+
+            evaluation_function = ray_evaluation
         _use_ray = True
         try:
             analysis = tune.run(
@@ -712,12 +736,19 @@ def run(
                     for trial in analysis.trials:
                         f.write(f"result: {trial.last_result}\n")
             analysis.search_space = config
+            if _internal_mlflow:
+                for trial in analysis.trials:
+                    if trial.last_result:
+                        mlflow_integration.record_trial(trial.last_result, trial, metric)
+                mlflow_finalized = True
+                mlflow_integration.log_tune(analysis, metric)
             return analysis
         finally:
             _use_ray = old_use_ray
             _verbose = old_verbose
             _running_trial = old_running_trial
             _training_iteration = old_training_iteration
+            cleanup_mlflow()
 
     if use_spark:
         # parallel run with spark
@@ -826,36 +857,25 @@ def run(
                         )
                         results = None
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            try:
-                                # The configured Parallel instance still uses Spark; inline trials need a local backend.
-                                with parallel_backend("threading"):
-                                    results = parallel(
-                                        delayed(evaluation_function)(
-                                            trial_to_run.config,
-                                            **(
-                                                {"_flaml_trial_id": trial_to_run.trial_id}
-                                                if _internal_mlflow and mlflow_integration.autolog
-                                                else {}
-                                            ),
-                                        )
-                                        for trial_to_run in trials_to_run
+                            # The configured Parallel instance still uses Spark; inline trials need a local backend.
+                            with parallel_backend("threading"):
+                                results = parallel(
+                                    delayed(evaluation_function)(
+                                        trial_to_run.config,
+                                        **(
+                                            {"_flaml_trial_id": trial_to_run.trial_id}
+                                            if _internal_mlflow and mlflow_integration.autolog
+                                            else {}
+                                        ),
                                     )
-                            except RuntimeError as e:
-                                logger.warning(f"RuntimeError: {e}")
-                                results = None
-                                logger.info(
-                                    "Encountered RuntimeError. Waiting 10 seconds for Spark cluster to recover before retrying."
+                                    for trial_to_run in trials_to_run
                                 )
-                                time.sleep(10)
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
                             result = results.pop(0)
                             trial_to_run = trials_to_run[0]
                             _runner.running_trial = trial_to_run
                             if result is not None:
-                                if _internal_mlflow:
-                                    mlflow_integration.record_trial(result, trial_to_run, metric)
-
                                 if isinstance(result, dict):
                                     if result:
                                         logger.info(f"Brief result: {result}")
@@ -866,6 +886,10 @@ def run(
                                 else:
                                     logger.info("Brief result: {metric: result}")
                                     report(_metric=result)
+                            if _internal_mlflow and trial_to_run.last_result is not None:
+                                mlflow_integration.record_trial(
+                                    result if result is not None else trial_to_run.last_result, trial_to_run, metric
+                                )
                             _runner.stop_trial(trial_to_run)
                         num_failures = 0
                     analysis = ExperimentAnalysis(
@@ -877,6 +901,7 @@ def run(
                     analysis.search_space = config
 
                     if _internal_mlflow:
+                        mlflow_finalized = True
                         mlflow_integration.log_tune(analysis, metric)
                         # try:
                         #     _best_config = analysis.best_config
@@ -899,8 +924,7 @@ def run(
                         _runner = old_runner
                         logger.handlers = old_handlers
                         logger.setLevel(old_level)
-                    if _internal_mlflow:
-                        mlflow_integration.adopt_children()
+                    cleanup_mlflow()
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -943,9 +967,6 @@ def run(
                     )
                 logger.debug(f"result in tune: {trial_to_run}, {result}")
                 if result is not None:
-                    if _internal_mlflow:
-                        mlflow_integration.record_trial(result, trial_to_run, metric)
-
                     if isinstance(result, dict):
                         if result:
                             report(**result)
@@ -954,6 +975,10 @@ def run(
                             trial_to_run.set_status(Trial.ERROR)
                     else:
                         report(_metric=result)
+                if _internal_mlflow and trial_to_run.last_result is not None:
+                    mlflow_integration.record_trial(
+                        result if result is not None else trial_to_run.last_result, trial_to_run, metric
+                    )
                 _runner.stop_trial(trial_to_run)
                 num_failures = 0
                 if trial_to_run.last_result is None:
@@ -974,6 +999,7 @@ def run(
         )
         analysis.search_space = config
         if _internal_mlflow:
+            mlflow_finalized = True
             mlflow_integration.log_tune(analysis, metric)
             if analysis.best_run_id is not None:
                 logger.info(f"Best MLflow run name: {analysis.best_run_name}")
@@ -996,8 +1022,7 @@ def run(
             _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
-        if _internal_mlflow:
-            mlflow_integration.adopt_children()
+        cleanup_mlflow()
 
 
 class Tuner:

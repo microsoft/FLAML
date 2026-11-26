@@ -703,7 +703,7 @@ class TestMLflowIntegration:
                 assert len(analysis.trials) == 1
                 mock_mlflow_cls.assert_called_once()
                 mock_instance.log_tune.assert_called_once()
-                mock_instance.adopt_children.assert_called_once()
+                mock_instance.adopt_children.assert_not_called()
         finally:
             tune_mod.internal_mlflow = old_internal
 
@@ -866,7 +866,7 @@ class TestEdgeCases:
                 analysis.best_run_name = "test_run_name"
                 # Verify mlflow integration was called
                 mock_instance.log_tune.assert_called_once()
-                mock_instance.adopt_children.assert_called_once()
+                mock_instance.adopt_children.assert_not_called()
         finally:
             tune_mod.internal_mlflow = old_internal
 

@@ -108,6 +108,11 @@ class TimeSeriesTask(Task):
         groups=None,
     ):
         group_ids = state.fit_kwargs.get("group_ids")
+        requested = getattr(state, "_requested_estimators", None)
+        if not group_ids and (requested is None or requested == "auto" or "tft" in requested):
+            group_ids = (getattr(state, "fit_kwargs_by_estimator", None) or {}).get("tft", {}).get("group_ids")
+            if group_ids:
+                state.fit_kwargs["group_ids"] = group_ids.copy()
         if group_ids or self.is_ts_forecastpanel():
             if not isinstance(group_ids, list) or not group_ids:
                 raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
@@ -173,6 +178,8 @@ class TimeSeriesTask(Task):
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
+                val_df = val_df.copy()
+                val_df[self.time_col] = pd.to_datetime(val_df[self.time_col])
             else:
                 val_df = None
 
@@ -194,10 +201,12 @@ class TimeSeriesTask(Task):
                     or frame[pre_data.time_idx].isna().any()
                 ):
                     raise ValueError("Panel time_idx must contain nonmissing signed integer values.")
+                if len(frame) and (not set(group_ids).issubset(frame.columns) or frame[group_ids].isna().any().any()):
+                    raise ValueError("Panel group_ids must refer to nonmissing group keys.")
         self._preprocess_for_autofe = (
             getattr(automl, "_featurization", "off") != "off" and not self.is_ts_forecastpanel()
         )
-        automl._transformer = DataTransformerTS(self.time_col, label)
+        automl._transformer = DataTransformerTS(self.time_col, label, time_idx=pre_data.time_idx)
         if self._preprocess_for_autofe:
             # The fitted trial preprocessor owns both feature statistics and target encoding.
             data = pre_data
@@ -207,6 +216,7 @@ class TimeSeriesTask(Task):
                 pre_data.X_all,
                 pre_data.y_all,
                 protected_columns=pre_data.X_train.columns if self.is_ts_forecastpanel() else (),
+                group_columns=group_ids if self.is_ts_forecastpanel() else (),
             )
             df_t = pd.concat([Xt, yt], axis=1)
             data = TimeSeriesDataset(
@@ -288,16 +298,16 @@ class TimeSeriesTask(Task):
 
                 ids = state.fit_kwargs["group_ids"].copy()
                 ids.append(ts_data.time_col)
-                ids.append("time_idx")
+                ids.append(ts_data.time_idx)
                 y_train_all = pd.DataFrame(y_train_all)
                 y_train_all[ids] = X_train_all[ids]
                 X_train_all = X_train_all.sort_values(ids)
                 y_train_all = y_train_all.sort_values(ids)
-                training_cutoff = X_train_all["time_idx"].max() - period
-                X_train = X_train_all[lambda x: x.time_idx <= training_cutoff]
-                y_train = y_train_all[lambda x: x.time_idx <= training_cutoff].drop(columns=ids)
-                X_val = X_train_all[lambda x: x.time_idx > training_cutoff]
-                y_val = y_train_all[lambda x: x.time_idx > training_cutoff].drop(columns=ids)
+                training_cutoff = X_train_all[ts_data.time_idx].max() - period
+                X_train = X_train_all[lambda x: x[ts_data.time_idx] <= training_cutoff]
+                y_train = y_train_all[lambda x: x[ts_data.time_idx] <= training_cutoff].drop(columns=ids)
+                X_val = X_train_all[lambda x: x[ts_data.time_idx] > training_cutoff]
+                y_val = y_train_all[lambda x: x[ts_data.time_idx] > training_cutoff].drop(columns=ids)
 
                 train_data = normalize_ts_data(
                     X_train,
@@ -376,10 +386,9 @@ class TimeSeriesTask(Task):
 
         else:
             assert split_type in ["auto", "time"]
-            assert isinstance(
-                fit_kwargs.get("period"),
-                int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
-            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+            period = fit_kwargs.get("period")
+            if not isinstance(period, int) or isinstance(period, bool) or period < 1:
+                raise ValueError(f"'period' must be a positive integer for '{TS_FORECAST}' task.")
             if fit_kwargs.get("group_ids"):
                 # TODO (MARK) This will likely not play well with the task class
                 self.name = TS_FORECASTPANEL

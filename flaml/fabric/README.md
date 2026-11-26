@@ -79,6 +79,8 @@ the AutoFE path, through a cloneable fit-only sampler. Automatically generated
 singleton-class splits and missing class coverage are rejected instead of copying
 observations across the training/validation boundary. Caller-provided validation
 is used as supplied, without augmentation or class-coverage repair.
+Time and group holdouts must also represent every advertised class in training,
+so probability columns cannot silently disagree with `classes_`.
 Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
@@ -119,6 +121,11 @@ original fit, and extraction lists record its input features. Selection and
 extraction recipes are refitted on the complete surviving feature matrix, even
 when the original selector dropped no columns. Forecast configuration
 reconstruction uses task-aware preprocessing and embedded dataset targets.
+New forecast training logs retain the evaluation mode and training boundary.
+Default sampled replay uses that boundary rather than choosing a new split from
+the replay time budget; `train_full=True` fits the supplied training data without
+constructing an unused validation split. For legacy sampled logs without boundary
+metadata, pass the original `eval_method` explicitly when the split is ambiguous.
 
 Forecast AutoFE fits feature statistics and target encoders on each training
 partition. Explicit validation rows are never eligible for final refitting;
@@ -130,6 +137,11 @@ request is rejected rather than using a non-group-aware row splitter. Declared
 group/covariate columns and caller-supplied absolute integer time indexes are
 preserved through search, final refitting, and prediction. Panel indexes must be
 signed integers without missing values, as required by TFT.
+Numeric group keys are not imputed or converted through floating point.
+Custom dataset time-index names are retained. TFT prediction supports consecutive
+coordinates immediately after each group's training boundary, up to the fitted
+horizon; unsupported gaps are rejected rather than relabeled. Predictions are
+mapped back to the caller's group/time keys and row order.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`. MLflow is optional, and registration
@@ -138,6 +150,8 @@ integration modules may import MLflow when it is installed. As with the existing
 enable AutoFE (`"auto"` or `"force"`) to obtain an `automl_pipeline`.
 Registration logs the current fitted
 pipeline and registers those exact artifacts, even when model history is disabled.
+Each registration uses its own nested run, so registering another pipeline under
+the same caller run cannot overwrite an older registered model version.
 AutoML restores both global and flavor-specific autologging settings after fitting.
 The exported pipeline decodes classification predictions to the original labels,
 and each retained trial artifact uses that trial's own fitted featurizer. Caller
@@ -158,8 +172,12 @@ exported pipeline for raw inputs. A log-derived unfitted recipe still requires
 the appropriately preprocessed data described above.
 Unsupervised forecast feature-only refits do not require targets and return
 feature DataFrames with caller row order and timestamps retained. LDA still
-requires training labels. Full forecast pipeline refits preserve named targets
+requires training labels, which may be embedded in a `TimeSeriesDataset`.
+Detached feature refits propagate the resolved timestamp name between stages.
+Full forecast pipeline refits preserve named targets
 and an existing explicit timestamp column even when it is not the first column.
+Refitting a numeric-target forecast classifier with strings also learns the new
+prediction vocabulary instead of returning encoded class indexes.
 Configured resampling remains a cloneable, fit-only operation after feature
 engineering; prediction and validation rows are never resampled. The same
 sample-weight and group-alignment restrictions apply to exported refits.
@@ -176,12 +194,21 @@ Tune preserves the caller's local autolog configuration and propagates those
 options to remote workers without permanently reconfiguring reused workers.
 Worker restoration includes the active experiment, and parallel trial/run
 matching uses trial identities rather than task start order.
+Tagged trial association does not depend on worker clock agreement. Local, Spark,
+and native Ray results use the winning trial ID. Local and Ray report-style
+objectives retain their final reported metrics. Successful adoption writes each trial's metrics
+once, and secondary cleanup errors do not replace an objective failure.
+Remote trials retain their driver's lineage without ending an unrelated active
+worker run. Objective and restoration `RuntimeError`s are not retried as cluster
+failures.
 Child-run adoption requires an integration-owned tag; unrelated runs in the same
 experiment are not changed. Trial artifacts use that trial's fitted model, and
 fit completion waits for dependent artifact-environment writes.
 Fluent model writes stay on the run-owning thread; only client-addressed metadata
 and requirement updates are asynchronous. The parent artifact is published after
 the final refit or ensemble is selected, without ending the caller's run.
+A refused final artifact write remains a visible failure rather than being
+marked published. Completed model-write results are observed and released once.
 Opaque per-estimator fit arguments are reported by argument name only, not by
 value; credentials and training payloads are not configuration metadata.
 The metric-name tag retains its historical spelling: `flaml.meric` publicly and
@@ -220,13 +247,18 @@ large scientific-notation integers, using decimal rather than float rounding.
 A full-column check can widen an inferred 32-bit type when sampling misses a
 large value. Incompatible finite numeric values raise instead of silently becoming
 null; `skip_columns` can retain the original strings.
-Mixed fractional/integer columns also retain strings when conversion to double
-would collapse distinct large exact values.
+Finite fractions missed by the sample widen to double only when the full column
+supports that conversion. Near-integral literals are not rounded into integers,
+and decimal round-trip checks preserve strings when either ordinary or large
+fractional values would collapse to the same double.
 
 `broadcast_code` accepts a non-reserved Python module name and publishes immutable
 code revisions through Spark's file distribution. Reimport the public module on
 the driver after publishing changed code; newly imported classes carry the new
 revision identity while existing class references retain the old implementation.
+Cached worker aliases resolve the newest visible publication, including code
+reverts. Publication ordering is independent of the archive order Spark supplies
+to late workers; immutable revision modules still back existing pickles.
 Package API, metadata, and generated-revision names are reserved. Archive modules
 live under a private prefix rather than shadowing top-level imports; a failed
 Spark distribution leaves the previous driver alias unchanged.
@@ -260,6 +292,8 @@ absent conditional parameters. Nested parameter names use the tuning backend's
 selected objective.
 Native Ray tuning results retain their original analysis object and search-space
 metadata, and are accepted by the same plotting and importance adapters.
+Zero-shot class counting retains distributed label operations without importing
+Spark for ordinary local inputs.
 Running-best lines ignore invalid trial scores until a valid observation exists,
 and objective coloring does not overwrite a hyperparameter named `score`.
 Tune timelines preserve recorded trial start times, including overlap and

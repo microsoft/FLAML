@@ -1,5 +1,6 @@
 import sys
 from test._artifact_paths import artifact_path
+from urllib.error import URLError
 
 import pytest
 
@@ -19,13 +20,10 @@ except ImportError:
         pass
 
 
-from requests.exceptions import ChunkedEncodingError, SSLError
+from requests.exceptions import RequestException
 
 
-# Performance decrease. budget=5 will get no estimator; budget=600 will get acc=0.667 < 0.669
-# the slow speed of first iter comes from flaml/automl/automl.py: infer_signature for input/output with mlflow > 2.9.2
-# FIXME: change to 120 to see if it can generate first iter.
-def test_automl(tmp_path, budget=120, dataset_format="dataframe", hpo_method=None):
+def test_automl(tmp_path, budget=10, dataset_format="dataframe", hpo_method=None):
     import urllib3
 
     from flaml.automl.data import load_openml_dataset
@@ -42,21 +40,22 @@ def test_automl(tmp_path, budget=120, dataset_format="dataframe", hpo_method=Non
         budget = None
         max_iter = 60
     else:
-        max_iter = None
+        max_iter = None if budget is None or budget < 0 else 4
     try:
         X_train, X_test, y_train, y_test = load_openml_dataset(
-            dataset_id=1169, data_dir="test/", dataset_format=dataset_format
+            dataset_id=1169, data_dir=artifact_path(__file__, "datasets"), dataset_format=dataset_format
         )
     except (
         OpenMLServerException,
-        ChunkedEncodingError,
+        RequestException,
         urllib3.exceptions.ReadTimeoutError,
-        SSLError,
+        URLError,
         ServerError,
-        Exception,
     ) as e:
-        print(e)
-        return
+        pytest.skip(f"OpenML dataset is unavailable ({type(e).__name__}).")
+    if budget is not None and budget > 0:
+        X_train, y_train = X_train[:8192], y_train[:8192]
+        X_test, y_test = X_test[:2048], y_test[:2048]
     """ import AutoML class from flaml package """
     from flaml import AutoML
 
@@ -71,6 +70,7 @@ def test_automl(tmp_path, budget=120, dataset_format="dataframe", hpo_method=Non
         "hpo_method": hpo_method,
         "log_type": "all",
         "model_history": False,
+        "n_jobs": 1,
         "estimator_list": [
             "lgbm",
             "xgboost",
@@ -84,9 +84,7 @@ def test_automl(tmp_path, budget=120, dataset_format="dataframe", hpo_method=Non
     automl.fit(X_train=X_train, y_train=y_train, **settings)
     """ retrieve best config and best learner """
     print("Best ML leaner:", automl.best_estimator)
-    if not automl.best_estimator:
-        print("Training budget is not sufficient")
-        return
+    assert automl.best_estimator, "The bounded notebook example did not train a model."
     print("Best hyperparmeter config:", automl.best_config)
     print(f"Best accuracy on validation data: {1 - automl.best_loss:.4g}")
     print(f"Training duration of best run: {automl.best_config_train_time:.4g} s")
@@ -140,6 +138,51 @@ def test_automl_array(tmp_path):
     test_automl(tmp_path, 5, "array", "bs")
 
 
+def test_notebook_cache_corruption_is_not_silently_accepted(tmp_path, monkeypatch):
+    import pickle
+
+    from flaml.automl import data
+
+    def corrupted(**kwargs):
+        raise pickle.UnpicklingError("invalid local cache")
+
+    monkeypatch.setattr(data, "load_openml_dataset", corrupted)
+    with pytest.raises(pickle.UnpicklingError, match="invalid local cache"):
+        test_automl(tmp_path)
+
+
+def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch):
+    from requests.exceptions import ConnectionError
+
+    from flaml.automl import data
+
+    def unavailable(**kwargs):
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr(data, "load_openml_dataset", unavailable)
+    with pytest.raises(pytest.skip.Exception):
+        test_automl(tmp_path)
+
+
+def test_notebook_smoke_fits_and_reloads_without_network(tmp_path, monkeypatch):
+    import pickle
+
+    from sklearn.datasets import load_breast_cancer
+
+    from flaml.automl import data
+
+    X, y = load_breast_cancer(return_X_y=True, as_frame=True)
+    X["hospital"] = ["a" if index % 2 else "b" for index in range(len(X))]
+    monkeypatch.setattr(
+        data, "load_openml_dataset", lambda **kwargs: (X.iloc[:400], X.iloc[400:], y.iloc[:400], y.iloc[400:])
+    )
+    test_automl(tmp_path)
+    with open(tmp_path / "automl.pkl", "rb") as stream:
+        fitted = pickle.load(stream)
+    assert len(fitted.predict(X.iloc[400:])) == len(y.iloc[400:])
+    assert set(fitted.classes_) == {0, 1}
+
+
 def _test_nobudget(tmp_path):
     # needs large RAM to run this test
     test_automl(tmp_path, -1)
@@ -152,10 +195,9 @@ def test_mlflow():
     from flaml.automl.data import load_openml_task
 
     try:
-        X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir="test/")
-    except (OpenMLServerException, ChunkedEncodingError, SSLError, ServerError, Exception) as e:
-        print(e)
-        return
+        X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir=artifact_path(__file__, "datasets"))
+    except (OpenMLServerException, RequestException, URLError, ServerError) as e:
+        pytest.skip(f"OpenML task is unavailable ({type(e).__name__}).")
     """ import AutoML class from flaml package """
     from flaml import AutoML
 
@@ -166,7 +208,7 @@ def test_mlflow():
         "estimator_list": ["lgbm", "rf", "xgboost"],  # list of ML learners
         "task": "classification",  # task type
         "sample": False,  # whether to subsample training data
-        "log_file_name": "adult.log",  # flaml log file
+        "log_file_name": artifact_path(__file__, "adult.log"),
         "learner_selector": "roundrobin",
     }
     mlflow.set_experiment("flaml")

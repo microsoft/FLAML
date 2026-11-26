@@ -18,6 +18,7 @@ from flaml.automl.data import (
     get_output_from_log,
     get_random_dataframe,
     load_openml_dataset,
+    load_openml_task,
 )
 
 
@@ -99,6 +100,62 @@ class TestConcat:
 
 
 class TestLoadOpenmlDataset:
+    @pytest.mark.parametrize("task", [False, True])
+    def test_concurrent_cache_read_never_observes_a_partial_pickle(self, tmp_path, monkeypatch, task):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+
+        started, release = Event(), Event()
+        original_dump = pickle.dump
+        dataset = _FakeDatasetDownload()
+        openml = MagicMock()
+        openml.datasets.get_dataset.return_value = dataset
+        openml.tasks.get_task.return_value.get_dataset.return_value = dataset
+        openml.tasks.get_task.return_value.target_name = "target"
+        openml.tasks.get_task.return_value.get_train_test_split_indices.return_value = (
+            np.arange(30),
+            np.arange(30, 40),
+        )
+        loader = load_openml_task if task else load_openml_dataset
+
+        def interrupted_dump(value, output, protocol):
+            if not started.is_set():
+                output.write(b"partial")
+                output.flush()
+                started.set()
+                assert release.wait(10)
+                output.seek(0)
+                output.truncate()
+            return original_dump(value, output, protocol)
+
+        monkeypatch.setattr(pickle, "dump", interrupted_dump)
+        with patch.dict("sys.modules", {"openml": openml}), ThreadPoolExecutor(max_workers=1) as pool:
+            first = pool.submit(loader, 998, data_dir=str(tmp_path))
+            try:
+                assert started.wait(10)
+                second = loader(998, data_dir=str(tmp_path))
+                assert len(second[0]) + len(second[1]) == 40
+            finally:
+                release.set()
+            assert len(first.result(timeout=10)[0]) + len(first.result()[1]) == 40
+
+    @pytest.mark.parametrize("task", [False, True])
+    def test_failed_cache_write_does_not_publish_partial_data(self, tmp_path, monkeypatch, task):
+        dataset = _FakeDatasetDownload()
+        openml = MagicMock()
+        openml.datasets.get_dataset.return_value = dataset
+        openml.tasks.get_task.return_value.get_dataset.return_value = dataset
+
+        def fail_dump(value, output, protocol):
+            output.write(b"partial")
+            raise OSError("cache write interrupted")
+
+        monkeypatch.setattr(pickle, "dump", fail_dump)
+        loader = load_openml_task if task else load_openml_dataset
+        with patch.dict("sys.modules", {"openml": openml}), pytest.raises(OSError, match="cache write interrupted"):
+            loader(998, data_dir=str(tmp_path))
+        assert not list(tmp_path.iterdir())
+
     def test_load_openml_dataset_cached(self):
         """Cover lines 62-65: load from cached pickle."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -137,7 +194,7 @@ class TestLoadOpenmlDataset:
             with patch.dict("sys.modules", {"openml": mock_openml}):
                 with patch("sklearn.datasets.fetch_openml", return_value=(X, y)) as mock_fetch:
                     X_train, X_test, y_train, y_test = load_openml_dataset(997, data_dir=tmpdir)
-                    mock_fetch.assert_called_once_with(data_id=997, return_X_y=True)
+                    mock_fetch.assert_called_once_with(data_id=997, return_X_y=True, data_home=tmpdir)
 
 
 # ---------- DataTransformer ----------

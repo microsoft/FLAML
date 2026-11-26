@@ -197,6 +197,9 @@ jobs:
           # this config. Without this, subprocess test code wouldn't
           # be measured.
           COVERAGE_PROCESS_START: ${{ matrix.os == 'ubuntu-latest' && format('{0}/.coveragerc', github.workspace) || '' }}
+          # Timed traceback dumps can crash Python 3.11 on Windows: python/cpython#140815.
+          # Keep normal fatal-error reporting enabled; only disable the unsafe watchdog.
+          PYTEST_FAULTHANDLER_TIMEOUT: ${{ runner.os == 'Windows' && matrix.python-version == '3.11' && '0' || '120' }}
         run: |
           # -n 2 --dist=loadfile parallelizes tests across 2 worker
           # procs (GitHub-hosted runners have 4 vCPU; 2 workers leaves
@@ -211,7 +214,7 @@ jobs:
           fi
           "${runner[@]}" -m pytest test/ \
             -n 2 --dist=loadfile \
-            -vv --durations=20 -o faulthandler_timeout=120 \
+            -vv --durations=20 -o "faulthandler_timeout=$PYTEST_FAULTHANDLER_TIMEOUT" \
             --ignore=test/autogen \
             --ignore=test/spark \
             --ignore=test/nlp \

@@ -140,13 +140,15 @@ def test_broadcast_code():
     broadcast_revisions = None
     try:
         module = importlib.import_module(qualified_name)
-        assert isinstance(module.MyLargeLGBM(), LGBMEstimator)
+        first_learner = module.MyLargeLGBM
+        assert isinstance(first_learner(), LGBMEstimator)
         context = SparkSession.builder.getOrCreate().sparkContext
         assert context.getConf().get("spark.python.worker.reuse", "true").lower() == "true"
-        broadcast_learner = context.broadcast(module.MyLargeLGBM)
+        broadcast_learner = context.broadcast(first_learner)
         reuse_marker = f"_flaml_test_reuse_{file_name}"
 
         def verify_import_on_worker(_):
+            import importlib
             import os
             import socket
             import sys
@@ -156,7 +158,9 @@ def test_broadcast_code():
             BarrierTaskContext.get().barrier()
             learner = broadcast_learner.value
             assert isinstance(learner(), LGBMEstimator)
-            setattr(sys.modules["flaml.tune.spark"], reuse_marker, learner.__module__)
+            public = importlib.import_module(qualified_name)
+            assert public.MyLargeLGBM is learner
+            setattr(sys.modules["flaml.tune.spark"], reuse_marker, (learner.__module__, id(public)))
             return [(socket.gethostname(), os.getpid(), learner.__module__)]
 
         workers = os.environ.get("FLAML_TEST_SPARK_WORKERS")
@@ -168,15 +172,16 @@ def test_broadcast_code():
             .collect()
         )
         assert len(results) == partitions
-        assert all(module_name == module.MyLargeLGBM.__module__ for _, _, module_name in results)
+        assert all(module_name == first_learner.__module__ for _, _, module_name in results)
         if workers:
             assert len({host for host, _, _ in results}) == int(workers)
         updated_path = broadcast_code(custom_code.replace("32768", "16384"), file_name)
         paths.append(updated_path)
         updated = importlib.import_module(qualified_name).MyLargeLGBM
-        broadcast_revisions = context.broadcast((module.MyLargeLGBM, updated))
+        broadcast_revisions = context.broadcast((first_learner, updated))
 
-        def verify_revisions_on_reused_worker(_):
+        def verify_revisions_on_reused_worker(_, cleanup=False):
+            import importlib
             import os
             import socket
             import sys
@@ -185,13 +190,18 @@ def test_broadcast_code():
 
             BarrierTaskContext.get().barrier()
             before, after = broadcast_revisions.value
-            assert vars(sys.modules["flaml.tune.spark"]).pop(reuse_marker, None) == before.__module__
+            marker = vars(sys.modules["flaml.tune.spark"])[reuse_marker]
+            public = importlib.import_module(qualified_name)
+            assert marker == (before.__module__, id(public))
+            if cleanup:
+                vars(sys.modules["flaml.tune.spark"]).pop(reuse_marker)
             return [
                 (
                     socket.gethostname(),
                     os.getpid(),
                     before.search_space()["n_estimators"]["init_value"],
                     after.search_space()["n_estimators"]["init_value"],
+                    public.MyLargeLGBM.search_space()["n_estimators"]["init_value"],
                 )
             ]
 
@@ -201,10 +211,21 @@ def test_broadcast_code():
             .mapPartitions(verify_revisions_on_reused_worker)
             .collect()
         )
-        assert all((before, after) == (32768, 16384) for _, _, before, after in revisions)
-        assert {(host, pid) for host, pid, _, _ in revisions} == {(host, pid) for host, pid, _ in results}
+        assert all((before, after, current) == (32768, 16384, 16384) for _, _, before, after, current in revisions)
+        assert {(host, pid) for host, pid, _, _, _ in revisions} == {(host, pid) for host, pid, _ in results}
         if workers:
-            assert {host for host, _, _, _ in revisions} == {host for host, _, _ in results}
+            assert {host for host, _, _, _, _ in revisions} == {host for host, _, _ in results}
+
+        broadcast_code(custom_code, file_name)
+        assert importlib.import_module(qualified_name).MyLargeLGBM is first_learner
+        reverted = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(partial(verify_revisions_on_reused_worker, cleanup=True))
+            .collect()
+        )
+        assert all((before, after, current) == (32768, 16384, 32768) for _, _, before, after, current in reverted)
+        assert {(host, pid) for host, pid, _, _, _ in reverted} == {(host, pid) for host, pid, _ in results}
     finally:
         if broadcast_learner is not None:
             broadcast_learner.destroy()
@@ -297,6 +318,24 @@ def test_len_labels():
     ll, la = len_labels(y2, return_labels=True)
     assert ll == 4
     assert set(la.to_numpy()) == {1, 2, 5, 4}
+
+
+def test_lightweight_label_counter_keeps_distributed_work_in_spark(monkeypatch):
+    from flaml.automl.utils import len_labels as count_labels
+
+    frame = SparkSession.builder.getOrCreate().sql("SELECT id % 3 AS label FROM range(1000)")
+    labels = to_pandas_on_spark(frame)["label"]
+    original = np.unique
+
+    def unique(values, *args, **kwargs):
+        assert values is not labels, "The complete distributed label series was sent to NumPy."
+        return original(values, *args, **kwargs)
+
+    monkeypatch.setattr(np, "unique", unique)
+    assert count_labels(labels) == 3
+    count, distinct = count_labels(labels, return_labels=True)
+    assert count == 3 and isinstance(distinct, type(labels))
+    assert set(distinct.to_pandas()) == {0, 1, 2}
 
 
 def test_unique_value_first_index():

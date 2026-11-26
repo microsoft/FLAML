@@ -1080,6 +1080,12 @@ class GenericTask(Task):
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
                 )
+        if disjoint_autofe and eval_method == "holdout":
+            if set(np.unique(y_train_all)) != set(np.unique(y_train)):
+                raise ValueError(
+                    "AutoFE requires every class to be represented in training. "
+                    "Use a stratified split or provide suitable validation data."
+                )
         state.data_size = X_train.shape
         state.data_size_full = len(y_train_all)
         state.X_train, state.y_train = X_train, y_train

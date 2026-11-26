@@ -457,6 +457,7 @@ class DataTransformerTS:
         transform_features=True,
         preserve_features=False,
         protected_columns=(),
+        group_columns=(),
     ):
         """Fit transformer.
 
@@ -487,7 +488,7 @@ class DataTransformerTS:
 
         for column in X.columns if transform_features else []:
             # Imputation must not drop structural time fields or promote integer indexes to floats.
-            if column in (self.time_col, self.time_idx):
+            if column in (self.time_col, self.time_idx) or column in group_columns:
                 continue
 
             # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
@@ -556,6 +557,8 @@ class DataTransformerTS:
 
     def transform(self, X: Union[DataFrame, np.array], y=None):
         X = X.copy()
+        if self.time_col in X and not pd.api.types.is_datetime64_any_dtype(X[self.time_col]):
+            X[self.time_col] = pd.to_datetime(X[self.time_col])
         if getattr(self, "_column_mapping", None):
             X = X.rename(columns=self._column_mapping)
         # TODO: revisit for multivariate series, and recast for a single df input anyway
