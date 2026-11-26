@@ -102,19 +102,22 @@ class ExperimentAnalysis(EA):
             )
             feasible_value = k_values.take(feasible_index)
             f_best[k_metric] = np.min(feasible_value)
-
-            feasible_index_filter = np.where(
-                feasible_value
-                <= max(
-                    (
-                        f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-                        if not isinstance(self.lexico_objectives["tolerances"][k_metric], str)
-                        else f_best[k_metric]
-                        * (1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", "")))
-                    ),
-                    k_target,
+            k_tolerance = self.lexico_objectives["tolerances"][k_metric]
+            if not isinstance(k_tolerance, str):
+                tolerance_bound = f_best[k_metric] + k_tolerance
+            elif f_best[k_metric] in (np.inf, -np.inf):
+                tolerance_bound = f_best[k_metric]
+            else:
+                # The values are minimized, so a "max" objective has negative values here. Move a negative
+                # best value up as well, so that the percentage loosens the bound instead of tightening it.
+                percentage = 0.01 * float(k_tolerance.replace("%", ""))
+                tolerance_bound = (
+                    f_best[k_metric] * (1 + percentage)
+                    if f_best[k_metric] >= 0
+                    else f_best[k_metric] * (1 - percentage)
                 )
-            )[0]
+
+            feasible_index_filter = np.where(feasible_value <= max(tolerance_bound, k_target))[0]
             feasible_index = feasible_index.take(feasible_index_filter)
         best_trial = trials[feasible_index[-1]]
         return best_trial
