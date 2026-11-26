@@ -92,3 +92,28 @@ def test_lexico_flow2_ranks_nan_objective_last():
     # break a tie on "a", but a better "a" still wins when "b" is NaN.
     assert incumbents[1:-1] == [(1, 3), (1, 3), (1, 3), (0.5, 9)]
     assert incumbents[-1][0] == 0.2 and math.isnan(incumbents[-1][1])
+
+
+def test_lexico_flow2_mixed_modes_use_negated_max_target():
+    lexico_objectives = {
+        "metrics": ["a", "b"],
+        "modes": ["max", "min"],
+        "tolerances": {"a": 1.0, "b": 10.0},
+        "targets": {},
+    }
+    searcher = FLOW2(
+        init_config={"x": 0.5},
+        metric="a",
+        mode="max",
+        space={"x": tune.uniform(0.0, 1.0)},
+        lexico_objectives=lexico_objectives,
+    )
+    incumbents = []
+    for i, (a, b) in enumerate([(9.5, 55), (1.0, 0), (10.0, 58)]):
+        trial_id = str(i)
+        assert searcher.suggest(trial_id) is not None
+        searcher.on_trial_complete(trial_id, {"a": a, "b": b})
+        incumbents.append((-searcher.best_obj["a"], searcher.best_obj["b"]))
+    # (1, 0) is outside the tolerance on "a", so its "b" must not tighten the bound on "b".
+    # (10, 58) is within both tolerances and has a better "a", as ExperimentAnalysis.lexico_best picks.
+    assert incumbents == [(9.5, 55), (9.5, 55), (10.0, 58)]

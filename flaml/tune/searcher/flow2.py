@@ -344,8 +344,14 @@ class FLOW2(Searcher):
     ):
         obj_initial = self.lexico_objectives["metrics"][0]
         feasible_index = np.array([*range(len(self._histories[obj_initial]))])
-        for k_metric in self.lexico_objectives["metrics"]:
+        for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
             k_values = np.array(self._histories[k_metric])
+            # The histories are minimized, so the target of a "max" objective is negated, as in lexico_compare.
+            k_target = (
+                self.lexico_objectives["targets"][k_metric]
+                if k_mode == "min"
+                else -self.lexico_objectives["targets"][k_metric]
+            )
             feasible_value = k_values.take(feasible_index)
             self._f_best[k_metric] = np.min(feasible_value)
             if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
@@ -361,7 +367,7 @@ class FLOW2(Searcher):
                 feasible_value
                 <= max(
                     tolerance_bound,
-                    self.lexico_objectives["targets"][k_metric],
+                    k_target,
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
