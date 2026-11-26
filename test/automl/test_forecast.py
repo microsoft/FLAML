@@ -1111,15 +1111,17 @@ def test_sarimax_overlapping_lags_validation():
     assert estimator.params["q"] == 2
 
     # An unrelated ValueError from statsmodels must propagate instead of being
-    # retried or turned into a fallback fit.
+    # retried or turned into a fallback fit, and the constructor must be
+    # attempted exactly once.
     from unittest.mock import patch
 
     import statsmodels.tsa.statespace.sarimax as sarimax_module
 
     side_effect = ValueError("some unrelated statsmodels error")
-    with patch.object(sarimax_module, "SARIMAX", side_effect=side_effect):
+    with patch.object(sarimax_module, "SARIMAX", side_effect=side_effect) as constructor:
         with pytest.raises(ValueError, match="unrelated"):
             estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
+    constructor.assert_called_once()
 
 
 if __name__ == "__main__":
