@@ -8,6 +8,7 @@ from copy import copy
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from sklearn.ensemble import HistGradientBoostingClassifier
 from xgboost import XGBClassifier
 
 from flaml.automl.data import group_counts
@@ -616,7 +617,7 @@ def _align_class_probabilities(predictions, estimator, labels):
         and probabilities.shape[1] == 2
         and len(np.unique(labels)) > 1
         and (
-            isinstance(getattr(estimator, "model", estimator), XGBClassifier)
+            isinstance(getattr(estimator, "model", estimator), (XGBClassifier, HistGradientBoostingClassifier))
             or (LGBMClassifier is not None and isinstance(getattr(estimator, "model", estimator), LGBMClassifier))
         )
     ):

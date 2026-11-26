@@ -575,6 +575,40 @@ def test_native_single_class_sample_public_probabilities(monkeypatch, input_mode
     np.testing.assert_array_equal(automl.model.predict_proba(automl.preprocess(X_val)), raw)
 
 
+def test_histgb_single_class_sample_preserves_probability_labels():
+    rng = np.random.RandomState(81)
+    y = np.full(3000, 20)
+    y[[1500, 2500]] = 10
+    X = rng.randn(len(y), 4)
+    X_val = rng.randn(300, 4)
+    y_val = np.resize([10, 20], len(X_val))
+    automl = AutoML()
+    automl.fit(
+        X,
+        y,
+        X_val=X_val,
+        y_val=y_val,
+        task="classification",
+        metric="log_loss",
+        estimator_list=["histgb"],
+        max_iter=2,
+        seed=1,
+        min_sample_size=50,
+        sample=True,
+        starting_points={},
+        auto_augment=False,
+        n_jobs=1,
+        verbose=0,
+        retrain_full=False,
+        skip_transform=True,
+    )
+    np.testing.assert_array_equal(automl.model.classes_, [20])
+    np.testing.assert_array_equal(automl.classes_, [10, 20])
+    probabilities = automl.predict_proba(X_val)
+    np.testing.assert_array_equal(automl.classes_[probabilities.argmax(axis=1)], automl.predict(X_val))
+    assert automl.best_loss == pytest.approx(log_loss(y_val, probabilities, labels=automl.classes_))
+
+
 @pytest.mark.parametrize("input_mode", ["skip", "sparse"])
 @pytest.mark.parametrize("missing_class", [10, 20, 30])
 def test_native_sampled_lightgbm_probability_columns(input_mode, missing_class):
