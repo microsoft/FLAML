@@ -553,6 +553,32 @@ class SARIMAX(StatsModelsEstimator):
         }
         return space
 
+    @staticmethod
+    def _clamp_overlapping_orders(params: dict) -> None:
+        """Clamp non-seasonal orders that share lags with the seasonal ones, in place.
+
+        statsmodels rejects configs where a lag (e.g. s) appears in both the
+        seasonal and non-seasonal autoregressive or moving average components,
+        i.e. p >= s > 0 with P > 0 (or q >= s > 0 with Q > 0). Only the
+        overlapping component is clamped below the first seasonal lag; flexible
+        (sparse) lag specifications such as p=(1, 13) are left for statsmodels
+        to validate, since their lags may not overlap s at all.
+        """
+        s = params.get("s", 0)
+        if not isinstance(s, (int, np.integer)) or s <= 0:
+            return
+        p, P = params.get("p", 0), params.get("P", 0)
+        if isinstance(p, (int, np.integer)) and isinstance(P, (int, np.integer)) and P > 0 and p >= s:
+            params["p"] = max(0, s - 1)
+        q, Q = params.get("q", 0), params.get("Q", 0)
+        if isinstance(q, (int, np.integer)) and isinstance(Q, (int, np.integer)) and Q > 0 and q >= s:
+            params["q"] = max(0, s - 1)
+
+    def config2params(self, config: dict) -> dict:
+        params = super().config2params(config)
+        self._clamp_overlapping_orders(params)
+        return params
+
     def fit(self, X_train, y_train=None, budget=None, **kwargs):
         import warnings
 
@@ -580,35 +606,65 @@ class SARIMAX(StatsModelsEstimator):
         train_df = self._preprocess(train_df)
         # regressors = list(train_df)
         # regressors.remove(target_col)
-        if self.regressors:
+        endog = train_df[[target_col]] if len(self.regressors) else train_df
+        exog = train_df[self.regressors] if len(self.regressors) else None
+        p, d, q = self.params["p"], self.params["d"], self.params["q"]
+        seasonal_order = (self.params["P"], self.params["D"], self.params["Q"], self.params["s"])
+        try:
             model = SARIMAX_estimator(
-                train_df[[target_col]],
-                exog=train_df[self.regressors],
-                order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonal_order=(
-                    self.params["P"],
-                    self.params["D"],
-                    self.params["Q"],
-                    self.params["s"],
-                ),
+                endog,
+                exog=exog,
+                order=(p, d, q),
+                seasonal_order=seasonal_order,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        else:
+            with suppress_stdout_stderr():
+                model = model.fit()
+        except ValueError as e:
+            # Defensive handling for residual configs with lags shared between the
+            # seasonal and non-seasonal AR/MA components (e.g. user-supplied
+            # starting_points bypassing the search space): fall back to a valid
+            # config instead of failing the whole search. Any other ValueError is
+            # unrelated and must propagate.
+            if "are in both the seasonal and non-seasonal" not in str(e):
+                raise
+            orig_p, orig_q = p, q
+            # Clamp only the overlapping component(s) so valid non-overlapping
+            # orders are preserved.
+            fallback = {
+                "p": p,
+                "q": q,
+                "P": seasonal_order[0],
+                "Q": seasonal_order[2],
+                "s": seasonal_order[3],
+            }
+            self._clamp_overlapping_orders(fallback)
+            p, q = fallback["p"], fallback["q"]
+            self.params["p"], self.params["q"] = p, q
+            logger.warning(
+                "SARIMAX order (%s, %s, %s) with seasonal order %s has lags in both the"
+                " seasonal and non-seasonal AR/MA components (%s); falling back to"
+                " order (%s, %s, %s).",
+                orig_p,
+                d,
+                orig_q,
+                seasonal_order,
+                e,
+                p,
+                d,
+                q,
+            )
             model = SARIMAX_estimator(
-                train_df,
-                order=(self.params["p"], self.params["d"], self.params["q"]),
-                seasonal_order=(
-                    self.params["P"],
-                    self.params["D"],
-                    self.params["Q"],
-                    self.params["s"],
-                ),
+                endog,
+                exog=exog,
+                order=(p, d, q),
+                seasonal_order=seasonal_order,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-        with suppress_stdout_stderr():
-            model = model.fit()
+            with suppress_stdout_stderr():
+                model = model.fit()
         train_time = time.time() - current_time
         self._model = model
         return train_time
