@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from flaml import CFO, tune
-from flaml.tune.space import denormalize
+from flaml.tune.space import denormalize, unflatten_hierarchical
 
 
 @pytest.mark.parametrize(
@@ -11,6 +11,9 @@ from flaml.tune.space import denormalize
         (tune.qrandint(1, 11, 3), [3, 9]),
         (tune.qrandint(2, 10, 4), [4, 8]),
         (tune.qlograndint(5, 30, 4), [8, 28]),
+        # negative bounds: the grid ends are the ceiling of the lower and the floor of the upper bound
+        (tune.qrandint(-10, 10, 4), [-8, 8]),
+        (tune.qrandint(-11, -2, 3), [-9, -3]),
     ],
 )
 def test_denormalize_quantized_integer_stays_in_bounds(domain, expected):
@@ -21,6 +24,19 @@ def test_denormalize_quantized_integer_stays_in_bounds(domain, expected):
         value = denormalize({"x": p}, space, {}, {}, np.random.RandomState(0))["x"]
         assert domain.lower <= value <= domain.upper
         assert value % domain.get_sampler().q == 0
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [(5, 8), (6, 8), (30, 28), (31, 28), (100, 28), (1, 8), (17, 16), (19, 20)],
+)
+def test_unflatten_hierarchical_quantized_log_integer_endpoints(raw, expected):
+    # deterministic, no search backend: raw values near and beyond both bounds snap to the grid inside [5, 30]
+    space = {"x": tune.qlograndint(5, 30, 4), "nested": {"y": tune.qlograndint(5, 30, 4)}}
+    config, _ = unflatten_hierarchical({"x": raw, "nested": {"y": raw}}, space)
+    assert config["x"] == expected
+    assert config["nested"]["y"] == expected
+    assert isinstance(config["x"], int)
 
 
 def test_tune_run_quantized_integer_stays_in_bounds():
@@ -87,4 +103,5 @@ def test_tune_run_default_qlograndint_stays_in_bounds():
         use_ray=False,
         verbose=0,
     )
+    assert evaluated
     assert all(5 <= x <= 30 and x % 4 == 0 for x in evaluated), sorted(set(evaluated))
