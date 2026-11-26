@@ -1102,12 +1102,24 @@ def test_sarimax_overlapping_lags_validation():
 
     # Flexible (sparse) lag specifications must pass through unchanged instead
     # of raising TypeError when compared against the scalar seasonal period.
-    estimator = SARIMAX(task="ts_forecast", **{"p": (0, 1, 13), "d": 0, "q": (0, 3), "P": 0, "D": 1, "Q": (0, 12), "s": 12})
+    sparse_config = {"p": (0, 1, 13), "d": 0, "q": (0, 3), "P": 0, "D": 1, "Q": (0, 12), "s": 12}
+    estimator = SARIMAX(task="ts_forecast", **sparse_config)
     assert estimator.params["p"] == (0, 1, 13)
     assert estimator.params["Q"] == (0, 12)
     estimator = SARIMAX(task="ts_forecast", **{"p": (1, 13), "d": 0, "q": 2, "P": 2, "D": 0, "Q": 1, "s": 12})
     assert estimator.params["p"] == (1, 13)
     assert estimator.params["q"] == 2
+
+    # An unrelated ValueError from statsmodels must propagate instead of being
+    # retried or turned into a fallback fit.
+    from unittest.mock import patch
+
+    import statsmodels.tsa.statespace.sarimax as sarimax_module
+
+    side_effect = ValueError("some unrelated statsmodels error")
+    with patch.object(sarimax_module, "SARIMAX", side_effect=side_effect):
+        with pytest.raises(ValueError, match="unrelated"):
+            estimator.fit(TimeSeriesDataset(data, time_col="ds", target_names="y"))
 
 
 if __name__ == "__main__":
