@@ -12,10 +12,13 @@ def test_metric_constraint_is_checked_when_the_metric_is_zero():
         metric="score",
         mode="max",
         metric_constraints=[("recall", ">=", 0.5)],
-        num_samples=20,
+        # one feasible and one violating point are given explicitly, so no search proposal is needed
+        points_to_evaluate=[{"x": 2.0}, {"x": 8.0}],
+        num_samples=2,
         use_ray=False,
         verbose=0,
     )
+    assert len(analysis.trials) == 2
     penalized = unpenalized = 0
     for trial in analysis.trials:
         result = trial.last_result
@@ -27,4 +30,4 @@ def test_metric_constraint_is_checked_when_the_metric_is_zero():
         else:
             assert modified == result["score"]
             unpenalized += 1
-    assert penalized and unpenalized
+    assert penalized == 1 and unpenalized == 1
