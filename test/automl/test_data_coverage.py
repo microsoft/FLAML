@@ -100,6 +100,56 @@ class TestConcat:
 
 
 class TestLoadOpenmlDataset:
+    @pytest.mark.parametrize("dataset_format", ["dataframe", "array"])
+    def test_fallback_parses_numeric_nominal_labels_without_openml(self, tmp_path, monkeypatch, dataset_format):
+        import gzip
+        import io
+
+        from sklearn import datasets
+        from sklearn.datasets._arff_parser import load_arff_from_gzip_file
+
+        arff = b"@relation example\n@attribute feature numeric\n@attribute class {0,1}\n@data\n1,0\n2,1\n3,0\n4,1\n"
+        columns = {
+            "feature": {"index": "0", "name": "feature", "data_type": "numeric", "number_of_missing_values": "0"},
+            "class": {"index": "1", "name": "class", "data_type": "nominal", "number_of_missing_values": "0"},
+        }
+        # Reproduce the numeric categorical frame observed from pandas in CI.
+        parsed = pd.DataFrame({"feature": [1.0, 2.0, 3.0, 4.0], "class": pd.Categorical([0, 1, 0, 1])})
+        monkeypatch.setattr(pd, "read_csv", lambda *args, **kwargs: parsed.copy())
+
+        def fetch(*, data_id, return_X_y, data_home, as_frame="auto", parser="auto"):
+            with gzip.GzipFile(fileobj=io.BytesIO(gzip.compress(arff))) as stream:
+                return load_arff_from_gzip_file(
+                    stream,
+                    "pandas" if parser == "auto" else parser,
+                    "pandas" if as_frame is not False else "numpy",
+                    columns,
+                    ["feature"],
+                    ["class"],
+                    shape=(4, 2),
+                )[:2]
+
+        monkeypatch.setattr(datasets, "fetch_openml", fetch)
+        with patch.dict("sys.modules", {"openml": None}):
+            X_train, X_test, y_train, y_test = load_openml_dataset(
+                996, data_dir=str(tmp_path), dataset_format=dataset_format
+            )
+        assert len(X_train) + len(X_test) == 4
+        assert isinstance(X_train, pd.DataFrame) is (dataset_format == "dataframe")
+        assert set(np.concatenate([y_train, y_test])) == {"0", "1"}
+
+    def test_fallback_supports_fetch_openml_without_a_parser_option(self, tmp_path, monkeypatch):
+        from sklearn import datasets
+
+        def fetch(*, data_id, return_X_y, data_home, as_frame):
+            assert as_frame
+            return pd.DataFrame({"feature": range(8)}), pd.Series([0, 1] * 4)
+
+        monkeypatch.setattr(datasets, "fetch_openml", fetch)
+        with patch.dict("sys.modules", {"openml": None}):
+            X_train, X_test, _, _ = load_openml_dataset(995, data_dir=str(tmp_path))
+        assert len(X_train) + len(X_test) == 8
+
     @pytest.mark.parametrize("task", [False, True])
     def test_concurrent_cache_read_never_observes_a_partial_pickle(self, tmp_path, monkeypatch, task):
         from concurrent.futures import ThreadPoolExecutor
@@ -194,7 +244,7 @@ class TestLoadOpenmlDataset:
             with patch.dict("sys.modules", {"openml": mock_openml}):
                 with patch("sklearn.datasets.fetch_openml", return_value=(X, y)) as mock_fetch:
                     X_train, X_test, y_train, y_test = load_openml_dataset(997, data_dir=tmpdir)
-                    mock_fetch.assert_called_once_with(data_id=997, return_X_y=True, data_home=tmpdir)
+                    mock_fetch.assert_called_once_with(data_id=997, return_X_y=True, data_home=tmpdir, as_frame=True)
 
 
 # ---------- DataTransformer ----------

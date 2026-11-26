@@ -189,6 +189,7 @@ def _test_nobudget(tmp_path):
 
 
 def test_mlflow():
+    pytest.importorskip("openml", reason="The OpenML task example requires the optional OpenML SDK.")
     # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
 

@@ -104,9 +104,20 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
     try:
         X, y, *__ = dataset.get_data(target=dataset.default_target_attribute, dataset_format=dataset_format)
     except (ValueError, AttributeError, TypeError):
+        from inspect import signature
+
         from sklearn.datasets import fetch_openml
 
-        X, y = fetch_openml(data_id=dataset_id, return_X_y=True, data_home=data_dir)
+        options = {
+            "data_id": dataset_id,
+            "return_X_y": True,
+            "data_home": data_dir,
+            "as_frame": dataset_format == "dataframe",
+        }
+        if "parser" in signature(fetch_openml).parameters:
+            # The pandas ARFF parser can apply string quote stripping to numeric categories.
+            options["parser"] = "liac-arff"
+        X, y = fetch_openml(**options)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
     logger.info(
         "X_train.shape: %s, y_train.shape: %s;\nX_test.shape: %s, y_test.shape: %s",
