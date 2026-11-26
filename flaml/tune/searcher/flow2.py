@@ -339,6 +339,19 @@ class FLOW2(Searcher):
             self._init_search()
         return True
 
+    def _tolerance_bound(self, k_metric):
+        tolerance = self.lexico_objectives["tolerances"][k_metric]
+        f_best = self._f_best[k_metric]
+        if not isinstance(tolerance, str):
+            return f_best + tolerance
+        assert tolerance[-1] == "%", f"String tolerance of {k_metric} should use %% as the suffix"
+        if f_best in (np.inf, -np.inf):
+            return f_best
+        # The values are minimized, so a "max" objective has negative values here. Move a negative
+        # best value up as well, so that the percentage loosens the bound instead of tightening it.
+        percentage = 0.01 * float(tolerance.replace("%", ""))
+        return f_best * (1 + percentage) if f_best >= 0 else f_best * (1 - percentage)
+
     def update_fbest(
         self,
     ):
@@ -354,15 +367,7 @@ class FLOW2(Searcher):
             )
             feasible_value = k_values.take(feasible_index)
             self._f_best[k_metric] = np.min(feasible_value)
-            if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-            else:
-                assert (
-                    self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                ), f"String tolerance of {k_metric} should use %% as the suffix"
-                tolerance_bound = self._f_best[k_metric] * (
-                    1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                )
+            tolerance_bound = self._tolerance_bound(k_metric)
             feasible_index_filter = np.where(
                 feasible_value
                 <= max(
@@ -391,15 +396,7 @@ class FLOW2(Searcher):
                 if k_mode == "min"
                 else -self.lexico_objectives["targets"][k_metric]
             )
-            if not isinstance(self.lexico_objectives["tolerances"][k_metric], str):
-                tolerance_bound = self._f_best[k_metric] + self.lexico_objectives["tolerances"][k_metric]
-            else:
-                assert (
-                    self.lexico_objectives["tolerances"][k_metric][-1] == "%"
-                ), f"String tolerance of {k_metric} should use %% as the suffix"
-                tolerance_bound = self._f_best[k_metric] * (
-                    1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
-                )
+            tolerance_bound = self._tolerance_bound(k_metric)
             # Inclusive bounds, as in update_fbest, so a tie on this objective moves on to the next one.
             if (result[k_metric] <= max(tolerance_bound, k_target)) and (
                 best_obj[k_metric]
@@ -420,6 +417,7 @@ class FLOW2(Searcher):
                 return True
             else:
                 return False
+        return False
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """

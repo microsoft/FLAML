@@ -117,3 +117,36 @@ def test_lexico_flow2_mixed_modes_use_negated_max_target():
     # (1, 0) is outside the tolerance on "a", so its "b" must not tighten the bound on "b".
     # (10, 58) is within both tolerances and has a better "a", as ExperimentAnalysis.lexico_best picks.
     assert incumbents == [(9.5, 55), (9.5, 55), (10.0, 58)]
+
+
+inf = float("inf")
+
+
+@pytest.mark.parametrize(
+    "modes, tolerance, results, expected",
+    [
+        (["max", "min"], "10%", [(10, 5), (11, 4), (10, 3), (9, 1)], [(10, 5), (11, 4), (10, 3), (10, 3)]),
+        (["min", "min"], "10%", [(-10, 5), (-11, 4), (-10, 3), (-9, 1)], [(-10, 5), (-11, 4), (-10, 3), (-10, 3)]),
+        (["max", "min"], "0%", [(10, 5), (10, 4), (9, 1)], [(10, 5), (10, 4), (10, 4)]),
+        (["max", "min"], "10%", [(inf, 5), (inf, 4), (5, 1)], [(inf, 5), (inf, 4), (inf, 4)]),
+    ],
+)
+def test_lexico_flow2_percentage_tolerance_on_negative_values(modes, tolerance, results, expected):
+    lexico_objectives = {"metrics": ["a", "b"], "modes": modes, "tolerances": {"a": tolerance}, "targets": {}}
+    searcher = FLOW2(
+        init_config={"x": 0.5},
+        metric="a",
+        mode=modes[0],
+        space={"x": tune.uniform(0.0, 1.0)},
+        lexico_objectives=lexico_objectives,
+    )
+    incumbents = []
+    for i, (a, b) in enumerate(results):
+        trial_id = str(i)
+        assert searcher.suggest(trial_id) is not None
+        searcher.on_trial_complete(trial_id, {"a": a, "b": b})
+        a_best = searcher.best_obj["a"]
+        incumbents.append((-a_best if modes[0] == "max" else a_best, searcher.best_obj["b"]))
+    # A maximized "a" is negated, so its best value is negative. 10% must still allow a slightly
+    # worse "a", here 10 against 11, and must not leave every result outside the bound.
+    assert incumbents == expected
