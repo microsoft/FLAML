@@ -750,6 +750,9 @@ class BlendSearch(Searcher):
                     # use CFO's init point
                     init_config = self._ls.init_config
                     config, space = self._ls.complete_config(init_config, self._ls_bound_min, self._ls_bound_max)
+                    config_signature = self._ls.config_signature(config, space)
+                    if self._violate_config_constriants(config, config_signature):
+                        return
                     self._trial_proposed_by[trial_id] = choice
                     self._search_thread_pool[choice].running += 1
                 else:

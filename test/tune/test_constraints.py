@@ -57,3 +57,28 @@ def test_config_constraint_strict_less_than_excludes_threshold():
     )
     assert evaluated
     assert max(evaluated) < 5
+
+
+def test_blendsearch_fallback_config_respects_strict_less_than():
+    from unittest import mock
+
+    from flaml import BlendSearch, tune
+
+    space = {"n": tune.randint(0, 11)}
+    searcher = BlendSearch(
+        space=space,
+        metric="metric",
+        mode="min",
+        low_cost_partial_config={"n": 5},
+        points_to_evaluate=[{"n": 0}],
+        config_constraints=[(lambda config: config["n"], "<", 5)],
+    )
+    # the first trial stays outstanding
+    assert searcher.suggest("t1") == {"n": 0}
+    # a global proposal that is not valid makes BlendSearch fall back to the low cost init point,
+    # which sits on the threshold of the strict '<' constraint
+    with (
+        mock.patch.object(searcher._search_thread_pool[0], "suggest", return_value={"n": 1}),
+        mock.patch.object(searcher, "_valid", return_value=False),
+    ):
+        assert searcher.suggest("t2") is None
