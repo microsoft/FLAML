@@ -31,6 +31,7 @@ class SimpleTrial(Trial):
         self.status = Trial.PENDING
         self.start_time = None
         self.last_result = None
+        self.last_reported_result = None
         self.last_update_time = -float("inf")
         self.custom_trial_name = None
         self.trainable_name = "trainable"
@@ -82,6 +83,7 @@ class BaseTrialRunner:
             self._scheduler_alg.on_trial_add(self, trial)
 
     def process_trial_result(self, trial, result):
+        trial.last_reported_result = result.copy()
         trial.update_last_result(result)
         if "time_total_s" not in result.keys():
             result["time_total_s"] = trial.last_update_time - trial.start_time

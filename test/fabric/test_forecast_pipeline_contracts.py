@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -98,6 +100,75 @@ def test_forecast_refit_reserves_normalized_feature_names_for_external_targets()
     assert "flaml_column_0" in pipeline.steps[-1][1].user_regressors
     assert "flaml_column_0" not in pipeline.named_steps["feature_transformer"].task_.target_names
     assert set(pipeline.predict(features.iloc[-2:])) <= {"cold", "warm"}
+    future = pd.DataFrame(
+        {0: [36.0, 37.0], "date": pd.date_range("2026-02-06", periods=2), "flaml_column_0": ["cold", "warm"]}
+    )
+    dataset = TimeSeriesDataset(features.assign(flaml_column_0=y), "date", "flaml_column_0", test_data=future)
+    before_train, before_test = dataset.train_data.copy(), dataset.test_data.copy()
+    assert set(pipeline.predict(dataset)) <= {"cold", "warm"}
+    assert np.isfinite(pipeline.score(dataset, metric="accuracy"))
+    pd.testing.assert_frame_equal(dataset.train_data, before_train)
+    pd.testing.assert_frame_equal(dataset.test_data, before_test)
+
+
+@pytest.mark.parametrize("structural_column", ["time", "target"])
+def test_extraction_feature_names_do_not_collide_with_forecast_structure(structural_column):
+    time_col, target = ("pca0", "target") if structural_column == "time" else ("date", "pca0")
+    frame = pd.DataFrame(
+        {time_col: pd.date_range("2026-01-01", periods=20), "feature": np.arange(20.0), target: np.arange(20.0)}
+    )
+    dataset = TimeSeriesDataset(frame, time_col, target)
+    featurizer = Featurization(params={"fe.extraction": "PCA"})
+    transformed = featurizer.fit_transform(dataset)
+    assert transformed.train_data.columns.is_unique
+    feature_names = featurizer.get_feature_names_out().tolist()
+    assert not set(feature_names) & {time_col, target}
+    assert transformed.X_train.columns.tolist() == [time_col] + feature_names
+    pd.testing.assert_series_equal(transformed.train_data[target], frame[target])
+    pd.testing.assert_series_equal(transformed.train_data[time_col], frame[time_col])
+    pd.testing.assert_frame_equal(featurizer.transform(frame.drop(columns=target)), transformed.X_train)
+    recipe = Featurization(config=featurizer.config, task="ts_forecast")
+    replayed = recipe.fit_transform(dataset)
+    assert recipe.get_feature_names_out().tolist() == feature_names
+    pd.testing.assert_frame_equal(replayed.train_data, transformed.train_data)
+
+
+@pytest.mark.parametrize("mode", ["auto", "force"])
+@pytest.mark.parametrize("numeric", [False, True])
+def test_forecast_classification_rejects_validation_only_classes_before_extraction(mode, numeric, monkeypatch):
+    observed = []
+    fit_transform = Featurization.fit_transform
+
+    def observe(self, X, y=None):
+        observed.append(True)
+        return fit_transform(self, X, y)
+
+    monkeypatch.setattr(Featurization, "fit_transform", observe)
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-01", periods=40),
+            "feature": np.arange(40.0),
+            "target": np.tile([0, 1], 20) if numeric else np.tile(["cold", "warm"], 20),
+        }
+    )
+    validation = frame.iloc[-2:].copy()
+    validation["target"] = [2, 2] if numeric else ["unseen", "unseen"]
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization=mode,
+        task="ts_forecast_classification",
+        eval_method="holdout",
+        retrain_full=False,
+        metric="accuracy",
+        starting_points={"rf": {"n_estimators": 4}},
+    )
+    with pytest.raises(ValueError, match="unseen|absent from.*training"):
+        automl.fit(TimeSeriesDataset(frame.iloc[:-2], "date", "target", test_data=validation), period=2)
+    assert not observed
 
 
 def test_forecast_preprocessing_without_a_fitted_trial_has_an_actionable_error(monkeypatch):
@@ -364,6 +435,86 @@ def test_autofe_validates_the_effective_class_vocabulary_at_each_fit(stage):
         pipeline = clone(automl.automl_pipeline).set_params(resampler=DropMiddleClass())
         with pytest.raises(ValueError, match="every class.*training"):
             pipeline.fit(X, y)
+
+
+@pytest.mark.parametrize("entry", ["automl", "export", "standalone"])
+@pytest.mark.parametrize("change", ["drop", "add"])
+def test_classification_resampling_preserves_vocabulary_without_autofe(entry, change):
+    from sklearn.base import BaseEstimator
+    from sklearn.linear_model import LogisticRegression
+
+    from flaml.automl.data import DataTransformer
+    from flaml.automl.pipeline import AutoMLPipeline, _TaskPreprocessor, make_automl_pipeline
+
+    class ChangeVocabulary(BaseEstimator):
+        def fit_resample(self, X, y):
+            y = np.asarray(y).copy()
+            if change == "drop":
+                keep = y != 1
+                return X.loc[keep], y[keep]
+            y[0] = 3
+            return X, y
+
+    X = pd.DataFrame({"feature": np.arange(90.0)})
+    y = np.tile([0, 1, 2], 30)
+    if entry == "standalone":
+        pipeline = AutoMLPipeline(
+            [("preprocess", _TaskPreprocessor("classification", DataTransformer())), ("model", LogisticRegression())],
+            resampler=ChangeVocabulary(),
+        )
+    else:
+        automl = AutoML(
+            estimator_list=["rf"],
+            max_iter=2,
+            n_jobs=1,
+            verbose=0,
+            mlflow_logging=False,
+            featurization="off",
+            starting_points={"rf": {"n_estimators": 4}},
+            metric="accuracy",
+            auto_augment=False,
+        )
+        if entry == "automl":
+            with pytest.raises(ValueError, match="class.*training|class vocabulary"):
+                automl.fit(X, y, task="classification", resampler=ChangeVocabulary())
+            return
+        automl.fit(X, y, task="classification")
+        pipeline = clone(make_automl_pipeline(automl, automl.model)).set_params(resampler=ChangeVocabulary())
+    with pytest.raises(ValueError, match="class.*training|class vocabulary"):
+        pipeline.fit(X, y)
+
+
+def test_regression_resampling_can_change_targets():
+    from sklearn.base import BaseEstimator
+    from sklearn.dummy import DummyRegressor
+
+    from flaml.automl.data import DataTransformer
+    from flaml.automl.pipeline import AutoMLPipeline, _TaskPreprocessor
+
+    class ShiftTargets(BaseEstimator):
+        def fit_resample(self, X, y):
+            return X, np.asarray(y) + 5.0
+
+    X = pd.DataFrame({"feature": np.arange(10.0)})
+    pipeline = AutoMLPipeline(
+        [("preprocess", _TaskPreprocessor("regression", DataTransformer())), ("model", DummyRegressor())],
+        resampler=ShiftTargets(),
+    )
+    pipeline.fit(X, np.arange(10.0))
+    np.testing.assert_allclose(pipeline.predict(X), np.repeat(9.5, 10))
+
+
+def test_absent_resampler_does_not_repeat_class_vocabulary_validation(monkeypatch):
+    import flaml.automl.ml as ml
+
+    task = task_factory("classification")
+    task._autofe_classes = [0, 1]
+    X, y = np.zeros((4, 1)), np.array([0, 1, 0, 1])
+    validation = Mock(side_effect=AssertionError("The unchanged labels were already validated before feature fitting."))
+    monkeypatch.setattr(ml, "_validate_autofe_classes", validation)
+    actual_X, actual_y = ml._resample_training_data(X, y, task)
+    assert actual_X is X and actual_y is y
+    validation.assert_not_called()
 
 
 @pytest.mark.parametrize("mode", ["auto", "force"])

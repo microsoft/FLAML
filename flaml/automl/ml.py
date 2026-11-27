@@ -558,11 +558,19 @@ def _validate_autofe_classes(y_train, task=None, expected_classes=None):
 def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expected_classes=None):
     if resampler is None:
         resampler = getattr(task, "_resampler", None)
-    if resampler is not None:
-        from sklearn.base import clone
+    if resampler is None:
+        return X_train, y_train
+    from sklearn.base import clone
 
-        X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
-    _validate_autofe_classes(y_train, task, expected_classes)
+    if isinstance(task, str):
+        from flaml.automl.task.factory import task_factory
+
+        task = task_factory(task, X_train, y_train)
+    if expected_classes is None and task is not None and task.is_classification():
+        expected_classes = np.unique(y_train)
+    X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError("Resampling must preserve every class in the training data's class vocabulary.")
     return X_train, y_train
 
 

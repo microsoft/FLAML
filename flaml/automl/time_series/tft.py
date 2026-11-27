@@ -17,7 +17,7 @@ except ImportError:
     DataFrame = Series = None
 
 from flaml import tune
-from flaml.automl.time_series.ts_data import TimeSeriesDataset
+from flaml.automl.time_series.ts_data import TimeSeriesDataset, _concat_panel_frames
 from flaml.automl.time_series.ts_model import TimeSeriesEstimator
 
 
@@ -225,8 +225,6 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
 
     def _prediction_frame(self, decoder, time_idx):
         decoder[self.time_col] = pd.to_datetime(decoder[self.time_col])
-        for column in self.group_ids:
-            decoder[column] = decoder[column].astype(object)
         supplied_index = time_idx in decoder
         if supplied_index and (decoder[time_idx].dtype.kind != "i" or decoder[time_idx].isna().any()):
             raise ValueError("TFT prediction time indexes must be nonmissing signed integers.")
@@ -243,14 +241,14 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             except KeyError as exc:
                 raise ValueError(f"TFT prediction contains an unknown group: {key!r}") from exc
             history[self.time_col] = pd.to_datetime(history[self.time_col])
-            for column in self.group_ids:
-                history[column] = history[column].astype(object)
             future = decoder.iloc[positions].sort_values(time_idx if supplied_index else self.time_col)
             decoder.loc[future.index, time_idx] = self._prediction_indexes(history, future, time_idx, supplied_index)
             decoder.loc[future.index, self.target_names[0]] = history[self.target_names[0]].iloc[-1]
             encoders.append(history.tail(self.max_encoder_length + max_lag))
         decoder[time_idx] = decoder[time_idx].astype("int64")
-        return pd.concat([*encoders, decoder.sort_values(self.group_ids + [time_idx])], ignore_index=True)
+        return _concat_panel_frames(
+            [*encoders, decoder.sort_values(self.group_ids + [time_idx])], self.group_ids, ignore_index=True
+        )
 
     def _prediction_dataset(self, data, horizon):
         from pytorch_forecasting import TimeSeriesDataSet

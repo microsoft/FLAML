@@ -839,13 +839,19 @@ class TestSimpleForecaster:
         not _can_import("statsmodels"),
         reason="statsmodels not installed",
     )
-    def test_average_fit(self):
+    @pytest.mark.parametrize("coarse_clock", [False, True])
+    def test_average_fit(self, monkeypatch, coarse_clock):
+        import flaml.automl.time_series.ts_model as ts_model
         from flaml.automl.time_series.ts_model import Average
 
         ds = _make_ts_dataset(60, test_len=10)
         est = Average(task="ts_forecast")
-        train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        with monkeypatch.context() as clock:
+            if coarse_clock:
+                clock.setattr(ts_model.time, "time", lambda: 1000.0)
+            train_time = est.fit(ds, budget=10)
+        assert np.isfinite(train_time) and train_time >= 0
+        np.testing.assert_allclose(est.predict(ds), np.repeat(ds.y_train.mean(), len(ds.test_data)))
 
 
 class TestProphet:

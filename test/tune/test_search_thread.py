@@ -1,4 +1,4 @@
-"""Tests for SearchThread nested dictionary update fix."""
+"""Search-thread state and configuration contracts."""
 
 import pytest
 
@@ -97,3 +97,54 @@ def test_recursive_dict_update_none_values():
     source = {"b": 2, "c": None}
     _recursive_dict_update(target, source)
     assert target == {"a": 1, "b": 2, "c": None}
+
+
+@pytest.mark.parametrize("through_thread", [False, True])
+def test_failed_intermediate_scores_are_not_completed_optuna_observations(through_thread):
+    from optuna.trial import TrialState
+
+    from flaml import tune
+    from flaml.tune.searcher.search_thread import SearchThread
+    from flaml.tune.searcher.suggestion import OptunaSearch
+
+    space = {"x": tune.uniform(0, 1)}
+    searcher = OptunaSearch(space, metric="loss", mode="min")
+    searcher.space = space
+    proposer = SearchThread(search_alg=searcher) if through_thread else searcher
+    for trial_id, loss, error in (("failed", -10.0, True), ("successful", 1.0, False)):
+        config = proposer.suggest(trial_id)
+        result = {"loss": loss, "config": config, "training_iteration": 0, "time_total_s": 1.0}
+        proposer.on_trial_result(trial_id, result)
+        proposer.on_trial_complete(trial_id, result, error=error)
+
+    assert [trial.state for trial in searcher._ot_study.trials] == [TrialState.FAIL, TrialState.COMPLETE]
+    assert searcher._ot_study.best_value == 1.0
+    if through_thread:
+        assert proposer.running == 0
+        assert proposer.obj_best1 == 1.0
+        assert proposer.best_result["loss"] == 1.0
+
+
+@pytest.mark.parametrize("points", [[0, 1], [1, 0], [0, 2]])
+def test_cfo_does_not_restart_from_a_failed_candidate(points):
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import CFO
+
+    searcher = CFO(
+        space={"x": tune.choice([0, 1, 2])},
+        points_to_evaluate=[{"x": value} for value in points],
+        metric="loss",
+        mode="min",
+    )
+
+    def objective(config):
+        loss = 1.0 if config["x"] == 1 else -10.0
+        tune.report(loss=loss)
+        return {"loss": loss} if config["x"] == 1 else {}
+
+    result = tune.run(objective, search_alg=searcher, num_samples=2, mlflow_logging=False, verbose=0)
+    assert [trial.status for trial in result.trials] == ["TERMINATED" if value == 1 else "ERROR" for value in points]
+    local_threads = [thread for thread in searcher._search_thread_pool.values() if thread._is_ls]
+    assert len(local_threads) == (1 if 1 in points else 0)
+    assert all(thread.obj_best1 == 1.0 for thread in local_threads)
+    assert all(not candidate or candidate["loss"] == 1.0 for candidate in searcher._candidate_start_points.values())

@@ -85,6 +85,8 @@ AutoFE trial samples must retain that vocabulary too; increase `min_sample_size`
 or disable sampling if a time-ordered prefix omits a class.
 Coverage is also checked on each actual CV training fold and after fit-only
 resampling, including exported refits, before the learner is trained.
+Classification resamplers must preserve the training vocabulary even with AutoFE
+disabled or in standalone pipelines; regression resampling may change target values.
 Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
@@ -138,7 +140,11 @@ and full-data refits retain their original training-row order.
 
 Forecast AutoFE fits feature statistics and target encoders on each training
 partition. Explicit validation rows are never eligible for final refitting;
-validation-only target classes raise an error instead of changing training codes.
+validation-only target classes, including numeric labels, raise an error instead
+of changing training codes. Exported pipelines translate dataset target names to
+their fitted internal names before normalizing feature names. Generated extraction
+columns cannot collide with timestamps or targets; their fitted names are reused
+by transforms and `get_feature_names_out()`.
 Panel/TFT feature engineering is excluded so group identifiers, time indexes, and
 named covariates are not removed by generic feature transforms.
 Panel forecasting chooses holdout for automatic evaluation; an explicit panel CV
@@ -146,14 +152,17 @@ request is rejected rather than using a non-group-aware row splitter. Declared
 group/covariate columns and caller-supplied absolute integer time indexes are
 preserved through search, final refitting, and prediction. Panel indexes must be
 signed integers without missing values, as required by TFT.
-Numeric group keys are not imputed or converted through floating point.
+Numeric group keys are not imputed or rounded through a lossy floating-point conversion.
+Matching group dtypes and categorical ordering are preserved. Mixed integer keys
+use a lossless signed or unsigned dtype where possible, and object storage only
+when a common numeric representation would lose identity.
 The same structural protection applies when refitting an exported panel pipeline.
 An explicit `estimator__group_ids` refit override is propagated to preprocessing
 so renamed group columns retain the same protection.
 Custom dataset time-index names are retained. TFT prediction supports consecutive
 coordinates immediately after each group's training boundary, up to the fitted
 horizon; unsupported gaps are rejected rather than relabeled. Predictions are
-mapped back to the caller's group/time keys and row order.
+mapped back to the caller's group/time keys, key dtypes, and row order.
 Shorter or unequal group horizons retain the latest encoder observations and the
 fitted lag-feature order. Irregular calendars require explicit consecutive indexes
 and strictly increasing future timestamps. An empty validation partition produces
@@ -229,28 +238,39 @@ and native Ray results use the winning trial ID. Local and Ray report-style
 objectives retain their final reported numeric metrics; Spark worker reports are
 captured per trial and delivered when that objective returns, rather than streamed
 to the driver scheduler. Nested tuning has a separate reporting context.
-Spark and Ray results also carry the accepted worker attempt's MLflow run ID.
+Spark results and Ray returned metrics, generator yields, and `flaml.tune.report`
+also carry the accepted worker attempt's MLflow run ID.
 Only that attempt is adopted as the winner; other completed attempts retain their
-diagnostics. If older results lack an attempt ID and several runs match a trial,
-adoption warns rather than guessing which artifacts belong to the accepted result.
+diagnostics. Direct native Ray reporters bypass FLAML's attempt-ID transport:
+native analysis results remain available, and a unique owned run can be associated.
+If an attempt ID is absent and several runs match a trial, adoption warns, retains
+all attempts, and leaves `best_run_id=None` rather than guessing. Unambiguous sibling
+trials are still adopted. Use returned metrics or `flaml.tune.report` when
+accepted-attempt association must be guaranteed.
 Framework bookkeeping,
 config values, strings, and booleans are not logged as objective metrics.
+User reports are captured before optimizer callbacks add constraint annotations;
+a user-authored metric with a similar name is not removed by suffix guessing.
 An explicitly selected objective such as `time_total_s` is retained even when its
-name is also used for framework bookkeeping.
+name is also used for framework bookkeeping. `training_iteration` is reserved for
+framework progress and cannot be the primary objective.
 Errored trials are not recorded as empty successes. Successful adoption writes each trial's metrics
 once, and secondary cleanup errors do not replace an objective failure.
 Remote trials retain their driver's lineage without ending an unrelated active
 worker run. Objective and restoration `RuntimeError`s are not retried as cluster
 failures.
 Child-run adoption requires an integration-owned tag; unrelated runs in the same
-experiment are not changed. Failed runs, dataset-input lineage, diagnostic artifacts,
-renamed runs and user-authored tags are retained rather than classified as empty
-placeholders. Cleanup checks refreshed run metadata and linked nested runs as well
-as direct artifacts and inputs. Returning `{}` marks trial-owned runs failed,
+experiment are not changed. Adoption never deletes runs, including empty runs and
+duplicate cross-validation runs; duplicate bookkeeping is skipped without deleting
+stored data. This avoids deleting annotations or artifacts written after a metadata
+check. Returning `{}` marks trial-owned runs failed,
 including unclosed nested runs, and uses Ray's normal trial-failure handling when
 running natively. An errored trial's
-intermediate score cannot displace a successful winner. Failed trials remain in
-analysis history, including native-Ray-backed analyses.
+intermediate score cannot displace a successful winner or become a successful
+Optuna observation or CFO starting point. Failed trials remain in analysis history,
+including native-Ray-backed analyses. Clean scheduler stops preserve accepted
+reports and finish their owned runs without aborting sibling trials. Native Ray
+generator functions retain their yield semantics and trial context.
 Ray 1.13's [upstream `with_parameters` wrapper](https://github.com/ray-project/ray/blob/ray-1.13.0/python/ray/tune/utils/trainable.py#L399-L425)
 discards function return values.
 Use report-style objectives with that wrapper, or a return-preserving closure
@@ -326,8 +346,10 @@ publication lock, avoiding lock-order inversion with Python's module loader.
 The publishing driver's failed initial alias remains unavailable, and rollback
 invalidates generated bytecode. Worker archives can supersede an older copied
 installation. Distribution is not a cluster-wide transaction: if state publication
-or its acknowledgement fails after delivery, artifacts are retained for recovery
-and the committed local state determines the binding. Retry a failed publication
+or a distribution acknowledgement fails after possible delivery, artifacts are
+retained for recovery and the committed local state determines the binding.
+A later successful publication, including a revert, advances past every retained
+archive sequence even after a driver restart or clock rollback. Retry a failed publication
 before submitting work that depends on it; do not assume every worker rolled back.
 As before, the driver package directory must be writable. The returned source
 path is revision-specific; workers do not need writable package installations.

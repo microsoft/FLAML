@@ -848,9 +848,7 @@ class TestAdoptChildren:
             integration = MLflowIntegration()
         return integration
 
-    def test_adopt_children_with_empty_run_deletion(self):
-        from flaml.fabric.mlflow import _system_tag_fingerprint
-
+    def test_adopt_children_retains_empty_runs(self):
         integration = self._make_integration()
         integration.autolog = True
         integration.best_iteration = 0
@@ -864,8 +862,7 @@ class TestAdoptChildren:
         empty_run.info.start_time = (time.time() + 10) * 1000
         empty_run.data.params = {}
         empty_run.data.metrics = {}
-        empty_run.data.tags = {**integration.extra_tag, "mlflow.runName": "empty", "flaml.initial_run_name": "empty"}
-        empty_run.data.tags["flaml.initial_system_tags"] = _system_tag_fingerprint(empty_run.data.tags)
+        empty_run.data.tags = {**integration.extra_tag, "mlflow.runName": "empty"}
         empty_run.inputs = None
         integration.mlflow_client.get_run.return_value = empty_run
         integration.mlflow_client.list_artifacts.return_value = []
@@ -873,7 +870,7 @@ class TestAdoptChildren:
 
         with patch.object(mlflow, "search_runs", return_value=[empty_run]):
             integration.adopt_children()
-        integration.mlflow_client.delete_run.assert_called_with("empty_run")
+        integration.mlflow_client.delete_run.assert_not_called()
 
     def test_adopt_children_dedup_cv_runs(self):
         integration = self._make_integration()
@@ -912,9 +909,11 @@ class TestAdoptChildren:
         integration.mlflow_client.get_run = MagicMock(return_value=mock_child_run)
 
         with patch.object(mlflow, "search_runs", return_value=[run1, run2]):
-            with patch.object(integration, "_log_info_to_run"):
+            with patch.object(integration, "_log_info_to_run") as log_info:
                 integration.adopt_children()
-        integration.mlflow_client.delete_run.assert_any_call("run2")
+        integration.mlflow_client.delete_run.assert_not_called()
+        log_info.assert_called_once()
+        assert log_info.call_args.args[1] == "run1"
 
     def test_adopt_children_before_start_time(self):
         integration = self._make_integration()

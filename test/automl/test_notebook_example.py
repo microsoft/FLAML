@@ -44,9 +44,19 @@ _OPENML_AVAILABILITY_ERRORS = (
 
 
 def _skip_openml_unavailability(error, resource):
-    if isinstance(error, (HTTPError, UrllibHTTPError)):
-        status = error.code if isinstance(error, UrllibHTTPError) else getattr(error.response, "status_code", None)
-        if status is None or status not in (408, 429) and not 500 <= status < 600:
+    if isinstance(error, OpenMLServerException):
+        # OpenML's SDK retries service code 107 (database connection failure), not arbitrary application errors.
+        if getattr(error, "code", None) != 107:
+            raise error
+    elif isinstance(error, (HTTPError, UrllibHTTPError, ServerError)):
+        status = (
+            error.code
+            if isinstance(error, UrllibHTTPError)
+            else error.status_code
+            if isinstance(error, ServerError)
+            else getattr(error.response, "status_code", None)
+        )
+        if not isinstance(status, int) or status not in (408, 429) and not 500 <= status < 600:
             raise error
     elif isinstance(error, URLError):
         reason = error.reason
@@ -67,6 +77,24 @@ def _skip_openml_unavailability(error, resource):
         ):
             raise error
     pytest.skip(f"OpenML {resource} is unavailable ({type(error).__name__}).")
+
+
+@pytest.mark.parametrize("code", [107, 110, 500, None])
+def test_openml_sdk_errors_only_skip_known_transient_failures(code):
+    exceptions = pytest.importorskip("openml.exceptions")
+    error = exceptions.OpenMLServerException("service response", code=code)
+    expected = pytest.skip.Exception if code == 107 else exceptions.OpenMLServerException
+    with pytest.raises(expected):
+        _skip_openml_unavailability(error, "dataset")
+
+
+@pytest.mark.parametrize("status", [503, 404, None])
+def test_minio_errors_require_a_transient_http_status(status):
+    exceptions = pytest.importorskip("minio.error")
+    error = exceptions.ServerError("storage response", status)
+    expected = pytest.skip.Exception if status == 503 else exceptions.ServerError
+    with pytest.raises(expected):
+        _skip_openml_unavailability(error, "dataset")
 
 
 def test_automl(tmp_path, budget=10, dataset_format="dataframe", hpo_method=None):

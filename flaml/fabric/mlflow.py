@@ -1,6 +1,6 @@
 import atexit
 import functools
-import hashlib
+import inspect
 import json
 import logging
 import math
@@ -13,14 +13,14 @@ import tempfile
 import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor, wait
-from contextlib import contextmanager, nullcontext
+from contextlib import closing, contextmanager, nullcontext
 from importlib import import_module
 from typing import MutableMapping
 from uuid import uuid4
 
 import mlflow
 import pandas as pd
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_is_disabled
 from packaging.requirements import Requirement
@@ -286,6 +286,25 @@ def _apply_autolog_configurations(configurations):
                 MLflowIntegration._set_flavor_autolog(name, options)
 
 
+def _trial_terminal_status(primary, outcome):
+    if outcome["failed"]:
+        return "FAILED"
+    if primary is None:
+        return "FINISHED"
+    # Ray closes suspended generators when its result consumer stops a trial.
+    if isinstance(primary, GeneratorExit) and outcome.get("yielded", False):
+        return "FINISHED"
+    if isinstance(primary, (SystemExit, StopIteration)):
+        from flaml.tune import tune
+
+        if isinstance(primary, SystemExit):
+            if tune._use_ray and primary.code in (None, 0):
+                return "FINISHED"
+        elif getattr(getattr(tune._runner, "running_trial", None), "status", None) == "TERMINATED":
+            return "FINISHED"
+    return "FAILED"
+
+
 @contextmanager
 def _isolated_worker_mlflow_state(outcome):
     from mlflow.tracking import fluent
@@ -329,7 +348,7 @@ def _isolated_worker_mlflow_state(outcome):
     finally:
         primary = sys.exc_info()[1]
         errors = []
-        status = "FAILED" if primary is not None or outcome["failed"] else "FINISHED"
+        status = _trial_terminal_status(primary, outcome)
         while get_stack():
             active = get_stack()[-1]
             try:
@@ -361,11 +380,6 @@ def _isolated_worker_mlflow_state(outcome):
             raise errors[0]
 
 
-def _system_tag_fingerprint(tags):
-    system_tags = {str(key): str(value) for key, value in tags.items() if str(key).startswith("mlflow.")}
-    return hashlib.sha256(json.dumps(system_tags, sort_keys=True).encode("utf-8")).hexdigest()
-
-
 def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_tags=None, autolog=False):
     driver = (socket.gethostname(), os.getpid())
     configurations = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()}
@@ -381,13 +395,10 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
         if parent_run_id is not None:
             tags["mlflow.parentRunId"] = parent_run_id
         tags.setdefault("mlflow.runName", f"flaml_trial_{uuid4().hex}")
-        tags["flaml.initial_run_name"] = tags["mlflow.runName"]
-        tags["flaml.initial_system_tags"] = _system_tag_fingerprint(tags)
         created = client.create_run(experiment_id=mlflow_exp_id, tags=tags)
         stack = fluent._active_run_stack
         get_stack = stack.get if callable(getattr(stack, "get", None)) else lambda: stack
         caller_runs = {run.info.run_id for run in get_stack()}
-        status = "FAILED"
         try:
             active = mlflow.start_run(run_id=created.info.run_id, nested=True)
             if tags.get("flaml.trial_id") is not None:
@@ -397,9 +408,9 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
                 if attempt is not None and attempt["trial_id"] == tags["flaml.trial_id"]:
                     attempt["run_id"] = created.info.run_id
             yield active
-            status = "FAILED" if outcome["failed"] else "FINISHED"
         finally:
             primary = sys.exc_info()[1]
+            status = _trial_terminal_status(primary, outcome)
             errors = []
             ended_owned = False
             while get_stack() and get_stack()[-1].info.run_id not in caller_runs:
@@ -422,8 +433,8 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
             if errors and primary is None:
                 raise errors[0]
 
-    @functools.wraps(evaluation_func)
-    def wrapped(*args, _flaml_trial_id=None, **kwargs):
+    @contextmanager
+    def evaluation_context(trial_id):
         import mlflow
 
         remote = (socket.gethostname(), os.getpid()) != driver
@@ -442,15 +453,28 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
                     mlflow.set_experiment(experiment_id=mlflow_exp_id)
                 _apply_autolog_configurations(configurations)
             tags = dict(extra_tags or {})
-            if _flaml_trial_id is not None:
-                tags["flaml.trial_id"] = str(_flaml_trial_id)
+            if trial_id is not None:
+                tags["flaml.trial_id"] = str(trial_id)
             run = trial_run(tags, outcome) if autolog else nullcontext()
             with run:
-                result = evaluation_func(*args, **kwargs)
-                outcome["failed"] = isinstance(result, dict) and not result
+                yield outcome
+
+    @functools.wraps(evaluation_func)
+    def wrapped(*args, _flaml_trial_id=None, **kwargs):
+        with evaluation_context(_flaml_trial_id) as outcome:
+            result = evaluation_func(*args, **kwargs)
+            outcome["failed"] = isinstance(result, dict) and not result
             return result
 
-    return wrapped
+    @functools.wraps(evaluation_func)
+    def generator(*args, _flaml_trial_id=None, **kwargs):
+        with evaluation_context(_flaml_trial_id) as outcome, closing(evaluation_func(*args, **kwargs)) as iterator:
+            for result in iterator:
+                outcome["failed"] = isinstance(result, dict) and not result
+                outcome["yielded"] = True
+                yield result
+
+    return generator if inspect.isgeneratorfunction(evaluation_func) else wrapped
 
 
 def _get_notebook_name():
@@ -1184,57 +1208,6 @@ class MLflowIntegration:
             del info["submetrics"]["values"]
         return f"Successfully _log_info_to_run to run_id {run_id}"
 
-    def _is_empty_placeholder(self, run):
-        run_id = run.info.run_id
-        try:
-            run = self.mlflow_client.get_run(run_id)
-            owner = self.extra_tag.get("flaml.owner_id")
-            if (
-                not owner
-                or run.info.run_id != run_id
-                or run.data.tags.get("flaml.owner_id") != owner
-                or run.info.lifecycle_stage != "active"
-                or run.info.status != "FINISHED"
-                or run.data.params
-                or run.data.metrics
-            ):
-                return False
-            initial_name = run.data.tags.get("flaml.initial_run_name")
-            if initial_name is None or run.data.tags.get("mlflow.runName") != initial_name:
-                return False
-            if run.data.tags.get("flaml.initial_system_tags") != _system_tag_fingerprint(run.data.tags):
-                return False
-            system_tags = {
-                "mlflow.user",
-                "mlflow.source.name",
-                "mlflow.source.type",
-                "mlflow.source.git.commit",
-                "mlflow.runName",
-                "mlflow.parentRunId",
-                "mlflow.autologging",
-                "flaml.trial_id",
-                "flaml.initial_run_name",
-                "flaml.initial_system_tags",
-            }
-            if any(key not in system_tags and key not in self.extra_tag for key in run.data.tags):
-                return False
-            if any(key in run.data.tags and run.data.tags[key] != str(value) for key, value in self.extra_tag.items()):
-                return False
-            inputs = getattr(run, "inputs", None)
-            if inputs is not None and getattr(inputs, "dataset_inputs", None):
-                return False
-            if self.mlflow_client.search_runs(
-                experiment_ids=[self.experiment_id],
-                filter_string=f"tags.`mlflow.parentRunId` = '{run_id}'",
-                run_view_type=ViewType.ALL,
-                max_results=1,
-            ):
-                return False
-            return not self.mlflow_client.list_artifacts(run_id)
-        except Exception:
-            logger.warning("Cannot verify that MLflow run %s is empty; retaining it.", run_id, exc_info=True)
-            return False
-
     def adopt_children(self, result=None):
         """
         Set autologging child runs to nested by fetching them after all child runs are completed.
@@ -1267,7 +1240,7 @@ class MLflowIntegration:
             if adopted is None:
                 self._adopted_run_ids = adopted = set()
 
-            # From latest to earliest, remove duplicate cross-validation runs
+            # From latest to earliest, skip duplicate cross-validation runs during adoption.
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
             _to_keep_autolog_child_runs = []
             for autolog_child_run in raw_autolog_child_runs:
@@ -1286,8 +1259,7 @@ class MLflowIntegration:
                 if self.experiment_type == "automl":
                     _current_child_run_params.pop("n_estimators", None)
                 if self.experiment_type == "automl" and _current_child_run_params in _exist_child_run_params:
-                    # remove duplicate cross-validation run
-                    self.mlflow_client.delete_run(autolog_child_run.info.run_id)
+                    # Deduplicate adoption, not stored runs: metadata can change after a read.
                     continue
                 else:
                     _exist_child_run_params.append(_current_child_run_params)
@@ -1327,16 +1299,6 @@ class MLflowIntegration:
                         ):
                             continue
 
-                if all(
-                    [
-                        child_run_id != self.parent_run_id,
-                        matched is None if use_trial_identity else self.child_counter >= num_infos,
-                    ]
-                ) and self._is_empty_placeholder(autolog_child_run):
-                    # remove empty run
-                    # empty run could be created by mlflow autologging
-                    self.mlflow_client.delete_run(autolog_child_run.info.run_id)
-                    continue
                 if use_trial_identity and matched is None:
                     continue
 

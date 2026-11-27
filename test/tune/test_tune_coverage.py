@@ -34,6 +34,21 @@ def _simple_eval(config):
     return {"metric": config.get("x", 1) ** 2}
 
 
+@pytest.mark.parametrize("source", ["explicit", "searcher", "lexicographic"])
+def test_training_iteration_objective_is_rejected_before_evaluation(source):
+    from flaml.tune.searcher.blendsearch import RandomSearch
+
+    objective = MagicMock(return_value={"training_iteration": 10.0})
+    settings = {"metric": "training_iteration"}
+    if source == "searcher":
+        settings = {"search_alg": RandomSearch(space={"x": 1}, metric="training_iteration", mode="max")}
+    elif source == "lexicographic":
+        settings = {"lexico_objectives": {"metrics": ["training_iteration"], "tolerances": {}, "targets": {}}}
+    with pytest.raises(ValueError, match="training_iteration.*reserved"):
+        tune.run(objective, config={"x": 1}, mode="max", num_samples=1, mlflow_logging=False, verbose=0, **settings)
+    objective.assert_not_called()
+
+
 def _mock_mlflow_wrapper(evaluation_function):
     def wrapped(config, *, _flaml_trial_id):
         return evaluation_function(config)
@@ -128,6 +143,33 @@ class TestExperimentAnalysis:
 
 
 class TestReport:
+    @pytest.mark.parametrize(
+        "version, api",
+        [("1.13.0", "ray.tune"), ("2.4.0", "ray.air.session"), ("2.49.0", "ray.tune"), ("2.49.0", "ray.train")],
+    )
+    def test_report_transports_attempt_identity_and_original_metrics(self, monkeypatch, version, api):
+        from types import ModuleType
+
+        import flaml.tune.tune as tune_mod
+
+        ray_module = ModuleType("ray")
+        ray_module.__version__ = version
+        ray_module.__path__ = []
+        monkeypatch.setitem(sys.modules, "ray", ray_module)
+        modules = {name: ModuleType(name) for name in ("ray.tune", "ray.air.session", "ray.train")}
+        for name, module in modules.items():
+            monkeypatch.setitem(sys.modules, name, module)
+        reporter = MagicMock()
+        modules[api].report = reporter
+        monkeypatch.setattr(tune_mod, "_use_ray", True)
+        with tune_mod._capture_trial_run("trial", capture_metrics=True) as attempt:
+            attempt["run_id"] = "accepted-run"
+            report(loss=1.0, diagnostic_lagrange=2.0)
+        payload = reporter.call_args.kwargs if version.startswith("1.") else reporter.call_args.kwargs["metrics"]
+        assert payload[tune_mod._MLFLOW_RUN_ID] == "accepted-run"
+        payload["loss_lagrange"] = -10.0
+        assert tune_mod._reported_trial_metrics(payload, "loss") == {"loss": 1.0, "diagnostic_lagrange": 2.0}
+
     def test_report_no_runner(self):
         """Cover line 233: report returns None when no running trial."""
         import flaml.tune.tune as tune_mod

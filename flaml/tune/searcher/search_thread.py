@@ -128,11 +128,11 @@ class SearchThread:
         """Update the statistics of the thread."""
         if not self._search_alg:
             return
-        if not hasattr(self._search_alg, "_ot_trials") or (not error and trial_id in self._search_alg._ot_trials):
-            # optuna doesn't handle error
-            if self._is_ls or not self._init_config:
+        optuna_trials = getattr(self._search_alg, "_ot_trials", None)
+        if optuna_trials is None or trial_id in optuna_trials:
+            if self._is_ls or not self._init_config or optuna_trials is not None:
                 try:
-                    self._search_alg.on_trial_complete(trial_id, result, error)
+                    self._search_alg.on_trial_complete(trial_id, None if error else result, error)
                 except RuntimeError as e:
                     # rs is used in place of optuna sometimes
                     if not str(e).endswith("has already finished and can not be updated."):
@@ -144,7 +144,11 @@ class SearchThread:
         if result:
             self.cost_last = result.get(self.cost_attr, 1)
             self.cost_total += self.cost_last
-            if self._search_alg.metric in result and (getattr(self._search_alg, "lexico_objectives", None) is None):
+            if (
+                not error
+                and self._search_alg.metric in result
+                and getattr(self._search_alg, "lexico_objectives", None) is None
+            ):
                 # TODO: Improve this behavior. When lexico_objectives is provided to CFO,
                 # related variables are not callable.
                 obj = result[self._search_alg.metric] * self._metric_op

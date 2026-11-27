@@ -303,7 +303,44 @@ class TimeSeriesDataset:
         return pd.concat([self.train_data[[self.time_col] + self.target_names], y_pred], axis=0)
 
 
-def _transform_ts_dataset(data: TimeSeriesDataset, transform_frame: Callable) -> tuple[TimeSeriesDataset, float]:
+def _concat_panel_frames(frames, group_ids, *, ignore_index=False):
+    """Concatenate panel partitions without rounding numerically incompatible group keys."""
+    frames = list(frames)
+    populated = [frame for frame in frames if len(frame)]
+    casts = {}
+    for name in group_ids:
+        columns = [frame[name] for frame in populated]
+        if not columns or all(column.dtype == columns[0].dtype for column in columns):
+            continue
+        if all(pd.api.types.is_integer_dtype(column) for column in columns):
+            lower = min(int(column.min()) for column in columns)
+            upper = max(int(column.max()) for column in columns)
+            if np.iinfo(np.int64).min <= lower and upper <= np.iinfo(np.int64).max:
+                casts[name] = "int64"
+            elif 0 <= lower and upper <= np.iinfo(np.uint64).max:
+                casts[name] = "uint64"
+            else:
+                casts[name] = object
+        elif all(pd.api.types.is_numeric_dtype(column) for column in columns):
+            if any(
+                int(value) != int(float(value))
+                for column in columns
+                if pd.api.types.is_integer_dtype(column)
+                for value in column.unique()
+            ):
+                casts[name] = object
+    return pd.concat(
+        [
+            frame.astype({name: dtype for name, dtype in casts.items() if name in frame}) if casts else frame
+            for frame in frames
+        ],
+        ignore_index=ignore_index,
+    )
+
+
+def _transform_ts_dataset(
+    data: TimeSeriesDataset, transform_frame: Callable, *, target_names=None
+) -> tuple[TimeSeriesDataset, float]:
     """Transform both partitions while timing only held-out rows."""
     train_data = transform_frame(data.train_data)
     test_data = data.test_data
@@ -315,11 +352,13 @@ def _transform_ts_dataset(data: TimeSeriesDataset, transform_frame: Callable) ->
             validation_time = time.perf_counter() - start
         else:
             test_data = test_data.copy()
+            if target_names is not None:
+                test_data = test_data.rename(columns=dict(zip(data.target_names, target_names)))
     return (
         TimeSeriesDataset(
             train_data,
             data.time_col,
-            data.target_names,
+            data.target_names if target_names is None else target_names,
             time_idx=data.time_idx,
             test_data=test_data,
         ),

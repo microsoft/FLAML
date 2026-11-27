@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin, clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone, is_classifier
 from sklearn.pipeline import Pipeline
 from sklearn.utils.metaestimators import available_if
 from sklearn.utils.validation import check_is_fitted
@@ -27,6 +27,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         self.preserve_features = preserve_features
         self.feature_only = feature_only
         self._is_fitted = False
+        self._target_classes = None
 
     def __sklearn_is_fitted__(self):
         return self._is_fitted
@@ -41,6 +42,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         from flaml.automl.time_series.ts_data import DataTransformerTS, TimeSeriesDataset, normalize_ts_data
 
         self._is_fitted = False
+        self._target_classes = None
         self.task_ = task_factory(self.task, X, y) if isinstance(self.task, str) else deepcopy(self.task)
         task = self.task_
         if group_ids is not None:
@@ -86,20 +88,9 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                     task.target_names,
                     task.time_col,
                 )
-                targets, used = [], set(features.columns)
-                if self.preserve_features:
-                    mapping = _make_column_name_mapping(features.columns)
-                    mapping.pop(task.time_col, None)
-                    mapping.pop(time_idx, None)
-                    used.update(mapping.values())
-                for name in task.target_names:
-                    candidate = name
-                    while candidate in used:
-                        candidate = f"{candidate}_target"
-                    targets.append(candidate)
-                    used.add(candidate)
-                task.target_names = targets
-                labels = pd.DataFrame(np.asarray(y).reshape(len(features), -1), index=features.index, columns=targets)
+                labels = pd.DataFrame(
+                    np.asarray(y).reshape(len(features), -1), index=features.index, columns=task.target_names
+                )
             else:
                 frame = normalize_ts_data(
                     X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
@@ -113,6 +104,25 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                     raise ValueError("Forecast model refits require target labels.")
                 features = frame.drop(columns=task.target_names)
                 labels = frame[task.target_names]
+            input_targets = list(task.target_names)
+            if labels is not None:
+                targets, used = [], set(features.columns)
+                if self.preserve_features:
+                    mapping = _make_column_name_mapping(features.columns)
+                    mapping.pop(task.time_col, None)
+                    mapping.pop(time_idx, None)
+                    used.update(mapping.values())
+                for name in input_targets:
+                    candidate = name
+                    while candidate in used:
+                        candidate = f"{candidate}_target"
+                    targets.append(candidate)
+                    used.add(candidate)
+                task.target_names = targets
+                labels = labels.copy()
+                labels.columns = targets
+                if self.preserve_features and task.is_classification():
+                    self._target_classes = set(np.unique(labels.iloc[:, 0]))
             features[task.time_col] = pd.to_datetime(features[task.time_col])
             self.transformer_ = DataTransformerTS(task.time_col, task.target_names, time_idx=time_idx)
             transformed = self.transformer_.fit_transform(
@@ -130,7 +140,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                 self._is_fitted = True
                 return features
             if test_data is not None and len(test_data):
-                test_data = self._transform_forecast_frame(test_data)
+                test_data = self._transform_forecast_frame(test_data, input_targets)
             data = TimeSeriesDataset(
                 pd.concat([features, labels], axis=1),
                 task.time_col,
@@ -170,15 +180,27 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         from flaml.automl.time_series.ts_data import _transform_ts_dataset
 
         check_is_fitted(self)
-        return _transform_ts_dataset(X, self._transform_forecast_frame)
+        return _transform_ts_dataset(
+            X,
+            lambda frame: self._transform_forecast_frame(frame, X.target_names),
+            target_names=self.task_.target_names,
+        )
 
-    def _transform_forecast_frame(self, frame):
+    def _transform_forecast_frame(self, frame, input_targets=None):
         targets = self.task_.target_names
-        features = frame.drop(columns=targets, errors="ignore").copy()
+        input_targets = targets if input_targets is None else input_targets
+        features = frame.drop(columns=input_targets, errors="ignore").copy()
         features[self.task_.time_col] = pd.to_datetime(features[self.task_.time_col])
-        if not all(name in frame for name in targets):
+        if not all(name in frame for name in input_targets):
             return self.transformer_.transform(features)
-        features, labels = self.transformer_.transform(features, frame[targets].copy())
+        labels = frame[input_targets].copy()
+        if len(input_targets) != len(targets):
+            raise ValueError("Forecast target columns must match the fitted target count.")
+        classes = getattr(self, "_target_classes", None)
+        if classes is not None and not set(np.unique(labels.iloc[:, 0])).issubset(classes):
+            raise ValueError("AutoFE forecast validation contains classes unseen in the training data.")
+        labels.columns = targets
+        features, labels = self.transformer_.transform(features, labels)
         return pd.concat([features, labels], axis=1)
 
 
@@ -247,9 +269,10 @@ class AutoMLPipeline(Pipeline):
             self.steps = preprocessing.steps + [(estimator_name, estimator)]
         expected_classes = (
             np.unique(y)
-            if any(
-                isinstance(step, _TaskPreprocessor) and getattr(step.task_, "_autofe_classes", None) is not None
-                for _, step in self.steps[:-1]
+            if label_transformer is not None
+            or is_classifier(estimator)
+            or any(
+                isinstance(step, _TaskPreprocessor) and step.task_.is_classification() for _, step in self.steps[:-1]
             )
             else None
         )
@@ -265,6 +288,8 @@ class AutoMLPipeline(Pipeline):
                     transformer = step.transformer_.label_transformer
                 elif transformer is not None:
                     step.transformer_.label_transformer = transformer
+                if step.preserve_features and step.task_.is_classification() and transformer is not None:
+                    step._target_classes = set(transformer.classes_)
         self.label_transformer_ = transformer
 
     @available_if(lambda self: hasattr(self._final_estimator, "fit_predict"))

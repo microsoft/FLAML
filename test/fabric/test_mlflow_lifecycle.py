@@ -367,8 +367,8 @@ def test_owned_trial_adoption_uses_identity_not_worker_clock(tracking, clock_off
         assert stored.data.metrics["loss"] == 0.1
 
 
-def test_adoption_cleans_only_unrecorded_owned_empty_runs(tracking):
-    from flaml.fabric.mlflow import MLflowIntegration, _system_tag_fingerprint
+def test_adoption_retains_unrecorded_owned_empty_runs(tracking):
+    from flaml.fabric.mlflow import MLflowIntegration
 
     integration = MLflowIntegration("tune")
     integration.autolog, integration.manual_log = True, False
@@ -383,8 +383,7 @@ def test_adoption_cleans_only_unrecorded_owned_empty_runs(tracking):
         "retagged": {**integration.extra_tag, "flaml.trial_id": "retagged"},
         "unrelated": {"flaml.owner_id": "other", "flaml.trial_id": "stopped"},
     }.items():
-        tags = {**tags, "mlflow.runName": f"initial-{name}", "flaml.initial_run_name": f"initial-{name}"}
-        tags["flaml.initial_system_tags"] = _system_tag_fingerprint(tags)
+        tags = {**tags, "mlflow.runName": f"initial-{name}"}
         created[name] = tracking.create_run(
             integration.experiment_id, start_time=int((integration.start_time + 1) * 1000), tags=tags
         ).info.run_id
@@ -395,11 +394,116 @@ def test_adoption_cleans_only_unrecorded_owned_empty_runs(tracking):
     tracking.set_tag(created["retagged"], "extra_tag.sid", "caller-authored value")
     integration.adopt_children()
     assert tracking.get_run(created["recorded"]).info.lifecycle_stage == "active"
-    assert tracking.get_run(created["stopped"]).info.lifecycle_stage == "deleted"
+    assert tracking.get_run(created["stopped"]).info.lifecycle_stage == "active"
     assert tracking.get_run(created["unrelated"]).info.lifecycle_stage == "active"
     for name in ("failed", "artifact", "annotated", "retagged"):
         assert tracking.get_run(created[name]).info.lifecycle_stage == "active"
     assert tracking.list_artifacts(created["artifact"])[0].path == "trace.txt"
+
+
+def test_adoption_does_not_delete_an_unreported_owned_attempt(tracking, monkeypatch):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog, integration.manual_log = True, False
+    run_ids = []
+
+    def objective(config):
+        run_ids.append(mlflow.active_run().info.run_id)
+
+    integration.wrap_evaluation_function(objective)({}, _flaml_trial_id="unreported")
+    delete = Mock(wraps=integration.mlflow_client.delete_run)
+    monkeypatch.setattr(integration.mlflow_client, "delete_run", delete)
+    integration.adopt_children()
+    delete.assert_not_called()
+    stored = tracking.get_run(run_ids[0])
+    assert stored.info.lifecycle_stage == "active"
+    assert stored.info.status == "FINISHED"
+
+
+@pytest.mark.parametrize("autolog", [False, True])
+@pytest.mark.parametrize("delivery", ["report", "return", "both", "caught", "caught_empty"])
+def test_local_scheduler_stop_preserves_results_and_tracking(tracking, autolog, delivery):
+    from flaml import tune
+    from flaml.tune.scheduler import TrialScheduler
+
+    class StopFirst(TrialScheduler):
+        def set_search_properties(self, **kwargs):
+            return True
+
+        def on_trial_complete(self, *args):
+            pass
+
+        def on_trial_result(self, runner, trial, result):
+            return self.STOP if trial.config["x"] == 1 else self.CONTINUE
+
+    def objective(config):
+        if delivery != "return":
+            try:
+                tune.report(loss=float(config["x"]))
+            except StopIteration:
+                if delivery == "caught_empty":
+                    return {}
+                if delivery != "caught":
+                    raise
+        if delivery != "report":
+            return {"loss": float(config["x"]) + 10}
+
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        result = tune.run(
+            objective,
+            config={"x": tune.choice([1, 2])},
+            points_to_evaluate=[{"x": 1}, {"x": 2}],
+            metric="loss",
+            mode="min",
+            num_samples=2,
+            scheduler=StopFirst(),
+            verbose=0,
+        )
+        expected = [11.0, 12.0] if delivery == "return" else [1.0, 2.0 if delivery == "report" else 12.0]
+        assert [trial.last_result["loss"] for trial in result.trials] == expected
+        assert result.trials[0].status == ("ERROR" if delivery == "caught_empty" else "TERMINATED")
+        assert result.trials[1].status == "TERMINATED"
+        assert result.best_config["x"] == (2 if delivery == "caught_empty" else 1)
+        winner = tracking.get_run(result.best_run_id)
+        assert winner.info.status == "FINISHED"
+        assert winner.data.metrics == {"loss": result.best_result["loss"]}
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+        if autolog:
+            runs = tracking.search_runs(
+                [parent.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+            )
+            first = next(run for run in runs if run.data.tags["flaml.trial_id"] == result.trials[0].trial_id)
+            assert first.info.status == ("FAILED" if delivery == "caught_empty" else "FINISHED")
+
+
+@pytest.mark.parametrize("autolog", [False, True])
+@pytest.mark.parametrize("user_lagrange", [False, True])
+def test_reported_metrics_are_captured_before_searcher_mutation(tracking, autolog, user_lagrange):
+    from flaml import tune
+
+    metrics = {"loss": 2.0, "memory": 2.0}
+    if user_lagrange:
+        metrics["loss_lagrange"] = 17.0
+
+    def objective(config):
+        tune.report(**metrics)
+
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run():
+        result = tune.run(
+            objective,
+            config={"x": 1},
+            metric="loss",
+            mode="min",
+            metric_constraints=[("memory", "<=", 1.0)],
+            num_samples=1,
+            verbose=0,
+        )
+        assert tracking.get_run(result.best_run_id).data.metrics == metrics
 
 
 def test_manual_tune_winner_uses_trial_identity_after_resultless_trial(tracking):
@@ -1007,8 +1111,6 @@ def test_unrecorded_owned_runs_retain_user_lineage_and_names(tracking, monkeypat
             )
             integration.record_trial({"loss": 1.0}, SimpleNamespace(config={}, trial_id="recorded"), "loss")
         monkeypatch.setattr(module, "IS_RENAME_CHILD_RUN", True)
-        warning = Mock(wraps=module.logger.warning)
-        monkeypatch.setattr(module.logger, "warning", warning)
         integration.adopt_children()
         after = tracking.get_run(run_id)
         assert after.info.lifecycle_stage == "active"
@@ -1022,7 +1124,7 @@ def test_unrecorded_owned_runs_retain_user_lineage_and_names(tracking, monkeypat
             assert len(children) == 1 and children[0].data.metrics == {"diagnostic": 1.0}
         elif content == "artifact_unavailable":
             assert tracking.get_run(sibling).data.metrics["loss"] == 1.0
-            assert any("retaining" in call.args[0].lower() for call in warning.call_args_list)
+            integration.mlflow_client.list_artifacts.assert_not_called()
 
 
 @pytest.mark.parametrize("reported", [False, True])
@@ -1110,7 +1212,7 @@ def test_failed_trial_reports_are_ineligible_for_all_analysis_modes(lexicographi
 
 
 @pytest.mark.parametrize("change", ["metric", "rename", "failure", "owner"])
-def test_fresh_run_state_overrides_a_stale_empty_search_result(tracking, monkeypatch, change):
+def test_adoption_retains_runs_changed_after_search(tracking, monkeypatch, change):
     from flaml.fabric.mlflow import MLflowIntegration
 
     with mlflow.start_run():
@@ -1307,3 +1409,54 @@ def test_spark_attempt_identity_adopts_only_the_accepted_run(tracking, accepted_
         assert Path(tracking.download_artifacts(analysis.best_run_id, "attempt.txt")).read_text() == str(
             accepted_attempt
         )
+
+
+def test_ambiguous_attempts_are_retained_without_blocking_a_unique_sibling(tracking, monkeypatch):
+    import flaml.fabric.mlflow as module
+
+    with mlflow.start_run() as parent:
+        integration = module.MLflowIntegration("tune")
+        integration.autolog, integration.manual_log = True, False
+        wrapped = integration.wrap_evaluation_function(lambda config: mlflow.active_run().info.run_id)
+        ambiguous = [wrapped({}, _flaml_trial_id="ambiguous") for _ in range(2)]
+        sibling = wrapped({}, _flaml_trial_id="unique")
+        trials = [
+            SimpleNamespace(trial_id=name, config={"x": value}, status="TERMINATED", last_result={"loss": value})
+            for name, value in (("ambiguous", 1.0), ("unique", 2.0))
+        ]
+        for trial in trials:
+            integration.record_trial(trial.last_result, trial, "loss", run_id=None)
+        analysis = SimpleNamespace(
+            trials=trials,
+            best_iteration=0,
+            best_trial=trials[0],
+            best_config=trials[0].config,
+            best_result=trials[0].last_result,
+            best_run_id=None,
+            best_run_name=None,
+        )
+        warning = Mock(wraps=module.logger.warning)
+        monkeypatch.setattr(module.logger, "warning", warning)
+        integration.log_tune(analysis, "loss")
+        assert analysis.best_run_id is None
+        assert analysis.best_result == {"loss": 1.0}
+        for run_id in ambiguous:
+            stored = tracking.get_run(run_id)
+            assert stored.info.lifecycle_stage == "active"
+            assert not stored.data.metrics
+            assert "flaml.child_counter" not in stored.data.tags
+            assert stored.data.tags.get("flaml.best_run") != "True"
+        assert tracking.get_run(sibling).data.metrics == {"loss": 2.0}
+        assert tracking.get_run(sibling).data.tags["flaml.child_counter"] == "1"
+        assert any("Cannot identify the accepted attempt" in call.args[0] for call in warning.call_args_list)
+        assert "loss" not in tracking.get_run(parent.info.run_id).data.metrics
+
+
+@pytest.mark.parametrize("run_id", ["", 0, [], object()])
+def test_record_trial_rejects_invalid_attempt_ids_before_recording(tracking, run_id):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    with pytest.raises(ValueError, match="run ID.*nonempty string"):
+        integration.record_trial({"loss": 1.0}, SimpleNamespace(config={}, trial_id="trial"), "loss", run_id=run_id)
+    assert integration.infos == []

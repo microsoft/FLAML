@@ -806,19 +806,16 @@ class OptunaSearch(Searcher):
 
         ot_trial = self._ot_trials[trial_id]
 
-        if result:
+        if result and not error:
             if isinstance(self.metric, list):
                 val = [result.get(metric, None) for metric in self.metric]
             else:
                 val = result.get(self.metric, None)
         else:
             val = None
-        ot_trial_state = OptunaTrialState.COMPLETE
-        if val is None:
-            if error:
-                ot_trial_state = OptunaTrialState.FAIL
-            else:
-                ot_trial_state = OptunaTrialState.PRUNED
+        ot_trial_state = OptunaTrialState.FAIL if error else OptunaTrialState.COMPLETE
+        if val is None and not error:
+            ot_trial_state = OptunaTrialState.PRUNED
         try:
             self._ot_study.tell(ot_trial, val, state=ot_trial_state)
         except Exception as exc:

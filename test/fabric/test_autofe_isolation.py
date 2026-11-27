@@ -513,9 +513,9 @@ def test_forecast_latency_times_validation_rows_not_training_history(monkeypatch
     transform_preprocessor = _TaskPreprocessor._transform_forecast_frame
     transform_features = Featurization._transform
 
-    def timed_preprocessor(self, frame):
+    def timed_preprocessor(self, frame, input_targets=None):
         clock[0] += 0.2 * len(frame)
-        return transform_preprocessor(self, frame)
+        return transform_preprocessor(self, frame, input_targets)
 
     def timed_features(self, frame):
         clock[0] += 0.1 * len(frame)

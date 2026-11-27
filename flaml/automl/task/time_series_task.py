@@ -215,13 +215,12 @@ class TimeSeriesTask(Task):
             data = pre_data
             automl._transformer.label_transformer = None
         else:
+            from flaml.automl.time_series.ts_data import _concat_panel_frames
+
             features = (
-                pd.concat(
-                    [
-                        frame.astype({name: object for name in group_ids if name in frame}).dropna(axis=1, how="all")
-                        for frame in (pre_data.X_train, pre_data.X_val)
-                    ],
-                    axis=0,
+                _concat_panel_frames(
+                    [frame.dropna(axis=1, how="all") for frame in (pre_data.X_train, pre_data.X_val)],
+                    group_ids,
                 )
                 if self.is_ts_forecastpanel()
                 else pre_data.X_all

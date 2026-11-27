@@ -1137,7 +1137,11 @@ class CFO(BlendSearchTuner):
         super().on_trial_complete(trial_id, result, error)
         if self._candidate_start_points and trial_id in self._candidate_start_points:
             # the trial is a candidate start point
-            self._candidate_start_points[trial_id] = result
+            if error:
+                del self._candidate_start_points[trial_id]
+                self._subspace.pop(trial_id, None)
+            else:
+                self._candidate_start_points[trial_id] = result
             if len(self._search_thread_pool) < 2 and not self._points_to_evaluate:
                 self._create_thread_from_best_candidate()
 

@@ -269,6 +269,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         self.ts_dataset = None
         self._input_columns = None
         self._column_mapping = {}
+        self._output_columns = None
 
     def get_params(self, deep=True):
         """Return initialization arguments rather than learned export configuration."""
@@ -419,6 +420,8 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         self._is_fitted = False
         self._input_columns = None
         self._column_mapping = {}
+        self._output_columns = None
+        reserved_columns = set(X.target_names + [X.time_col]) if isinstance(X, TimeSeriesDataset) else set()
         detail_config = []
         transformers = []
         column_transformers = []
@@ -429,6 +432,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         self.time_col_ = X.time_col if isinstance(X, TimeSeriesDataset) else None
 
         if isinstance(X, TimeSeriesDataset):
+            reserved_columns.update(X.target_names + [X.time_col])
             y = X.y_train
             X = X.train_data.drop(columns=X.target_names + [X.time_col])
         elif isinstance(X, pd.DataFrame):
@@ -441,6 +445,8 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
                 from flaml.automl.pipeline import _forecast_time_column
 
                 self.time_col_ = _forecast_time_column(task, X)
+                reserved_columns.add(self.time_col_)
+                reserved_columns.update(name for name in (getattr(task, "target_names", None) or ()) if name not in X)
                 X = X.drop(columns=[self.time_col_])
 
         X, y, categorical_features, numerical_features = self.static_preprocess(X, y, fit=True)
@@ -484,6 +490,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
             transformers.append(("extraction", feature_extractor))
 
         if len(transformers) == 0:
+            self._set_output_columns(X.columns, reserved_columns)
             self._is_fitted = True
             return self
 
@@ -521,9 +528,20 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
                 detail_config.append(feature_extractor_detail_config)
         self.pipeline = pipeline
         self.detail_config = detail_config
+        self._set_output_columns(self._unprefix_columns(pipeline.get_feature_names_out(), pipeline), reserved_columns)
         self._is_fitted = True
         kusto_logger.info(f"Featurization pipeline fitting finished in {time.time() - _st} seconds")
         return self
+
+    def _set_output_columns(self, columns, reserved):
+        used = set(reserved)
+        self._output_columns = []
+        for name in columns:
+            candidate = name
+            while candidate in used:
+                candidate = f"{candidate}_feature"
+            used.add(candidate)
+            self._output_columns.append(candidate)
 
     @staticmethod
     def _unprefix_columns(columns, pipeline):
@@ -543,12 +561,15 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         if self.flaml_transformer is not None:
             X = self.flaml_transformer.transform(X)
         X, y, categorical_features, numerical_features = self.static_preprocess(X, None)
-        if self.pipeline is None or X is None:
+        if X is None:
             return X
-        else:
-            raw_res = self.pipeline.transform(X)
+        raw_res = self.pipeline.transform(X) if self.pipeline is not None else X
+        columns = getattr(self, "_output_columns", None)
+        if columns is not None:
+            raw_res.columns = columns
+        elif self.pipeline is not None:
             raw_res.columns = self._unprefix_columns(raw_res.columns, self.pipeline)
-            return raw_res
+        return raw_res
 
     def transform(self, X, time_col=None):
         check_is_fitted(self)
@@ -601,6 +622,8 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         check_is_fitted(self)
         if input_features is not None and list(input_features) != self._input_columns:
             raise ValueError("input_features must match the fitted feature columns.")
+        if getattr(self, "_output_columns", None) is not None:
+            return np.asarray(self._output_columns, dtype=object)
         if self.pipeline is None:
             return np.asarray([self._column_mapping.get(name, name) for name in self._input_columns], dtype=object)
         return np.asarray(self._unprefix_columns(self.pipeline.get_feature_names_out(), self.pipeline), dtype=object)

@@ -2,9 +2,11 @@ import importlib
 import json
 import os
 import pickle
+import shutil
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 from threading import Barrier
 from types import ModuleType, SimpleNamespace
@@ -608,7 +610,9 @@ def test_restarted_driver_keeps_its_on_disk_publication_after_failure(monkeypatc
             utils.broadcast_code("value = 2\n", name)
         assert alias_path.read_bytes() == original
         assert importlib.import_module(qualified).value == 1
-        assert set(driver.parent.joinpath("spark-files").glob("*_flaml_custom_code.zip")) == archives
+        retained = set(driver.parent.joinpath("spark-files").glob("*_flaml_custom_code.zip"))
+        assert archives.issubset(retained)
+        assert len(retained - archives) == (1 if failure == "distribution" else 0)
     finally:
         package.__dict__.pop(name, None)
         for key in list(sys.modules):
@@ -743,6 +747,88 @@ def test_state_publication_error_keeps_delivered_code_recoverable(monkeypatch, b
                 sys.modules.pop(key, None)
 
 
+@pytest.mark.parametrize("restarted", [False, True])
+@pytest.mark.parametrize("worker_kind", ["reused", "late"])
+@pytest.mark.parametrize("failure_point", ["state", "delivery"])
+def test_revert_after_failed_publication_outranks_delivered_archives(
+    monkeypatch, broadcast_files, restarted, worker_kind, failure_point
+):
+    utils, context, driver = broadcast_files
+    name = "_test_delivered_revert"
+    worker = driver.parent / "delivered-worker"
+    worker.mkdir()
+    archives = []
+
+    def deliver(path):
+        target = worker / Path(path).name
+        shutil.copyfile(path, target)
+        archives.append(str(target))
+        if failure_point == "delivery" and len(archives) == 2:
+            raise RuntimeError("publication acknowledgement lost")
+
+    context.addPyFile.side_effect = deliver
+    utils.broadcast_code("value = 1\n", name)
+    spark_root = Path(context.addPyFile.call_args.args[0]).parent
+    state_path = Path(utils._publication_file(str(driver), name))
+    publish = utils._publish_code_file
+
+    def reject_commit(path, contents):
+        if Path(path) == state_path:
+            raise RuntimeError("publication acknowledgement lost")
+        return publish(path, contents)
+
+    with monkeypatch.context() as failure:
+        if failure_point == "state":
+            failure.setattr(utils, "_publish_code_file", reject_commit)
+        with pytest.raises(RuntimeError, match="publication acknowledgement lost"):
+            utils.broadcast_code("value = 2\n", name)
+    if restarted:
+        script = """
+import importlib
+import sys
+from types import SimpleNamespace
+utils = importlib.import_module("flaml.tune.spark.utils")
+utils.__file__ = sys.argv[1]
+utils.check_spark = lambda: (True, None)
+context = SimpleNamespace(addPyFile=print)
+utils.SparkSession = SimpleNamespace(builder=SimpleNamespace(getOrCreate=lambda: SimpleNamespace(sparkContext=context)))
+utils.pyspark = SimpleNamespace(SparkFiles=SimpleNamespace(getRootDirectory=lambda: sys.argv[2]))
+utils.time.time_ns = lambda: 0
+utils.broadcast_code("value = 1\\n", sys.argv[3])
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script, str(driver / "utils.py"), str(spark_root), name],
+            capture_output=True,
+            text=True,
+            timeout=45,
+            check=True,
+        )
+        deliver(result.stdout.strip().splitlines()[-1])
+    else:
+        utils.broadcast_code("value = 1\n", name)
+    requests = [archives[:1], archives[:2], archives] if worker_kind == "reused" else [archives]
+    script = """
+import importlib
+import json
+import sys
+package = importlib.import_module("flaml.tune.spark")
+package.__path__ = type(package.__path__)([])
+values = []
+for archives in json.loads(sys.argv[2]):
+    sys.path[:0] = archives
+    values.append(importlib.import_module("flaml.tune.spark." + sys.argv[1]).value)
+print(json.dumps(values))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, name, json.dumps(requests)],
+        capture_output=True,
+        text=True,
+        timeout=45,
+        check=True,
+    )
+    assert json.loads(result.stdout.strip().splitlines()[-1]) == ([1, 2, 1] if worker_kind == "reused" else [1])
+
+
 def test_worker_archives_supersede_a_copied_older_installation(broadcast_files):
     utils, context, driver = broadcast_files
     name = "_test_copied_installation"
@@ -812,4 +898,48 @@ with open(sys.argv[1], "r+b") as stream:
 
     context.addPyFile.side_effect = probe_lock
     utils.broadcast_code("value = 1\n", name)
-    assert observed == ["blocked"]
+    utils.broadcast_code("value = 2\n", name)
+    assert observed == ["blocked", "blocked"]
+
+
+def test_competing_publication_helpers_wait_for_distribution_to_finish(broadcast_files):
+    utils, context, driver = broadcast_files
+    name = "_test_contended_helper"
+    contenders = []
+    script = """
+import sys
+from pathlib import Path
+from flaml.tune.spark.utils import _publication_file_lock
+Path(sys.argv[3]).write_text("ready")
+with _publication_file_lock(sys.argv[1], sys.argv[2]):
+    print("acquired", flush=True)
+"""
+
+    def contend(path):
+        ready = driver / f"ready-{len(contenders)}"
+        process = subprocess.Popen(
+            [sys.executable, "-c", script, utils._publication_file(str(driver), name), name, str(ready)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        contenders.append(process)
+        deadline = time.monotonic() + 30
+        while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert ready.exists(), "The competing publisher did not reach lock acquisition."
+        with pytest.raises(subprocess.TimeoutExpired):
+            process.wait(timeout=0.3)
+
+    context.addPyFile.side_effect = contend
+    try:
+        for value in (1, 2):
+            utils.broadcast_code(f"value = {value}\n", name)
+            output, errors = contenders[-1].communicate(timeout=30)
+            assert contenders[-1].returncode == 0, errors
+            assert output.strip().splitlines()[-1] == "acquired"
+    finally:
+        for process in contenders:
+            if process.poll() is None:
+                process.kill()
+                process.communicate()

@@ -151,6 +151,20 @@ def _publication_file(directory, name):
     return os.path.join(directory, ".flaml-code-state", name + ".json")
 
 
+def _latest_archive_sequence(directory, name):
+    if directory is None:
+        return -1
+    from flaml.tune.spark import _archive_publication
+
+    latest = -1
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            publication = _archive_publication(entry.name)
+            if publication and publication[1] == name and entry.is_file():
+                latest = max(latest, publication[0])
+    return latest
+
+
 def _validate_publication(publication, name):
     if publication is None:
         return None
@@ -232,17 +246,13 @@ def _publication_file_lock(path, name):
     # Writers share a file lock; readers only need the atomically replaced state.
     _validate_code_namespace(name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path + ".lock", "a+b") as stream:
+    with open(path + ".lock", "a+b", buffering=0) as stream:
         if os.name == "nt":
             import msvcrt
 
-            stream.seek(0)
-            if not stream.read(1):
-                stream.write(b"0")
-                stream.flush()
-            stream.seek(0)
             while True:
                 try:
+                    os.lseek(stream.fileno(), 0, os.SEEK_SET)
                     msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                     break
                 except OSError as error:
@@ -251,7 +261,7 @@ def _publication_file_lock(path, name):
                     time.sleep(0.05)
 
             def unlock():
-                stream.seek(0)
+                os.lseek(stream.fileno(), 0, os.SEEK_SET)
                 msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
         else:
@@ -356,11 +366,20 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         _published_code_revisions[file_name] = previous
         spark = SparkSession.builder.getOrCreate() if spark_available else None
         root = pyspark.SparkFiles.getRootDirectory() if spark_available else None
-        if previous and previous[:2] == (digest, root) and (previous[3] is None or os.path.exists(previous[3])):
+        latest_delivery = _latest_archive_sequence(root, file_name)
+        if (
+            previous
+            and previous[:2] == (digest, root)
+            and previous[2] >= latest_delivery
+            and (previous[3] is None or os.path.exists(previous[3]))
+        ):
             sequence, archive_path = previous[2:]
         else:
             _publication_sequence = max(
-                _publication_sequence + 1, time.time_ns(), committed["sequence"] + 1 if committed else 0
+                _publication_sequence + 1,
+                time.time_ns(),
+                committed["sequence"] + 1 if committed else 0,
+                latest_delivery + 1,
             )
             sequence = _publication_sequence
             archive_path = (
@@ -376,6 +395,7 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         cached_alias = importlib.util.cache_from_source(alias_path)
         alias_prepared = False
         archive_created = False
+        delivery_attempted = False
         try:
             if not os.path.exists(custom_path):
                 _publish_code_file(custom_path, custom_code)
@@ -398,6 +418,7 @@ def broadcast_code(custom_code="", file_name="mylearner"):
             importlib.invalidate_caches()
             # Complete fallible local preparation before making the revision visible to workers.
             if spark_available:
+                delivery_attempted = True
                 spark.sparkContext.addPyFile(archive_path)
         except BaseException:
             if alias_prepared:
@@ -411,13 +432,13 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                     importlib.invalidate_caches()
                 except Exception:
                     logger.exception("Failed to restore the driver alias after custom-code publication failed.")
-            if archive_created:
+            if archive_created and not delivery_attempted:
                 try:
                     os.unlink(archive_path)
                 except OSError:
                     logger.exception("Failed to remove an uncommitted custom-code archive.")
             raise
-        # Keep delivered artifacts if state publication fails: its atomic replacement may have completed.
+        # Retained archives also preserve possibly delivered sequences if an acknowledgement is lost.
         _publish_code_file(state_path, json.dumps(publication) + "\n")
         _published_code_aliases.add(file_name)
         _published_code_revisions[file_name] = (digest, root, sequence, archive_path)

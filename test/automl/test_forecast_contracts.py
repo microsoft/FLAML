@@ -31,6 +31,9 @@ def test_panel_auto_holdout_preserves_composite_keys_covariates_and_absolute_ind
             assert frame[time_idx].min() == 100
             assert frame[time_idx].dtype.kind == "i"
             assert set(frame[groups[-1]].unique()) == set(group_values)
+            for column in groups:
+                if column in original:
+                    assert frame[column].dtype == original[column].dtype
             for _, group in frame.groupby(groups, observed=True):
                 assert group[time_idx].is_monotonic_increasing
             seen.append(frame.copy())
@@ -320,6 +323,104 @@ def test_explicit_panel_partitions_keep_mixed_integer_group_keys_exact():
     pd.testing.assert_frame_equal(dataset.test_data, before_test)
 
 
+def test_panel_numeric_group_features_work_with_a_real_tree_estimator():
+    pytest.importorskip("lightgbm")
+    frame = pd.DataFrame(
+        {
+            "date": list(pd.date_range("2026-01-01", periods=24)) * 2,
+            "store": np.repeat([1, 2], 24),
+            "time_idx": list(range(24)) * 2,
+            "target": np.arange(48.0),
+        }
+    )
+    automl = AutoML(
+        estimator_list=["lgbm"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        retrain_full=False,
+        starting_points={"lgbm": {"n_estimators": 4}},
+    )
+    automl.fit(dataframe=frame, label="target", task="ts_forecast_panel", period=2, group_ids=["store"], metric="mae")
+    assert automl.model is not None
+    assert automl.model.X_train.train_data["store"].dtype == frame["store"].dtype
+    assert np.isfinite(automl.predict(automl.model.X_train.X_val)).all()
+
+
+@pytest.mark.parametrize(
+    "signed, unsigned, dtype",
+    [
+        ([2**53], [2**53 + 1], "int64"),
+        ([1], [2**63, 2**63 + 1], "uint64"),
+        ([-1], [2**63, 2**63 + 1], "object"),
+    ],
+)
+def test_panel_concatenation_chooses_a_lossless_group_representation(signed, unsigned, dtype):
+    from flaml.automl.time_series.ts_data import _concat_panel_frames
+
+    left = pd.DataFrame({"store": np.array(signed, dtype="int64")})
+    right = pd.DataFrame({"store": np.array(unsigned, dtype="uint64")})
+    result = _concat_panel_frames([left, right], ["store"], ignore_index=True)
+    assert result["store"].tolist() == signed + unsigned
+    assert result["store"].dtype == dtype
+    assert result.groupby("store").ngroups == len(signed + unsigned)
+    assert left["store"].dtype == "int64" and right["store"].dtype == "uint64"
+
+
+@pytest.mark.parametrize("integer, floating, dtype", [(1, 1.5, "float64"), (2**53 + 1, float(2**53), "object")])
+def test_panel_concatenation_preserves_distinct_mixed_float_integer_keys(integer, floating, dtype):
+    from flaml.automl.time_series.ts_data import _concat_panel_frames
+
+    result = _concat_panel_frames(
+        [pd.DataFrame({"store": [integer]}), pd.DataFrame({"store": [floating]})], ["store"], ignore_index=True
+    )
+    assert result["store"].tolist() == [integer, floating]
+    assert result["store"].dtype == dtype
+    assert result.groupby("store").ngroups == 2
+
+
+def test_panel_holdout_preserves_ordered_category_group_order():
+    observed = []
+
+    class PanelOrder(TimeSeriesEstimator):
+        @classmethod
+        def search_space(cls, **kwargs):
+            return {}
+
+        def fit(self, X_train, y_train=None, **kwargs):
+            super().fit(X_train, y_train, **kwargs)
+            observed.append(X_train.train_data["store"].copy())
+            self._model = DummyRegressor().fit(np.zeros((len(X_train.train_data), 1)), X_train.y_train)
+            return 0.0
+
+        def predict(self, X, **kwargs):
+            return self._model.predict(np.zeros((len(X.test_data), 1)))
+
+    frame = pd.DataFrame(
+        {
+            "date": list(pd.date_range("2026-01-01", periods=12)) * 2,
+            "store": pd.Categorical(["b"] * 12 + ["a"] * 12, categories=["b", "a"], ordered=True),
+            "time_idx": list(range(12)) * 2,
+            "target": np.arange(24.0),
+        }
+    )
+    automl = AutoML(max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, retrain_full=False)
+    automl.add_learner("panel_order", PanelOrder)
+    automl.fit(
+        dataframe=frame,
+        label="target",
+        task="ts_forecast_panel",
+        period=2,
+        group_ids=["store"],
+        estimator_list=["panel_order"],
+        metric="mae",
+    )
+    assert observed
+    assert all(groups.dtype == frame["store"].dtype for groups in observed)
+    assert all(groups.drop_duplicates().tolist() == ["b", "a"] for groups in observed)
+
+
 @pytest.mark.parametrize("location", ["top", "estimator"])
 @pytest.mark.parametrize("group_ids", ["store", ("store",), np.array(["store", "country"])])
 def test_panel_group_types_are_validated_before_copying(location, group_ids):
@@ -588,7 +689,10 @@ def test_tft_reconciles_exact_large_group_keys_before_concatenation(tft_decoder)
         }
     )
     original = request.copy(deep=True)
-    np.testing.assert_array_equal(estimator.predict(request), [2.0, 1.0])
+    prediction = estimator.predict(request)
+    np.testing.assert_array_equal(prediction, [2.0, 1.0])
+    pd.testing.assert_index_equal(prediction.index, pd.MultiIndex.from_frame(request[["group", "date"]]))
+    assert all(call.args[0]["group"].dtype.kind in "iu" for call in estimator._prediction_dataset.call_args_list)
     pd.testing.assert_frame_equal(request, original)
 
 
@@ -775,7 +879,10 @@ def test_tft_training_metric_does_not_abort_future_validation(tft_decoder, caplo
 
 
 @pytest.mark.parametrize("minimum_encoder", [4, 8])
-def test_real_tft_short_mixed_horizons_use_the_correct_forecast_origin(tmp_path, monkeypatch, minimum_encoder):
+@pytest.mark.parametrize("numeric_group", [False, True])
+def test_real_tft_short_mixed_horizons_use_the_correct_forecast_origin(
+    tmp_path, monkeypatch, minimum_encoder, numeric_group
+):
     pytest.importorskip("pytorch_forecasting")
     import torch
 
@@ -794,6 +901,9 @@ def test_real_tft_short_mixed_horizons_use_the_correct_forecast_origin(tmp_path,
                 "target": np.arange(32.0) + 1,
             }
         )
+        if numeric_group:
+            frame["store"] = frame["store"].map({"a": 1, "b": 2}).astype("int64")
+        frame["static_value"] = np.repeat([1.0, 2.0], 16)
         estimator = TemporalFusionTransformerEstimator(
             task="ts_forecast_panel",
             hidden_size=4,
@@ -807,7 +917,8 @@ def test_real_tft_short_mixed_horizons_use_the_correct_forecast_origin(tmp_path,
             None,
             period=3,
             group_ids=["country", "store"],
-            static_categoricals=["country", "store"],
+            static_categoricals=["country"] if numeric_group else ["country", "store"],
+            static_reals=["static_value"],
             time_varying_known_reals=["time_idx"],
             time_varying_unknown_reals=["target"],
             lags={"target": [2]},
@@ -837,12 +948,16 @@ def test_real_tft_short_mixed_horizons_use_the_correct_forecast_origin(tmp_path,
             },
             index=[9, 2, 5],
         )
+        if numeric_group:
+            request["store"] = request["store"].map({"a": 1, "b": 2}).astype("uint64")
+        request["static_value"] = [2.0, 1.0, 2.0]
         prediction = estimator.predict(request)
         assert np.isfinite(prediction.to_numpy()).all()
         assert prediction.index.tolist() == list(
             request[["country", "store", "date"]].itertuples(index=False, name=None)
         )
-        assert sorted(observed) == ["a", "b"]
+        pd.testing.assert_index_equal(prediction.index, pd.MultiIndex.from_frame(request[["country", "store", "date"]]))
+        assert sorted(observed) == ([1, 2] if numeric_group else ["a", "b"])
     finally:
         torch.set_num_threads(previous_threads)
 
