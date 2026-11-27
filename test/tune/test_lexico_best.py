@@ -237,6 +237,46 @@ def test_lexico_best_invalid_percentage_with_infinite_best():
         analysis.best_trial
 
 
+@pytest.mark.parametrize(
+    "results, metrics, modes, tolerances, best_index",
+    [
+        # Decimal "max" value beyond the context precision with a zero tolerance: the best value is kept.
+        (
+            [{"acc": Decimal("4.99999999999999999999999999999"), "time": 5.0}, {"acc": Decimal(4), "time": 1.0}],
+            ["acc", "time"],
+            ["max", "min"],
+            {"acc": 0, "time": 0},
+            0,
+        ),
+        # Decimal "max" value with a tolerance below the context precision: the value 1E-40 below is kept,
+        # the value 2E-40 below is not.
+        (
+            [
+                {"acc": Decimal("4.99999999999999999999999999999"), "time": 5.0},
+                {"acc": Decimal("4.9999999999999999999999999999899999999999"), "time": 1.0},
+                {"acc": Decimal("4.9999999999999999999999999999899999999998"), "time": 0.0},
+            ],
+            ["acc", "time"],
+            ["max", "min"],
+            {"acc": Decimal("1E-40"), "time": 0},
+            1,
+        ),
+        # Negative Decimal "min" value beyond the context precision with a zero tolerance, as the last objective.
+        (
+            [{"time": 1.0, "loss": Decimal("-4.99999999999999999999999999999")}, {"time": 1.0, "loss": Decimal(-4)}],
+            ["time", "loss"],
+            ["min", "min"],
+            {"time": 0, "loss": 0},
+            0,
+        ),
+    ],
+)
+def test_lexico_best_absolute_tolerance_decimal_digits(results, metrics, modes, tolerances, best_index):
+    analysis = _analysis(results, metrics, modes, tolerances)
+    assert analysis.best_trial is analysis.trials[best_index]
+    assert analysis.best_result == results[best_index]
+
+
 def test_tune_run_max_objective_percentage_tolerance():
     def evaluate(config):
         x = config["x"]

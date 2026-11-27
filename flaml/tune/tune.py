@@ -59,6 +59,20 @@ def _negate(value):
     return value.copy_negate() if isinstance(value, Decimal) else -value
 
 
+def _absolute_tolerance_bound(best, tolerance):
+    """Return best + tolerance for a minimized objective.
+
+    Adding to a Decimal rounds the sum to the context precision, which can put the bound below a best value with
+    more digits, such as a negated "max" value. A finite Decimal best gets the exact bound instead.
+    """
+    if isinstance(best, Decimal) and best.is_finite():
+        if isinstance(tolerance, numbers.Integral):
+            return Fraction(best) + int(tolerance)
+        if isinstance(tolerance, Decimal) and tolerance.is_finite():
+            return Fraction(best) + Fraction(tolerance)
+    return best + tolerance
+
+
 def _largest_float_within(exact_bound, to_fraction):
     """Return the largest float whose to_fraction(float) is at most exact_bound."""
     try:
@@ -165,7 +179,9 @@ class ExperimentAnalysis(EA):
             f_best[k_metric] = np.min(feasible_value)
             k_tolerance = self.lexico_objectives["tolerances"][k_metric]
             if not isinstance(k_tolerance, str):
-                feasible_mask = feasible_value <= max(f_best[k_metric] + k_tolerance, k_target)
+                feasible_mask = feasible_value <= max(
+                    _absolute_tolerance_bound(f_best[k_metric], k_tolerance), k_target
+                )
             else:
                 exact_bound, float_bound = _percentage_tolerance_bounds(f_best[k_metric], k_tolerance)
                 if feasible_value.dtype == object:
