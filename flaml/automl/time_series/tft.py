@@ -273,8 +273,9 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         decoder = request.drop(columns=self.target_names, errors="ignore").copy().reset_index(drop=True)
         if not set(ids).issubset(decoder) or decoder[ids].isna().any().any():
             raise ValueError("TFT prediction requires nonmissing group keys and timestamps.")
+        request_index = pd.MultiIndex.from_frame(decoder[ids])
         if decoder.empty:
-            return pd.Series(dtype=float, index=pd.MultiIndex.from_frame(decoder[ids]))
+            return pd.Series(dtype=float, index=request_index)
         data = self._prediction_frame(decoder, time_idx)
         by = self.group_ids[0] if len(self.group_ids) == 1 else self.group_ids
         data_groups = data.groupby(by, observed=True, sort=False).indices
@@ -320,4 +321,4 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             predictions = [forecasts[key] for key in keys]
         except KeyError as exc:
             raise ValueError("TFT did not produce every requested panel coordinate.") from exc
-        return pd.Series(predictions, index=pd.MultiIndex.from_frame(decoder[ids]))
+        return pd.Series(predictions, index=request_index)

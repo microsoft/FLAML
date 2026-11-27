@@ -87,6 +87,9 @@ Coverage is also checked on each actual CV training fold and after fit-only
 resampling, including exported refits, before the learner is trained.
 Classification resamplers must preserve the training vocabulary even with AutoFE
 disabled or in standalone pipelines; regression resampling may change target values.
+Generic resamplers are rejected for forecasting and panel tasks, including
+exported refits, before they can receive embedded validation data. Their row-based
+interface does not define safe time-order or panel-group semantics.
 Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
@@ -145,6 +148,8 @@ of changing training codes. Exported pipelines translate dataset target names to
 their fitted internal names before normalizing feature names. Generated extraction
 columns cannot collide with timestamps or targets; their fitted names are reused
 by transforms and `get_feature_names_out()`.
+Named external targets participate in that namespace. Empty partitions inherit
+the fitted transformed schema without running transforms on zero rows.
 Panel/TFT feature engineering is excluded so group identifiers, time indexes, and
 named covariates are not removed by generic feature transforms.
 Panel forecasting chooses holdout for automatic evaluation; an explicit panel CV
@@ -163,6 +168,8 @@ Custom dataset time-index names are retained. TFT prediction supports consecutiv
 coordinates immediately after each group's training boundary, up to the fitted
 horizon; unsupported gaps are rejected rather than relabeled. Predictions are
 mapped back to the caller's group/time keys, key dtypes, and row order.
+Accepted string timestamp keys are retained in that returned index while
+normalized timestamps are used internally.
 Shorter or unequal group horizons retain the latest encoder observations and the
 fitted lag-feature order. Irregular calendars require explicit consecutive indexes
 and strictly increasing future timestamps. An empty validation partition produces
@@ -233,6 +240,15 @@ Worker restoration includes the raw tracking-URI override, tracking environment,
 active experiment and previous run stack, so inherited settings remain inherited.
 Parallel trial/run
 matching uses trial identities rather than task start order.
+Native-Ray MLflow logging in AutoML and Tune requires transactional tracking, such as
+`mlflow.set_tracking_uri("sqlite:///tracking.db")` or a tracking server.
+Use a tracking server for multi-host Ray clusters; in-memory databases cannot
+share tracking state across worker processes.
+File-based tracking is rejected before worker execution because Ray can stop a
+worker during FileStore's non-atomic metadata rewrite. Non-Ray file tracking and
+history-only collection remain available. For an explicitly identified owned
+attempt that Ray has completed, the driver reconciles a still-running status;
+it retains an observed terminal status and does not finalize unrelated runs.
 Tagged trial association does not depend on worker clock agreement. Local, Spark,
 and native Ray results use the winning trial ID. Local and Ray report-style
 objectives retain their final reported numeric metrics; Spark worker reports are
@@ -247,10 +263,16 @@ If an attempt ID is absent and several runs match a trial, adoption warns, retai
 all attempts, and leaves `best_run_id=None` rather than guessing. Unambiguous sibling
 trials are still adopted. Use returned metrics or `flaml.tune.report` when
 accepted-attempt association must be guaranteed.
+Known accepted run IDs are checked directly against experiment, owner and trial
+identity. Fallback uniqueness checks include all owned result pages, not only a
+truncated latest-run window.
 Framework bookkeeping,
 config values, strings, and booleans are not logged as objective metrics.
 User reports are captured before optimizer callbacks add constraint annotations;
 a user-authored metric with a similar name is not removed by suffix guessing.
+Callbacks use separate working results so public trial/analysis metrics remain
+unchanged. Generated elapsed time is included in analysis and tracking when it
+is the selected objective.
 An explicitly selected objective such as `time_total_s` is retained even when its
 name is also used for framework bookkeeping. `training_iteration` is reserved for
 framework progress and cannot be the primary objective.
@@ -271,6 +293,14 @@ Optuna observation or CFO starting point. Failed trials remain in analysis histo
 including native-Ray-backed analyses. Clean scheduler stops preserve accepted
 reports and finish their owned runs without aborting sibling trials. Native Ray
 generator functions retain their yield semantics and trial context.
+Provisional local-search updates remain enabled. If their trial fails, its
+observations are removed and the search center is recovered from surviving
+observations, including concurrent successful trials. Clean Ray exits require an
+explicit active Ray context; Spark worker exits are not inferred from module
+defaults. A caller's already-handled exception is not an objective failure.
+As in native Ray, a regular callable returning a generator is not a generator
+trainable: use a generator function instead. Such unsupported returns fail inside
+the owned tracking context rather than finishing an empty run successfully.
 Ray 1.13's [upstream `with_parameters` wrapper](https://github.com/ray-project/ray/blob/ray-1.13.0/python/ray/tune/utils/trainable.py#L399-L425)
 discards function return values.
 Use report-style objectives with that wrapper, or a return-preserving closure
@@ -351,6 +381,8 @@ retained for recovery and the committed local state determines the binding.
 A later successful publication, including a revert, advances past every retained
 archive sequence even after a driver restart or clock rollback. Retry a failed publication
 before submitting work that depends on it; do not assume every worker rolled back.
+Publication regressions use test-owned temporary driver namespaces, including
+failure paths, so generated code cannot contaminate subsequent package builds.
 As before, the driver package directory must be writable. The returned source
 path is revision-specific; workers do not need writable package installations.
 

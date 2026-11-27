@@ -123,11 +123,12 @@ class _SparkTrialResult(NamedTuple):
 
 
 @contextmanager
-def _capture_trial_run(trial_id, *, capture_metrics=False):
+def _capture_trial_run(trial_id, *, capture_metrics=False, backend=None):
     context = {
         "trial_id": str(trial_id) if trial_id is not None else None,
         "run_id": None,
         "capture_metrics": capture_metrics,
+        "backend": backend,
     }
     token = _trial_run_context.set(context)
     try:
@@ -140,7 +141,7 @@ def _evaluate_spark_trial(evaluation_function, config, trial_id, evaluation_kwar
     reports = {"last": None}
     token = _worker_report_context.set(reports)
     try:
-        with _capture_trial_run(trial_id) as attempt:
+        with _capture_trial_run(trial_id, backend="spark") as attempt:
             result = evaluation_function(config, **evaluation_kwargs)
             return _SparkTrialResult(trial_id, result, reports["last"], attempt["run_id"])
     finally:
@@ -726,6 +727,10 @@ def run(
     _internal_mlflow = False
     if internal_mlflow and mlflow_logging and not automl_info:
         logging_active = mlflow.active_run() is not None or is_autolog_enabled()
+        if use_ray and logging_active:
+            from flaml.fabric.mlflow import _validate_ray_tracking_uri
+
+            _validate_ray_tracking_uri(mlflow.get_tracking_uri())
         if is_fabric_runtime() or logging_active:
             mlflow_integration = MLflowIntegration("tune", mlflow_exp_name, extra_tag, only_history=not logging_active)
             evaluation_function = mlflow_integration.wrap_evaluation_function(evaluation_function)
@@ -890,12 +895,15 @@ def run(
             @contextmanager
             def ray_trial(kwargs):
                 trial_id = _ray_trial_id() if bind_trial_id else None
-                with _capture_trial_run(trial_id, capture_metrics=_internal_mlflow) as attempt:
+                with _capture_trial_run(trial_id, capture_metrics=_internal_mlflow, backend="ray") as attempt:
                     if bind_trial_id:
                         kwargs["_flaml_trial_id"] = trial_id
                     yield attempt
 
             def ray_result(result, attempt):
+                if inspect.isgenerator(result):
+                    result.close()
+                    raise TypeError("Use a generator function, not a callable returning a generator.")
                 if isinstance(result, dict) and not result:
                     raise RuntimeError("FLAML evaluation returned an empty result; the trial failed.")
                 return _with_trial_provenance(result, attempt)
@@ -939,6 +947,7 @@ def run(
             if _internal_mlflow:
                 for trial in analysis.trials:
                     if trial.last_result:
+                        mlflow_integration._finalize_native_trial(trial, trial.last_result.get(_MLFLOW_RUN_ID))
                         mlflow_integration.record_trial(
                             _reported_trial_metrics(trial.last_result, metric),
                             trial,

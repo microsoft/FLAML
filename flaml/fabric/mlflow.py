@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import math
+import ntpath
 import os
 import pickle
 import random
@@ -16,6 +17,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextlib import closing, contextmanager, nullcontext
 from importlib import import_module
 from typing import MutableMapping
+from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
 import mlflow
@@ -286,6 +288,28 @@ def _apply_autolog_configurations(configurations):
                 MLflowIntegration._set_flavor_autolog(name, options)
 
 
+def _validate_ray_tracking_uri(uri):
+    if uri == "databricks":
+        return
+    parsed = urlsplit(uri)
+    scheme = parsed.scheme
+    query = parse_qs(parsed.query)
+    sqlite_uri = parsed.path.startswith("/file:") and any(
+        value.lower() in {"1", "true", "t", "yes", "y", "on"} for value in query.get("uri", [])
+    )
+    in_memory = scheme.split("+", 1)[0] == "sqlite" and (
+        parsed.path in ("", "/", "/:memory:")
+        or sqlite_uri
+        and (unquote(parsed.path) == "/file::memory:" or "memory" in query.get("mode", []))
+    )
+    if not scheme or scheme == "file" or ntpath.splitdrive(uri)[0] or in_memory:
+        raise ValueError(
+            "Native Ray MLflow logging requires transactional tracking, such as SQLite or a tracking server. "
+            "Use a persistent local SQLite database or a tracking server, not FileStore or an in-memory database. "
+            "Configure mlflow.set_tracking_uri(...) or set mlflow_logging=False."
+        )
+
+
 def _trial_terminal_status(primary, outcome):
     if outcome["failed"]:
         return "FAILED"
@@ -298,7 +322,8 @@ def _trial_terminal_status(primary, outcome):
         from flaml.tune import tune
 
         if isinstance(primary, SystemExit):
-            if tune._use_ray and primary.code in (None, 0):
+            context = tune._trial_run_context.get()
+            if context is not None and context.get("backend") == "ray" and primary.code in (None, 0):
                 return "FINISHED"
         elif getattr(getattr(tune._runner, "running_trial", None), "status", None) == "TERMINATED":
             return "FINISHED"
@@ -343,10 +368,13 @@ def _isolated_worker_mlflow_state(outcome):
     else:
         fluent._last_active_run_id = None
     os.environ.pop("MLFLOW_RUN_ID", None)
+    primary = None
     try:
         yield
+    except BaseException as error:
+        primary = error
+        raise
     finally:
-        primary = sys.exc_info()[1]
         errors = []
         status = _trial_terminal_status(primary, outcome)
         while get_stack():
@@ -399,6 +427,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
         stack = fluent._active_run_stack
         get_stack = stack.get if callable(getattr(stack, "get", None)) else lambda: stack
         caller_runs = {run.info.run_id for run in get_stack()}
+        primary = None
         try:
             active = mlflow.start_run(run_id=created.info.run_id, nested=True)
             if tags.get("flaml.trial_id") is not None:
@@ -408,8 +437,10 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
                 if attempt is not None and attempt["trial_id"] == tags["flaml.trial_id"]:
                     attempt["run_id"] = created.info.run_id
             yield active
+        except BaseException as error:
+            primary = error
+            raise
         finally:
-            primary = sys.exc_info()[1]
             status = _trial_terminal_status(primary, outcome)
             errors = []
             ended_owned = False
@@ -463,6 +494,9 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     def wrapped(*args, _flaml_trial_id=None, **kwargs):
         with evaluation_context(_flaml_trial_id) as outcome:
             result = evaluation_func(*args, **kwargs)
+            if inspect.isgenerator(result):
+                result.close()
+                raise TypeError("Use a generator function, not a callable returning a generator.")
             outcome["failed"] = isinstance(result, dict) and not result
             return result
 
@@ -470,7 +504,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     def generator(*args, _flaml_trial_id=None, **kwargs):
         with evaluation_context(_flaml_trial_id) as outcome, closing(evaluation_func(*args, **kwargs)) as iterator:
             for result in iterator:
-                outcome["failed"] = isinstance(result, dict) and not result
+                outcome["failed"] = isinstance(result, dict) and not result or inspect.isgenerator(result)
                 outcome["yielded"] = True
                 yield result
 
@@ -713,6 +747,25 @@ class MLflowIntegration:
             _tags = []
         self.mlflow_client.log_batch(run_id=target_id, metrics=_metrics, params=[], tags=_tags)
         return f"Successfully copy_mlflow_run run_id {src_id} to run_id {target_id}"
+
+    def _finalize_native_trial(self, trial, run_id):
+        status = getattr(trial, "status", None)
+        owner = self.extra_tag.get("flaml.owner_id")
+        if not self.autolog or not owner or not run_id or status not in {"ERROR", "TERMINATED"}:
+            return
+        run = self.mlflow_client.get_run(run_id)
+        if (
+            run.info.run_id != run_id
+            or run.info.experiment_id != str(self.experiment_id)
+            or run.info.lifecycle_stage != "active"
+            or run.data.tags.get("flaml.owner_id") != owner
+            or run.data.tags.get("flaml.trial_id") != str(trial.trial_id)
+        ):
+            logger.warning("Native trial run %s does not match ownership; leaving it unchanged.", run_id)
+            return
+        # Ray can stop an actor before its worker thread finalizes the owned run.
+        if run.info.status == "RUNNING":
+            self.mlflow_client.set_terminated(run_id, "FAILED" if status == "ERROR" else "FINISHED")
 
     def record_trial(self, result, trial, metric, *, run_id=None):
         if getattr(trial, "status", None) == "ERROR":
@@ -1208,6 +1261,54 @@ class MLflowIntegration:
             del info["submetrics"]["values"]
         return f"Successfully _log_info_to_run to run_id {run_id}"
 
+    def _search_owned_runs(self, owner):
+        query = {
+            "experiment_ids": [self.experiment_id],
+            "order_by": ["attributes.start_time DESC"],
+            "filter_string": f"tags.`flaml.owner_id` = '{owner}'",
+        }
+        runs = mlflow.search_runs(**query, max_results=SEARCH_MAX_RESULTS, output_format="list")
+        if len(runs) < SEARCH_MAX_RESULTS:
+            return runs
+        runs, tokens, token = [], set(), None
+        while True:
+            page = self.mlflow_client.search_runs(**query, max_results=min(SEARCH_MAX_RESULTS, 1000), page_token=token)
+            runs.extend(page)
+            token = getattr(page, "token", None)
+            if not token:
+                return runs
+            if not isinstance(token, (str, bytes)) or token in tokens:
+                raise RuntimeError("MLflow run search returned an invalid or repeated page token.")
+            tokens.add(token)
+
+    def _runs_for_adoption(self, owner):
+        if (
+            self.experiment_type != "tune"
+            or not self.infos
+            or not all(info.get("run_id") and info.get("trial_id") for info in self.infos)
+        ):
+            return self._search_owned_runs(owner)
+        runs = []
+        for info in self.infos:
+            try:
+                run = self.mlflow_client.get_run(info["run_id"])
+            except MlflowException as error:
+                if error.error_code != "RESOURCE_DOES_NOT_EXIST":
+                    raise
+                logger.warning("Accepted MLflow run %s is unavailable; skipping association.", info["run_id"])
+                continue
+            if (
+                run.info.run_id == info["run_id"]
+                and run.info.experiment_id == str(self.experiment_id)
+                and run.info.lifecycle_stage == "active"
+                and run.data.tags.get("flaml.owner_id") == owner
+                and run.data.tags.get("flaml.trial_id") == info["trial_id"]
+            ):
+                runs.append(run)
+            else:
+                logger.warning("Accepted MLflow run %s does not match trial ownership; skipping it.", info["run_id"])
+        return sorted(runs, key=lambda run: run.info.start_time, reverse=True)
+
     def adopt_children(self, result=None):
         """
         Set autologging child runs to nested by fetching them after all child runs are completed.
@@ -1222,13 +1323,7 @@ class MLflowIntegration:
             best_iteration = self.best_iteration
             if best_iteration is None and getattr(self, "best_trial_id", None) is None:
                 logger.warning("best_iteration is None, cannot identify best run")
-            raw_autolog_child_runs = mlflow.search_runs(
-                experiment_ids=[self.experiment_id],
-                order_by=["attributes.start_time DESC"],
-                max_results=SEARCH_MAX_RESULTS,
-                output_format="list",
-                filter_string=f"tags.`flaml.owner_id` = '{owner}'",
-            )
+            raw_autolog_child_runs = self._runs_for_adoption(owner)
             self.child_counter = 0
             num_infos = len(self.infos)
             trial_infos = {

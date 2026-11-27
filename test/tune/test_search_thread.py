@@ -148,3 +148,47 @@ def test_cfo_does_not_restart_from_a_failed_candidate(points):
     assert len(local_threads) == (1 if 1 in points else 0)
     assert all(thread.obj_best1 == 1.0 for thread in local_threads)
     assert all(not candidate or candidate["loss"] == 1.0 for candidate in searcher._candidate_start_points.values())
+
+
+@pytest.mark.parametrize("lexicographic", [False, True])
+@pytest.mark.parametrize("successful_sibling", [False, True])
+@pytest.mark.parametrize("sibling_finishes_first", [False, True])
+def test_failed_provisional_incumbent_rolls_back_without_losing_successes(
+    lexicographic, successful_sibling, sibling_finishes_first
+):
+    from flaml import tune
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    space = {"x": tune.uniform(0, 1)}
+    objectives = (
+        {
+            "metrics": ["loss", "cost"],
+            "modes": ["min", "min"],
+            "tolerances": {"loss": 0.0, "cost": 0.0},
+            "targets": {"loss": -float("inf"), "cost": -float("inf")},
+        }
+        if lexicographic
+        else None
+    )
+    initial = {"x": 0.5}
+    searcher = FLOW2(initial, metric="loss", mode="min", space=space, lexico_objectives=objectives)
+    searcher = searcher.create(initial, {"loss": 10.0, "cost": 2.0} if lexicographic else 10.0, 1.0, space)
+    failed = searcher.suggest("failed")
+    successful = searcher.suggest("successful") if successful_sibling else None
+    searcher.on_trial_result("failed", {"loss": 0.0, "cost": 2.0, "time_total_s": 1.0})
+    assert searcher.best_config == failed
+
+    if successful_sibling:
+        searcher.on_trial_result("successful", {"loss": 5.0, "cost": 1.0, "time_total_s": 2.0})
+        if sibling_finishes_first:
+            searcher.on_trial_complete("successful", {"loss": 5.0, "cost": 1.0, "time_total_s": 2.0})
+    searcher.on_trial_complete("failed", {"loss": 0.0, "cost": 2.0, "time_total_s": 3.0}, error=True)
+    if successful_sibling and not sibling_finishes_first:
+        searcher.on_trial_complete("successful", {"loss": 5.0, "cost": 1.0, "time_total_s": 2.0})
+
+    assert searcher.best_config == (successful if successful_sibling else initial)
+    assert (searcher.best_obj["loss"] if lexicographic else searcher.best_obj) == (5.0 if successful_sibling else 10.0)
+    if lexicographic:
+        assert 0.0 not in searcher._histories["loss"]
+    assert searcher.suggest("next") is not None
+    assert searcher._proposed_by["next"] == searcher.incumbent

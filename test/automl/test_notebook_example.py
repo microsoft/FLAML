@@ -44,22 +44,28 @@ _OPENML_AVAILABILITY_ERRORS = (
 
 
 def _skip_openml_unavailability(error, resource):
-    if isinstance(error, OpenMLServerException):
-        # OpenML's SDK retries service code 107 (database connection failure), not arbitrary application errors.
-        if getattr(error, "code", None) != 107:
+    cause, seen = error, set()
+    while isinstance(cause, MaxRetryError):
+        if id(cause) in seen:
             raise error
-    elif isinstance(error, (HTTPError, UrllibHTTPError, ServerError)):
+        seen.add(id(cause))
+        cause = cause.reason
+    if isinstance(cause, OpenMLServerException):
+        # OpenML's SDK retries service code 107 (database connection failure), not arbitrary application errors.
+        if getattr(cause, "code", None) != 107:
+            raise error
+    elif isinstance(cause, (HTTPError, UrllibHTTPError, ServerError)):
         status = (
-            error.code
-            if isinstance(error, UrllibHTTPError)
-            else error.status_code
-            if isinstance(error, ServerError)
-            else getattr(error.response, "status_code", None)
+            cause.code
+            if isinstance(cause, UrllibHTTPError)
+            else cause.status_code
+            if isinstance(cause, ServerError)
+            else getattr(cause.response, "status_code", None)
         )
         if not isinstance(status, int) or status not in (408, 429) and not 500 <= status < 600:
             raise error
-    elif isinstance(error, URLError):
-        reason = error.reason
+    elif isinstance(cause, URLError):
+        reason = cause.reason
         network_errno = {
             errno.ECONNABORTED,
             errno.ECONNREFUSED,
@@ -76,7 +82,30 @@ def _skip_openml_unavailability(error, resource):
             and reason.errno in network_errno
         ):
             raise error
+    elif not isinstance(
+        cause, (TimeoutError, ConnectionError, Timeout, ChunkedEncodingError, Urllib3TimeoutError, ProtocolError)
+    ):
+        raise error
     pytest.skip(f"OpenML {resource} is unavailable ({type(error).__name__}).")
+
+
+@pytest.mark.parametrize("reason", ["offline", "redirect", "unknown", "cycle"])
+def test_retry_exhaustion_requires_a_known_transient_cause(reason):
+    from urllib3.exceptions import ResponseError
+
+    causes = {
+        "offline": ProtocolError("connection dropped"),
+        "redirect": ResponseError("too many redirects"),
+        "unknown": ValueError("invalid endpoint"),
+        "cycle": None,
+    }
+    error = MaxRetryError(None, "https://example.invalid", causes[reason])
+    if reason == "cycle":
+        error.reason = error
+    with pytest.raises(pytest.skip.Exception if reason == "offline" else MaxRetryError) as caught:
+        _skip_openml_unavailability(error, "dataset")
+    if reason != "offline":
+        assert caught.value is error
 
 
 @pytest.mark.parametrize("code", [107, 110, 500, None])

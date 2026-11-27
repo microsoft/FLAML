@@ -39,7 +39,12 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
     def fit_transform(self, X, y=None, *, group_ids=None):
         from flaml.automl.data import DataTransformer, _make_column_name_mapping
         from flaml.automl.task.factory import task_factory
-        from flaml.automl.time_series.ts_data import DataTransformerTS, TimeSeriesDataset, normalize_ts_data
+        from flaml.automl.time_series.ts_data import (
+            DataTransformerTS,
+            TimeSeriesDataset,
+            _empty_forecast_frame,
+            normalize_ts_data,
+        )
 
         self._is_fitted = False
         self._target_classes = None
@@ -139,10 +144,13 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
             if getattr(self, "feature_only", False):
                 self._is_fitted = True
                 return features
+            train_data = pd.concat([features, labels], axis=1)
             if test_data is not None and len(test_data):
                 test_data = self._transform_forecast_frame(test_data, input_targets)
+            else:
+                test_data = _empty_forecast_frame(train_data, test_data, input_targets, task.target_names)
             data = TimeSeriesDataset(
-                pd.concat([features, labels], axis=1),
+                train_data,
                 task.time_col,
                 task.target_names,
                 time_idx=time_idx,
@@ -213,8 +221,14 @@ class AutoMLPipeline(Pipeline):
         super().__init__(steps, memory=memory, verbose=verbose)
 
     def fit(self, X, y=None, **params):
+        from flaml.automl.ml import _validate_resampler_task
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+        if self.resampler is not None:
+            _validate_resampler_task(self.resampler, getattr(self.steps[-1][1], "_task", None), X)
+            for _, step in self.steps[:-1]:
+                if isinstance(step, _TaskPreprocessor):
+                    _validate_resampler_task(self.resampler, step.task, X)
         estimator_groups = params.get(f"{self.steps[-1][0]}__group_ids")
         if estimator_groups is not None:
             for name, step in self.steps[:-1]:

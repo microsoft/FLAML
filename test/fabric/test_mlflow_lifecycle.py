@@ -13,7 +13,7 @@ mlflow = pytest.importorskip("mlflow")
 
 
 @pytest.fixture
-def tracking(monkeypatch, tmp_path):
+def tracking(monkeypatch, tmp_path, request):
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     previous_uri = mlflow.get_tracking_uri()
@@ -22,7 +22,12 @@ def tracking(monkeypatch, tmp_path):
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    mlflow.set_tracking_uri((tmp_path / "tracking").as_uri())
+    uri = (
+        f"sqlite:///{tmp_path / 'tracking.db'}"
+        if getattr(request, "param", None) == "sqlite"
+        else (tmp_path / "tracking").as_uri()
+    )
+    mlflow.set_tracking_uri(uri)
     with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
         yield mlflow.tracking.MlflowClient()
         while mlflow.active_run() is not None:
@@ -504,6 +509,212 @@ def test_reported_metrics_are_captured_before_searcher_mutation(tracking, autolo
             verbose=0,
         )
         assert tracking.get_run(result.best_run_id).data.metrics == metrics
+        assert {key: result.best_result[key] for key in metrics} == metrics
+        if not user_lagrange:
+            assert "loss_lagrange" not in result.best_result
+        assert result.best_trial._last_callback_result["loss_lagrange"] > metrics["loss"]
+
+
+@pytest.mark.parametrize("autolog", [False, True])
+def test_generated_timing_objective_is_selectable_and_logged(tracking, autolog):
+    from flaml import tune
+
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run():
+        result = tune.run(
+            lambda config: {"auxiliary": 1.0},
+            config={"x": 1},
+            metric="time_total_s",
+            mode="min",
+            num_samples=1,
+            verbose=0,
+        )
+        assert result.best_trial is result.trials[0]
+        elapsed = result.best_result["time_total_s"]
+        assert np.isfinite(elapsed) and elapsed >= 0
+        assert tracking.get_run(result.best_run_id).data.metrics["time_total_s"] == elapsed
+
+
+def test_successful_autolog_trial_inside_a_handled_exception_finishes(tracking):
+    from flaml import tune
+
+    mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run():
+        try:
+            raise ValueError("handled caller error")
+        except ValueError:
+            result = tune.run(
+                lambda config: {"loss": 1.0}, config={"x": 1}, metric="loss", mode="min", num_samples=1, verbose=0
+            )
+            assert result.best_run_id is not None
+            assert tracking.get_run(result.best_run_id).info.status == "FINISHED"
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "file:///tmp/mlruns",
+        "mlruns",
+        r"C:\mlruns",
+        r"\\server\share\mlruns",
+        "sqlite:///:memory:",
+        "sqlite://",
+        "sqlite+pysqlite:///:memory:",
+        "sqlite:///file::memory:?cache=shared&uri=true",
+        "sqlite:///file:%3Amemory%3A?uri=true",
+        "sqlite:///file:flaml?mode=memory&uri=true",
+    ],
+)
+def test_native_ray_rejects_nontransactional_tracking_paths(uri):
+    from flaml.fabric.mlflow import _validate_ray_tracking_uri
+
+    with pytest.raises(ValueError, match="transactional tracking"):
+        _validate_ray_tracking_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "sqlite:///tracking.db",
+        "sqlite:///file:tracking.db?mode=rwc&uri=true",
+        "sqlite:///%3Amemory%3A",
+        "https://tracking.example",
+        "databricks",
+        "databricks://profile",
+    ],
+)
+def test_native_ray_accepts_transactional_or_service_tracking(uri):
+    from flaml.fabric.mlflow import _validate_ray_tracking_uri
+
+    _validate_ray_tracking_uri(uri)
+
+
+def test_file_store_ray_logging_is_rejected_before_integration_or_evaluation(tracking, monkeypatch):
+    import flaml.tune.tune as tuning
+
+    integration, objective = Mock(), Mock()
+    monkeypatch.setattr(tuning, "MLflowIntegration", integration)
+    with mlflow.start_run() as parent:
+        with pytest.raises(ValueError, match="transactional tracking"):
+            tuning.run(objective, metric="loss", mode="min", use_ray=True, num_samples=1, verbose=0)
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+    integration.assert_not_called()
+    objective.assert_not_called()
+
+
+@pytest.mark.parametrize("outcome", ["ERROR", "TERMINATED"])
+@pytest.mark.parametrize("existing_status", ["RUNNING", "FAILED", "FINISHED"])
+def test_native_driver_finishes_only_unfinished_owned_attempts(tracking, outcome, existing_status):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog = True
+    run = tracking.create_run(integration.experiment_id, tags={**integration.extra_tag, "flaml.trial_id": "trial"})
+    if existing_status != "RUNNING":
+        tracking.set_terminated(run.info.run_id, existing_status)
+    trial = SimpleNamespace(trial_id="trial", status=outcome)
+    integration._finalize_native_trial(trial, run.info.run_id)
+    expected = ("FAILED" if outcome == "ERROR" else "FINISHED") if existing_status == "RUNNING" else existing_status
+    assert tracking.get_run(run.info.run_id).info.status == expected
+
+
+@pytest.mark.parametrize("field", ["flaml.owner_id", "flaml.trial_id"])
+def test_native_driver_does_not_finalize_an_unrelated_attempt(tracking, field):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog = True
+    tags = {**integration.extra_tag, "flaml.trial_id": "trial", field: "unrelated"}
+    run = tracking.create_run(integration.experiment_id, tags=tags)
+    integration._finalize_native_trial(SimpleNamespace(trial_id="trial", status="TERMINATED"), run.info.run_id)
+    assert tracking.get_run(run.info.run_id).info.status == "RUNNING"
+
+
+@pytest.mark.parametrize("backend", ["standalone", "spark", "ray"])
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_trial_exit_status_requires_an_explicit_ray_context(tracking, monkeypatch, backend, exit_code):
+    import flaml.tune.tune as tuning
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    created = []
+
+    def objective(config):
+        created.append(mlflow.active_run().info.run_id)
+        raise SystemExit(exit_code)
+
+    monkeypatch.setattr(tuning, "_use_ray", True)
+    wrapped = _mlflow_wrapper(objective, "0", autolog=True)
+    with pytest.raises(SystemExit) as caught:
+        if backend == "spark":
+            tuning._evaluate_spark_trial(wrapped, {}, "trial", {"_flaml_trial_id": "trial"})
+        elif backend == "ray":
+            with tuning._capture_trial_run("trial") as context:
+                context["backend"] = "ray"
+                wrapped({}, _flaml_trial_id="trial")
+        else:
+            wrapped({})
+    assert caught.value.code == exit_code
+    assert tracking.get_run(created[0]).info.status == ("FINISHED" if backend == "ray" and exit_code == 0 else "FAILED")
+
+
+def test_unexpected_local_stop_iteration_remains_a_failed_objective(tracking):
+    from flaml import tune
+
+    def objective(config):
+        raise StopIteration("unexpected user stop")
+
+    mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        with pytest.raises(StopIteration, match="unexpected user stop"):
+            tune.run(
+                objective,
+                config={"x": 1},
+                metric="loss",
+                mode="min",
+                num_samples=1,
+                verbose=0,
+            )
+        children = tracking.search_runs(["0"], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'")
+        assert len(children) == 1 and children[0].info.status == "FAILED"
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_generator_exit_before_a_first_yield_is_not_a_success(tracking):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    created = []
+
+    def objective(config):
+        created.append(mlflow.active_run().info.run_id)
+        raise GeneratorExit("no accepted report")
+        yield {"loss": 1.0}
+
+    with pytest.raises(GeneratorExit):
+        list(_mlflow_wrapper(objective, "0", autolog=True)({}))
+    assert tracking.get_run(created[0]).info.status == "FAILED"
+
+
+@pytest.mark.parametrize("callable_object", [False, True])
+def test_generator_returning_callables_fail_inside_the_owned_context(tracking, callable_object):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    def generator(config):
+        yield {"loss": 1.0}
+
+    class CallableGenerator:
+        def __call__(self, config):
+            yield {"loss": 1.0}
+
+    def forward(config):
+        return generator(config)
+
+    with mlflow.start_run() as parent:
+        wrapped = _mlflow_wrapper(CallableGenerator() if callable_object else forward, "0", autolog=True)
+        with pytest.raises(TypeError, match="generator function"):
+            wrapped({})
+        children = tracking.search_runs(["0"], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'")
+        assert len(children) == 1 and children[0].info.status == "FAILED"
 
 
 def test_manual_tune_winner_uses_trial_identity_after_resultless_trial(tracking):
@@ -650,6 +861,7 @@ def test_completed_model_futures_are_observed_once_and_released(tracking):
 
 @pytest.mark.parametrize("autolog", [False, True])
 @pytest.mark.parametrize("context_api", ["tune", "train", "air", "legacy"])
+@pytest.mark.parametrize("tracking", ["sqlite"], indirect=True)
 def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, autolog, context_api):
     import importlib
     import inspect
@@ -1364,11 +1576,15 @@ def test_manual_summary_uses_the_recorded_winner_with_or_without_ids(tracking, f
 
 
 @pytest.mark.parametrize("accepted_attempt", [0, 1])
-def test_spark_attempt_identity_adopts_only_the_accepted_run(tracking, accepted_attempt):
+@pytest.mark.parametrize("page_size", [None, 1])
+def test_spark_attempt_identity_adopts_only_the_accepted_run(tracking, monkeypatch, accepted_attempt, page_size):
     from pathlib import Path
 
     from flaml.fabric.mlflow import MLflowIntegration
     from flaml.tune.tune import _evaluate_spark_trial
+
+    if page_size is not None:
+        monkeypatch.setattr("flaml.fabric.mlflow.SEARCH_MAX_RESULTS", page_size)
 
     with mlflow.start_run() as parent:
         integration = MLflowIntegration("tune")
@@ -1411,15 +1627,20 @@ def test_spark_attempt_identity_adopts_only_the_accepted_run(tracking, accepted_
         )
 
 
-def test_ambiguous_attempts_are_retained_without_blocking_a_unique_sibling(tracking, monkeypatch):
+@pytest.mark.parametrize("page_size", [None, 1])
+def test_ambiguous_attempts_are_retained_without_blocking_a_unique_sibling(tracking, monkeypatch, page_size):
     import flaml.fabric.mlflow as module
+
+    if page_size is not None:
+        monkeypatch.setattr(module, "SEARCH_MAX_RESULTS", page_size)
 
     with mlflow.start_run() as parent:
         integration = module.MLflowIntegration("tune")
         integration.autolog, integration.manual_log = True, False
         wrapped = integration.wrap_evaluation_function(lambda config: mlflow.active_run().info.run_id)
-        ambiguous = [wrapped({}, _flaml_trial_id="ambiguous") for _ in range(2)]
+        ambiguous = [wrapped({}, _flaml_trial_id="ambiguous")]
         sibling = wrapped({}, _flaml_trial_id="unique")
+        ambiguous.append(wrapped({}, _flaml_trial_id="ambiguous"))
         trials = [
             SimpleNamespace(trial_id=name, config={"x": value}, status="TERMINATED", last_result={"loss": value})
             for name, value in (("ambiguous", 1.0), ("unique", 2.0))

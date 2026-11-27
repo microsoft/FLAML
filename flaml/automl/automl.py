@@ -661,8 +661,8 @@ class AutoML(BaseEstimator):
             )
 
     @staticmethod
-    def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator):
-        return _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator)
+    def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator, *, task=None):
+        return _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator, task=task)
 
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
@@ -1321,7 +1321,7 @@ class AutoML(BaseEstimator):
         self._skip_transform = self._settings.get("skip_transform") if skip_transform is None else skip_transform
         self._state.fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         fit_kwargs, self._state.fit_kwargs_by_estimator = self._validate_resampler(
-            resampler, groups, False, fit_kwargs, self._state.fit_kwargs_by_estimator
+            resampler, groups, False, fit_kwargs, self._state.fit_kwargs_by_estimator, task=task
         )
         self._state.fit_kwargs = fit_kwargs
         task._resampler = resampler
@@ -2603,7 +2603,7 @@ class AutoML(BaseEstimator):
         self._state.task = task
         fit_kwargs_by_estimator = fit_kwargs_by_estimator or self._settings.get("fit_kwargs_by_estimator")
         fit_kwargs, fit_kwargs_by_estimator = self._validate_resampler(
-            resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator
+            resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator, task=task
         )
         task._resampler = resampler
         self._state.log_training_metric = log_training_metric
@@ -2639,6 +2639,10 @@ class AutoML(BaseEstimator):
         }
         if internal_mlflow and self._mlflow_logging:
             logging_active = mlflow.active_run() is not None or is_autolog_enabled()
+            if self._use_ray is not False and logging_active:
+                from flaml.fabric.mlflow import _validate_ray_tracking_uri
+
+                _validate_ray_tracking_uri(mlflow.get_tracking_uri())
             if is_fabric_runtime() or logging_active:
                 self.mlflow_integration = MLflowIntegration(
                     "automl", mlflow_exp_name, extra_tag=self.autolog_extra_tag, only_history=not logging_active

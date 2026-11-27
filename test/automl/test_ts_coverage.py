@@ -594,7 +594,7 @@ class TestARIMA:
         ds = _make_ts_dataset(60, test_len=10)
         est = ARIMA(task="ts_forecast", p=1, d=0, q=1)
         train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        assert np.isfinite(train_time) and train_time >= 0
         preds = est.predict(ds)
         assert len(preds) == 10
 
@@ -608,7 +608,7 @@ class TestARIMA:
         ds = _make_ts_dataset(60, test_len=10, extra_float_col=True)
         est = ARIMA(task="ts_forecast", p=1, d=0, q=1)
         train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        assert np.isfinite(train_time) and train_time >= 0
         preds = est.predict(ds)
         assert len(preds) == 10
 
@@ -624,7 +624,7 @@ class TestSARIMAX:
         ds = _make_ts_dataset(80, test_len=10)
         est = SARIMAX(task="ts_forecast", p=1, d=0, q=1, P=0, D=0, Q=0, s=7)
         train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        assert np.isfinite(train_time) and train_time >= 0
         preds = est.predict(ds)
         assert len(preds) == 10
 
@@ -827,13 +827,21 @@ class TestSimpleForecaster:
         not _can_import("statsmodels"),
         reason="statsmodels not installed",
     )
-    def test_seasonal_average_fit(self):
+    @pytest.mark.parametrize("coarse_clock", [False, True])
+    def test_seasonal_average_fit(self, monkeypatch, coarse_clock):
+        import flaml.automl.time_series.ts_model as ts_model
         from flaml.automl.time_series.ts_model import SeasonalAverage
 
         ds = _make_ts_dataset(60, test_len=10)
         est = SeasonalAverage(task="ts_forecast", season=3)
-        train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        with monkeypatch.context() as clock:
+            if coarse_clock:
+                clock.setattr(ts_model.time, "time", lambda: 1000.0)
+            train_time = est.fit(ds, budget=10)
+        assert np.isfinite(train_time) and train_time >= 0
+        predictions = est.predict(ds)
+        assert len(predictions) == len(ds.test_data)
+        assert np.isfinite(predictions).all()
 
     @pytest.mark.skipif(
         not _can_import("statsmodels"),
@@ -865,7 +873,7 @@ class TestProphet:
         ds = _make_ts_dataset(60, test_len=10)
         est = ProphetEst(task="ts_forecast")
         train_time = est.fit(ds, budget=10)
-        assert train_time > 0
+        assert np.isfinite(train_time) and train_time >= 0
         preds = est.predict(ds)
         assert len(preds) == 10
 
@@ -940,7 +948,7 @@ class TestTSSKLearn:
         ds = _make_ts_dataset(80, test_len=10)
         est = LGBM_TS(task="ts_forecast", lags=5)
         train_time = est.fit(ds, budget=10, period=10)
-        assert train_time > 0
+        assert np.isfinite(train_time) and train_time >= 0
         preds = est.predict(ds)
         assert len(preds) == 10
 

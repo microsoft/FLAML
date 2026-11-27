@@ -329,9 +329,10 @@ jobs:
       - name: Install declared Ray compatibility profile
         run: |
           python -m pip install --upgrade pip "setuptools<82" wheel
+          # MLflow 2.x SQL tracking uses APIs removed in SQLAlchemy 2.1.
           python -m pip install -e ".[automl]" "ray[tune]==${{ matrix.ray-version }}" \
             "numpy<2" "pandas<3" "pyarrow<21" "pydantic<2" "protobuf<4" \
-            "mlflow-skinny==2.22.1" "optuna==3.6.1" "plotly>=5.16.1" pytest
+            "mlflow-skinny==2.22.1" "sqlalchemy<2.1" "optuna==3.6.1" "plotly>=5.16.1" pytest
           python -m pip check
       - name: Verify real Ray reporting and trial ownership
         timeout-minutes: 10

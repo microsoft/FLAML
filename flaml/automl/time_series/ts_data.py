@@ -309,8 +309,12 @@ def _concat_panel_frames(frames, group_ids, *, ignore_index=False):
     populated = [frame for frame in frames if len(frame)]
     casts = {}
     for name in group_ids:
-        columns = [frame[name] for frame in populated]
-        if not columns or all(column.dtype == columns[0].dtype for column in columns):
+        columns = [frame[name] for frame in populated if name in frame]
+        if not columns:
+            continue
+        if all(column.dtype == columns[0].dtype for column in columns):
+            if any(name in frame and frame[name].dtype != columns[0].dtype for frame in frames):
+                casts[name] = columns[0].dtype
             continue
         if all(pd.api.types.is_integer_dtype(column) for column in columns):
             lower = min(int(column.min()) for column in columns)
@@ -338,10 +342,23 @@ def _concat_panel_frames(frames, group_ids, *, ignore_index=False):
     )
 
 
+def _empty_forecast_frame(train_data, test_data, input_targets, output_targets):
+    empty = train_data.iloc[:0].copy()
+    if test_data is not None:
+        empty = empty.drop(
+            columns=[output for source, output in zip(input_targets, output_targets) if source not in test_data],
+            errors="ignore",
+        )
+        empty.index = test_data.index.copy()
+    return empty
+
+
 def _transform_ts_dataset(
     data: TimeSeriesDataset, transform_frame: Callable, *, target_names=None
 ) -> tuple[TimeSeriesDataset, float]:
     """Transform both partitions while timing only held-out rows."""
+    if target_names is not None and len(target_names) != len(data.target_names):
+        raise ValueError("Forecast target columns must match the fitted target count.")
     train_data = transform_frame(data.train_data)
     test_data = data.test_data
     validation_time = 0.0
@@ -351,9 +368,9 @@ def _transform_ts_dataset(
             test_data = transform_frame(test_data)
             validation_time = time.perf_counter() - start
         else:
-            test_data = test_data.copy()
-            if target_names is not None:
-                test_data = test_data.rename(columns=dict(zip(data.target_names, target_names)))
+            test_data = _empty_forecast_frame(
+                train_data, test_data, data.target_names, data.target_names if target_names is None else target_names
+            )
     return (
         TimeSeriesDataset(
             train_data,

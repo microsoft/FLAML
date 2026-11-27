@@ -3,6 +3,7 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import logging
+import time
 from typing import Optional
 
 # try:
@@ -32,6 +33,7 @@ class SimpleTrial(Trial):
         self.start_time = None
         self.last_result = None
         self.last_reported_result = None
+        self._last_callback_result = None
         self.last_update_time = -float("inf")
         self.custom_trial_name = None
         self.trainable_name = "trainable"
@@ -83,13 +85,15 @@ class BaseTrialRunner:
             self._scheduler_alg.on_trial_add(self, trial)
 
     def process_trial_result(self, trial, result):
+        result = result.copy()
+        if "time_total_s" not in result:
+            result["time_total_s"] = time.time() - trial.start_time
         trial.last_reported_result = result.copy()
         trial.update_last_result(result)
-        if "time_total_s" not in result.keys():
-            result["time_total_s"] = trial.last_update_time - trial.start_time
-        self._search_alg.on_trial_result(trial.trial_id, result)
+        callback_result = trial._last_callback_result = result.copy()
+        self._search_alg.on_trial_result(trial.trial_id, callback_result)
         if self._scheduler_alg:
-            decision = self._scheduler_alg.on_trial_result(self, trial, result)
+            decision = self._scheduler_alg.on_trial_result(self, trial, callback_result)
             if decision == "STOP":
                 trial.set_status(Trial.TERMINATED)
             elif decision == "PAUSE":
@@ -97,18 +101,21 @@ class BaseTrialRunner:
 
     def stop_trial(self, trial):
         """Stops trial."""
+        callback_result = getattr(trial, "_last_callback_result", None)
+        if callback_result is None and trial.last_result is not None:
+            callback_result = trial.last_result.copy()
         if trial.status not in [Trial.ERROR, Trial.TERMINATED]:
             if self._scheduler_alg:
-                self._scheduler_alg.on_trial_complete(self, trial.trial_id, trial.last_result)
-            self._search_alg.on_trial_complete(trial.trial_id, trial.last_result)
+                self._scheduler_alg.on_trial_complete(self, trial.trial_id, callback_result)
+            self._search_alg.on_trial_complete(trial.trial_id, callback_result)
             trial.set_status(Trial.TERMINATED)
         else:
             if self._scheduler_alg:
                 self._scheduler_alg.on_trial_remove(self, trial)
             if trial.status == Trial.ERROR:
-                self._search_alg.on_trial_complete(trial.trial_id, trial.last_result, error=True)
+                self._search_alg.on_trial_complete(trial.trial_id, callback_result, error=True)
             else:
-                self._search_alg.on_trial_complete(trial.trial_id, trial.last_result)
+                self._search_alg.on_trial_complete(trial.trial_id, callback_result)
 
 
 class SequentialTrialRunner(BaseTrialRunner):

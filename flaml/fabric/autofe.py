@@ -422,6 +422,11 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
         self._column_mapping = {}
         self._output_columns = None
         reserved_columns = set(X.target_names + [X.time_col]) if isinstance(X, TimeSeriesDataset) else set()
+        named_targets = []
+        if isinstance(y, pd.DataFrame):
+            named_targets = list(y.columns)
+        elif isinstance(y, pd.Series) and y.name is not None:
+            named_targets = [y.name]
         detail_config = []
         transformers = []
         column_transformers = []
@@ -445,6 +450,7 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
                 from flaml.automl.pipeline import _forecast_time_column
 
                 self.time_col_ = _forecast_time_column(task, X)
+                reserved_columns.update(named_targets)
                 reserved_columns.add(self.time_col_)
                 reserved_columns.update(name for name in (getattr(task, "target_names", None) or ()) if name not in X)
                 X = X.drop(columns=[self.time_col_])
@@ -593,7 +599,10 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
 
         def transform_frame(frame):
             keep_cols = [column for column in X.target_names + [X.time_col] if column in frame]
-            return pd.concat([frame[keep_cols], self._transform(frame.drop(columns=keep_cols))], axis=1)
+            transformed = self._transform(frame.drop(columns=keep_cols))
+            if set(keep_cols).intersection(transformed.columns):
+                raise ValueError("Forecast structure conflicts with fitted feature names; refit with named targets.")
+            return pd.concat([frame[keep_cols], transformed], axis=1)
 
         return _transform_ts_dataset(X, transform_frame)
 

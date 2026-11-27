@@ -380,6 +380,17 @@ def test_panel_concatenation_preserves_distinct_mixed_float_integer_keys(integer
     assert result.groupby("store").ngroups == 2
 
 
+@pytest.mark.parametrize("empty_dtype", ["int64", "object"])
+def test_empty_panel_partitions_cannot_coerce_populated_group_keys(empty_dtype):
+    from flaml.automl.time_series.ts_data import _concat_panel_frames
+
+    populated = pd.DataFrame({"store": np.array([2**63, 2**63 + 1], dtype="uint64")})
+    empty = pd.DataFrame({"store": pd.Series(dtype=empty_dtype)})
+    for frames in ([empty, populated], [populated, empty]):
+        result = _concat_panel_frames(frames, ["store"], ignore_index=True)
+        pd.testing.assert_frame_equal(result, populated)
+
+
 def test_panel_holdout_preserves_ordered_category_group_order():
     observed = []
 
@@ -602,7 +613,8 @@ def tft_decoder():
 
 
 @pytest.mark.parametrize("time_idx", ["time_idx", "step"])
-def test_tft_prediction_retains_absolute_coordinates_and_request_order(tft_decoder, time_idx):
+@pytest.mark.parametrize("timestamp_strings", [False, True])
+def test_tft_prediction_retains_absolute_coordinates_and_request_order(tft_decoder, time_idx, timestamp_strings):
     estimator = tft_decoder(time_idx)
     request = pd.DataFrame(
         {
@@ -612,10 +624,13 @@ def test_tft_prediction_retains_absolute_coordinates_and_request_order(tft_decod
         },
         index=[40, 10, 30, 20],
     )
+    if timestamp_strings:
+        request["date"] = request["date"].dt.strftime("%Y-%m-%d")
     original = request.copy(deep=True)
     prediction = estimator.predict(request)
     np.testing.assert_array_equal(prediction, [21.0, 10.0, 20.0, 11.0])
     assert prediction.index.tolist() == list(zip(request["group"], request["date"]))
+    pd.testing.assert_index_equal(prediction.index, pd.MultiIndex.from_frame(request[["group", "date"]]))
     pd.testing.assert_frame_equal(request, original)
     sent = estimator.model.predict.call_args.args[0]
     assert getattr(sent, "frame", sent)[time_idx].max() == 111

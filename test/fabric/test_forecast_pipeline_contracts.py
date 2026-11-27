@@ -112,14 +112,19 @@ def test_forecast_refit_reserves_normalized_feature_names_for_external_targets()
 
 
 @pytest.mark.parametrize("structural_column", ["time", "target"])
-def test_extraction_feature_names_do_not_collide_with_forecast_structure(structural_column):
+@pytest.mark.parametrize("separate_target", [False, True])
+def test_extraction_feature_names_do_not_collide_with_forecast_structure(structural_column, separate_target):
     time_col, target = ("pca0", "target") if structural_column == "time" else ("date", "pca0")
     frame = pd.DataFrame(
         {time_col: pd.date_range("2026-01-01", periods=20), "feature": np.arange(20.0), target: np.arange(20.0)}
     )
     dataset = TimeSeriesDataset(frame, time_col, target)
-    featurizer = Featurization(params={"fe.extraction": "PCA"})
-    transformed = featurizer.fit_transform(dataset)
+    featurizer = Featurization(params={"fe.extraction": "PCA"}, task="ts_forecast" if separate_target else None)
+    if separate_target:
+        featurizer.fit(frame.drop(columns=target), frame[target])
+        transformed = featurizer.transform(dataset)
+    else:
+        transformed = featurizer.fit_transform(dataset)
     assert transformed.train_data.columns.is_unique
     feature_names = featurizer.get_feature_names_out().tolist()
     assert not set(feature_names) & {time_col, target}
@@ -131,6 +136,66 @@ def test_extraction_feature_names_do_not_collide_with_forecast_structure(structu
     replayed = recipe.fit_transform(dataset)
     assert recipe.get_feature_names_out().tolist() == feature_names
     pd.testing.assert_frame_equal(replayed.train_data, transformed.train_data)
+
+
+def test_empty_forecast_partitions_use_the_fitted_feature_and_target_schema():
+    from flaml.automl.pipeline import _TaskPreprocessor
+
+    frame = pd.DataFrame(
+        {"date": pd.date_range("2026-01-01", periods=12), 0: np.arange(12.0), "flaml_column_0": np.arange(12.0)}
+    )
+    dataset = TimeSeriesDataset(frame, "date", "flaml_column_0")
+    preprocessor = _TaskPreprocessor("ts_forecast", preserve_features=True)
+    prepared = preprocessor.fit_transform(dataset)
+    assert prepared.y_val.empty
+    pd.testing.assert_frame_equal(prepared.test_data, prepared.train_data.iloc[:0])
+    again = preprocessor.transform(dataset)
+    pd.testing.assert_frame_equal(again.test_data, again.train_data.iloc[:0])
+    featurizer = Featurization(params={"fe.extraction": "PCA"})
+    transformed = featurizer.fit_transform(prepared)
+    assert transformed.y_val.empty
+    pd.testing.assert_frame_equal(transformed.test_data, transformed.train_data.iloc[:0])
+
+
+@pytest.mark.parametrize("entry", ["automl", "pipeline", "helper"])
+@pytest.mark.parametrize("task", ["ts_forecast", "ts_forecast_classification", "ts_forecast_panel"])
+def test_forecast_resamplers_are_rejected_before_receiving_any_partition(entry, task):
+    from sklearn.base import BaseEstimator
+    from sklearn.dummy import DummyRegressor
+
+    from flaml.automl.ml import _resample_training_data
+    from flaml.automl.pipeline import AutoMLPipeline, _TaskPreprocessor
+
+    class ForbiddenSampler(BaseEstimator):
+        def fit_resample(self, X, y):
+            raise AssertionError("Forecast data must not be exposed to a generic resampler.")
+
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-01", periods=12),
+            "time_idx": np.arange(12),
+            "store": ["one"] * 12,
+            "target": np.tile([0, 1], 6),
+        }
+    )
+    dataset = TimeSeriesDataset(frame.iloc[:10], "date", "target", test_data=frame.iloc[10:])
+    with pytest.raises(ValueError, match="resampl.*forecast|forecast.*resampl"):
+        if entry == "automl":
+            AutoML(max_iter=1, verbose=0, mlflow_logging=False).fit(
+                dataset,
+                task=task,
+                estimator_list=["rf"],
+                period=2,
+                resampler=ForbiddenSampler(),
+                **({"group_ids": ["store"]} if task == "ts_forecast_panel" else {}),
+            )
+        elif entry == "pipeline":
+            AutoMLPipeline(
+                [("preprocess", _TaskPreprocessor(task)), ("model", DummyRegressor())],
+                resampler=ForbiddenSampler(),
+            ).fit(dataset)
+        else:
+            _resample_training_data(dataset, None, task_factory(task), resampler=ForbiddenSampler())
 
 
 @pytest.mark.parametrize("mode", ["auto", "force"])

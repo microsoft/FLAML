@@ -500,9 +500,21 @@ def train_estimator(
     return estimator, train_time
 
 
-def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator):
+def _validate_resampler_task(resampler, task=None, X=None):
+    if resampler is None:
+        return
+    from flaml.automl.task.task import TS_FORECAST
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+
+    forecasting = task in TS_FORECAST if isinstance(task, str) else task is not None and task.is_ts_forecast()
+    if forecasting or isinstance(X, TimeSeriesDataset):
+        raise ValueError("Generic resampling is not supported for forecast or panel tasks.")
+
+
+def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator, *, task=None):
     if resampler is None:
         return fit_kwargs, fit_kwargs_by_estimator
+    _validate_resampler_task(resampler, task)
     if ensemble:
         raise ValueError(
             "Cannot combine 'resampler' with 'ensemble' because stacking performs "
@@ -560,6 +572,7 @@ def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expe
         resampler = getattr(task, "_resampler", None)
     if resampler is None:
         return X_train, y_train
+    _validate_resampler_task(resampler, task, X_train)
     from sklearn.base import clone
 
     if isinstance(task, str):

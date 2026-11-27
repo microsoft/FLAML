@@ -2,7 +2,9 @@ import atexit
 import importlib
 import os
 import sys
+from contextlib import contextmanager
 from functools import partial
+from pathlib import Path
 from timeit import timeit
 from uuid import uuid4
 
@@ -107,7 +109,34 @@ def test_get_n_cpus_spark():
     assert isinstance(n_cpus, int)
 
 
-def test_broadcast_code():
+@contextmanager
+def _publication_namespace(tmp_path):
+    package = importlib.import_module("flaml.tune.spark")
+    utils = importlib.import_module("flaml.tune.spark.utils")
+    name = f"_test_broadcast_learner_{uuid4().hex}"
+    directory = tmp_path / name
+    directory.mkdir()
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(utils, "__file__", str(directory / "utils.py"))
+        patch.setattr(package, "__path__", type(package.__path__)([*package.__path__, str(directory)]))
+        try:
+            yield name, directory
+        finally:
+            package.__dict__.pop(name, None)
+            utils._published_code_revisions.pop(name, None)
+            utils._published_code_aliases.discard(name)
+            for module in list(sys.modules):
+                if module == f"flaml.tune.spark.{name}" or module.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                    sys.modules.pop(module, None)
+
+
+@pytest.fixture
+def publication_namespace(tmp_path):
+    with _publication_namespace(tmp_path) as namespace:
+        yield namespace
+
+
+def test_broadcast_code(publication_namespace):
     from flaml.automl.model import LGBMEstimator
     from flaml.tune.spark.utils import broadcast_code
 
@@ -132,7 +161,7 @@ def test_broadcast_code():
             }
     """
 
-    file_name = f"_test_broadcast_learner_{uuid4().hex}"
+    file_name, _ = publication_namespace
     qualified_name = f"flaml.tune.spark.{file_name}"
     custom_path = broadcast_code(custom_code=custom_code, file_name=file_name)
     paths = [custom_path, os.path.join(os.path.dirname(custom_path), file_name + ".py")]
@@ -236,6 +265,35 @@ def test_broadcast_code():
             for owned_path in (path, importlib.util.cache_from_source(path)):
                 if os.path.exists(owned_path):
                     os.remove(owned_path)
+
+
+@pytest.mark.parametrize("prior_success", [False, True])
+def test_broadcast_failure_cannot_pollute_the_installed_package(tmp_path, monkeypatch, prior_success):
+    package = importlib.import_module("flaml.tune.spark")
+    utils = importlib.import_module("flaml.tune.spark.utils")
+    installed_directory = Path(utils.__file__).parent
+    context = SparkSession.builder.getOrCreate().sparkContext
+    with pytest.raises(RuntimeError, match="injected distribution failure"):
+        with _publication_namespace(tmp_path) as (name, directory):
+            if prior_success:
+                monkeypatch.setattr(context, "addPyFile", lambda path: None)
+                utils.broadcast_code("value = 1\n", name)
+                assert importlib.import_module(f"flaml.tune.spark.{name}").value == 1
+
+            def fail(path):
+                assert list(directory.glob(f"_flaml_custom_{name}_*.py"))
+                raise RuntimeError("injected distribution failure")
+
+            monkeypatch.setattr(context, "addPyFile", fail)
+            utils.broadcast_code("value = 2\n", name)
+    assert not list(installed_directory.glob(f"*{name}*.py"))
+    assert name not in vars(package)
+    assert name not in utils._published_code_revisions
+    assert name not in utils._published_code_aliases
+    assert not any(
+        module == f"flaml.tune.spark.{name}" or module.startswith(f"flaml.tune.spark._flaml_custom_{name}_")
+        for module in sys.modules
+    )
 
 
 def test_get_broadcast_data():
