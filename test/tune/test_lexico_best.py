@@ -63,12 +63,36 @@ def _analysis(results, metrics, modes, tolerances):
             {"acc": "0%", "time": 0},
             1,
         ),
+        # "max" objective on the exact boundary: 55 is within 45% of 100, 54 is not.
+        (
+            [{"score": 100.0, "time": 5.0}, {"score": 55.0, "time": 1.0}, {"score": 54.0, "time": 0.0}],
+            ["score", "time"],
+            ["max", "min"],
+            {"score": "45%", "time": 0},
+            1,
+        ),
+        # Infinite best "max" value: only the infinite values are kept.
+        (
+            [{"acc": float("inf"), "time": 5.0}, {"acc": float("inf"), "time": 4.0}, {"acc": 5.0, "time": 1.0}],
+            ["acc", "time"],
+            ["max", "min"],
+            {"acc": "10%", "time": 0},
+            1,
+        ),
     ],
 )
 def test_lexico_best_percentage_tolerance(results, metrics, modes, tolerances, best_index):
     analysis = _analysis(results, metrics, modes, tolerances)
     assert analysis.best_trial is analysis.trials[best_index]
     assert analysis.best_result == results[best_index]
+
+
+def test_lexico_best_invalid_percentage_with_infinite_best():
+    analysis = _analysis(
+        [{"acc": float("inf"), "time": 1.0}], ["acc", "time"], ["max", "min"], {"acc": "ten%", "time": 0}
+    )
+    with pytest.raises(ValueError):
+        analysis.best_trial
 
 
 def test_tune_run_max_objective_percentage_tolerance():

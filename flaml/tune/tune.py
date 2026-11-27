@@ -105,16 +105,14 @@ class ExperimentAnalysis(EA):
             k_tolerance = self.lexico_objectives["tolerances"][k_metric]
             if not isinstance(k_tolerance, str):
                 tolerance_bound = f_best[k_metric] + k_tolerance
-            elif f_best[k_metric] in (np.inf, -np.inf):
-                tolerance_bound = f_best[k_metric]
             else:
-                # The values are minimized, so a "max" objective has negative values here. Move a negative
-                # best value up as well, so that the percentage loosens the bound instead of tightening it.
-                percentage = 0.01 * float(k_tolerance.replace("%", ""))
+                percentage = float(k_tolerance.replace("%", ""))
+                # The values are minimized, so a "max" objective has negative values here. Take the percentage
+                # of the absolute best value, so that it loosens the bound for negative values too.
                 tolerance_bound = (
-                    f_best[k_metric] * (1 + percentage)
-                    if f_best[k_metric] >= 0
-                    else f_best[k_metric] * (1 - percentage)
+                    f_best[k_metric] + abs(f_best[k_metric]) * percentage / 100
+                    if np.isfinite(f_best[k_metric])
+                    else f_best[k_metric]
                 )
 
             feasible_index_filter = np.where(feasible_value <= max(tolerance_bound, k_target))[0]
