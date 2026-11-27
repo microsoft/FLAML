@@ -316,7 +316,16 @@ def _concat_panel_frames(frames, group_ids, *, ignore_index=False):
             if any(name in frame and frame[name].dtype != columns[0].dtype for frame in frames):
                 casts[name] = columns[0].dtype
             continue
-        if all(pd.api.types.is_integer_dtype(column) for column in columns):
+        dtypes = [
+            column.cat.categories.dtype if isinstance(column.dtype, pd.CategoricalDtype) else column.dtype
+            for column in columns
+        ]
+        if not all(pd.api.types.is_numeric_dtype(dtype) for dtype in dtypes):
+            continue
+        columns = [
+            column.astype(object) if isinstance(column.dtype, pd.CategoricalDtype) else column for column in columns
+        ]
+        if all(pd.api.types.is_integer_dtype(dtype) for dtype in dtypes):
             lower = min(int(column.min()) for column in columns)
             upper = max(int(column.max()) for column in columns)
             if np.iinfo(np.int64).min <= lower and upper <= np.iinfo(np.int64).max:
@@ -325,11 +334,11 @@ def _concat_panel_frames(frames, group_ids, *, ignore_index=False):
                 casts[name] = "uint64"
             else:
                 casts[name] = object
-        elif all(pd.api.types.is_numeric_dtype(column) for column in columns):
+        else:
             if any(
                 int(value) != int(float(value))
-                for column in columns
-                if pd.api.types.is_integer_dtype(column)
+                for column, dtype in zip(columns, dtypes)
+                if pd.api.types.is_integer_dtype(dtype)
                 for value in column.unique()
             ):
                 casts[name] = object

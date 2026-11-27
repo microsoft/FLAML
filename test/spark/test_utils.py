@@ -122,7 +122,9 @@ def _publication_namespace(tmp_path):
         try:
             yield name, directory
         finally:
-            package.__dict__.pop(name, None)
+            for attribute in list(vars(package)):
+                if attribute == name or attribute.startswith(f"_flaml_custom_{name}_"):
+                    package.__dict__.pop(attribute, None)
             utils._published_code_revisions.pop(name, None)
             utils._published_code_aliases.discard(name)
             for module in list(sys.modules):
@@ -288,6 +290,7 @@ def test_broadcast_failure_cannot_pollute_the_installed_package(tmp_path, monkey
             utils.broadcast_code("value = 2\n", name)
     assert not list(installed_directory.glob(f"*{name}*.py"))
     assert name not in vars(package)
+    assert not any(attribute.startswith(f"_flaml_custom_{name}_") for attribute in vars(package))
     assert name not in utils._published_code_revisions
     assert name not in utils._published_code_aliases
     assert not any(

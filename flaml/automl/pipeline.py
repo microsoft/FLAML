@@ -316,6 +316,9 @@ class AutoMLPipeline(Pipeline):
 
     def predict(self, X, **params):
         prediction = super().predict(X, **params)
+        restore_index = getattr(type(self._final_estimator), "_restore_prediction_index", None)
+        if callable(restore_index):
+            prediction = restore_index(self._final_estimator, X, prediction)
         transformer = getattr(self, "label_transformer_", self.label_transformer)
         if transformer is not None:
             codes = np.asarray(prediction)

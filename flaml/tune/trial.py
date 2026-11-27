@@ -21,6 +21,28 @@ from collections import deque
 from numbers import Number
 
 
+def _copy_result(value, memo=None):
+    """Snapshot report containers without cloning opaque model or artifact payloads."""
+    if not isinstance(value, (dict, list)) and type(value) is not tuple:
+        return value
+    if memo is None:
+        memo = {}
+    identity = id(value)
+    if identity in memo:
+        return memo[identity]
+    if isinstance(value, dict):
+        result = memo[identity] = {}
+        result.update((key, _copy_result(item, memo)) for key, item in value.items())
+    elif isinstance(value, list):
+        result = memo[identity] = []
+        result.extend(_copy_result(item, memo) for item in value)
+    else:
+        items = [_copy_result(item, memo) for item in value]
+        if identity not in memo:
+            memo[identity] = tuple(items)
+    return memo[identity]
+
+
 def flatten_dict(dt, delimiter="/", prevent_delimiter=False):
     dt = dt.copy()
     if prevent_delimiter and any(delimiter in key for key in dt):

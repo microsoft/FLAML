@@ -159,6 +159,67 @@ def test_inline_spark_reports_do_not_cross_trial_or_nested_tune_contexts(spark_b
     assert [trial.last_result["loss"] for trial in result.trials] == ([11, 12] if report_after_nested else [1, 2])
 
 
+def test_spark_reports_snapshot_nested_metrics_before_the_objective_continues(spark_backend):
+    def objective(config):
+        diagnostics = {"score": float(config["x"])}
+        tune.report(loss=float(config["x"]), diagnostics=diagnostics)
+        diagnostics["score"] = -1.0
+
+    result = tune.run(
+        objective,
+        config={"x": tune.choice([1, 2])},
+        points_to_evaluate=[{"x": 1}, {"x": 2}],
+        metric="loss",
+        mode="min",
+        num_samples=2,
+        use_spark=True,
+        n_concurrent_trials=2,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    assert [trial.last_result["diagnostics"]["score"] for trial in result.trials] == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("delivery", ["report", "return", "both"])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_spark_timing_objective_uses_accepted_worker_elapsed_time(spark_backend, monkeypatch, delivery, explicit):
+    from threading import local
+
+    module = importlib.import_module("flaml.tune.tune")
+    clock = local()
+    ready = Barrier(2)
+    monkeypatch.setattr(module.time, "perf_counter", lambda: getattr(clock, "value", 0.0))
+    monkeypatch.setattr(module.time, "time", lambda: 1000.0)
+
+    def objective(config):
+        ready.wait(timeout=10)
+        clock.value = float(config["x"])
+        metrics = {"loss": float(config["x"])}
+        if explicit:
+            metrics["time_total_s"] = clock.value + 1000.0
+        if delivery != "return":
+            tune.report(**metrics)
+            clock.value += 100.0
+        if delivery != "report":
+            return metrics
+
+    result = tune.run(
+        objective,
+        config={"x": tune.choice([5, 1])},
+        points_to_evaluate=[{"x": 5}, {"x": 1}],
+        metric="time_total_s",
+        mode="min",
+        num_samples=2,
+        use_spark=True,
+        n_concurrent_trials=2,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    offset = 1000.0 if explicit else 100.0 if delivery == "both" else 0.0
+    assert [trial.last_result["time_total_s"] for trial in result.trials] == [5.0 + offset, 1.0 + offset]
+    assert result.best_config["x"] == 1
+
+
 @pytest.mark.parametrize("delivery", ["report", "return", "both"])
 def test_spark_scheduler_stop_preserves_siblings_and_completes_searcher_trials(spark_backend, monkeypatch, delivery):
     from flaml.tune.trial_runner import SparkTrialRunner
@@ -900,6 +961,44 @@ with open(sys.argv[1], "r+b") as stream:
     utils.broadcast_code("value = 1\n", name)
     utils.broadcast_code("value = 2\n", name)
     assert observed == ["blocked", "blocked"]
+
+
+@pytest.mark.parametrize("handled_caller", [False, True])
+@pytest.mark.parametrize("body_fails", [False, True])
+def test_publication_unlock_failure_uses_the_actual_body_exception(
+    broadcast_files, monkeypatch, handled_caller, body_fails
+):
+    import os
+
+    utils, _, driver = broadcast_files
+    module = importlib.import_module("msvcrt" if os.name == "nt" else "fcntl")
+    function_name = "locking" if os.name == "nt" else "flock"
+    unlock_mode = module.LK_UNLCK if os.name == "nt" else module.LOCK_UN
+    original = getattr(module, function_name)
+
+    def locking(*args):
+        original(*args)
+        if args[1] == unlock_mode:
+            raise OSError("unlock failure")
+
+    monkeypatch.setattr(module, function_name, locking)
+
+    def publish():
+        with utils._publication_file_lock(str(driver / "state"), "_test_unlock_failure"):
+            if body_fails:
+                raise ValueError("body failure")
+
+    expected = ValueError if body_fails else OSError
+    message = "body failure" if body_fails else "unlock failure"
+    if handled_caller:
+        try:
+            raise LookupError("already handled")
+        except LookupError:
+            with pytest.raises(expected, match=message):
+                publish()
+    else:
+        with pytest.raises(expected, match=message):
+            publish()
 
 
 def test_competing_publication_helpers_wait_for_distribution_to_finish(broadcast_files):

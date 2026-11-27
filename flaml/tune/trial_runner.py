@@ -11,7 +11,7 @@ from typing import Optional
 #     assert ray_version >= '1.0.0'
 #     from ray.tune.trial import Trial
 # except (ImportError, AssertionError):
-from .trial import Trial
+from .trial import Trial, _copy_result
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +85,12 @@ class BaseTrialRunner:
             self._scheduler_alg.on_trial_add(self, trial)
 
     def process_trial_result(self, trial, result):
-        result = result.copy()
+        result = _copy_result(result)
         if "time_total_s" not in result:
             result["time_total_s"] = time.time() - trial.start_time
-        trial.last_reported_result = result.copy()
+        trial.last_reported_result = _copy_result(result)
         trial.update_last_result(result)
-        callback_result = trial._last_callback_result = result.copy()
+        callback_result = trial._last_callback_result = _copy_result(result)
         self._search_alg.on_trial_result(trial.trial_id, callback_result)
         if self._scheduler_alg:
             decision = self._scheduler_alg.on_trial_result(self, trial, callback_result)
@@ -103,7 +103,7 @@ class BaseTrialRunner:
         """Stops trial."""
         callback_result = getattr(trial, "_last_callback_result", None)
         if callback_result is None and trial.last_result is not None:
-            callback_result = trial.last_result.copy()
+            callback_result = _copy_result(trial.last_result)
         if trial.status not in [Trial.ERROR, Trial.TERMINATED]:
             if self._scheduler_alg:
                 self._scheduler_alg.on_trial_complete(self, trial.trial_id, callback_result)
@@ -158,6 +158,7 @@ class SparkTrialRunner(BaseTrialRunner):
     ):
         super().__init__(search_alg, scheduler, metric, mode)
         self.running_trials = []
+        self.running_trial = None
 
     def step(self) -> Trial:
         """Runs one step of the trial event loop.
@@ -182,3 +183,5 @@ class SparkTrialRunner(BaseTrialRunner):
     def stop_trial(self, trial):
         super().stop_trial(trial)
         self.running_trials.remove(trial)
+        if self.running_trial is trial:
+            self.running_trial = None

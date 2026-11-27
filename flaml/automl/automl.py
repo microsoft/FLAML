@@ -1008,12 +1008,16 @@ class AutoML(BaseEstimator):
         if estimator is None:
             logger.warning("No estimator is trained. Please run fit with enough budget.")
             return None
+        original_X = X
         X = self.preprocess(X)
         autofe = getattr(estimator, "autofe", None)
         if autofe is not None:
             time_col = getattr(estimator, "time_col", None)
             X = autofe.transform(X, time_col)
         y_pred = estimator.predict(X, **pred_kwargs)
+        restore_index = getattr(type(estimator), "_restore_prediction_index", None)
+        if callable(restore_index):
+            y_pred = restore_index(estimator, original_X, y_pred)
 
         if isinstance(y_pred, np.ndarray) and y_pred.ndim > 1 and isinstance(y_pred, np.ndarray):
             y_pred = y_pred.flatten()

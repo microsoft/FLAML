@@ -380,6 +380,25 @@ def test_panel_concatenation_preserves_distinct_mixed_float_integer_keys(integer
     assert result.groupby("store").ngroups == 2
 
 
+@pytest.mark.parametrize("categorical_left,categorical_right", [(True, True), (True, False), (False, True)])
+def test_panel_concatenation_preserves_mixed_numeric_categorical_keys(categorical_left, categorical_right):
+    from flaml.automl.time_series.ts_data import _concat_panel_frames
+
+    integers = [2**53, 2**53 + 1]
+    left = pd.Series(integers, dtype="int64")
+    right = pd.Series([1.5], dtype="float64")
+    if categorical_left:
+        left = left.astype("category")
+    if categorical_right:
+        right = right.astype("category")
+    result = _concat_panel_frames(
+        [pd.DataFrame({"store": left}), pd.DataFrame({"store": right})], ["store"], ignore_index=True
+    )
+    assert result["store"].tolist() == integers + [1.5]
+    assert result["store"].dtype == object
+    assert result.groupby("store").ngroups == 3
+
+
 @pytest.mark.parametrize("empty_dtype", ["int64", "object"])
 def test_empty_panel_partitions_cannot_coerce_populated_group_keys(empty_dtype):
     from flaml.automl.time_series.ts_data import _concat_panel_frames
@@ -634,6 +653,49 @@ def test_tft_prediction_retains_absolute_coordinates_and_request_order(tft_decod
     pd.testing.assert_frame_equal(request, original)
     sent = estimator.model.predict.call_args.args[0]
     assert getattr(sent, "frame", sent)[time_idx].max() == 111
+
+
+@pytest.mark.parametrize("entry", ["automl", "pipeline"])
+@pytest.mark.parametrize("case", ["datetime", "strings", "misordered"])
+def test_public_tft_prediction_preserves_caller_keys_through_preprocessing(tft_decoder, monkeypatch, entry, case):
+    from flaml.automl.pipeline import make_automl_pipeline
+    from flaml.automl.task.factory import task_factory
+    from flaml.automl.time_series.ts_data import DataTransformerTS
+
+    estimator = tft_decoder()
+    transformer = DataTransformerTS("date", ["target"])
+    transformer.fit(
+        estimator.data.drop(columns="target"), estimator.data[["target"]], group_columns=estimator.group_ids
+    )
+    task = task_factory("ts_forecast_panel")
+    task.time_col, task.target_names, task.group_ids = "date", ["target"], ["group"]
+    automl = AutoML()
+    automl._state.task = task
+    automl.preserve_checkpoint = True
+    automl._transformer, automl._label_transformer = transformer, None
+    automl._trained_estimator = estimator
+    predictor = automl if entry == "automl" else make_automl_pipeline(automl, estimator)
+    request = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-12", "2026-01-11", "2026-01-11", "2026-01-12"]),
+            "group": ["b", "a", "b", "a"],
+            "time_idx": [111, 110, 110, 111],
+        }
+    )
+    if case != "datetime":
+        request["date"] = request["date"].dt.strftime("%Y-%m-%d")
+    original = request.copy(deep=True)
+    if case == "misordered":
+        final = estimator if entry == "automl" else predictor._final_estimator
+        predict = final.predict
+        monkeypatch.setattr(final, "predict", lambda X: predict(X).iloc[::-1])
+        with pytest.raises(ValueError, match="coordinates|order"):
+            predictor.predict(request)
+    else:
+        prediction = predictor.predict(request)
+        np.testing.assert_array_equal(prediction, [21.0, 10.0, 20.0, 11.0])
+        pd.testing.assert_index_equal(prediction.index, pd.MultiIndex.from_frame(request[["group", "date"]]))
+    pd.testing.assert_frame_equal(request, original)
 
 
 def test_tft_rejects_a_delayed_horizon_instead_of_relabeling_predictions(tft_decoder):

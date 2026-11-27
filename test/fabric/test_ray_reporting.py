@@ -16,8 +16,15 @@ def _ray_storage(tmp_path):
     return {key: str(tmp_path / "ray-results")}
 
 
-def _transactional_tracking(mlflow, monkeypatch, tmp_path):
-    mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'tracking.db'}")
+def _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind="absolute"):
+    if uri_kind != "absolute":
+        monkeypatch.chdir(tmp_path)
+    uri = {
+        "absolute": f"sqlite:///{tmp_path / 'tracking.db'}",
+        "relative": "sqlite:///tracking.db",
+        "file": "sqlite:///file:tracking.db?mode=rwc&uri=true",
+    }[uri_kind]
+    mlflow.set_tracking_uri(uri)
     experiment = mlflow.create_experiment("native-ray", artifact_location=(tmp_path / "artifacts").as_uri())
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
     return experiment
@@ -177,7 +184,8 @@ def test_native_ray_empty_results_fail_without_mlflow(ray_workers, tmp_path):
     assert result.best_config["x"] == 2
 
 
-def test_native_ray_scalar_result_preserves_attempt_identity(ray_workers, tmp_path, monkeypatch):
+@pytest.mark.parametrize("uri_kind", ["absolute", "relative", "file"])
+def test_native_ray_scalar_result_preserves_attempt_identity(ray_workers, tmp_path, monkeypatch, uri_kind):
     from unittest.mock import patch
 
     import mlflow
@@ -192,7 +200,7 @@ def test_native_ray_scalar_result_preserves_attempt_identity(ray_workers, tmp_pa
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
+    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind)
     try:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             mlflow.autolog(log_models=False, silent=True)
@@ -496,3 +504,39 @@ def test_automl_native_ray_rejects_file_tracking_before_search(tmp_path, monkeyp
             assert automl.model is None
     finally:
         mlflow.set_tracking_uri(previous_uri)
+
+
+def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp_path, monkeypatch):
+    import sys
+    from test.automl import test_notebook_example
+    from types import ModuleType
+
+    import mlflow
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+
+    from flaml import AutoML
+    from flaml.automl import data
+
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    splits = train_test_split(X, y, test_size=0.2, random_state=1, stratify=y)
+    monkeypatch.setitem(sys.modules, "openml", ModuleType("openml"))
+    monkeypatch.setattr(data, "load_openml_task", lambda **kwargs: splits)
+    fit = AutoML.fit
+    calls = []
+
+    def bounded_fit(self, *args, **kwargs):
+        call = (kwargs.get("use_ray", False), mlflow.get_tracking_uri())
+        kwargs.update(n_jobs=1, max_iter=2, time_budget=30)
+        if call[0]:
+            kwargs["use_ray"] = _ray_storage(tmp_path)
+        result = fit(self, *args, **kwargs)
+        calls.append(call)
+        return result
+
+    monkeypatch.setattr(AutoML, "fit", bounded_fit)
+    previous_uri = mlflow.get_tracking_uri()
+    test_notebook_example.test_mlflow(tmp_path)
+    assert [native for native, _ in calls] == [False, True]
+    assert calls[-1][1].startswith("sqlite:///")
+    assert mlflow.get_tracking_uri() == previous_uri

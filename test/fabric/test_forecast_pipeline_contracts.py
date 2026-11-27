@@ -549,6 +549,43 @@ def test_classification_resampling_preserves_vocabulary_without_autofe(entry, ch
         pipeline.fit(X, y)
 
 
+@pytest.mark.parametrize("resampling", [False, True])
+def test_feature_off_resampling_requires_the_advertised_holdout_vocabulary(resampling):
+    from sklearn.base import BaseEstimator
+
+    calls = []
+
+    class IdentitySampler(BaseEstimator):
+        def fit_resample(self, X, y):
+            calls.append(len(y))
+            return X, y
+
+    X = pd.DataFrame({"feature": np.arange(90.0)})
+    y = np.array(["A", "C"] * 36 + ["B"] * 18)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        task="classification",
+        metric="accuracy",
+        eval_method="holdout",
+        split_type="time",
+        split_ratio=0.2,
+        retrain_full=False,
+        featurization="off",
+        auto_augment=False,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    if resampling:
+        with pytest.raises(ValueError, match="class.*vocabulary|every class.*training"):
+            automl.fit(X, y, resampler=IdentitySampler())
+        assert calls == []
+    else:
+        automl.fit(X, y)
+        assert set(automl.predict(X.iloc[:4])).issubset({"A", "C"})
+
+
 def test_regression_resampling_can_change_targets():
     from sklearn.base import BaseEstimator
     from sklearn.dummy import DummyRegressor

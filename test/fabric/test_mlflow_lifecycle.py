@@ -28,11 +28,15 @@ def tracking(monkeypatch, tmp_path, request):
         else (tmp_path / "tracking").as_uri()
     )
     mlflow.set_tracking_uri(uri)
-    with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
-        yield mlflow.tracking.MlflowClient()
-        while mlflow.active_run() is not None:
-            mlflow.end_run()
-    mlflow.set_tracking_uri(previous_uri)
+    try:
+        with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
+            try:
+                yield mlflow.tracking.MlflowClient()
+            finally:
+                while mlflow.active_run() is not None:
+                    mlflow.end_run()
+    finally:
+        mlflow.set_tracking_uri(previous_uri)
 
 
 @pytest.fixture
@@ -515,6 +519,55 @@ def test_reported_metrics_are_captured_before_searcher_mutation(tracking, autolo
         assert result.best_trial._last_callback_result["loss_lagrange"] > metrics["loss"]
 
 
+@pytest.mark.parametrize("mutation", ["caller", "callback"])
+def test_nested_report_metrics_are_snapshotted_before_mutation(tracking, monkeypatch, mutation):
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import CFO
+
+    diagnostics = {"score": 2.0}
+    searcher = CFO(space={"x": 1}, metric="loss", mode="min")
+    callback = searcher.on_trial_result
+
+    def on_result(trial_id, result):
+        callback(trial_id, result)
+        if mutation == "callback":
+            result["diagnostics"]["score"] = 77.0
+
+    monkeypatch.setattr(searcher, "on_trial_result", on_result)
+
+    def objective(config):
+        tune.report(loss=1.0, diagnostics=diagnostics)
+        if mutation == "caller":
+            diagnostics["score"] = 99.0
+
+    with mlflow.start_run():
+        result = tune.run(objective, search_alg=searcher, num_samples=1, verbose=0)
+        assert result.best_result["diagnostics"] == {"score": 2.0}
+        assert result.best_trial.metric_analysis["diagnostics/score"]["last"] == 2.0
+        assert tracking.get_run(result.best_run_id).data.metrics["diagnostics.score"] == 2.0
+
+
+def test_report_snapshot_does_not_clone_opaque_artifact_payloads():
+    from flaml import tune
+
+    class Artifact:
+        def __deepcopy__(self, memo):
+            raise AssertionError("An opaque payload must not be deep-copied.")
+
+    artifact = Artifact()
+    result = tune.run(
+        lambda config: {"loss": 1.0, "artifacts": [artifact]},
+        config={"x": 1},
+        metric="loss",
+        mode="min",
+        num_samples=1,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    assert result.best_result["artifacts"][0] is artifact
+    assert result.best_trial._last_callback_result["artifacts"][0] is artifact
+
+
 @pytest.mark.parametrize("autolog", [False, True])
 def test_generated_timing_objective_is_selectable_and_logged(tracking, autolog):
     from flaml import tune
@@ -564,6 +617,7 @@ def test_successful_autolog_trial_inside_a_handled_exception_finishes(tracking):
         "sqlite:///file::memory:?cache=shared&uri=true",
         "sqlite:///file:%3Amemory%3A?uri=true",
         "sqlite:///file:flaml?mode=memory&uri=true",
+        "sqlite:///file:?uri=true",
     ],
 )
 def test_native_ray_rejects_nontransactional_tracking_paths(uri):
@@ -588,6 +642,56 @@ def test_native_ray_accepts_transactional_or_service_tracking(uri):
     from flaml.fabric.mlflow import _validate_ray_tracking_uri
 
     _validate_ray_tracking_uri(uri)
+
+
+@pytest.mark.parametrize("uri", ["sqlite:///tracking.db", "sqlite:///file:tracking%20%23.db?mode=rwc&uri=true"])
+def test_sqlite_worker_tracking_uses_the_driver_database(tracking, tmp_path, monkeypatch, uri):
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    import cloudpickle
+
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    driver, worker = tmp_path / "driver", tmp_path / "worker"
+    driver.mkdir()
+    worker.mkdir()
+    monkeypatch.chdir(driver)
+    mlflow.set_tracking_uri(uri)
+    client = mlflow.MlflowClient()
+    experiment = client.create_experiment("driver-store", artifact_location=(driver / "artifacts").as_uri())
+
+    def objective(config):
+        mlflow.log_metric("loss", 2.0)
+        return mlflow.active_run().info.run_id
+
+    with mlflow.start_run(experiment_id=experiment) as parent:
+        wrapped = _mlflow_wrapper(objective, experiment, autolog=True)
+        process = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import cloudpickle,json,sys; "
+                "objective=cloudpickle.loads(sys.stdin.buffer.read()); "
+                "print(json.dumps({'run_id':objective({},_flaml_trial_id='worker')}))",
+            ],
+            input=cloudpickle.dumps(wrapped),
+            cwd=worker,
+            env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2])},
+            capture_output=True,
+            timeout=60,
+        )
+        assert process.returncode == 0, process.stderr.decode(errors="replace")
+        run_id = json.loads(process.stdout.decode().splitlines()[-1])["run_id"]
+        run = client.get_run(run_id)
+        assert run.info.experiment_id == experiment
+        assert run.info.status == "FINISHED"
+        assert run.data.tags["mlflow.parentRunId"] == parent.info.run_id
+        assert run.data.metrics == {"loss": 2.0}
+        assert mlflow.get_tracking_uri() == uri
+        assert mlflow.active_run().info.run_id == parent.info.run_id
 
 
 def test_file_store_ray_logging_is_rejected_before_integration_or_evaluation(tracking, monkeypatch):
@@ -619,16 +723,144 @@ def test_native_driver_finishes_only_unfinished_owned_attempts(tracking, outcome
     assert tracking.get_run(run.info.run_id).info.status == expected
 
 
-@pytest.mark.parametrize("field", ["flaml.owner_id", "flaml.trial_id"])
+@pytest.mark.parametrize("field", ["flaml.owner_id", "flaml.trial_id", "experiment", "deleted"])
 def test_native_driver_does_not_finalize_an_unrelated_attempt(tracking, field):
     from flaml.fabric.mlflow import MLflowIntegration
 
     integration = MLflowIntegration("tune")
     integration.autolog = True
-    tags = {**integration.extra_tag, "flaml.trial_id": "trial", field: "unrelated"}
-    run = tracking.create_run(integration.experiment_id, tags=tags)
+    tags = {**integration.extra_tag, "flaml.trial_id": "trial"}
+    if field.startswith("flaml."):
+        tags[field] = "unrelated"
+    experiment = tracking.create_experiment("unrelated") if field == "experiment" else integration.experiment_id
+    run = tracking.create_run(experiment, tags=tags)
+    if field == "deleted":
+        tracking.delete_run(run.info.run_id)
     integration._finalize_native_trial(SimpleNamespace(trial_id="trial", status="TERMINATED"), run.info.run_id)
     assert tracking.get_run(run.info.run_id).info.status == "RUNNING"
+
+
+@pytest.mark.parametrize("status", ["ERROR", "TERMINATED"])
+@pytest.mark.parametrize("missing", [False, True])
+def test_native_finalization_skips_invalid_or_unavailable_run_ids(tracking, monkeypatch, status, missing):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog = True
+    lookup = Mock(wraps=integration.mlflow_client.get_run)
+    monkeypatch.setattr(integration.mlflow_client, "get_run", lookup)
+    integration._finalize_native_trial(SimpleNamespace(trial_id="trial", status=status), "f" * 32 if missing else 123)
+    if not missing:
+        lookup.assert_not_called()
+    assert integration.infos == []
+
+
+@pytest.mark.parametrize("accepted", ["unique", "ambiguous", "explicit"])
+def test_native_adoption_finalizes_only_the_unambiguous_accepted_attempt(tracking, accepted):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog, integration.manual_log, integration._native_ray = True, False, True
+    run_ids = [
+        tracking.create_run(
+            integration.experiment_id, tags={**integration.extra_tag, "flaml.trial_id": "trial"}
+        ).info.run_id
+        for _ in range(1 if accepted == "unique" else 2)
+    ]
+    trial = SimpleNamespace(trial_id="trial", config={"x": 1}, status="TERMINATED", last_result={"loss": 1.0})
+    integration.record_trial(trial.last_result, trial, "loss", run_id=run_ids[-1] if accepted == "explicit" else None)
+    analysis = SimpleNamespace(
+        trials=[trial],
+        best_iteration=0,
+        best_trial=trial,
+        best_config=trial.config,
+        best_result=trial.last_result,
+        best_run_id=None,
+        best_run_name=None,
+    )
+    integration.log_tune(analysis, "loss")
+    if accepted == "ambiguous":
+        assert analysis.best_run_id is None
+        assert all(tracking.get_run(run_id).info.status == "RUNNING" for run_id in run_ids)
+    else:
+        assert analysis.best_run_id == run_ids[-1]
+        assert tracking.get_run(run_ids[-1]).info.status == "FINISHED"
+        assert all(tracking.get_run(run_id).info.status == "RUNNING" for run_id in run_ids[:-1])
+
+
+@pytest.mark.parametrize("operation", ["lookup", "finalize"])
+@pytest.mark.parametrize("missing", [False, True])
+def test_native_run_lookup_preserves_nonmissing_store_errors(tracking, monkeypatch, operation, missing):
+    from mlflow.exceptions import MlflowException
+    from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST
+
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog = True
+    run_id = "f" * 32
+    integration.infos = [{"trial_id": "trial", "run_id": run_id}]
+    error = MlflowException("lookup failed", error_code=RESOURCE_DOES_NOT_EXIST if missing else PERMISSION_DENIED)
+    monkeypatch.setattr(integration.mlflow_client, "get_run", Mock(side_effect=error))
+
+    def lookup():
+        if operation == "lookup":
+            return integration._runs_for_adoption(integration.extra_tag["flaml.owner_id"])
+        return integration._finalize_native_trial(SimpleNamespace(trial_id="trial", status="TERMINATED"), run_id)
+
+    if missing:
+        assert not lookup()
+    else:
+        with pytest.raises(MlflowException) as caught:
+            lookup()
+        assert caught.value is error
+
+
+@pytest.mark.parametrize("field", ["flaml.owner_id", "flaml.trial_id", "experiment", "deleted", "run_id"])
+def test_direct_adoption_lookup_never_mutates_a_mismatched_run(tracking, monkeypatch, field):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog, integration.manual_log = True, False
+    tags = {**integration.extra_tag, "flaml.trial_id": "trial", "diagnostic": "retain"}
+    if field.startswith("flaml."):
+        tags[field] = "unrelated"
+    experiment = tracking.create_experiment("unrelated") if field == "experiment" else integration.experiment_id
+    run = tracking.create_run(experiment, tags=tags)
+    if field == "deleted":
+        tracking.delete_run(run.info.run_id)
+    expected_id = "f" * 32 if field == "run_id" else run.info.run_id
+    integration.record_trial(
+        {"loss": 1.0}, SimpleNamespace(trial_id="trial", config={}, status="TERMINATED"), "loss", run_id=expected_id
+    )
+    if field == "run_id":
+        monkeypatch.setattr(integration.mlflow_client, "get_run", Mock(return_value=tracking.get_run(run.info.run_id)))
+    before = tracking.get_run(run.info.run_id)
+    integration.adopt_children()
+    after = tracking.get_run(run.info.run_id)
+    assert after.data.tags == before.data.tags
+    assert after.data.metrics == before.data.metrics
+    assert after.info.status == before.info.status
+
+
+@pytest.mark.parametrize("token", [123, 0, [], "repeat", b"repeat"])
+def test_owned_run_pagination_rejects_invalid_or_repeated_tokens(tracking, monkeypatch, token):
+    import flaml.fabric.mlflow as module
+
+    integration = module.MLflowIntegration("tune")
+    monkeypatch.setattr(module, "SEARCH_MAX_RESULTS", 1)
+    monkeypatch.setattr(mlflow, "search_runs", Mock(return_value=[object()]))
+
+    class Page(list):
+        pass
+
+    page = Page([object()])
+    page.token = token
+    lookup = Mock(return_value=page)
+    monkeypatch.setattr(integration.mlflow_client, "search_runs", lookup)
+    with pytest.raises(RuntimeError, match="invalid or repeated page token"):
+        integration._search_owned_runs(integration.extra_tag["flaml.owner_id"])
+    assert lookup.call_count == (2 if isinstance(token, (str, bytes)) else 1)
 
 
 @pytest.mark.parametrize("backend", ["standalone", "spark", "ray"])
@@ -1060,6 +1292,62 @@ def test_objective_error_survives_fluent_run_termination_failure(tracking, monke
             with pytest.raises(error, match=message):
                 wrapped({})
         assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+@pytest.mark.parametrize(
+    "backend,identity_matches", [(None, True), ("spark", True), ("ray", True), ("local", False), ("local", True)]
+)
+def test_stopiteration_requires_the_matching_local_trial(tracking, monkeypatch, backend, identity_matches):
+    from contextlib import nullcontext
+
+    import flaml.tune.tune as tuning
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    created = []
+    trial_id = "current" if identity_matches else "different"
+    monkeypatch.setattr(
+        tuning, "_runner", SimpleNamespace(running_trial=SimpleNamespace(trial_id="current", status="TERMINATED"))
+    )
+
+    def objective(config):
+        created.append(mlflow.active_run().info.run_id)
+        raise StopIteration("objective stopped")
+
+    wrapped = _mlflow_wrapper(objective, "0", autolog=True)
+    context = tuning._capture_trial_run(trial_id, backend=backend) if backend is not None else nullcontext()
+    with context, pytest.raises(StopIteration, match="objective stopped"):
+        wrapped({}, _flaml_trial_id=trial_id)
+    expected = "FINISHED" if backend == "local" and identity_matches else "FAILED"
+    assert tracking.get_run(created[0]).info.status == expected
+
+
+@pytest.mark.parametrize("backend", ["local", "ray"])
+@pytest.mark.parametrize("ended_status", [None, "FINISHED", "FAILED"])
+def test_clean_stop_fallback_does_not_force_a_successful_owned_run_failed(tracking, monkeypatch, backend, ended_status):
+    import flaml.tune.tune as tuning
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    created = []
+    monkeypatch.setattr(
+        tuning, "_runner", SimpleNamespace(running_trial=SimpleNamespace(trial_id="trial", status="TERMINATED"))
+    )
+
+    def objective(config):
+        created.append(mlflow.active_run().info.run_id)
+        if ended_status:
+            mlflow.end_run(status=ended_status)
+            mlflow.start_run(nested=True)
+        if backend == "ray":
+            raise SystemExit(0)
+        raise StopIteration("scheduler stop")
+
+    wrapped = _mlflow_wrapper(objective, "0", autolog=True)
+    monkeypatch.setattr(mlflow.tracking.fluent, "end_run", Mock(side_effect=RuntimeError("fluent termination failed")))
+    with tuning._capture_trial_run("trial", backend=backend), pytest.raises(
+        SystemExit if backend == "ray" else StopIteration
+    ):
+        wrapped({}, _flaml_trial_id="trial")
+    assert tracking.get_run(created[0]).info.status == (ended_status or "FINISHED")
 
 
 def test_failed_parent_summary_still_adopts_completed_trial_metrics(tracking, monkeypatch):

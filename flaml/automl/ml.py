@@ -580,7 +580,13 @@ def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expe
 
         task = task_factory(task, X_train, y_train)
     if expected_classes is None and task is not None and task.is_classification():
-        expected_classes = np.unique(y_train)
+        expected_classes = getattr(task, "_resampler_classes", None)
+        if expected_classes is None:
+            expected_classes = np.unique(y_train)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError(
+            "Resampling requires every class in the advertised class vocabulary to be represented in training."
+        )
     X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
     if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
         raise ValueError("Resampling must preserve every class in the training data's class vocabulary.")

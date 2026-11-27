@@ -396,7 +396,7 @@ class FLOW2(Searcher):
                 tolerance_bound = self._f_best[k_metric] * (
                     1 + 0.01 * float(self.lexico_objectives["tolerances"][k_metric].replace("%", ""))
                 )
-            if result[k_metric] < max(tolerance_bound, k_target) and incumbent[k_metric] < max(
+            if result[k_metric] <= max(tolerance_bound, k_target) and incumbent[k_metric] <= max(
                 tolerance_bound, k_target
             ):
                 continue
@@ -420,6 +420,7 @@ class FLOW2(Searcher):
                 self.best_config.copy(),
                 self.cost_incumbent,
             )
+            self._committed_observation = self._initial_observation
         observation = (
             obj.copy() if isinstance(obj, dict) else obj,
             self._configs[trial_id][0].copy(),
@@ -431,12 +432,22 @@ class FLOW2(Searcher):
         elif not previous or obj < previous[0][0]:
             previous[:] = [observation]
 
+    def _commit_objective(self, trial_id):
+        if self.lexico_objectives is not None:
+            return
+        history = (self._observations or {}).pop(trial_id, None)
+        if history:
+            candidate = history[0]
+            if self._committed_observation[0] is None or candidate[0] < self._committed_observation[0]:
+                self._committed_observation = candidate
+
     def _remove_failed_objectives(self, trial_id):
         observations = getattr(self, "_observations", None)
         if observations is None or trial_id not in observations:
             return
         del observations[trial_id]
-        candidates = ([self._initial_observation] if self._initial_observation[0] is not None else []) + [
+        baseline = self._initial_observation if self.lexico_objectives is not None else self._committed_observation
+        candidates = ([baseline] if baseline[0] is not None else []) + [
             observation for history in observations.values() for observation in history
         ]
         if self.lexico_objectives is not None:
@@ -447,7 +458,7 @@ class FLOW2(Searcher):
                     self._histories[metric].append(obj[metric])
             if candidates:
                 self.update_fbest()
-        selected = candidates[0] if candidates else self._initial_observation
+        selected = candidates[0] if candidates else baseline
         for candidate in candidates[1:]:
             if (
                 self._lexico_better(candidate[0], selected[0])
@@ -461,7 +472,7 @@ class FLOW2(Searcher):
         self.best_obj, self.best_config, self.cost_incumbent = obj, config.copy(), cost
         self.incumbent = self.normalize(self.best_config)
         if self._resource:
-            self._resource = self.best_config[self.resource_attr]
+            self._resource = self.best_config.get(self.resource_attr, self._round(self.min_resource))
         self._num_complete4incumbent = self._cost_complete4incumbent = self._num_proposedby_incumbent = 0
         self._num_allowed4incumbent = 2 * self.dim
         self._proposed_by.clear()
@@ -482,7 +493,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj is not None:
+            if obj is not None and (isinstance(obj, dict) or not np.isnan(obj)):
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]
@@ -517,6 +528,7 @@ class FLOW2(Searcher):
                     self._iter_best_config = self.trial_count_complete
                     if self._trunc:
                         self._trunc = min(self._trunc + 1, self.dim)
+                    self._commit_objective(trial_id)
                     return
                 elif self._trunc:
                     self._trunc = max(self._trunc >> 1, 1)
@@ -531,6 +543,8 @@ class FLOW2(Searcher):
             if self._num_complete4incumbent == self.dir and (not self._resource or self._resource == self.max_resource):
                 self._num_complete4incumbent -= 2
                 self._num_allowed4incumbent = max(self._num_allowed4incumbent, 2)
+        if not error:
+            self._commit_objective(trial_id)
 
     def on_trial_result(self, trial_id: str, result: Dict):
         """Early update of incumbent."""
@@ -540,7 +554,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj is not None:
+            if obj is not None and (isinstance(obj, dict) or not np.isnan(obj)):
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]

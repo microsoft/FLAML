@@ -272,10 +272,13 @@ def _publication_file_lock(path, name):
             def unlock():
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
+        primary = None
         try:
             yield
+        except BaseException as error:
+            primary = error
+            raise
         finally:
-            primary = sys.exc_info()[1]
             try:
                 unlock()
             except OSError:

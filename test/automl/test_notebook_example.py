@@ -1,4 +1,5 @@
 import errno
+import os
 import socket
 import sys
 from builtins import ConnectionError as SocketConnectionError
@@ -34,6 +35,7 @@ _OPENML_AVAILABILITY_ERRORS = (
     URLError,
     TimeoutError,
     ConnectionError,
+    SocketConnectionError,
     Timeout,
     HTTPError,
     ChunkedEncodingError,
@@ -83,18 +85,28 @@ def _skip_openml_unavailability(error, resource):
         ):
             raise error
     elif not isinstance(
-        cause, (TimeoutError, ConnectionError, Timeout, ChunkedEncodingError, Urllib3TimeoutError, ProtocolError)
+        cause,
+        (
+            TimeoutError,
+            ConnectionError,
+            SocketConnectionError,
+            Timeout,
+            ChunkedEncodingError,
+            Urllib3TimeoutError,
+            ProtocolError,
+        ),
     ):
         raise error
     pytest.skip(f"OpenML {resource} is unavailable ({type(error).__name__}).")
 
 
-@pytest.mark.parametrize("reason", ["offline", "redirect", "unknown", "cycle"])
+@pytest.mark.parametrize("reason", ["offline", "socket", "redirect", "unknown", "cycle"])
 def test_retry_exhaustion_requires_a_known_transient_cause(reason):
     from urllib3.exceptions import ResponseError
 
     causes = {
         "offline": ProtocolError("connection dropped"),
+        "socket": ConnectionRefusedError("connection refused"),
         "redirect": ResponseError("too many redirects"),
         "unknown": ValueError("invalid endpoint"),
         "cycle": None,
@@ -102,9 +114,9 @@ def test_retry_exhaustion_requires_a_known_transient_cause(reason):
     error = MaxRetryError(None, "https://example.invalid", causes[reason])
     if reason == "cycle":
         error.reason = error
-    with pytest.raises(pytest.skip.Exception if reason == "offline" else MaxRetryError) as caught:
+    with pytest.raises(pytest.skip.Exception if reason in {"offline", "socket"} else MaxRetryError) as caught:
         _skip_openml_unavailability(error, "dataset")
-    if reason != "offline":
+    if reason not in {"offline", "socket"}:
         assert caught.value is error
 
 
@@ -265,6 +277,7 @@ def test_notebook_cache_corruption_is_not_silently_accepted(tmp_path, monkeypatc
         "urllib_scheme",
         "urllib_missing_file",
         "urllib_connection",
+        "socket_connection",
     ],
 )
 def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch, example, failure):
@@ -295,6 +308,7 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         "urllib_scheme": URLError("unknown url type: broken"),
         "urllib_missing_file": URLError(FileNotFoundError("missing local resource")),
         "urllib_connection": URLError(ConnectionRefusedError("connection refused")),
+        "socket_connection": ConnectionResetError("connection reset"),
     }[failure]
 
     def unavailable(**kwargs):
@@ -303,7 +317,10 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
     if example == "task":
         monkeypatch.setitem(sys.modules, "openml", ModuleType("openml"))
         monkeypatch.setattr(data, "load_openml_task", unavailable)
-        invoke = test_mlflow
+
+        def invoke():
+            return test_mlflow(tmp_path)
+
     else:
         monkeypatch.setattr(data, "load_openml_dataset", unavailable)
 
@@ -353,7 +370,7 @@ def _test_nobudget(tmp_path):
     test_automl(tmp_path, -1)
 
 
-def test_mlflow():
+def test_mlflow(tmp_path):
     pytest.importorskip("openml", reason="The OpenML task example requires the optional OpenML SDK.")
     # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
     import mlflow
@@ -387,14 +404,37 @@ def test_mlflow():
     print(automl.trainable(automl.points_to_evaluate[0]))
 
     settings["use_ray"] = True
+    from mlflow.tracking import fluent
+    from mlflow.tracking._tracking_service import utils as tracking_utils
+
+    previous_uri = getattr(tracking_utils, "_tracking_uri", mlflow.get_tracking_uri())
+    previous_environment_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    last = fluent._last_active_run_id
+    previous_last = last.get() if callable(getattr(last, "get", None)) else last
     try:
-        with mlflow.start_run() as run:
-            automl.fit(X_train=X_train, y_train=y_train, **settings)
-            mlflow.sklearn.log_model(automl, "automl")
-        automl = mlflow.sklearn.load_model(f"{run.info.artifact_uri}/automl")
-        print(automl.predict_proba(X_test))
+        mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'ray-tracking.db'}")
+        experiment = mlflow.create_experiment("ray-example", artifact_location=(tmp_path / "ray-artifacts").as_uri())
+        with pytest.MonkeyPatch.context() as state:
+            state.setattr(fluent, "_active_experiment_id", None)
+            state.setenv("MLFLOW_EXPERIMENT_ID", experiment)
+            state.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+            with mlflow.start_run(experiment_id=experiment) as run:
+                automl.fit(X_train=X_train, y_train=y_train, **settings)
+                mlflow.sklearn.log_model(automl, "automl")
+            automl = mlflow.sklearn.load_model(f"{run.info.artifact_uri}/automl")
+            print(automl.predict_proba(X_test))
     except ImportError:
         pass
+    finally:
+        mlflow.set_tracking_uri(previous_uri)
+        if previous_environment_uri is None:
+            os.environ.pop("MLFLOW_TRACKING_URI", None)
+        else:
+            os.environ["MLFLOW_TRACKING_URI"] = previous_environment_uri
+        if callable(getattr(last, "set", None)):
+            last.set(previous_last)
+        else:
+            fluent._last_active_run_id = previous_last
 
 
 def test_mlflow_iris():

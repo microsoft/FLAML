@@ -1081,6 +1081,13 @@ class GenericTask(Task):
                     state, X_train_all, y_train_all, split_ratio=split_ratio
                 )
         self._autofe_classes = set(np.unique(y_train_all)) if disjoint_autofe else None
+        self._resampler_classes = None
+        if self.is_classification() and getattr(self, "_resampler", None) is not None:
+            if self._autofe_classes is not None:
+                self._resampler_classes = self._autofe_classes
+            else:
+                _, labels = len_labels(y_train_all, return_labels=True)
+                self._resampler_classes = labels.to_numpy() if isinstance(labels, psSeries) else labels
         if disjoint_autofe and eval_method == "holdout":
             if self._autofe_classes != set(np.unique(y_train)):
                 raise ValueError(

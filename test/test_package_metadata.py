@@ -53,6 +53,14 @@ def test_arrow_compatibility_cap_does_not_expand_other_profiles():
     assert "pyarrow" not in requirements_for("automl", "3.12")
 
 
+@pytest.mark.parametrize("python_version", ["3.10", "3.13"])
+def test_mlflow_test_profile_uses_compatible_sqlalchemy(python_version):
+    dependencies = requirements_for("test", python_version)
+    assert "2.0.58" in dependencies["sqlalchemy"].specifier
+    assert "2.1.0" not in dependencies["sqlalchemy"].specifier
+    assert "sqlalchemy" not in requirements_for("automl", python_version)
+
+
 def test_legacy_arm64_xgboost_build_has_an_explicit_native_target():
     yaml = pytest.importorskip("yaml")
     workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
@@ -228,6 +236,8 @@ def test_declared_ray_compatibility_uses_real_worker_ci_profiles():
     assert job["permissions"] == {"contents": "read"}
     setup = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
     assert setup["with"]["python-version"] == "3.10"
+    install = next(step for step in job["steps"] if step.get("name") == "Install declared Ray compatibility profile")
+    assert '"sqlalchemy<2.1"' in install["run"]
     tests = next(step for step in job["steps"] if step.get("name") == "Verify real Ray reporting and trial ownership")
     assert "test/fabric/test_ray_reporting.py" in tests["run"]
     assert tests["timeout-minutes"] <= job["timeout-minutes"]

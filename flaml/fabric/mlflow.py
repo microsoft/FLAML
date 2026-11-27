@@ -16,6 +16,7 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextlib import closing, contextmanager, nullcontext
 from importlib import import_module
+from pathlib import Path
 from typing import MutableMapping
 from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
@@ -300,14 +301,40 @@ def _validate_ray_tracking_uri(uri):
     in_memory = scheme.split("+", 1)[0] == "sqlite" and (
         parsed.path in ("", "/", "/:memory:")
         or sqlite_uri
-        and (unquote(parsed.path) == "/file::memory:" or "memory" in query.get("mode", []))
+        and (unquote(parsed.path) in ("/file:", "/file::memory:") or "memory" in query.get("mode", []))
     )
     if not scheme or scheme == "file" or ntpath.splitdrive(uri)[0] or in_memory:
         raise ValueError(
             "Native Ray MLflow logging requires transactional tracking, such as SQLite or a tracking server. "
-            "Use a persistent local SQLite database or a tracking server, not FileStore or an in-memory database. "
+            "Use a persistent local SQLite database or a tracking server, not FileStore or a private temporary database. "
             "Configure mlflow.set_tracking_uri(...) or set mlflow_logging=False."
         )
+
+
+def _worker_tracking_uri(uri):
+    if urlsplit(uri).scheme.split("+", 1)[0] != "sqlite":
+        return uri
+    from sqlalchemy.engine import make_url
+
+    url = make_url(uri)
+    filename = url.database
+    if not filename or filename == ":memory:":
+        return uri
+    sqlite_uri = str(url.query.get("uri", "")).lower() in {"1", "true", "t", "yes", "y", "on"}
+    if sqlite_uri and filename.startswith("file:"):
+        file_uri = urlsplit(filename)
+        path = unquote(file_uri.path)
+        if not path or path == ":memory:" or url.query.get("mode") == "memory":
+            return uri
+        if file_uri.netloc or os.path.isabs(path):
+            return uri
+        absolute = urlsplit(Path(os.path.abspath(path)).as_uri())
+        filename = absolute._replace(fragment=file_uri.fragment).geturl()
+    elif os.path.isabs(filename):
+        return uri
+    else:
+        filename = os.path.abspath(filename)
+    return url.set(database=filename).render_as_string(hide_password=False)
 
 
 def _trial_terminal_status(primary, outcome):
@@ -321,12 +348,19 @@ def _trial_terminal_status(primary, outcome):
     if isinstance(primary, (SystemExit, StopIteration)):
         from flaml.tune import tune
 
+        context = tune._trial_run_context.get()
         if isinstance(primary, SystemExit):
-            context = tune._trial_run_context.get()
             if context is not None and context.get("backend") == "ray" and primary.code in (None, 0):
                 return "FINISHED"
-        elif getattr(getattr(tune._runner, "running_trial", None), "status", None) == "TERMINATED":
-            return "FINISHED"
+        else:
+            running = getattr(tune._runner, "running_trial", None)
+            if (
+                context is not None
+                and context.get("backend") == "local"
+                and context["trial_id"] == getattr(running, "trial_id", None)
+                and getattr(running, "status", None) == "TERMINATED"
+            ):
+                return "FINISHED"
     return "FAILED"
 
 
@@ -413,7 +447,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     configurations = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()}
     parent = mlflow.active_run()
     parent_run_id = parent.info.run_id if parent is not None else None
-    driver_tracking_uri = mlflow.get_tracking_uri()
+    driver_tracking_uri = _worker_tracking_uri(mlflow.get_tracking_uri())
 
     @contextmanager
     def trial_run(tags, outcome):
@@ -457,7 +491,9 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
                         get_stack().pop()
             if not ended_owned and (status == "FAILED" or errors):
                 try:
-                    client.set_terminated(created.info.run_id, status="FAILED")
+                    fallback_status = "FAILED" if status == "FAILED" or primary is None else "FINISHED"
+                    if fallback_status == "FAILED" or client.get_run(created.info.run_id).info.status == "RUNNING":
+                        client.set_terminated(created.info.run_id, status=fallback_status)
                 except Exception as error:
                     errors.append(error)
                     logger.exception("Failed to finalize the owned MLflow trial run.")
@@ -568,6 +604,7 @@ class MLflowIntegration:
         self.child_counter = 0
         self.infos = []
         self._recorded_trials = []
+        self._native_ray = False
         self.manual_run_ids = []
         self.manual_run_ids_by_trial = {}
         self._adopted_run_ids = set()
@@ -748,12 +785,25 @@ class MLflowIntegration:
         self.mlflow_client.log_batch(run_id=target_id, metrics=_metrics, params=[], tags=_tags)
         return f"Successfully copy_mlflow_run run_id {src_id} to run_id {target_id}"
 
-    def _finalize_native_trial(self, trial, run_id):
+    def _finalize_native_trial(self, trial, run_id, *, run=None):
         status = getattr(trial, "status", None)
         owner = self.extra_tag.get("flaml.owner_id")
-        if not self.autolog or not owner or not run_id or status not in {"ERROR", "TERMINATED"}:
+        if (
+            not self.autolog
+            or not owner
+            or not isinstance(run_id, str)
+            or not run_id
+            or status not in {"ERROR", "TERMINATED"}
+        ):
             return
-        run = self.mlflow_client.get_run(run_id)
+        if run is None:
+            try:
+                run = self.mlflow_client.get_run(run_id)
+            except MlflowException as error:
+                if error.error_code != "RESOURCE_DOES_NOT_EXIST":
+                    raise
+                logger.warning("Native trial run %s is unavailable; skipping finalization.", run_id)
+                return
         if (
             run.info.run_id != run_id
             or run.info.experiment_id != str(self.experiment_id)
@@ -1275,10 +1325,12 @@ class MLflowIntegration:
             page = self.mlflow_client.search_runs(**query, max_results=min(SEARCH_MAX_RESULTS, 1000), page_token=token)
             runs.extend(page)
             token = getattr(page, "token", None)
-            if not token:
+            if token is None:
                 return runs
             if not isinstance(token, (str, bytes)) or token in tokens:
                 raise RuntimeError("MLflow run search returned an invalid or repeated page token.")
+            if not token:
+                return runs
             tokens.add(token)
 
     def _runs_for_adoption(self, owner):
@@ -1426,6 +1478,8 @@ class MLflowIntegration:
                     if info_index < num_infos:
                         flaml_info = self.infos[info_index]
                         child_run = self.mlflow_client.get_run(child_run_id)
+                        if self.experiment_type == "tune" and getattr(self, "_native_ray", False):
+                            self._finalize_native_trial(self._recorded_trials[info_index], child_run_id, run=child_run)
                         if child_run_id not in adopted:
                             if self.experiment_type == "tune":
                                 missing_params = {
