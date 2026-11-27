@@ -91,7 +91,13 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                 labels = frame[task.target_names]
             features[task.time_col] = pd.to_datetime(features[task.time_col])
             self.transformer_ = DataTransformerTS(task.time_col, task.target_names, time_idx=time_idx)
-            transformed = self.transformer_.fit_transform(features, labels, preserve_features=self.preserve_features)
+            transformed = self.transformer_.fit_transform(
+                features,
+                labels,
+                preserve_features=self.preserve_features,
+                protected_columns=features.columns if task.is_ts_forecastpanel() else (),
+                group_columns=getattr(task, "group_ids", ()) if task.is_ts_forecastpanel() else (),
+            )
             if labels is None:
                 features = transformed
             else:
@@ -126,7 +132,9 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
 
         if isinstance(X, TimeSeriesDataset):
             if getattr(self, "feature_only", False):
-                return self._transform_forecast_frame(X.X_train)
+                features = X.X_train.copy()
+                features[self.task_.time_col] = pd.to_datetime(features[self.task_.time_col])
+                return self.transformer_.transform(features)
             return self._transform_validation_data(X)[0]
         if self.task_.is_ts_forecast() and isinstance(X, pd.DataFrame):
             X = X.copy()

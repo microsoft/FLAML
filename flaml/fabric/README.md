@@ -81,6 +81,8 @@ observations across the training/validation boundary. Caller-provided validation
 is used as supplied, without augmentation or class-coverage repair.
 Time and group holdouts must also represent every advertised class in training,
 so probability columns cannot silently disagree with `classes_`.
+AutoFE trial samples must retain that vocabulary too; increase `min_sample_size`
+or disable sampling if a time-ordered prefix omits a class.
 Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
@@ -121,11 +123,14 @@ original fit, and extraction lists record its input features. Selection and
 extraction recipes are refitted on the complete surviving feature matrix, even
 when the original selector dropped no columns. Forecast configuration
 reconstruction uses task-aware preprocessing and embedded dataset targets.
-New forecast training logs retain the evaluation mode and training boundary.
+New forecast training logs retain the evaluation mode and training boundary,
+including the single-series end timestamp and its UTC offset when present.
 Default sampled replay uses that boundary rather than choosing a new split from
 the replay time budget; `train_full=True` fits the supplied training data without
 constructing an unused validation split. For legacy sampled logs without boundary
 metadata, pass the original `eval_method` explicitly when the split is ambiguous.
+An embedded validation partition remains an explicit holdout for legacy replay.
+Panel replay reproduces the original group/time ordering before tail sampling.
 
 Forecast AutoFE fits feature statistics and target encoders on each training
 partition. Explicit validation rows are never eligible for final refitting;
@@ -138,10 +143,17 @@ group/covariate columns and caller-supplied absolute integer time indexes are
 preserved through search, final refitting, and prediction. Panel indexes must be
 signed integers without missing values, as required by TFT.
 Numeric group keys are not imputed or converted through floating point.
+The same structural protection applies when refitting an exported panel pipeline.
 Custom dataset time-index names are retained. TFT prediction supports consecutive
 coordinates immediately after each group's training boundary, up to the fitted
 horizon; unsupported gaps are rejected rather than relabeled. Predictions are
 mapped back to the caller's group/time keys and row order.
+Shorter or unequal group horizons retain the latest encoder observations and the
+fitted lag-feature order. Irregular calendars require explicit consecutive indexes
+and strictly increasing future timestamps. An empty validation partition produces
+no forecasts; TFT's unsupported in-sample training metric is omitted with a warning
+when `log_training_metric=True`, without suppressing validation or weakening the
+future-coordinate checks.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`. MLflow is optional, and registration
@@ -192,17 +204,22 @@ An autologging `log_models=False` setting suppresses automatic model and pipelin
 artifacts; explicitly calling `register_automl_pipeline` still registers the requested pipeline.
 Tune preserves the caller's local autolog configuration and propagates those
 options to remote workers without permanently reconfiguring reused workers.
-Worker restoration includes the active experiment, and parallel trial/run
+Remote logging uses the driver's tracking URI, which must be reachable from the
+workers. Worker restoration includes the previous tracking URI and active experiment, and parallel trial/run
 matching uses trial identities rather than task start order.
 Tagged trial association does not depend on worker clock agreement. Local, Spark,
 and native Ray results use the winning trial ID. Local and Ray report-style
-objectives retain their final reported metrics. Successful adoption writes each trial's metrics
+objectives retain their final reported numeric metrics; framework bookkeeping,
+config values, strings, and booleans are not logged as objective metrics.
+Errored trials are not recorded as empty successes. Successful adoption writes each trial's metrics
 once, and secondary cleanup errors do not replace an objective failure.
 Remote trials retain their driver's lineage without ending an unrelated active
 worker run. Objective and restoration `RuntimeError`s are not retried as cluster
 failures.
 Child-run adoption requires an integration-owned tag; unrelated runs in the same
-experiment are not changed. Trial artifacts use that trial's fitted model, and
+experiment are not changed. Failed runs, diagnostic artifacts, and user-authored
+tags are retained rather than classified as empty placeholders.
+Trial artifacts use that trial's fitted model, and
 fit completion waits for dependent artifact-environment writes.
 Fluent model writes stay on the run-owning thread; only client-addressed metadata
 and requirement updates are asynchronous. The parent artifact is published after
@@ -260,8 +277,11 @@ Cached worker aliases resolve the newest visible publication, including code
 reverts. Publication ordering is independent of the archive order Spark supplies
 to late workers; immutable revision modules still back existing pickles.
 Package API, metadata, and generated-revision names are reserved. Archive modules
-live under a private prefix rather than shadowing top-level imports; a failed
-Spark distribution leaves the previous driver alias unchanged.
+live under a private prefix rather than shadowing top-level imports. Fallible
+local alias and bytecode preparation precedes distribution, so a locked local
+file cannot report failure after already publishing the new revision to workers.
+A distribution failure restores the previous driver alias; if restoring local
+state also fails, that secondary failure is logged without masking the original.
 As before, the driver package directory must be writable. The returned source
 path is revision-specific; workers do not need writable package installations.
 

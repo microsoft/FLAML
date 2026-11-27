@@ -27,7 +27,7 @@ from flaml.automl.ml import (
     train_estimator,
 )
 from flaml.automl.pipeline import make_automl_feature_transformer, make_automl_pipeline
-from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
+from flaml.automl.spark import DataFrame, Series, pd, psDataFrame, psSeries
 from flaml.automl.state import AutoMLState, SearchState
 from flaml.automl.task.factory import task_factory
 
@@ -1373,12 +1373,17 @@ class AutoML(BaseEstimator):
         ):
             dataset = self._state.X_train_all
             frame = dataset.train_data
+            if task.is_ts_forecastpanel():
+                frame = frame.sort_values(self._state.fit_kwargs["group_ids"] + [dataset.time_col, dataset.time_idx])
             if not train_full:
                 if "time_idx_cutoff" in training_info:
                     frame = frame.loc[frame[dataset.time_idx] <= training_info["time_idx_cutoff"]]
                 else:
                     frame = frame.iloc[: training_info["training_size"]]
                 if len(frame) != training_info["training_size"]:
+                    raise ValueError("The supplied forecast data cannot reconstruct the recorded training boundary.")
+                end_time = training_info.get("training_end_time")
+                if end_time is not None and pd.Timestamp(frame[dataset.time_col].iloc[-1]).isoformat() != end_time:
                     raise ValueError("The supplied forecast data cannot reconstruct the recorded training boundary.")
             self._state.X_train = TimeSeriesDataset(
                 frame.copy(), dataset.time_col, dataset.target_names, time_idx=dataset.time_idx
@@ -1388,7 +1393,12 @@ class AutoML(BaseEstimator):
             self._state.data_size_full = len(dataset.train_data)
             self._state.kf = None
         else:
-            if task.is_ts_forecast() and eval_method == "auto":
+            explicit_validation = (
+                isinstance(self._state.X_val, TimeSeriesDataset)
+                and self._state.X_val.test_data is not None
+                and not self._state.X_val.test_data.empty
+            )
+            if task.is_ts_forecast() and eval_method == "auto" and not explicit_validation:
                 eval_method = "holdout" if best.sample_size < len(self._y_train_all) else "cv"
             eval_method = self._decide_eval_method(eval_method, time_budget)
             self._prepare_data(eval_method, split_ratio, n_splits)
@@ -3184,6 +3194,10 @@ class AutoML(BaseEstimator):
                 }
                 if self._state.task.is_ts_forecastpanel():
                     training_info["time_idx_cutoff"] = int(dataset.train_data[dataset.time_idx].max())
+                else:
+                    training_info["training_end_time"] = pd.Timestamp(
+                        dataset.train_data[dataset.time_col].iloc[-1]
+                    ).isoformat()
             self._training_log.append(
                 self._iter_per_learner[estimator],
                 search_state.metric_for_logging,

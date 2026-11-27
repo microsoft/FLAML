@@ -168,22 +168,44 @@ def test_exact_fractional_literals_are_not_narrowed_to_integers(dtype_spark, fra
     assert sorted(row.value for row in converted.collect()) == sorted([1.0, float(fraction)])
 
 
-def test_ordinary_fractional_precision_is_validated_before_double_conversion(dtype_spark):
-    values = ["0.50000000000000001", "0.50000000000000002"]
-    frame = dtype_spark.sql("SELECT * FROM VALUES ('0.50000000000000001'), ('0.50000000000000002') AS input(value)")
+@pytest.mark.parametrize("padding", ["", "\t"])
+def test_ordinary_fractional_precision_is_validated_before_double_conversion(dtype_spark, padding):
+    values = [f"{padding}0.50000000000000001{padding}", f"{padding}0.50000000000000002{padding}"]
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('{values[0]}'), ('{values[1]}') AS input(value)")
     converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0)
     assert schema["value"] == "string"
     assert sorted(row.value for row in converted.collect()) == values
 
 
-@pytest.mark.parametrize("companion,expected_type", [("2", "double"), ("9007199254740993", "string")])
+@pytest.mark.parametrize(
+    "companion,fraction,expected_type",
+    [
+        ("2", "1.5", "double"),
+        ("9007199254740993", "1.5", "string"),
+        ("2", "0.50000000000000001", "string"),
+        ("2", "4503599627370496.5", "string"),
+    ],
+)
 def test_unsampled_fraction_widens_only_when_all_values_remain_exact(
-    dtype_spark, monkeypatch, companion, expected_type
+    dtype_spark, monkeypatch, companion, fraction, expected_type
 ):
-    values = ["1", companion, "1.5"]
-    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('1'), ('{companion}'), ('1.5') AS input(value)")
+    values = ["1", companion, fraction]
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('1'), ('{companion}'), ('{fraction}') AS input(value)")
     monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") == "1"))
     converted, schema = auto_convert_dtypes_spark(frame)
     assert schema["value"] == expected_type
     expected = values if expected_type == "string" else list(map(float, values))
     assert sorted(row.value for row in converted.collect()) == sorted(expected)
+
+
+@pytest.mark.parametrize("value", ["\t2\t", "3D", "4F", "0x1.0p2"])
+def test_sampled_integer_cast_never_silently_nulls_a_finite_value(dtype_spark, monkeypatch, value):
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('1'), ('{value}') AS input(value)")
+    monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") == "1"))
+    if value == "\t2\t":
+        converted, schema = auto_convert_dtypes_spark(frame, convert_threshold=1.0)
+        assert schema["value"] == "int"
+        assert sorted(row.value for row in converted.collect()) == [1, 2]
+    else:
+        with pytest.raises(ValueError, match="finite numeric values incompatible"):
+            auto_convert_dtypes_spark(frame, convert_threshold=1.0)

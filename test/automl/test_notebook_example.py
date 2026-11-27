@@ -20,12 +20,27 @@ except ImportError:
         pass
 
 
-from requests.exceptions import RequestException
+from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, HTTPError, Timeout
+from urllib3.exceptions import MaxRetryError, ProtocolError
+from urllib3.exceptions import TimeoutError as Urllib3TimeoutError
+
+_OPENML_AVAILABILITY_ERRORS = (
+    OpenMLServerException,
+    ServerError,
+    URLError,
+    TimeoutError,
+    ConnectionError,
+    Timeout,
+    HTTPError,
+    ChunkedEncodingError,
+    ContentDecodingError,
+    Urllib3TimeoutError,
+    MaxRetryError,
+    ProtocolError,
+)
 
 
 def test_automl(tmp_path, budget=10, dataset_format="dataframe", hpo_method=None):
-    import urllib3
-
     from flaml.automl.data import load_openml_dataset
 
     performance_check_budget = 600
@@ -45,13 +60,7 @@ def test_automl(tmp_path, budget=10, dataset_format="dataframe", hpo_method=None
         X_train, X_test, y_train, y_test = load_openml_dataset(
             dataset_id=1169, data_dir=artifact_path(__file__, "datasets"), dataset_format=dataset_format
         )
-    except (
-        OpenMLServerException,
-        RequestException,
-        urllib3.exceptions.ReadTimeoutError,
-        URLError,
-        ServerError,
-    ) as e:
+    except _OPENML_AVAILABILITY_ERRORS as e:
         pytest.skip(f"OpenML dataset is unavailable ({type(e).__name__}).")
     if budget is not None and budget > 0:
         X_train, y_train = X_train[:8192], y_train[:8192]
@@ -151,17 +160,59 @@ def test_notebook_cache_corruption_is_not_silently_accepted(tmp_path, monkeypatc
         test_automl(tmp_path)
 
 
-def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch):
-    from requests.exceptions import ConnectionError
+@pytest.mark.parametrize("example", ["dataset", "task"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "connection",
+        "request_timeout",
+        "socket_timeout",
+        "urllib_retry",
+        "urllib_timeout",
+        "invalid_url",
+        "missing_schema",
+    ],
+)
+def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch, example, failure):
+    from types import ModuleType
+
+    from requests.exceptions import ConnectionError, InvalidURL, MissingSchema, Timeout
+    from urllib3.exceptions import MaxRetryError, ProtocolError, ReadTimeoutError
 
     from flaml.automl import data
 
-    def unavailable(**kwargs):
-        raise ConnectionError("offline")
+    error = {
+        "connection": ConnectionError("offline"),
+        "request_timeout": Timeout("offline"),
+        "socket_timeout": TimeoutError("offline"),
+        "urllib_retry": MaxRetryError(None, "/", ProtocolError("offline")),
+        "urllib_timeout": ReadTimeoutError(None, "/", "offline"),
+        "invalid_url": InvalidURL("broken URL construction"),
+        "missing_schema": MissingSchema("broken URL construction"),
+    }[failure]
 
-    monkeypatch.setattr(data, "load_openml_dataset", unavailable)
-    with pytest.raises(pytest.skip.Exception):
-        test_automl(tmp_path)
+    def unavailable(**kwargs):
+        raise error
+
+    if example == "task":
+        monkeypatch.setitem(sys.modules, "openml", ModuleType("openml"))
+        monkeypatch.setattr(data, "load_openml_task", unavailable)
+        invoke = test_mlflow
+    else:
+        monkeypatch.setattr(data, "load_openml_dataset", unavailable)
+
+        def invoke():
+            return test_automl(tmp_path)
+
+    if failure in {"invalid_url", "missing_schema"}:
+        with pytest.raises(type(error)):
+            try:
+                invoke()
+            except pytest.skip.Exception as exc:
+                raise AssertionError("A request-construction error must not become an availability skip.") from exc
+    else:
+        with pytest.raises(pytest.skip.Exception):
+            invoke()
 
 
 def test_notebook_smoke_fits_and_reloads_without_network(tmp_path, monkeypatch):
@@ -197,7 +248,7 @@ def test_mlflow():
 
     try:
         X_train, X_test, y_train, y_test = load_openml_task(task_id=7592, data_dir=artifact_path(__file__, "datasets"))
-    except (OpenMLServerException, RequestException, URLError, ServerError) as e:
+    except _OPENML_AVAILABILITY_ERRORS as e:
         pytest.skip(f"OpenML task is unavailable ({type(e).__name__}).")
     """ import AutoML class from flaml package """
     from flaml import AutoML

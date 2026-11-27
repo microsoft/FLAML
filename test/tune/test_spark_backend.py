@@ -247,8 +247,8 @@ def test_worker_alias_imports_follow_publication_order_and_reverts(broadcast_fil
         requests = [archives[:1], archives[:2], archives]
         expected = [1, 2, 1]
     else:
-        requests = [archives[:2]]
-        expected = [2]
+        requests = [[archives[1], archives[2], archives[0]]]
+        expected = [1]
     script = """
 import importlib
 import json
@@ -357,6 +357,47 @@ def test_failed_distribution_does_not_publish_a_new_driver_alias(monkeypatch, br
         assert (driver / f"{name}.py").read_bytes() == alias
         assert importlib.import_module(qualified) is original
         assert original.value == 1
+    finally:
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
+
+
+@pytest.mark.parametrize("failure", ["alias", "bytecode"])
+def test_fallible_alias_preparation_does_not_publish_code_to_workers(monkeypatch, broadcast_files, failure):
+    utils, context, driver = broadcast_files
+    name = "_test_alias_preparation_failure"
+    qualified = f"flaml.tune.spark.{name}"
+    context.addPyFile.side_effect = monkeypatch.syspath_prepend
+    utils.broadcast_code("value = 1\n", name)
+    original = importlib.import_module(qualified)
+    alias_path = driver / f"{name}.py"
+    before = alias_path.read_bytes()
+    publish, unlink = utils._publish_code_file, utils.os.unlink
+    if failure == "alias":
+
+        def fail_alias(path, contents):
+            if Path(path) == alias_path:
+                raise PermissionError("alias locked")
+            return publish(path, contents)
+
+        monkeypatch.setattr(utils, "_publish_code_file", fail_alias)
+    else:
+        cache_path = Path(importlib.util.cache_from_source(str(alias_path)))
+        cache_path.parent.mkdir(exist_ok=True)
+        cache_path.write_bytes(b"old cache")
+
+        def fail_cache(path, *args, **kwargs):
+            if Path(path) == cache_path:
+                raise PermissionError("bytecode locked")
+            return unlink(path, *args, **kwargs)
+
+        monkeypatch.setattr(utils.os, "unlink", fail_cache)
+    try:
+        with pytest.raises(PermissionError, match="locked"):
+            utils.broadcast_code("value = 2\n", name)
+        assert (context.addPyFile.call_count, original.value) == (1, 1)
+        assert alias_path.read_bytes() == before
     finally:
         for key in list(sys.modules):
             if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):

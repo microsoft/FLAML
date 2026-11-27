@@ -438,8 +438,9 @@ class Featurization(TransformerMixin, SKLearnBaseEstimator):
 
                 task = task_factory(task)
             if task is not None and task.is_ts_forecast():
-                time_col = getattr(task, "time_col", None)
-                self.time_col_ = time_col if time_col in X else X.columns[0]
+                from flaml.automl.pipeline import _forecast_time_column
+
+                self.time_col_ = _forecast_time_column(task, X)
                 X = X.drop(columns=[self.time_col_])
 
         X, y, categorical_features, numerical_features = self.static_preprocess(X, y, fit=True)

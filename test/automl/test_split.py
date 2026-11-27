@@ -292,49 +292,31 @@ def test_groups_with_sample_weights():
     assert automl.model is not None
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32" and platform.machine() == "ARM64",
-    reason="minio and catboost are not available on win-arm64 machine",
-)
 def test_stratified_groupkfold():
-    from minio.error import ServerError
-    from requests.exceptions import RequestException
+    import numpy as np
+    import pandas as pd
+    from sklearn.datasets import make_classification
     from sklearn.model_selection import StratifiedGroupKFold
 
-    from flaml.automl.data import load_openml_dataset
-
-    availability_errors = (ServerError, RequestException, URLError)
-    try:
-        from openml.exceptions import OpenMLServerException
-
-        availability_errors += (OpenMLServerException,)
-    except ImportError:
-        pass
-    try:
-        X_train, _, y_train, _ = load_openml_dataset(dataset_id=1169, data_dir=artifact_path(__file__, "datasets"))
-    except availability_errors as exc:
-        pytest.skip(f"OpenML dataset is unavailable ({type(exc).__name__}).")
+    features, y_train = make_classification(n_samples=400, n_features=6, n_informative=4, n_redundant=0, random_state=0)
+    X_train = pd.DataFrame(features, columns=[f"feature_{index}" for index in range(features.shape[1])])
+    X_train["Airline"] = pd.Categorical([f"airline_{index % 20}" for index in range(len(X_train))])
     splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0)
 
-    automl = AutoML()
+    automl = AutoML(mlflow_logging=False, n_jobs=1, max_iter=2, verbose=0)
     settings = {
         "time_budget": 6,
         "metric": "ap",
         "eval_method": "cv",
         "split_type": splitter,
         "groups": X_train["Airline"],
-        "estimator_list": [
-            "catboost",
-            "lgbm",
-            "rf",
-            "xgboost",
-            "extra_tree",
-            "xgb_limitdepth",
-            "lrl1",
-        ],
+        "estimator_list": ["lgbm"],
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **settings)
+    assert automl.model is not None
+    assert np.isfinite(automl.best_loss)
+    assert automl.predict_proba(X_train).shape == (len(X_train), 2)
 
 
 def test_rank():

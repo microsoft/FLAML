@@ -714,10 +714,13 @@ def _eval_estimator(
     fit_kwargs={},
 ):
     if isinstance(eval_metric, str):
-        num_val_rows = len(X_val.test_data) if isinstance(X_val, TimeSeriesDataset) else X_val.shape[0]
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = 0 if X_val.test_data is None else len(X_val.test_data)
+        else:
+            num_val_rows = X_val.shape[0]
         if not num_val_rows:
             logger.warning("Skipping prediction for an empty validation partition.")
-            return np.inf, {"pred_time": 0.0}, 0.0
+            return np.inf, {"pred_time": 0.0}, 0.0, None
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
@@ -730,11 +733,8 @@ def _eval_estimator(
                 val_pred_y = val_pred_y.astype(str)
 
         if isinstance(X_val, TimeSeriesDataset):
-            num_val_rows = len(X_val.test_data)
             y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
             y_train = X_val.train_data[X_val.target_names].values.astype(val_pred_y.dtype)
-        else:
-            num_val_rows = X_val.shape[0]
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
@@ -752,7 +752,11 @@ def _eval_estimator(
             val_loss = np.inf
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
-        if log_training_metric:
+        if log_training_metric and not getattr(estimator, "_supports_in_sample_prediction", True):
+            logger.warning(
+                "Skipping training metric for %s: in-sample prediction is unsupported.", type(estimator).__name__
+            )
+        elif log_training_metric:
             # For time series forecasting, X_train may be a sampled dataset whose
             # test partition can be empty. Use the training partition from X_val
             # (which is the dataset used to define y_train above) to keep shapes

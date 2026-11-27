@@ -49,16 +49,37 @@ def test_feature_only_forecast_refit_is_target_free_and_returns_a_feature_frame(
     pd.testing.assert_frame_equal(with_labels, expected)
 
 
-def test_forecast_recipe_supports_unlabeled_scaling():
+@pytest.mark.parametrize("nonleading_time", [False, True])
+@pytest.mark.parametrize("initialization", ["recipe", "params"])
+def test_forecast_recipe_supports_unlabeled_scaling(nonleading_time, initialization):
     frame = pd.DataFrame(
         {"date": pd.date_range("2026-01-01", periods=6), "feature": np.arange(6.0), "target": range(6)}
     )
     source = Featurization(params={"fe.numerical": "scaler_standard"}).fit(TimeSeriesDataset(frame, "date", "target"))
-    recipe = Featurization(config=source.config, task="ts_forecast")
+    recipe = (
+        Featurization(config=source.config, task="ts_forecast")
+        if initialization == "recipe"
+        else Featurization(params={"fe.numerical": "scaler_standard"}, task="ts_forecast")
+    )
     X = frame.drop(columns="target")
+    if nonleading_time:
+        X = X[["feature", "date"]]
     transformed = recipe.fit_transform(X)
     np.testing.assert_allclose(transformed["feature"], (X["feature"] - X["feature"].mean()) / X["feature"].std(ddof=0))
     pd.testing.assert_series_equal(transformed["date"], X["date"])
+
+
+@pytest.mark.parametrize("with_labels", [False, True])
+def test_feature_only_forecast_transform_keeps_features_named_like_an_old_target(with_labels):
+    automl, X, _ = _forecast()
+    features = X.rename(columns={"y": "target"})
+    labels = np.arange(len(features)) if with_labels else None
+    pipeline = clone(automl.feature_transformer).fit(features, labels)
+    expected = pipeline.transform(features)
+    dataset = TimeSeriesDataset(features.assign(actual_target=np.arange(len(features))), "date", "actual_target")
+    actual = pipeline.transform(dataset)
+    pd.testing.assert_frame_equal(actual, expected)
+    assert "target" in actual
 
 
 def test_forecast_preprocessing_without_a_fitted_trial_has_an_actionable_error(monkeypatch):
@@ -238,6 +259,53 @@ def test_tabular_autofe_rejects_a_time_holdout_class_absent_from_training():
     )
     with pytest.raises(ValueError, match="every class.*training"):
         automl.fit(X, y)
+
+
+def test_tabular_autofe_rejects_a_class_deficient_trial_sample():
+    X = pd.DataFrame({"feature": np.arange(120.0)})
+    y = pd.Series(["A", "C"] * 35 + ["B"] * 20 + ["A", "B", "C"] * 10)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        split_type="time",
+        split_ratio=0.25,
+        eval_method="holdout",
+        retrain_full=False,
+        auto_augment=False,
+        sample=True,
+        min_sample_size=12,
+        metric="accuracy",
+        starting_points={
+            "rf": {"n_estimators": 4, "fe.selection": "null", "fe.extraction": "null", "FLAML_sample_size": 12}
+        },
+    )
+    with pytest.raises(ValueError, match="every class.*sampled training"):
+        automl.fit(X, y)
+
+
+def test_tabular_autofe_rejects_a_group_holdout_with_an_unseen_class():
+    X = pd.DataFrame({"feature": np.arange(30.0)})
+    y = pd.Series(np.repeat(["A", "B", "C"], 10))
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        split_type="group",
+        split_ratio=1 / 3,
+        eval_method="holdout",
+        retrain_full=False,
+        auto_augment=False,
+        metric="accuracy",
+    )
+    with pytest.raises(ValueError, match="every class.*training"):
+        automl.fit(X, y, groups=np.repeat(np.arange(3), 10))
 
 
 def test_unused_tft_structural_kwargs_do_not_change_the_forecast_task():

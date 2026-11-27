@@ -184,6 +184,13 @@ def test_ci_matrix_preserves_arm64_and_split_spark_jobs():
     }
     assert set(jobs["coverage"]["needs"]) == {"build", "spark"}
     assert "public-install" in jobs
+    test_step = next(step for step in jobs["build"]["steps"] if step.get("name") == "Test with pytest (notspark)")
+    assert test_step["env"]["PYTEST_FAULTHANDLER_TIMEOUT"] == (
+        "${{ runner.os == 'Windows' && matrix.python-version == '3.11' && '0' || '120' }}"
+    )
+    assert '-o "faulthandler_timeout=$PYTEST_FAULTHANDLER_TIMEOUT"' in test_step["run"]
+    assert "-p no:faulthandler" not in test_step["run"]
+    assert test_step["timeout-minutes"] == 180
     for job in jobs.values():
         for step in job["steps"]:
             if "uses" in step:

@@ -263,17 +263,37 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                 finally:
                     if os.path.exists(temporary):
                         os.unlink(temporary)
-            spark.sparkContext.addPyFile(archive_path)
-        _publish_code_file(alias_path, alias)
+        previous_alias = None
+        if os.path.exists(alias_path):
+            with open(alias_path, encoding="utf-8", newline="") as source:
+                previous_alias = source.read()
         cached_alias = importlib.util.cache_from_source(alias_path)
         if os.path.exists(cached_alias):
             os.unlink(cached_alias)
+        alias_prepared = False
+        try:
+            _publish_code_file(alias_path, alias)
+            alias_prepared = True
+            importlib.invalidate_caches()
+            # Complete fallible local preparation before making the revision visible to workers.
+            if spark_available:
+                spark.sparkContext.addPyFile(archive_path)
+        except BaseException:
+            if alias_prepared:
+                try:
+                    if previous_alias is None:
+                        os.unlink(alias_path)
+                    else:
+                        _publish_code_file(alias_path, previous_alias)
+                    importlib.invalidate_caches()
+                except Exception:
+                    logger.exception("Failed to restore the driver alias after custom-code publication failed.")
+            raise
         sys.modules.pop(f"flaml.tune.spark.{file_name}", None)
         if package is not None:
             package.__dict__.pop(file_name, None)
         _published_code_aliases.add(file_name)
         _published_code_revisions[file_name] = (digest, root, sequence, archive_path)
-        importlib.invalidate_caches()
 
     return custom_path
 

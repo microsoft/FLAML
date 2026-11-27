@@ -1080,8 +1080,9 @@ class GenericTask(Task):
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
                 )
+        self._autofe_classes = set(np.unique(y_train_all)) if disjoint_autofe else None
         if disjoint_autofe and eval_method == "holdout":
-            if set(np.unique(y_train_all)) != set(np.unique(y_train)):
+            if self._autofe_classes != set(np.unique(y_train)):
                 raise ValueError(
                     "AutoFE requires every class to be represented in training. "
                     "Use a stratified split or provide suitable validation data."
@@ -1443,4 +1444,12 @@ class GenericTask(Task):
 
     @staticmethod
     def prepare_sample_train_data(automlstate, sample_size):
-        return automlstate.prepare_sample_train_data(sample_size)
+        sampled = automlstate.prepare_sample_train_data(sample_size)
+        expected_classes = getattr(automlstate.task, "_autofe_classes", None)
+        if expected_classes is not None and sample_size < automlstate.data_size[0]:
+            if set(np.unique(sampled[1])) != expected_classes:
+                raise ValueError(
+                    "AutoFE requires every class to be represented in sampled training data. "
+                    "Increase min_sample_size or disable sampling."
+                )
+        return sampled

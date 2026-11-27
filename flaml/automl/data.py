@@ -906,7 +906,7 @@ def _spark_column(col_name: str):
 
 def _spark_decimal_key(column):
     """Normalize numeric text without first rounding it through a fixed-scale decimal."""
-    text = F.trim(column.cast("string"))
+    text = F.regexp_replace(column.cast("string"), r"^\s+|\s+$", "")
     valid = text.rlike(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
     pattern = r"^[+-]?(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$"
     whole = F.regexp_extract(text, pattern, 1)
@@ -940,7 +940,9 @@ def _spark_numeric_precision_loss(col_name: str):
     numeric = _spark_try_cast(col_name, "double")
     exact = F.expr(f"try_cast(`{escaped}` as decimal(38,18))")
     roundtrip = F.expr(f"try_cast(try_cast(`{escaped}` as double) as decimal(38,18))")
-    literal = F.trim(_spark_column(col_name)).rlike(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+    literal = F.regexp_replace(_spark_column(col_name), r"^\s+|\s+$", "").rlike(
+        r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$"
+    )
     finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
     return literal & (
         ~finite
@@ -1256,7 +1258,7 @@ def auto_convert_dtypes_spark(
             )
             if schema[name] in {"int", "bigint"}:
                 precision_loss = _spark_numeric_precision_loss(name)
-                fractional = _spark_decimal_key(_spark_column(name))["exponent"] < 0
+                fractional = F.coalesce(_spark_decimal_key(_spark_column(name))["exponent"] < 0, F.lit(False))
                 checks.extend(
                     [
                         F.max(
@@ -1264,11 +1266,11 @@ def auto_convert_dtypes_spark(
                         ).alias(f"wide_{index}"),
                         F.sum(
                             F.when(
-                                (finite & value.isNull() & (~fractional | precision_loss)) | (~finite & precision_loss),
+                                (finite & value.isNull() & ~fractional) | (~finite & precision_loss),
                                 1,
                             ).otherwise(0)
                         ).alias(f"invalid_{index}"),
-                        F.max(F.when(finite & fractional & value.isNull() & ~precision_loss, 1).otherwise(0)).alias(
+                        F.max(F.when(finite & fractional & value.isNull(), 1).otherwise(0)).alias(
                             f"fractional_{index}"
                         ),
                         F.max(F.when(precision_loss, 1).otherwise(0)).alias(f"lossy_{index}"),
@@ -1297,6 +1299,8 @@ def auto_convert_dtypes_spark(
                     )
                 if validation[f"fractional_{index}"]:
                     schema[name] = "string" if validation[f"lossy_{index}"] else "double"
+                    if schema[name] == "string":
+                        logger.warning("Column %r cannot be widened losslessly to double; preserving strings.", name)
                 elif validation[f"wide_{index}"]:
                     schema[name] = "bigint"
             elif schema[name] == "double" and validation[f"lossy_{index}"]:

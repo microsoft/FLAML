@@ -109,14 +109,17 @@ class TimeSeriesTask(Task):
     ):
         group_ids = state.fit_kwargs.get("group_ids")
         requested = getattr(state, "_requested_estimators", None)
-        if not group_ids and (requested is None or requested == "auto" or "tft" in requested):
+        missing_groups = group_ids is None or isinstance(group_ids, list) and not group_ids
+        if missing_groups and (requested is None or requested == "auto" or "tft" in requested):
             group_ids = (getattr(state, "fit_kwargs_by_estimator", None) or {}).get("tft", {}).get("group_ids")
-            if group_ids:
-                state.fit_kwargs["group_ids"] = group_ids.copy()
+        if group_ids is not None and not isinstance(group_ids, list):
+            raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
         if group_ids or self.is_ts_forecastpanel():
-            if not isinstance(group_ids, list) or not group_ids:
+            if not group_ids:
                 raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
             self.name = TS_FORECASTPANEL
+            self.group_ids = group_ids.copy()
+            state.fit_kwargs["group_ids"] = group_ids.copy()
         automl._df = True
         # first beat the data into a TimeSeriesDataset shape
         if isinstance(X_train_all, TimeSeriesDataset):

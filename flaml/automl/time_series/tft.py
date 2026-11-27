@@ -24,6 +24,8 @@ from flaml.automl.time_series.ts_model import TimeSeriesEstimator
 class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
     """The class for tuning Temporal Fusion Transformer"""
 
+    _supports_in_sample_prediction = False
+
     @classmethod
     def search_space(cls, data, task, pred_horizon, **params):
         space = {
@@ -202,6 +204,15 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             raise ValueError("TFT prediction indexes exceed the signed integer range.")
         if supplied_index and future[time_idx].tolist() != expected:
             raise ValueError("TFT requires consecutive prediction indexes immediately after training.")
+        timestamps = future[self.time_col]
+        if timestamps.isna().any() or not timestamps.is_monotonic_increasing or timestamps.duplicated().any():
+            raise ValueError("TFT prediction timestamps must be nonmissing and strictly increasing.")
+        try:
+            starts_after_training = timestamps.iloc[0] > history[self.time_col].iloc[-1]
+        except TypeError as exc:
+            raise ValueError("TFT prediction timestamps must use a timezone compatible with training.") from exc
+        if not starts_after_training:
+            raise ValueError("TFT prediction timestamps must be after the group's training history.")
         history_dates = history[self.time_col].drop_duplicates()
         frequency = pd.infer_freq(history_dates) if len(history_dates) >= 3 else None
         if frequency is not None:
@@ -221,24 +232,40 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             decoder[time_idx] = pd.Series(pd.NA, index=decoder.index, dtype="Int64")
         by = self.group_ids[0] if len(self.group_ids) == 1 else self.group_ids
         training = self.data.groupby(by, observed=True, sort=False)
+        parameters = getattr(self._model, "dataset_parameters", None) or {}
+        max_lag = max((lag for lags in (parameters.get("lags") or {}).values() for lag in lags), default=0)
         encoders = []
         for key, positions in decoder.groupby(by, observed=True, sort=False).indices.items():
             try:
                 history = training.get_group(key).sort_values(time_idx)
             except KeyError as exc:
                 raise ValueError(f"TFT prediction contains an unknown group: {key!r}") from exc
+            history[self.time_col] = pd.to_datetime(history[self.time_col])
             future = decoder.iloc[positions].sort_values(time_idx if supplied_index else self.time_col)
             decoder.loc[future.index, time_idx] = self._prediction_indexes(history, future, time_idx, supplied_index)
             decoder.loc[future.index, self.target_names[0]] = history[self.target_names[0]].iloc[-1]
-            encoders.append(history.tail(self.max_encoder_length))
+            encoders.append(history.tail(self.max_encoder_length + max_lag))
         decoder[time_idx] = decoder[time_idx].astype("int64")
         return pd.concat([*encoders, decoder.sort_values(self.group_ids + [time_idx])], ignore_index=True)
+
+    def _prediction_dataset(self, data, horizon):
+        from pytorch_forecasting import TimeSeriesDataSet
+
+        # Changing the fitted maximum can reorder known/unknown lagged features.
+        return TimeSeriesDataSet.from_parameters(
+            self._model.dataset_parameters,
+            data,
+            predict=True,
+            stop_randomization=True,
+            min_prediction_length=horizon,
+            min_prediction_idx=int(data[getattr(self, "time_idx", "time_idx")].max()) - horizon + 1,
+        )
 
     def predict(self, X):
         time_idx = getattr(self, "time_idx", "time_idx")
         ids = self.group_ids + [self.time_col]
         if isinstance(X, TimeSeriesDataset):
-            request = X.X_val if len(X.test_data) > 0 else X.X_train
+            request = X.X_val if X.test_data is not None else X.X_train.iloc[:0]
         else:
             request = X
         decoder = request.drop(columns=self.target_names, errors="ignore").copy().reset_index(drop=True)
@@ -247,17 +274,42 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         if decoder.empty:
             return pd.Series(dtype=float, index=pd.MultiIndex.from_frame(decoder[ids]))
         data = self._prediction_frame(decoder, time_idx)
-        result = self._model.predict(data, return_index=True)
-        values, index = (result.output, result.index) if hasattr(result, "output") else result[:2]
-        values = values.detach().cpu().numpy() if hasattr(values, "detach") else np.asarray(values)
-        values = values.reshape(len(index), -1)
-        forecasts = {
-            coordinates[:-1] + (int(coordinates[-1]) + offset,): value
+        grouped = decoder.groupby(self.group_ids, observed=True, sort=False)[time_idx]
+        lengths, starts = grouped.transform("size"), grouped.transform("min")
+        cohorts = pd.DataFrame({"horizon": lengths, "start": starts}).drop_duplicates()
+        forecasts = {}
+        # A fitted maximum decoder length must not consume recent encoder rows in shorter requests.
+        for horizon, origin in cohorts.itertuples(index=False, name=None):
+            requested = decoder.loc[(lengths == horizon) & (starts == origin)]
+            subset = data.merge(requested[self.group_ids].drop_duplicates(), on=self.group_ids, how="inner", sort=False)
+            prediction_data = self._prediction_dataset(subset, int(horizon))
+            result = self._model.predict(prediction_data, return_index=True)
+            values, index = (result.output, result.index) if hasattr(result, "output") else result[:2]
+            values = values.detach().cpu().numpy() if hasattr(values, "detach") else values
+            if len(values) != len(index):
+                raise ValueError("TFT predictions do not match their returned group indexes.")
+            origins = {
+                row[:-1]: int(row[-1])
+                for row in requested.groupby(self.group_ids, observed=True, sort=False)[time_idx]
+                .min()
+                .reset_index()
+                .itertuples(index=False, name=None)
+            }
+            seen = set()
             for coordinates, predictions in zip(
                 index[self.group_ids + [time_idx]].itertuples(index=False, name=None), values
-            )
-            for offset, value in enumerate(predictions)
-        }
+            ):
+                group, start = coordinates[:-1], int(coordinates[-1])
+                if group in seen or origins.get(group) != start:
+                    raise ValueError("TFT decoder must start immediately after each group's training history.")
+                seen.add(group)
+                predictions = predictions.detach().cpu().numpy() if hasattr(predictions, "detach") else predictions
+                predictions = np.asarray(predictions).reshape(-1)
+                if len(predictions) != horizon:
+                    raise ValueError("TFT decoder length must match the requested forecast horizon.")
+                forecasts.update({group + (start + offset,): value for offset, value in enumerate(predictions)})
+            if seen != set(origins):
+                raise ValueError("TFT did not produce every requested panel coordinate.")
         keys = decoder[self.group_ids + [time_idx]].itertuples(index=False, name=None)
         try:
             predictions = [forecasts[key] for key in keys]

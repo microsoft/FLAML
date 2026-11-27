@@ -3,10 +3,12 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import datetime
+import functools
 import os
 import sys
 import time
 from collections import defaultdict
+from importlib import import_module
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -29,7 +31,15 @@ from flaml.fabric.telemetry import log_telemetry
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
 from .logger import logger, logger_formatter
-from .result import DEFAULT_METRIC
+from .result import (
+    AUTO_RESULT_KEYS,
+    CONFIG_PREFIX,
+    DEFAULT_EXPERIMENT_INFO_KEYS,
+    DEFAULT_METRIC,
+    DONE,
+    RESULT_DUPLICATE,
+    SHOULD_CHECKPOINT,
+)
 from .trial import Trial
 
 try:
@@ -53,6 +63,39 @@ _running_trial = None
 _training_iteration = 0
 
 INCUMBENT_RESULT = "__incumbent_result__"
+_REPORT_METADATA = frozenset(
+    (*AUTO_RESULT_KEYS, *DEFAULT_EXPERIMENT_INFO_KEYS, DONE, RESULT_DUPLICATE, SHOULD_CHECKPOINT)
+)
+
+
+def _reported_trial_metrics(result):
+    return {
+        key: value for key, value in result.items() if key not in _REPORT_METADATA and not key.startswith(CONFIG_PREFIX)
+    }
+
+
+def _ray_trial_id():
+    for module_name, context_api in (
+        ("ray.tune", True),
+        ("ray.train", True),
+        ("ray.air.session", False),
+        ("ray.tune", False),
+    ):
+        try:
+            source = import_module(module_name)
+        except ImportError:
+            continue
+        if context_api:
+            context = getattr(source, "get_context", None)
+            if context is None:
+                continue
+            source = context()
+        getter = getattr(source, "get_trial_id", None)
+        if getter is not None:
+            trial_id = getter()
+            if trial_id is not None:
+                return trial_id
+    raise RuntimeError("Unable to identify the active Ray Tune trial with the installed Ray APIs.")
 
 
 class ExperimentAnalysis(EA):
@@ -201,18 +244,25 @@ def report(_metric=None, **kwargs):
     if _use_ray:
         try:
             from ray import __version__ as ray_version
-
-            if ray_version.startswith("1."):
-                from ray import tune
-
-                return tune.report(_metric, **kwargs)
-            else:  # ray>=2
-                from ray.air import session
-
-                return session.report(metrics={"metric": _metric, **kwargs})
         except ImportError:
             # calling tune.report() outside tune.run()
             return
+        if ray_version.startswith("1."):
+            from ray import tune
+
+            return tune.report(_metric, **kwargs)
+        metrics = dict(kwargs)
+        if _metric is not None:
+            metrics[DEFAULT_METRIC] = _metric
+        for module_name in ("ray.air.session", "ray.tune", "ray.train"):
+            try:
+                source = import_module(module_name)
+            except ImportError:
+                continue
+            reporter = getattr(source, "report", None)
+            if reporter is not None:
+                return reporter(metrics=metrics)
+        raise ImportError("No compatible Ray reporting API is available; install a supported ray[tune] version.")
     result = kwargs
     if _metric is not None:
         result[DEFAULT_METRIC] = _metric
@@ -708,12 +758,9 @@ def run(
         if _internal_mlflow and mlflow_integration.autolog:
             wrapped_evaluation = evaluation_function
 
-            def ray_evaluation(config):
-                from ray import tune as ray_tune
-
-                get_context = getattr(ray_tune, "get_context", None)
-                trial_id = get_context().get_trial_id() if get_context is not None else ray_tune.get_trial_id()
-                return wrapped_evaluation(config, _flaml_trial_id=trial_id)
+            @functools.wraps(wrapped_evaluation)
+            def ray_evaluation(*args, **kwargs):
+                return wrapped_evaluation(*args, _flaml_trial_id=_ray_trial_id(), **kwargs)
 
             evaluation_function = ray_evaluation
         _use_ray = True
@@ -739,9 +786,9 @@ def run(
             if _internal_mlflow:
                 for trial in analysis.trials:
                     if trial.last_result:
-                        mlflow_integration.record_trial(trial.last_result, trial, metric)
-                mlflow_finalized = True
+                        mlflow_integration.record_trial(_reported_trial_metrics(trial.last_result), trial, metric)
                 mlflow_integration.log_tune(analysis, metric)
+                mlflow_finalized = True
             return analysis
         finally:
             _use_ray = old_use_ray
@@ -888,7 +935,9 @@ def run(
                                     report(_metric=result)
                             if _internal_mlflow and trial_to_run.last_result is not None:
                                 mlflow_integration.record_trial(
-                                    result if result is not None else trial_to_run.last_result, trial_to_run, metric
+                                    result if result is not None else _reported_trial_metrics(trial_to_run.last_result),
+                                    trial_to_run,
+                                    metric,
                                 )
                             _runner.stop_trial(trial_to_run)
                         num_failures = 0
@@ -901,8 +950,8 @@ def run(
                     analysis.search_space = config
 
                     if _internal_mlflow:
-                        mlflow_finalized = True
                         mlflow_integration.log_tune(analysis, metric)
+                        mlflow_finalized = True
                         # try:
                         #     _best_config = analysis.best_config
                         # except Exception:
@@ -977,7 +1026,9 @@ def run(
                         report(_metric=result)
                 if _internal_mlflow and trial_to_run.last_result is not None:
                     mlflow_integration.record_trial(
-                        result if result is not None else trial_to_run.last_result, trial_to_run, metric
+                        result if result is not None else _reported_trial_metrics(trial_to_run.last_result),
+                        trial_to_run,
+                        metric,
                     )
                 _runner.stop_trial(trial_to_run)
                 num_failures = 0
@@ -999,8 +1050,8 @@ def run(
         )
         analysis.search_space = config
         if _internal_mlflow:
-            mlflow_finalized = True
             mlflow_integration.log_tune(analysis, metric)
+            mlflow_finalized = True
             if analysis.best_run_id is not None:
                 logger.info(f"Best MLflow run name: {analysis.best_run_name}")
                 logger.info(f"Best MLflow run id: {analysis.best_run_id}")

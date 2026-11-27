@@ -377,15 +377,26 @@ def test_adoption_cleans_only_unrecorded_owned_empty_runs(tracking):
     for name, tags in {
         "recorded": {**integration.extra_tag, "flaml.trial_id": "recorded"},
         "stopped": {**integration.extra_tag, "flaml.trial_id": "stopped"},
+        "failed": {**integration.extra_tag, "flaml.trial_id": "failed"},
+        "artifact": {**integration.extra_tag, "flaml.trial_id": "artifact"},
+        "annotated": {**integration.extra_tag, "flaml.trial_id": "annotated"},
+        "retagged": {**integration.extra_tag, "flaml.trial_id": "retagged"},
         "unrelated": {"flaml.owner_id": "other", "flaml.trial_id": "stopped"},
     }.items():
         created[name] = tracking.create_run(
             integration.experiment_id, start_time=int((integration.start_time + 1) * 1000), tags=tags
         ).info.run_id
+    tracking.set_terminated(created["failed"], "FAILED")
+    tracking.log_text(created["artifact"], "retain this diagnostic", "trace.txt")
+    tracking.set_tag(created["annotated"], "mlflow.note.content", "retain this explanation")
+    tracking.set_tag(created["retagged"], "extra_tag.sid", "caller-authored value")
     integration.adopt_children()
     assert tracking.get_run(created["recorded"]).info.lifecycle_stage == "active"
     assert tracking.get_run(created["stopped"]).info.lifecycle_stage == "deleted"
     assert tracking.get_run(created["unrelated"]).info.lifecycle_stage == "active"
+    for name in ("failed", "artifact", "annotated", "retagged"):
+        assert tracking.get_run(created[name]).info.lifecycle_stage == "active"
+    assert tracking.list_artifacts(created["artifact"])[0].path == "trace.txt"
 
 
 def test_manual_tune_winner_uses_trial_identity_after_resultless_trial(tracking):
@@ -402,16 +413,19 @@ def test_manual_tune_winner_uses_trial_identity_after_resultless_trial(tracking)
         assert result.best_run_id == integration.manual_run_ids[0]
 
 
-def test_tune_report_results_are_logged_without_returning_a_value(tracking):
+@pytest.mark.parametrize("autolog", [False, True])
+def test_tune_report_results_are_logged_without_returning_a_value(tracking, autolog):
     from flaml import tune
 
     def objective(config):
-        tune.report(loss=config["x"])
+        tune.report(loss=config["x"], converged=True, note="not a metric")
 
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
     with mlflow.start_run() as parent:
         result = tune.run(
             objective,
-            config={"x": tune.choice([1, 2])},
+            config={"x": tune.choice([1, 2]), "enabled": True},
             metric="loss",
             mode="min",
             num_samples=2,
@@ -422,7 +436,9 @@ def test_tune_report_results_are_logged_without_returning_a_value(tracking):
         assert result.best_run_id
         best = tracking.get_run(result.best_run_id)
         assert best.data.tags["flaml.trial_id"] == result.best_trial.trial_id
-        assert best.data.metrics["loss"] == result.best_result["loss"]
+        assert best.data.metrics == {"loss": result.best_result["loss"]}
+        assert best.data.params["x"] == str(result.best_config["x"])
+        assert best.data.params["enabled"] == "True"
         assert mlflow.active_run().info.run_id == parent.info.run_id
 
 
@@ -526,8 +542,10 @@ def test_completed_model_futures_are_observed_once_and_released(tracking):
 
 
 @pytest.mark.parametrize("autolog", [False, True])
-def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, autolog):
+@pytest.mark.parametrize("context_api", ["tune", "train", "air", "legacy"])
+def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, autolog, context_api):
     import importlib
+    import inspect
     import sys
     from types import ModuleType
 
@@ -545,18 +563,52 @@ def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, au
         nonlocal current_trial
         for trial in trials:
             current_trial = trial.trial_id
-            trial.last_result = objective(trial.config)
+            arguments = (
+                {"checkpoint_dir": "ray-checkpoint"}
+                if "checkpoint_dir" in inspect.signature(objective).parameters
+                else {}
+            )
+            result = objective(trial.config, **arguments)
+            trial.last_result = (
+                {**result, "done": True, "config": trial.config, "config/x": trial.config["x"], "timestamp": 1234}
+                if result is not None
+                else None
+            )
         return returned
 
     ray = ModuleType("ray")
-    ray.tune = SimpleNamespace(run=ray_run, get_context=lambda: SimpleNamespace(get_trial_id=lambda: current_trial))
+    ray.tune = SimpleNamespace(run=ray_run)
+    ray.train = SimpleNamespace()
+    air = ModuleType("ray.air")
+    air.session = SimpleNamespace()
+
+    def get_context():
+        return SimpleNamespace(get_trial_id=lambda: current_trial)
+
+    if context_api == "tune":
+        ray.tune.get_context = get_context
+    elif context_api == "train":
+        ray.train.get_context = get_context
+    elif context_api == "air":
+        air.session.get_trial_id = lambda: current_trial
+    else:
+        ray.tune.get_trial_id = lambda: current_trial
     monkeypatch.setitem(sys.modules, "ray", ray)
+    monkeypatch.setitem(sys.modules, "ray.tune", ray.tune)
+    monkeypatch.setitem(sys.modules, "ray.train", ray.train)
+    monkeypatch.setitem(sys.modules, "ray.air", air)
+    monkeypatch.setitem(sys.modules, "ray.air.session", air.session)
     monkeypatch.setattr(module, "ray_available", False)
+
+    def objective(config, checkpoint_dir=None):
+        assert checkpoint_dir == "ray-checkpoint"
+        return {"loss": 1.0} if config["x"] else None
+
     if autolog:
         mlflow.autolog(log_models=False, silent=True)
     with mlflow.start_run() as parent:
         result = tune.run(
-            lambda config: {"loss": 1.0} if config["x"] else None,
+            objective,
             config={"x": tune.choice([0, 1])},
             metric="loss",
             mode="min",
@@ -568,4 +620,191 @@ def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, au
         best = tracking.get_run(result.best_run_id)
         assert best.data.tags["flaml.trial_id"] == "winner"
         assert best.data.tags["mlflow.parentRunId"] == parent.info.run_id
-        assert best.data.metrics["loss"] == 1.0
+        assert best.data.metrics == {"loss": 1.0}
+
+
+@pytest.mark.parametrize("api", ["air", "tune", "train"])
+@pytest.mark.parametrize("anonymous", [None, 1.25])
+def test_ray_report_does_not_inject_empty_metrics_or_disappear(monkeypatch, api, anonymous):
+    import importlib
+    import sys
+    from types import ModuleType
+
+    from flaml.tune.result import DEFAULT_METRIC
+
+    module = importlib.import_module("flaml.tune.tune")
+    received = []
+
+    def report(*, metrics):
+        received.append(metrics)
+
+    ray = ModuleType("ray")
+    ray.__version__ = "2.4.0" if api == "air" else "2.49.2"
+    ray.tune, ray.train = SimpleNamespace(), SimpleNamespace()
+    air = ModuleType("ray.air")
+    air.session = SimpleNamespace()
+    if api == "air":
+        air.session = SimpleNamespace(report=report)
+    elif api == "tune":
+        ray.tune.report = report
+    else:
+        ray.train.report = report
+    monkeypatch.setitem(sys.modules, "ray", ray)
+    monkeypatch.setitem(sys.modules, "ray.tune", ray.tune)
+    monkeypatch.setitem(sys.modules, "ray.train", ray.train)
+    monkeypatch.setitem(sys.modules, "ray.air", air)
+    monkeypatch.setitem(sys.modules, "ray.air.session", air.session)
+    monkeypatch.setattr(module, "_use_ray", True)
+    module.report(anonymous, loss=0.5)
+    expected = {"loss": 0.5}
+    if anonymous is not None:
+        expected[DEFAULT_METRIC] = anonymous
+    assert received == [expected]
+
+
+@pytest.mark.parametrize("objective_fails", [False, True])
+def test_remote_trial_uses_driver_tracking_store_and_restores_worker_store(
+    tracking, monkeypatch, tmp_path, objective_fails
+):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    driver_uri = mlflow.get_tracking_uri()
+    with mlflow.start_run() as driver:
+
+        def objective(config):
+            assert mlflow.get_tracking_uri() == driver_uri
+            mlflow.log_metric("loss", 1.0)
+            if objective_fails:
+                raise ValueError("objective failed in the driver store")
+            return mlflow.active_run().info.run_id
+
+        wrapped = _mlflow_wrapper(objective, driver.info.experiment_id, autolog=True)
+    worker_uri = (tmp_path / "worker-tracking").as_uri()
+    mlflow.set_tracking_uri(worker_uri)
+    worker_client = mlflow.tracking.MlflowClient()
+    try:
+        with mlflow.start_run(experiment_id="0") as worker:
+            monkeypatch.setattr("socket.gethostname", lambda: "remote-worker")
+            if objective_fails:
+                with pytest.raises(ValueError, match="objective failed in the driver store"):
+                    wrapped({}, _flaml_trial_id="remote")
+            else:
+                child_id = wrapped({}, _flaml_trial_id="remote")
+                assert tracking.get_run(child_id).data.metrics["loss"] == 1.0
+            assert mlflow.get_tracking_uri() == worker_uri
+            assert mlflow.active_run().info.run_id == worker.info.run_id
+            assert worker_client.get_run(worker.info.run_id).info.status == "RUNNING"
+        children = tracking.search_runs(
+            [driver.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{driver.info.run_id}'"
+        )
+        assert len(children) == 1
+        assert children[0].info.status == ("FAILED" if objective_fails else "FINISHED")
+        assert children[0].data.metrics["loss"] == 1.0
+    finally:
+        mlflow.set_tracking_uri(driver_uri)
+
+
+@pytest.mark.parametrize("objective_fails", [False, True])
+def test_objective_error_survives_fluent_run_termination_failure(tracking, monkeypatch, objective_fails):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    def objective(config):
+        if objective_fails:
+            raise ValueError("primary objective error")
+        return 1.0
+
+    end_run = mlflow.tracking.fluent.end_run
+
+    def failing_end(*args, **kwargs):
+        end_run(*args, **kwargs)
+        raise RuntimeError("secondary termination error")
+
+    with mlflow.start_run() as parent:
+        wrapped = _mlflow_wrapper(objective, parent.info.experiment_id, autolog=True)
+        with monkeypatch.context() as scoped:
+            scoped.setattr(mlflow.tracking.fluent, "end_run", failing_end)
+            error = ValueError if objective_fails else RuntimeError
+            message = "primary objective error" if objective_fails else "secondary termination error"
+            with pytest.raises(error, match=message):
+                wrapped({})
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_failed_parent_summary_still_adopts_completed_trial_metrics(tracking, monkeypatch):
+    from flaml import tune
+
+    log_metric = mlflow.tracking.MlflowClient.log_metric
+
+    def fail_summary(self, run_id, key, value, *args, **kwargs):
+        if key == "num_child_runs":
+            raise RuntimeError("parent summary unavailable")
+        return log_metric(self, run_id, key, value, *args, **kwargs)
+
+    monkeypatch.setattr(mlflow.tracking.MlflowClient, "log_metric", fail_summary)
+    mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        with pytest.raises(RuntimeError, match="parent summary unavailable"):
+            tune.run(lambda config: {"loss": 1.0}, config={"x": 1}, metric="loss", num_samples=1, verbose=0)
+        children = tracking.search_runs(
+            [parent.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+        )
+        assert len(children) == 1
+        assert children[0].data.metrics["loss"] == 1.0
+        assert len(tracking.get_metric_history(children[0].info.run_id, "loss")) == 1
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+@pytest.mark.parametrize("autolog", [False, True])
+def test_resultless_tune_does_not_require_a_best_trial(tracking, autolog):
+    from flaml import tune
+
+    if autolog:
+        mlflow.autolog(log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        result = tune.run(lambda config: None, config={"x": 1}, metric="loss", num_samples=1, verbose=0)
+        assert result.best_run_id is None
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_reported_then_errored_trial_is_not_recorded_as_an_empty_success(tracking):
+    from flaml import tune
+
+    def objective(config):
+        tune.report(loss=0.5)
+        return {}
+
+    with mlflow.start_run() as parent:
+        result = tune.run(objective, config={"x": 1}, metric="loss", num_samples=1, verbose=0)
+        assert result.trials[0].status == "ERROR"
+        children = tracking.search_runs(
+            [parent.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+        )
+        assert not children
+        assert result.best_run_id is None
+
+
+@pytest.mark.parametrize("termination_fails", [False, True])
+def test_failed_fluent_activation_terminates_its_owned_run_without_masking_the_error(
+    tracking, monkeypatch, termination_fails
+):
+    from flaml.fabric.mlflow import _mlflow_wrapper
+
+    created = []
+    create_run = mlflow.MlflowClient.create_run
+
+    def remember_run(self, *args, **kwargs):
+        run = create_run(self, *args, **kwargs)
+        created.append(run.info.run_id)
+        return run
+
+    objective = Mock()
+    wrapped = _mlflow_wrapper(objective, "0", autolog=True)
+    monkeypatch.setattr(mlflow.MlflowClient, "create_run", remember_run)
+    monkeypatch.setattr(mlflow, "start_run", Mock(side_effect=ValueError("activation failed")))
+    if termination_fails:
+        monkeypatch.setattr(mlflow.MlflowClient, "set_terminated", Mock(side_effect=RuntimeError("termination failed")))
+    with pytest.raises(ValueError, match="activation failed"):
+        wrapped({})
+    objective.assert_not_called()
+    assert len(created) == 1
+    assert tracking.get_run(created[0]).info.status == ("RUNNING" if termination_fails else "FAILED")

@@ -3,7 +3,7 @@
 import os
 import pickle
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -100,6 +100,26 @@ class TestConcat:
 
 
 class TestLoadOpenmlDataset:
+    @pytest.mark.parametrize("published", [False, True])
+    def test_locked_cache_publication_preserves_existing_data_and_removes_temporary_files(
+        self, tmp_path, monkeypatch, published
+    ):
+        import pickle
+
+        from flaml.automl import data
+
+        path = tmp_path / "cache.pkl"
+        if published:
+            path.write_bytes(pickle.dumps({"original": True}))
+        monkeypatch.setattr(data.os, "replace", Mock(side_effect=PermissionError("locked")))
+        if published:
+            data._write_openml_cache(path, {"new": True})
+            assert pickle.loads(path.read_bytes()) == {"original": True}
+        else:
+            with pytest.raises(PermissionError, match="locked"):
+                data._write_openml_cache(path, {"new": True})
+        assert not list(tmp_path.glob(".openml-*.tmp"))
+
     @pytest.mark.parametrize("dataset_format", ["dataframe", "array"])
     def test_fallback_parses_numeric_nominal_labels_without_openml(self, tmp_path, monkeypatch, dataset_format):
         import gzip
