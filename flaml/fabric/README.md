@@ -251,6 +251,11 @@ including unclosed nested runs, and uses Ray's normal trial-failure handling whe
 running natively. An errored trial's
 intermediate score cannot displace a successful winner. Failed trials remain in
 analysis history, including native-Ray-backed analyses.
+Ray 1.13's [upstream `with_parameters` wrapper](https://github.com/ray-project/ray/blob/ray-1.13.0/python/ray/tune/utils/trainable.py#L399-L425)
+discards function return values.
+Use report-style objectives with that wrapper, or a return-preserving closure
+for returned metrics and the `{}` failure signal. FLAML does not inspect or
+rewrite a third-party callable's closure to recover a discarded return value.
 Trial artifacts use that trial's fitted model, and
 fit completion waits for dependent artifact-environment writes.
 Fluent model writes stay on the run-owning thread; only client-addressed metadata

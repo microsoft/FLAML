@@ -573,7 +573,14 @@ def test_native_ray_analysis_retains_trial_association(tracking, monkeypatch, au
             )
             result = objective(trial.config, **arguments)
             trial.last_result = (
-                {**result, "done": True, "config": trial.config, "config/x": trial.config["x"], "timestamp": 1234}
+                {
+                    **result,
+                    "done": True,
+                    "config": trial.config,
+                    "config/x": trial.config["x"],
+                    "timestamp": 1234,
+                    "warmup_time": 0.25,
+                }
                 if result is not None
                 else None
             )
@@ -1019,18 +1026,19 @@ def test_unrecorded_owned_runs_retain_user_lineage_and_names(tracking, monkeypat
 
 
 @pytest.mark.parametrize("reported", [False, True])
-def test_explicit_time_objective_is_not_removed_as_framework_metadata(tracking, reported):
+@pytest.mark.parametrize("metric", ["time_total_s", "warmup_time"])
+def test_explicit_time_objective_is_not_removed_as_framework_metadata(tracking, reported, metric):
     from flaml import tune
 
     def objective(config):
         if reported:
-            tune.report(time_total_s=2.5)
+            tune.report(**{metric: 2.5})
         else:
-            return {"time_total_s": 2.5}
+            return {metric: 2.5}
 
     with mlflow.start_run():
-        result = tune.run(objective, config={"x": 1}, metric="time_total_s", mode="min", num_samples=1, verbose=0)
-        assert tracking.get_run(result.best_run_id).data.metrics == {"time_total_s": 2.5}
+        result = tune.run(objective, config={"x": 1}, metric=metric, mode="min", num_samples=1, verbose=0)
+        assert tracking.get_run(result.best_run_id).data.metrics == {metric: 2.5}
 
 
 @pytest.mark.parametrize("scalar", [False, True])

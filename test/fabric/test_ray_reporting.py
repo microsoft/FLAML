@@ -65,6 +65,14 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
         else:
             return metrics
 
+    if Version(ray.__version__) < Version("2") and (not reported or failure == "empty"):
+        # Ray 1.x with_parameters discards returns; only its report-style contract can be exercised.
+        def trainable(config):
+            return objective(config, offset=0.0)
+
+    else:
+        trainable = ray_tune.with_parameters(objective, offset=0.0)
+
     previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
@@ -77,7 +85,7 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
                 mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(experiment_id="0") as parent:
                 result = tune.run(
-                    ray_tune.with_parameters(objective, offset=0.0),
+                    trainable,
                     config={"x": tune.choice([1, 2]), "enabled": True},
                     points_to_evaluate=[{"x": 1, "enabled": True}, {"x": 2, "enabled": True}],
                     metric="loss",

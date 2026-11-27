@@ -71,7 +71,15 @@ _trial_run_context = ContextVar("flaml_trial_run_context", default=None)
 INCUMBENT_RESULT = "__incumbent_result__"
 _MLFLOW_RUN_ID = "__flaml_mlflow_run_id"
 _REPORT_METADATA = frozenset(
-    (*AUTO_RESULT_KEYS, *DEFAULT_EXPERIMENT_INFO_KEYS, DONE, RESULT_DUPLICATE, SHOULD_CHECKPOINT, _MLFLOW_RUN_ID)
+    (
+        *AUTO_RESULT_KEYS,
+        *DEFAULT_EXPERIMENT_INFO_KEYS,
+        DONE,
+        RESULT_DUPLICATE,
+        SHOULD_CHECKPOINT,
+        _MLFLOW_RUN_ID,
+        "warmup_time",
+    )
 )
 
 
