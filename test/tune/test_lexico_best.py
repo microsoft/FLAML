@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from flaml import tune
@@ -69,6 +70,66 @@ def _analysis(results, metrics, modes, tolerances):
             ["score", "time"],
             ["max", "min"],
             {"score": "45%", "time": 0},
+            1,
+        ),
+        # "max" objective on a boundary that is exact in binary: 0.025 == 0.1 / 4.
+        (
+            [{"score": 0.1, "time": 5.0}, {"score": 0.025, "time": 1.0}, {"score": 0.024, "time": 0.0}],
+            ["score", "time"],
+            ["max", "min"],
+            {"score": "75%", "time": 0},
+            1,
+        ),
+        # Positive "min" values on a decimal boundary: 0.05151 is within 1% of 0.051, 0.05152 is not.
+        (
+            [{"loss": 0.051, "time": 5.0}, {"loss": 0.05151, "time": 1.0}, {"loss": 0.05152, "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "1%", "time": 0},
+            1,
+        ),
+        # Large "max" values must not overflow: 6e306 is within 45% of 1e307, 1e306 is not.
+        (
+            [{"score": 1e307, "time": 5.0}, {"score": 6e306, "time": 1.0}, {"score": 1e306, "time": 0.0}],
+            ["score", "time"],
+            ["max", "min"],
+            {"score": "45%", "time": 0},
+            1,
+        ),
+        # Large "min" values must not overflow: 3e307 is not within 100% of 1e307.
+        (
+            [{"loss": 1e307, "time": 5.0}, {"loss": 3e307, "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "100%", "time": 0},
+            0,
+        ),
+        # float16 values must not overflow: 20000 is not within 10% of 10000.
+        (
+            [{"loss": np.float16(10000), "time": 5.0}, {"loss": np.float16(20000), "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            0,
+        ),
+        # int8 values must not overflow in abs(): -120 is within 10% of -128, -100 is not.
+        (
+            [
+                {"loss": np.int8(-128), "time": 5.0},
+                {"loss": np.int8(-120), "time": 1.0},
+                {"loss": np.int8(-100), "time": 0.0},
+            ],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Python integers beyond float precision: 2**70 + 2**60 is within 10% of 2**70, 2**71 is not.
+        (
+            [{"loss": 2**70, "time": 5.0}, {"loss": 2**70 + 2**60, "time": 1.0}, {"loss": 2**71, "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
             1,
         ),
         # Infinite best "max" value: only the infinite values are kept.

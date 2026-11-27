@@ -3,10 +3,13 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import datetime
+import math
+import numbers
 import os
 import sys
 import time
 from collections import defaultdict
+from fractions import Fraction
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -48,6 +51,41 @@ _running_trial = None
 _training_iteration = 0
 
 INCUMBENT_RESULT = "__incumbent_result__"
+
+
+def _percentage_tolerance_bound(best, percentage):
+    """Return the largest value within best + |best| * percentage / 100 for a minimized objective.
+
+    The values are minimized, so a "max" objective has negative values here. Taking the percentage of the
+    absolute best value loosens the bound for negative values too. The bound is computed exactly, so no
+    intermediate step overflows. A float is kept if it is within the bound either as stored or as printed, so
+    exact boundaries such as 0.025 for "75%" of 0.1 and 0.05151 for "1%" of 0.051 are both kept.
+    """
+    if isinstance(best, numbers.Integral):
+        # Promote NumPy integers, so that abs() cannot overflow.
+        best = int(best)
+    else:
+        best = float(best)
+        if not math.isfinite(best):
+            return best
+    if not math.isfinite(percentage):
+        return best + abs(best) * percentage / 100
+    ratio = Fraction(repr(percentage)) / 100
+    if isinstance(best, int):
+        return math.floor(best + abs(best) * ratio)
+    bounds = []
+    for to_fraction in (Fraction, lambda value: Fraction(repr(value))):
+        exact_best = to_fraction(best)
+        exact_bound = exact_best + abs(exact_best) * ratio
+        try:
+            bound = float(exact_bound)
+        except OverflowError:
+            # Every finite float is within the bound.
+            return sys.float_info.max if exact_bound > 0 else -math.inf
+        if to_fraction(bound) > exact_bound:
+            bound = math.nextafter(bound, -math.inf)
+        bounds.append(bound)
+    return max(bounds)
 
 
 class ExperimentAnalysis(EA):
@@ -107,13 +145,7 @@ class ExperimentAnalysis(EA):
                 tolerance_bound = f_best[k_metric] + k_tolerance
             else:
                 percentage = float(k_tolerance.replace("%", ""))
-                # The values are minimized, so a "max" objective has negative values here. Take the percentage
-                # of the absolute best value, so that it loosens the bound for negative values too.
-                tolerance_bound = (
-                    f_best[k_metric] + abs(f_best[k_metric]) * percentage / 100
-                    if np.isfinite(f_best[k_metric])
-                    else f_best[k_metric]
-                )
+                tolerance_bound = _percentage_tolerance_bound(f_best[k_metric], percentage)
 
             feasible_index_filter = np.where(feasible_value <= max(tolerance_bound, k_target))[0]
             feasible_index = feasible_index.take(feasible_index_filter)
