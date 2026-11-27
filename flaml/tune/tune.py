@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from decimal import Decimal
 from fractions import Fraction
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -59,20 +60,22 @@ def _percentage_tolerance_bound(best, percentage):
     The values are minimized, so a "max" objective has negative values here. Taking the percentage of the
     absolute best value loosens the bound for negative values too. The bound is computed exactly, so no
     intermediate step overflows. A float is kept if it is within the bound either as stored or as printed, so
-    exact boundaries such as 0.025 for "75%" of 0.1 and 0.05151 for "1%" of 0.051 are both kept.
+    exact boundaries such as 0.025 for "75%" of 0.1 and 0.05151 for "1%" of 0.051 are both kept. For integers,
+    fractions and decimals the exact bound itself is returned, since the other values need not be integers.
     """
     if isinstance(best, numbers.Integral):
         # Promote NumPy integers, so that abs() cannot overflow.
         best = int(best)
-    else:
+    elif not isinstance(best, numbers.Rational) and not (isinstance(best, Decimal) and best.is_finite()):
         best = float(best)
         if not math.isfinite(best):
             return best
     if not math.isfinite(percentage):
-        return best + abs(best) * percentage / 100
+        return float(best) + abs(float(best)) * percentage / 100
     ratio = Fraction(repr(percentage)) / 100
-    if isinstance(best, int):
-        return math.floor(best + abs(best) * ratio)
+    if not isinstance(best, float):
+        exact_best = Fraction(best)
+        return exact_best + abs(exact_best) * ratio
     bounds = []
     for to_fraction in (Fraction, lambda value: Fraction(repr(value))):
         exact_best = to_fraction(best)

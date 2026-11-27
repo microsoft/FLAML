@@ -1,3 +1,6 @@
+from decimal import Decimal
+from fractions import Fraction
+
 import numpy as np
 import pytest
 
@@ -127,6 +130,46 @@ def _analysis(results, metrics, modes, tolerances):
         # Python integers beyond float precision: 2**70 + 2**60 is within 10% of 2**70, 2**71 is not.
         (
             [{"loss": 2**70, "time": 5.0}, {"loss": 2**70 + 2**60, "time": 1.0}, {"loss": 2**71, "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Integer best with fractional values: 21/20 is within 10% of 1, 6/5 is not.
+        (
+            [{"loss": 1, "time": 5.0}, {"loss": Fraction(21, 20), "time": 1.0}, {"loss": Fraction(6, 5), "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Integer best with decimal values: 1.05 is within 10% of 1, 1.2 is not.
+        (
+            [{"loss": 1, "time": 5.0}, {"loss": Decimal("1.05"), "time": 1.0}, {"loss": Decimal("1.2"), "time": 0.0}],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Fraction best on the exact boundary: 11/30 is within 10% of 1/3, 2/5 is not.
+        (
+            [
+                {"loss": Fraction(1, 3), "time": 5.0},
+                {"loss": Fraction(11, 30), "time": 1.0},
+                {"loss": Fraction(2, 5), "time": 0.0},
+            ],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Decimal best beyond float precision: -0.90000000000000000009 is within 10% of -1.0000000000000000001.
+        (
+            [
+                {"loss": Decimal("-1.0000000000000000001"), "time": 5.0},
+                {"loss": Decimal("-0.90000000000000000009"), "time": 1.0},
+                {"loss": Decimal("-0.9"), "time": 0.0},
+            ],
             ["loss", "time"],
             ["min", "min"],
             {"loss": "10%", "time": 0},
