@@ -175,6 +175,44 @@ def _analysis(results, metrics, modes, tolerances):
             {"loss": "10%", "time": 0},
             1,
         ),
+        # Fraction best with float values: 1.1 is within 10% of 1 as printed, a float or a fraction above it is not.
+        (
+            [
+                {"loss": Fraction(1), "time": 5.0},
+                {"loss": 1.1, "time": 2.0},
+                {"loss": Fraction(11, 10) + Fraction(1, 10**30), "time": 1.0},
+                {"loss": float(np.nextafter(1.1, 2)), "time": 0.0},
+            ],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10%", "time": 0},
+            1,
+        ),
+        # Decimal "max" values beyond the context precision: 4.5000000000000000000000000054 is within 10% of
+        # 5.000000000000000000000000006, 4.5000000000000000000000000053 is not.
+        (
+            [
+                {"acc": Decimal("5.000000000000000000000000006"), "time": 5.0},
+                {"acc": Decimal("4.5000000000000000000000000054"), "time": 1.0},
+                {"acc": Decimal("4.5000000000000000000000000053"), "time": 0.0},
+            ],
+            ["acc", "time"],
+            ["max", "min"],
+            {"acc": "10%", "time": 0},
+            1,
+        ),
+        # Percentage with more digits than a float holds: 1.100000000000000001 is within 10.0000000000000001% of 1.
+        (
+            [
+                {"loss": Decimal(1), "time": 5.0},
+                {"loss": Decimal("1.100000000000000001"), "time": 1.0},
+                {"loss": Decimal("1.100000000000000002"), "time": 0.0},
+            ],
+            ["loss", "time"],
+            ["min", "min"],
+            {"loss": "10.0000000000000001%", "time": 0},
+            1,
+        ),
         # Infinite best "max" value: only the infinite values are kept.
         (
             [{"acc": float("inf"), "time": 5.0}, {"acc": float("inf"), "time": 4.0}, {"acc": 5.0, "time": 1.0}],

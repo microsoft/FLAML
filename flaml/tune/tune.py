@@ -54,41 +54,59 @@ _training_iteration = 0
 INCUMBENT_RESULT = "__incumbent_result__"
 
 
-def _percentage_tolerance_bound(best, percentage):
-    """Return the largest value within best + |best| * percentage / 100 for a minimized objective.
+def _negate(value):
+    # Negating a Decimal rounds it to the context precision, copy_negate() keeps every digit.
+    return value.copy_negate() if isinstance(value, Decimal) else -value
+
+
+def _largest_float_within(exact_bound, to_fraction):
+    """Return the largest float whose to_fraction(float) is at most exact_bound."""
+    try:
+        bound = float(exact_bound)
+    except OverflowError:
+        # Every finite float is within the bound.
+        return sys.float_info.max if exact_bound > 0 else -math.inf
+    if to_fraction(bound) > exact_bound:
+        bound = math.nextafter(bound, -math.inf)
+    return bound
+
+
+def _percentage_tolerance_bounds(best, tolerance):
+    """Return the bounds of best + |best| * percentage / 100 for a minimized objective.
 
     The values are minimized, so a "max" objective has negative values here. Taking the percentage of the
-    absolute best value loosens the bound for negative values too. The bound is computed exactly, so no
-    intermediate step overflows. A float is kept if it is within the bound either as stored or as printed, so
-    exact boundaries such as 0.025 for "75%" of 0.1 and 0.05151 for "1%" of 0.051 are both kept. For integers,
-    fractions and decimals the exact bound itself is returned, since the other values need not be integers.
+    absolute best value loosens the bound for negative values too. The bound is computed exactly from the digits
+    of the percentage, so no intermediate step overflows. A float is kept if it is within the bound either as
+    stored or as printed, so exact boundaries such as 0.025 for "75%" of 0.1 and 0.05151 for "1%" of 0.051 are
+    both kept. Returns the bound for integer, fraction and decimal values and the bound for float values, which
+    differ only when the best value is not a float.
     """
+    text = tolerance.replace("%", "")
+    percentage = float(text)
     if isinstance(best, numbers.Integral):
         # Promote NumPy integers, so that abs() cannot overflow.
         best = int(best)
     elif not isinstance(best, numbers.Rational) and not (isinstance(best, Decimal) and best.is_finite()):
         best = float(best)
         if not math.isfinite(best):
-            return best
+            return best, best
     if not math.isfinite(percentage):
-        return float(best) + abs(float(best)) * percentage / 100
-    ratio = Fraction(repr(percentage)) / 100
+        bound = float(best) + abs(float(best)) * percentage / 100
+        return bound, bound
+    try:
+        # Keep the digits of the percentage that a float cannot hold.
+        ratio = Fraction(text) / 100
+    except ValueError:
+        ratio = Fraction(repr(percentage)) / 100
+    to_fractions = (Fraction, lambda value: Fraction(repr(value)))
     if not isinstance(best, float):
-        exact_best = Fraction(best)
-        return exact_best + abs(exact_best) * ratio
-    bounds = []
-    for to_fraction in (Fraction, lambda value: Fraction(repr(value))):
-        exact_best = to_fraction(best)
-        exact_bound = exact_best + abs(exact_best) * ratio
-        try:
-            bound = float(exact_bound)
-        except OverflowError:
-            # Every finite float is within the bound.
-            return sys.float_info.max if exact_bound > 0 else -math.inf
-        if to_fraction(bound) > exact_bound:
-            bound = math.nextafter(bound, -math.inf)
-        bounds.append(bound)
-    return max(bounds)
+        exact_bound = Fraction(best) + abs(Fraction(best)) * ratio
+        return exact_bound, max(_largest_float_within(exact_bound, to_fraction) for to_fraction in to_fractions)
+    bound = max(
+        _largest_float_within(to_fraction(best) + abs(to_fraction(best)) * ratio, to_fraction)
+        for to_fraction in to_fractions
+    )
+    return bound, bound
 
 
 class ExperimentAnalysis(EA):
@@ -130,14 +148,16 @@ class ExperimentAnalysis(EA):
         for time_index in range(length):
             for objective, mode in zip(metrics, modes):
                 histories[objective].append(
-                    results[keys[time_index]][objective] if mode == "min" else -results[keys[time_index]][objective]
+                    results[keys[time_index]][objective]
+                    if mode == "min"
+                    else _negate(results[keys[time_index]][objective])
                 )
         obj_initial = self.lexico_objectives["metrics"][0]
         feasible_index = np.array([*range(len(histories[obj_initial]))])
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
             k_values = np.array(histories[k_metric])
             k_target = (
-                -self.lexico_objectives["targets"][k_metric]
+                _negate(self.lexico_objectives["targets"][k_metric])
                 if k_mode == "max"
                 else self.lexico_objectives["targets"][k_metric]
             )
@@ -145,12 +165,18 @@ class ExperimentAnalysis(EA):
             f_best[k_metric] = np.min(feasible_value)
             k_tolerance = self.lexico_objectives["tolerances"][k_metric]
             if not isinstance(k_tolerance, str):
-                tolerance_bound = f_best[k_metric] + k_tolerance
+                feasible_mask = feasible_value <= max(f_best[k_metric] + k_tolerance, k_target)
             else:
-                percentage = float(k_tolerance.replace("%", ""))
-                tolerance_bound = _percentage_tolerance_bound(f_best[k_metric], percentage)
+                exact_bound, float_bound = _percentage_tolerance_bounds(f_best[k_metric], k_tolerance)
+                if feasible_value.dtype == object:
+                    is_float = np.array([isinstance(value, (float, np.floating)) for value in feasible_value])
+                else:
+                    is_float = feasible_value.dtype.kind == "f"
+                feasible_mask = np.where(
+                    is_float, feasible_value <= max(float_bound, k_target), feasible_value <= max(exact_bound, k_target)
+                )
 
-            feasible_index_filter = np.where(feasible_value <= max(tolerance_bound, k_target))[0]
+            feasible_index_filter = np.where(feasible_mask)[0]
             feasible_index = feasible_index.take(feasible_index_filter)
         best_trial = trials[feasible_index[-1]]
         return best_trial
