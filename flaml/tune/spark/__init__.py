@@ -20,24 +20,36 @@ def _archive_publication(path):
 
 
 def _resolve_code_alias(module):
-    from flaml.tune.spark.utils import _broadcast_code_lock, _published_code_revisions
+    from flaml.tune.spark import utils
 
-    with _broadcast_code_lock:
+    with utils._broadcast_code_lock:
         name = module.__name__.rsplit(".", 1)[-1]
-        if name in _published_code_revisions:
-            publication = _published_code_revisions[name]
-            if publication is None:
-                raise ModuleNotFoundError(f"Custom module {name!r} has no successful publication.")
-            revision = f"_flaml_custom_{name}_{publication[0]}"
+        source = vars(module).get("__file__", "")
+        state_exists, committed = utils._read_publication(os.path.dirname(source), name)
+        publisher = name in utils._published_code_revisions
+        if not state_exists and publisher:
+            state_exists, committed = utils._read_publication(os.path.dirname(utils.__file__), name)
+        if publisher:
+            if state_exists:
+                revision = committed["revision"] if committed is not None else None
+            else:
+                publication = utils._published_code_revisions[name]
+                revision = f"_flaml_custom_{name}_{publication[0]}" if publication is not None else None
         else:
-            revision = vars(module)["_flaml_initial_revision"]
-            sequence = vars(module)["_flaml_publication_sequence"]
+            if state_exists:
+                revision = committed["revision"] if committed is not None else None
+                sequence = committed["sequence"] if committed is not None else -1
+            else:
+                revision = vars(module)["_flaml_initial_revision"]
+                sequence = vars(module)["_flaml_publication_sequence"]
             for path in sys.path:
                 publication = _archive_publication(path)
-                if publication and publication[1] == name and publication[0] > sequence:
+                if publication and publication[1] == name and publication[0] > sequence and os.path.isfile(path):
                     sequence = publication[0]
                     revision = f"_flaml_custom_{name}_{publication[2]}"
-        return importlib.import_module(f"{__name__}.{revision}")
+        if revision is None:
+            raise ModuleNotFoundError(f"Custom module {name!r} has no successful publication.")
+    return importlib.import_module(f"{__name__}.{revision}")
 
 
 class _CodeAlias(ModuleType):

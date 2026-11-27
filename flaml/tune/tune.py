@@ -8,8 +8,10 @@ import os
 import sys
 import time
 from collections import defaultdict
+from contextlib import contextmanager
 from contextvars import ContextVar
 from importlib import import_module
+from numbers import Number
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
@@ -64,10 +66,12 @@ _verbose = 0
 _running_trial = None
 _training_iteration = 0
 _worker_report_context = ContextVar("flaml_worker_report_context", default=None)
+_trial_run_context = ContextVar("flaml_trial_run_context", default=None)
 
 INCUMBENT_RESULT = "__incumbent_result__"
+_MLFLOW_RUN_ID = "__flaml_mlflow_run_id"
 _REPORT_METADATA = frozenset(
-    (*AUTO_RESULT_KEYS, *DEFAULT_EXPERIMENT_INFO_KEYS, DONE, RESULT_DUPLICATE, SHOULD_CHECKPOINT)
+    (*AUTO_RESULT_KEYS, *DEFAULT_EXPERIMENT_INFO_KEYS, DONE, RESULT_DUPLICATE, SHOULD_CHECKPOINT, _MLFLOW_RUN_ID)
 )
 
 
@@ -83,25 +87,50 @@ class _SparkTrialResult(NamedTuple):
     trial_id: str
     result: object
     last_report: Optional[dict]
+    mlflow_run_id: Optional[str] = None
+
+
+@contextmanager
+def _capture_trial_run(trial_id):
+    context = {"trial_id": str(trial_id) if trial_id is not None else None, "run_id": None}
+    token = _trial_run_context.set(context)
+    try:
+        yield context
+    finally:
+        _trial_run_context.reset(token)
 
 
 def _evaluate_spark_trial(evaluation_function, config, trial_id, evaluation_kwargs):
     reports = {"last": None}
     token = _worker_report_context.set(reports)
     try:
-        result = evaluation_function(config, **evaluation_kwargs)
-        return _SparkTrialResult(trial_id, result, reports["last"])
+        with _capture_trial_run(trial_id) as attempt:
+            result = evaluation_function(config, **evaluation_kwargs)
+            return _SparkTrialResult(trial_id, result, reports["last"], attempt["run_id"])
     finally:
         _worker_report_context.reset(token)
+
+
+def _report_spark_result(trial, result):
+    try:
+        if isinstance(result, dict):
+            report(**result)
+        else:
+            report(_metric=result)
+    except StopIteration:
+        if not trial.is_finished():
+            raise
 
 
 def _isolate_nested_reporting(function):
     @functools.wraps(function)
     def wrapped(*args, **kwargs):
         token = _worker_report_context.set(None)
+        run_token = _trial_run_context.set(None)
         try:
             return function(*args, **kwargs)
         finally:
+            _trial_run_context.reset(run_token)
             _worker_report_context.reset(token)
 
     return wrapped
@@ -298,6 +327,9 @@ def report(_metric=None, **kwargs):
         except ImportError:
             # calling tune.report() outside tune.run()
             return
+        attempt = _trial_run_context.get()
+        if attempt is not None and attempt["run_id"] is not None:
+            kwargs[_MLFLOW_RUN_ID] = attempt["run_id"]
         if ray_version.startswith("1."):
             from ray import tune
 
@@ -807,12 +839,25 @@ def run(
             from ray import tune
         except ImportError:
             raise ImportError("Failed to import ray tune. " "Please install ray[tune] or set use_ray=False")
-        if _internal_mlflow and mlflow_integration.autolog:
+        if callable(evaluation_function) and not isinstance(evaluation_function, type):
             wrapped_evaluation = evaluation_function
+            bind_trial_id = _internal_mlflow and mlflow_integration.autolog
 
             @functools.wraps(wrapped_evaluation)
             def ray_evaluation(*args, **kwargs):
-                return wrapped_evaluation(*args, _flaml_trial_id=_ray_trial_id(), **kwargs)
+                trial_id = _ray_trial_id() if bind_trial_id else None
+                with _capture_trial_run(trial_id) as attempt:
+                    if bind_trial_id:
+                        kwargs["_flaml_trial_id"] = trial_id
+                    result = wrapped_evaluation(*args, **kwargs)
+                    if isinstance(result, dict) and not result:
+                        raise RuntimeError("FLAML evaluation returned an empty result; the trial failed.")
+                    if attempt["run_id"] is not None:
+                        if isinstance(result, Number):
+                            result = {DEFAULT_METRIC: result}
+                        if isinstance(result, dict):
+                            result = {**result, _MLFLOW_RUN_ID: attempt["run_id"]}
+                    return result
 
             evaluation_function = ray_evaluation
         _use_ray = True
@@ -843,7 +888,10 @@ def run(
                 for trial in analysis.trials:
                     if trial.last_result:
                         mlflow_integration.record_trial(
-                            _reported_trial_metrics(trial.last_result, metric), trial, metric
+                            _reported_trial_metrics(trial.last_result, metric),
+                            trial,
+                            metric,
+                            run_id=trial.last_result.get(_MLFLOW_RUN_ID),
                         )
                 mlflow_integration.log_tune(analysis, metric)
                 mlflow_finalized = True
@@ -984,26 +1032,23 @@ def run(
                             result = outcome.result
                             trial_to_run = trials_by_id[outcome.trial_id]
                             _runner.running_trial = trial_to_run
+                            result_reported = False
                             if outcome.last_report is not None:
-                                report(**outcome.last_report)
-                            if result is not None:
-                                if isinstance(result, dict):
-                                    if result:
-                                        logger.info(f"Brief result: {result}")
-                                        report(**result)
-                                    else:
-                                        # When the result returned is an empty dict, set the trial status to error
-                                        trial_to_run.set_status(Trial.ERROR)
-                                else:
-                                    logger.info("Brief result: {metric: result}")
-                                    report(_metric=result)
+                                _report_spark_result(trial_to_run, outcome.last_report)
+                            if isinstance(result, dict) and not result:
+                                trial_to_run.set_status(Trial.ERROR)
+                            elif result is not None and not trial_to_run.is_finished():
+                                logger.info(f"Brief result: {result}")
+                                _report_spark_result(trial_to_run, result)
+                                result_reported = True
                             if _internal_mlflow and trial_to_run.last_result is not None:
                                 mlflow_integration.record_trial(
                                     result
-                                    if result is not None
+                                    if result_reported
                                     else _reported_trial_metrics(trial_to_run.last_result, metric),
                                     trial_to_run,
                                     metric,
+                                    run_id=outcome.mlflow_run_id,
                                 )
                             _runner.stop_trial(trial_to_run)
                         num_failures = 0

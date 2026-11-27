@@ -860,6 +860,7 @@ class TestAdoptChildren:
         empty_run = MagicMock()
         empty_run.info.run_id = "empty_run"
         empty_run.info.status = "FINISHED"
+        empty_run.info.lifecycle_stage = "active"
         empty_run.info.start_time = (time.time() + 10) * 1000
         empty_run.data.params = {}
         empty_run.data.metrics = {}
@@ -868,6 +869,7 @@ class TestAdoptChildren:
         empty_run.inputs = None
         integration.mlflow_client.get_run.return_value = empty_run
         integration.mlflow_client.list_artifacts.return_value = []
+        integration.mlflow_client.search_runs.return_value = []
 
         with patch.object(mlflow, "search_runs", return_value=[empty_run]):
             integration.adopt_children()

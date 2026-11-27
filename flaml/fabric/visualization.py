@@ -62,6 +62,7 @@ def _get_tune_df(analysis: ExperimentAnalysis):
     conf_cols = [col for col in df.columns if isinstance(col, str) and col.startswith("config/")]
     df = df.drop(columns=conf_cols)
     df.attrs["trial_start_times"] = timing
+    df.attrs["trial_statuses"] = [getattr(trial, "status", None) for trial in analysis.trials]
     return df
 
 
@@ -252,6 +253,8 @@ def plot_optimization_history(result) -> go.Figure:
     scores = df["score"]
     valid_scores = pd.Series(scores, dtype=float)
     valid_scores = valid_scores.where(np.isfinite(valid_scores))
+    if "trial_statuses" in df.attrs:
+        valid_scores = valid_scores.where(pd.Series(df.attrs["trial_statuses"], index=df.index) != "ERROR")
     best_scores = (valid_scores.cummax() if comp is max else valid_scores.cummin()).ffill()
 
     loss_fig = go.Scatter(x=df.index, y=df["score"], name="score", mode="markers")

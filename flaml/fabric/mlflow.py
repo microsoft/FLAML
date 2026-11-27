@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import mlflow
 import pandas as pd
-from mlflow.entities import Metric, Param, RunTag
+from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, autologging_is_disabled
 from packaging.requirements import Requirement
@@ -319,6 +319,10 @@ def _isolated_worker_mlflow_state(outcome):
                 os.environ[name] = value
 
     set_stack([])
+    if callable(getattr(last, "set", None)):
+        last.set(None)
+    else:
+        fluent._last_active_run_id = None
     os.environ.pop("MLFLOW_RUN_ID", None)
     try:
         yield
@@ -370,7 +374,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     driver_tracking_uri = mlflow.get_tracking_uri()
 
     @contextmanager
-    def trial_run(tags):
+    def trial_run(tags, outcome):
         from mlflow.tracking import fluent
 
         client = mlflow.MlflowClient()
@@ -386,8 +390,14 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
         status = "FAILED"
         try:
             active = mlflow.start_run(run_id=created.info.run_id, nested=True)
+            if tags.get("flaml.trial_id") is not None:
+                from flaml.tune.tune import _trial_run_context
+
+                attempt = _trial_run_context.get()
+                if attempt is not None and attempt["trial_id"] == tags["flaml.trial_id"]:
+                    attempt["run_id"] = created.info.run_id
             yield active
-            status = "FINISHED"
+            status = "FAILED" if outcome["failed"] else "FINISHED"
         finally:
             primary = sys.exc_info()[1]
             errors = []
@@ -434,12 +444,10 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
             tags = dict(extra_tags or {})
             if _flaml_trial_id is not None:
                 tags["flaml.trial_id"] = str(_flaml_trial_id)
-            run = trial_run(tags) if autolog else nullcontext()
-            with run as active:
+            run = trial_run(tags, outcome) if autolog else nullcontext()
+            with run:
                 result = evaluation_func(*args, **kwargs)
                 outcome["failed"] = isinstance(result, dict) and not result
-            if outcome["failed"] and active is not None:
-                mlflow.MlflowClient().set_terminated(active.info.run_id, status="FAILED")
             return result
 
     return wrapped
@@ -501,6 +509,7 @@ class MLflowIntegration:
         self.best_run_id = None
         self.child_counter = 0
         self.infos = []
+        self._recorded_trials = []
         self.manual_run_ids = []
         self.manual_run_ids_by_trial = {}
         self._adopted_run_ids = set()
@@ -587,7 +596,9 @@ class MLflowIntegration:
             from flaml.tune.analysis import ExperimentAnalysis
 
             eligible = ExperimentAnalysis()
-            eligible.trials = getattr(result, "trials", [])
+            eligible.trials = [
+                trial for trial in getattr(result, "trials", []) if getattr(trial, "status", None) != "ERROR"
+            ]
             eligible.default_metric = metric or getattr(result, "default_metric", None)
             eligible.default_mode = getattr(result, "default_mode", None)
             best_trial = (
@@ -598,6 +609,12 @@ class MLflowIntegration:
             self.best_iteration = next(
                 (index for index, trial in enumerate(eligible.trials) if trial is best_trial), None
             )
+        recorded_index = next(
+            (index for index, trial in enumerate(getattr(self, "_recorded_trials", ())) if trial is best_trial), None
+        )
+        if recorded_index is not None:
+            self.best_iteration = recorded_index
+        self._best_trial = best_trial
         trial_id = getattr(best_trial, "trial_id", None)
         self.best_trial_id = str(trial_id) if isinstance(trial_id, (str, int)) else None
 
@@ -673,9 +690,11 @@ class MLflowIntegration:
         self.mlflow_client.log_batch(run_id=target_id, metrics=_metrics, params=[], tags=_tags)
         return f"Successfully copy_mlflow_run run_id {src_id} to run_id {target_id}"
 
-    def record_trial(self, result, trial, metric):
+    def record_trial(self, result, trial, metric, *, run_id=None):
         if getattr(trial, "status", None) == "ERROR":
             return
+        if run_id is not None and (not isinstance(run_id, str) or not run_id):
+            raise ValueError("The accepted MLflow run ID must be a nonempty string.")
         if isinstance(result, dict):
             metrics = flatten_dict(result)
             metric_name = str(list(metrics.keys()))
@@ -707,8 +726,11 @@ class MLflowIntegration:
         if isinstance(trial_id, (str, int)):
             info["trial_id"] = str(trial_id)
             info["tags"]["flaml.trial_id"] = str(trial_id)
+        if run_id is not None:
+            info["run_id"] = run_id
 
         self.infos.append(info)
+        self._recorded_trials.append(trial)
 
         if not self.autolog and not self.manual_log:
             return
@@ -742,10 +764,24 @@ class MLflowIntegration:
             )
             if best_mlflow_run_id is None:
                 return
-            info = next((item for item in self.infos if item.get("trial_id") == self.best_trial_id), None)
-            config = info["params"] if info is not None else analysis.best_config
-            metrics = info["metrics"] if info is not None else flatten_dict(analysis.best_result)
-            mlflow.log_params(config["ml"] if "ml" in config else config)
+            info = (
+                next((item for item in self.infos if item.get("trial_id") == self.best_trial_id), None)
+                if self.best_trial_id is not None
+                else (
+                    self.infos[self.best_iteration]
+                    if self.best_iteration is not None and self.best_iteration < len(self.infos)
+                    else None
+                )
+            )
+            if info is not None:
+                config, metrics = info["params"], info["metrics"]
+            else:
+                config = self._best_trial.config if self._best_trial is not None else analysis.best_config
+                config = config["ml"] if "ml" in config else config
+                metrics = flatten_dict(
+                    self._best_trial.last_result if self._best_trial is not None else analysis.best_result
+                )
+            mlflow.log_params(config)
             if metric in metrics:
                 mlflow.log_metric("best_" + metric, metrics[metric])
             best_mlflow_run_name = self.mlflow_client.get_run(best_mlflow_run_id).info.run_name
@@ -1149,36 +1185,54 @@ class MLflowIntegration:
         return f"Successfully _log_info_to_run to run_id {run_id}"
 
     def _is_empty_placeholder(self, run):
-        if run.data.params or run.data.metrics or getattr(run.info, "status", None) != "FINISHED":
-            return False
-        initial_name = run.data.tags.get("flaml.initial_run_name")
-        if initial_name is None or run.data.tags.get("mlflow.runName") != initial_name:
-            return False
-        if run.data.tags.get("flaml.initial_system_tags") != _system_tag_fingerprint(run.data.tags):
-            return False
-        system_tags = {
-            "mlflow.user",
-            "mlflow.source.name",
-            "mlflow.source.type",
-            "mlflow.source.git.commit",
-            "mlflow.runName",
-            "mlflow.parentRunId",
-            "mlflow.autologging",
-            "flaml.trial_id",
-            "flaml.initial_run_name",
-            "flaml.initial_system_tags",
-        }
-        if any(key not in system_tags and key not in self.extra_tag for key in run.data.tags):
-            return False
-        if any(key in run.data.tags and run.data.tags[key] != str(value) for key, value in self.extra_tag.items()):
-            return False
+        run_id = run.info.run_id
         try:
-            inputs = getattr(self.mlflow_client.get_run(run.info.run_id), "inputs", None)
+            run = self.mlflow_client.get_run(run_id)
+            owner = self.extra_tag.get("flaml.owner_id")
+            if (
+                not owner
+                or run.info.run_id != run_id
+                or run.data.tags.get("flaml.owner_id") != owner
+                or run.info.lifecycle_stage != "active"
+                or run.info.status != "FINISHED"
+                or run.data.params
+                or run.data.metrics
+            ):
+                return False
+            initial_name = run.data.tags.get("flaml.initial_run_name")
+            if initial_name is None or run.data.tags.get("mlflow.runName") != initial_name:
+                return False
+            if run.data.tags.get("flaml.initial_system_tags") != _system_tag_fingerprint(run.data.tags):
+                return False
+            system_tags = {
+                "mlflow.user",
+                "mlflow.source.name",
+                "mlflow.source.type",
+                "mlflow.source.git.commit",
+                "mlflow.runName",
+                "mlflow.parentRunId",
+                "mlflow.autologging",
+                "flaml.trial_id",
+                "flaml.initial_run_name",
+                "flaml.initial_system_tags",
+            }
+            if any(key not in system_tags and key not in self.extra_tag for key in run.data.tags):
+                return False
+            if any(key in run.data.tags and run.data.tags[key] != str(value) for key, value in self.extra_tag.items()):
+                return False
+            inputs = getattr(run, "inputs", None)
             if inputs is not None and getattr(inputs, "dataset_inputs", None):
                 return False
-            return not self.mlflow_client.list_artifacts(run.info.run_id)
+            if self.mlflow_client.search_runs(
+                experiment_ids=[self.experiment_id],
+                filter_string=f"tags.`mlflow.parentRunId` = '{run_id}'",
+                run_view_type=ViewType.ALL,
+                max_results=1,
+            ):
+                return False
+            return not self.mlflow_client.list_artifacts(run_id)
         except Exception:
-            logger.warning("Cannot verify that MLflow run %s is empty; retaining it.", run.info.run_id, exc_info=True)
+            logger.warning("Cannot verify that MLflow run %s is empty; retaining it.", run_id, exc_info=True)
             return False
 
     def adopt_children(self, result=None):
@@ -1241,6 +1295,18 @@ class MLflowIntegration:
 
             # From earliest to latest, set tags and child_counter
             autolog_child_runs = _to_keep_autolog_child_runs[::-1]
+            trial_run_ids = {}
+            for run in autolog_child_runs:
+                trial_id = run.data.tags.get("flaml.trial_id")
+                if trial_id in trial_infos:
+                    trial_run_ids.setdefault(trial_id, set()).add(run.info.run_id)
+            ambiguous_trials = {
+                trial_id
+                for trial_id, run_ids in trial_run_ids.items()
+                if len(run_ids) > 1 and not trial_infos[trial_id][1].get("run_id")
+            }
+            for trial_id in ambiguous_trials:
+                logger.warning("Cannot identify the accepted attempt for trial %s; retaining its runs.", trial_id)
             for autolog_child_run in autolog_child_runs:
                 child_run_id = autolog_child_run.info.run_id
                 child_run_parent_id = autolog_child_run.data.tags.get("mlflow.parentRunId", None)
@@ -1253,6 +1319,13 @@ class MLflowIntegration:
                     matched = trial_infos.get(autolog_child_run.data.tags.get("flaml.trial_id"))
                     if matched is not None:
                         info_index = matched[0]
+                        accepted_run = matched[1].get("run_id")
+                        if (
+                            autolog_child_run.data.tags["flaml.trial_id"] in ambiguous_trials
+                            or accepted_run is not None
+                            and child_run_id != accepted_run
+                        ):
+                            continue
 
                 if all(
                     [

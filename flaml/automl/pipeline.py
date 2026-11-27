@@ -36,7 +36,7 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         return self
 
     def fit_transform(self, X, y=None, *, group_ids=None):
-        from flaml.automl.data import DataTransformer
+        from flaml.automl.data import DataTransformer, _make_column_name_mapping
         from flaml.automl.task.factory import task_factory
         from flaml.automl.time_series.ts_data import DataTransformerTS, TimeSeriesDataset, normalize_ts_data
 
@@ -87,6 +87,11 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                     task.time_col,
                 )
                 targets, used = [], set(features.columns)
+                if self.preserve_features:
+                    mapping = _make_column_name_mapping(features.columns)
+                    mapping.pop(task.time_col, None)
+                    mapping.pop(time_idx, None)
+                    used.update(mapping.values())
                 for name in task.target_names:
                     candidate = name
                     while candidate in used:

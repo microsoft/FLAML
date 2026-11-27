@@ -144,10 +144,11 @@ def test_fractional_column_preserves_adjacent_large_integers(dtype_spark):
 
 
 @pytest.mark.parametrize("sampled", [False, True])
-def test_integer_candidate_rejects_numeric_literal_overflow(dtype_spark, monkeypatch, sampled):
-    frame = dtype_spark.sql("SELECT * FROM VALUES ('1'), ('2'), ('1e400') AS input(value)")
+@pytest.mark.parametrize("literal", ["1e400", "1e400D", "-1e400f", "0x1p1024"])
+def test_integer_candidate_rejects_numeric_literal_overflow(dtype_spark, monkeypatch, sampled, literal):
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('1'), ('2'), ('{literal}') AS input(value)")
     if sampled:
-        monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") != "1e400"))
+        monkeypatch.setattr(type(frame), "sample", lambda self, *args, **kwargs: self.filter(F.col("value") != literal))
     with pytest.raises(ValueError, match="numeric values incompatible"):
         auto_convert_dtypes_spark(frame, sample_ratio=1.0)
 

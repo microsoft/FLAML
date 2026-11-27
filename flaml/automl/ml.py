@@ -475,6 +475,7 @@ def train_estimator(
     estimator.autofe = autofe
     _attach_task_preprocessor(estimator, task)
     if X_train is not None:
+        _validate_autofe_classes(y_train, task)
         preprocessor = getattr(estimator, "_flaml_preprocessor", None)
         if preprocessor is not None:
             X_train = preprocessor.fit_transform(X_train, y_train)
@@ -544,13 +545,7 @@ def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_e
     )
 
 
-def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expected_classes=None):
-    if resampler is None:
-        resampler = getattr(task, "_resampler", None)
-    if resampler is not None:
-        from sklearn.base import clone
-
-        X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
+def _validate_autofe_classes(y_train, task=None, expected_classes=None):
     if expected_classes is None:
         expected_classes = getattr(task, "_autofe_classes", None)
     if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
@@ -559,6 +554,15 @@ def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expe
             "Use a suitable split and a resampler that preserves the class vocabulary."
         )
 
+
+def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expected_classes=None):
+    if resampler is None:
+        resampler = getattr(task, "_resampler", None)
+    if resampler is not None:
+        from sklearn.base import clone
+
+        X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
+    _validate_autofe_classes(y_train, task, expected_classes)
     return X_train, y_train
 
 
@@ -637,6 +641,7 @@ def get_val_loss(
 ):
     start = time.time()
     validation_transform_time = 0.0
+    _validate_autofe_classes(y_train, task)
     preprocessor = getattr(estimator, "_flaml_preprocessor", None)
     if preprocessor is not None:
         X_train = preprocessor.fit_transform(X_train, y_train)

@@ -1368,12 +1368,16 @@ class AutoML(BaseEstimator):
         self._auto_augment = auto_augment
         self._allow_label_overlap = self._settings.get("allow_label_overlap", True)
         training_info = getattr(best, "training_info", None)
+        explicit_validation = (
+            isinstance(self._state.X_val, TimeSeriesDataset)
+            and self._state.X_val.test_data is not None
+            and not self._state.X_val.test_data.empty
+        )
         if task.is_ts_forecast() and (
             train_full or training_info is not None and eval_method in ("auto", training_info.get("eval_method"))
         ):
             dataset = self._state.X_train_all
             frame = dataset.train_data
-            explicit_validation = dataset.test_data is not None and not dataset.test_data.empty
             if (
                 not train_full
                 and task.is_ts_forecastpanel()
@@ -1398,11 +1402,6 @@ class AutoML(BaseEstimator):
             self._state.data_size_full = len(dataset.train_data)
             self._state.kf = None
         else:
-            explicit_validation = (
-                isinstance(self._state.X_val, TimeSeriesDataset)
-                and self._state.X_val.test_data is not None
-                and not self._state.X_val.test_data.empty
-            )
             if task.is_ts_forecast() and eval_method == "auto" and not explicit_validation:
                 eval_method = "holdout" if best.sample_size < len(self._y_train_all) else "cv"
             eval_method = self._decide_eval_method(eval_method, time_budget)

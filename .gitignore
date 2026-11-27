@@ -162,6 +162,7 @@ test/nlp/testtmp.py
 test/nlp/testtmpfl.py
 output/
 flaml/tune/spark/mylearner.py
+flaml/tune/spark/.flaml-code-state/
 *.pkl
 
 data/

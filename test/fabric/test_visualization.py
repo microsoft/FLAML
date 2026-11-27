@@ -13,6 +13,22 @@ import flaml.visualization as fviz
 from flaml import AutoML
 
 
+def test_optimization_history_keeps_error_points_but_excludes_them_from_the_incumbent():
+    from flaml.tune.trial_runner import SimpleTrial
+    from flaml.tune.tune import ExperimentAnalysis
+
+    trials = [SimpleTrial({"x": value}) for value in range(3)]
+    for trial, loss in zip(trials, (0.0, 2.0, 1.0)):
+        trial.set_status("RUNNING")
+        trial.update_last_result({"loss": loss})
+        trial.set_status("ERROR" if trial is trials[0] else "TERMINATED")
+    analysis = ExperimentAnalysis(trials, metric="loss", mode="min")
+    figure = fviz.plot_optimization_history(analysis)
+    np.testing.assert_allclose(figure.data[0].y, [0.0, 2.0, 1.0])
+    np.testing.assert_allclose(figure.data[1].y, [np.nan, 2.0, 1.0], equal_nan=True)
+    assert analysis.best_result["loss"] == 1.0
+
+
 class TestVisualization(unittest.TestCase):
     def setUp(self):
         from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS

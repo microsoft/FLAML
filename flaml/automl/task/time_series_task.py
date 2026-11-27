@@ -215,8 +215,19 @@ class TimeSeriesTask(Task):
             data = pre_data
             automl._transformer.label_transformer = None
         else:
+            features = (
+                pd.concat(
+                    [
+                        frame.astype({name: object for name in group_ids if name in frame}).dropna(axis=1, how="all")
+                        for frame in (pre_data.X_train, pre_data.X_val)
+                    ],
+                    axis=0,
+                )
+                if self.is_ts_forecastpanel()
+                else pre_data.X_all
+            )
             Xt, yt = automl._transformer.fit_transform(
-                pre_data.X_all,
+                features,
                 pre_data.y_all,
                 protected_columns=pre_data.X_train.columns if self.is_ts_forecastpanel() else (),
                 group_columns=group_ids if self.is_ts_forecastpanel() else (),

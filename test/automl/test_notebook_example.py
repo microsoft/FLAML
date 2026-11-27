@@ -1,4 +1,7 @@
+import errno
+import socket
 import sys
+from builtins import ConnectionError as SocketConnectionError
 from test._artifact_paths import artifact_path
 from urllib.error import HTTPError as UrllibHTTPError
 from urllib.error import URLError
@@ -44,6 +47,24 @@ def _skip_openml_unavailability(error, resource):
     if isinstance(error, (HTTPError, UrllibHTTPError)):
         status = error.code if isinstance(error, UrllibHTTPError) else getattr(error.response, "status_code", None)
         if status is None or status not in (408, 429) and not 500 <= status < 600:
+            raise error
+    elif isinstance(error, URLError):
+        reason = error.reason
+        network_errno = {
+            errno.ECONNABORTED,
+            errno.ECONNREFUSED,
+            errno.ECONNRESET,
+            errno.EHOSTUNREACH,
+            errno.ENETDOWN,
+            errno.ENETUNREACH,
+            errno.EPIPE,
+            errno.ETIMEDOUT,
+        }
+        if not (
+            isinstance(reason, (SocketConnectionError, TimeoutError, socket.gaierror))
+            or isinstance(reason, OSError)
+            and reason.errno in network_errno
+        ):
             raise error
     pytest.skip(f"OpenML {resource} is unavailable ({type(error).__name__}).")
 
@@ -184,6 +205,9 @@ def test_notebook_cache_corruption_is_not_silently_accepted(tmp_path, monkeypatc
         "http_service",
         "urllib_client",
         "urllib_service",
+        "urllib_scheme",
+        "urllib_missing_file",
+        "urllib_connection",
     ],
 )
 def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch, example, failure):
@@ -211,6 +235,9 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         "http_service": HTTPError("service unavailable", response=service_response),
         "urllib_client": UrllibHTTPError("https://example.invalid", 400, "invalid request", None, None),
         "urllib_service": UrllibHTTPError("https://example.invalid", 503, "unavailable", None, None),
+        "urllib_scheme": URLError("unknown url type: broken"),
+        "urllib_missing_file": URLError(FileNotFoundError("missing local resource")),
+        "urllib_connection": URLError(ConnectionRefusedError("connection refused")),
     }[failure]
 
     def unavailable(**kwargs):
@@ -226,7 +253,15 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         def invoke():
             return test_automl(tmp_path)
 
-    if failure in {"invalid_url", "missing_schema", "content_decoding", "http_client", "urllib_client"}:
+    if failure in {
+        "invalid_url",
+        "missing_schema",
+        "content_decoding",
+        "http_client",
+        "urllib_client",
+        "urllib_scheme",
+        "urllib_missing_file",
+    }:
         with pytest.raises(type(error)):
             try:
                 invoke()

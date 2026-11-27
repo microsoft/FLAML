@@ -1,5 +1,8 @@
+import ast
+import errno
 import hashlib
 import importlib
+import json
 import keyword
 import logging
 import os
@@ -8,6 +11,7 @@ import tempfile
 import textwrap
 import threading
 import time
+from contextlib import contextmanager
 from functools import lru_cache, partial
 from types import ModuleType
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -143,6 +147,133 @@ def _publish_code_file(path, contents):
             os.unlink(temporary)
 
 
+def _publication_file(directory, name):
+    return os.path.join(directory, ".flaml-code-state", name + ".json")
+
+
+def _validate_publication(publication, name):
+    if publication is None:
+        return None
+    prefix = f"_flaml_custom_{name}_"
+    if (
+        not isinstance(publication, dict)
+        or not isinstance(publication.get("revision"), str)
+        or not publication["revision"].startswith(prefix)
+        or len(publication["revision"]) != len(prefix) + 64
+        or set(publication["revision"][len(prefix) :]) - set("0123456789abcdef")
+        or type(publication.get("sequence")) is not int
+        or not 0 <= publication["sequence"] < 10**20
+    ):
+        raise ValueError(f"Invalid committed publication for custom module {name!r}.")
+    return publication
+
+
+def _read_publication(directory, name):
+    if not directory:
+        return False, None
+    try:
+        with open(_publication_file(directory, name), encoding="utf-8") as source:
+            return True, _validate_publication(json.load(source), name)
+    except (FileNotFoundError, NotADirectoryError):
+        return False, None
+
+
+def _legacy_publication(source, name):
+    if source is None:
+        return None
+    try:
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_flaml_install_alias"
+                and len(node.args) == 3
+            ):
+                return _validate_publication(
+                    {"revision": ast.literal_eval(node.args[1]), "sequence": ast.literal_eval(node.args[2])},
+                    name,
+                )
+    except (SyntaxError, TypeError, ValueError):
+        pass
+    return None
+
+
+def _validate_code_namespace(file_name):
+    package = sys.modules.get("flaml.tune.spark")
+    if package is None:
+        return
+    existing = vars(package).get(file_name)
+    existing_revision = vars(existing).get("_flaml_revision") if isinstance(existing, ModuleType) else None
+    initial_revision = vars(existing).get("_flaml_initial_revision", "") if isinstance(existing, ModuleType) else ""
+    owned_alias = (
+        isinstance(existing, ModuleType)
+        and existing.__name__ == f"flaml.tune.spark.{file_name}"
+        and (
+            isinstance(initial_revision, str)
+            and initial_revision.startswith(f"_flaml_custom_{file_name}_")
+            or isinstance(existing_revision, ModuleType)
+            and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
+        )
+    )
+    reserved = {
+        name.casefold()
+        for name in vars(package)
+        if name not in _published_code_aliases and not (name == file_name and owned_alias)
+    }
+    if file_name.casefold() in reserved or (
+        existing is not None
+        and not (isinstance(existing, ModuleType) and existing.__name__ == f"flaml.tune.spark.{file_name}")
+    ):
+        raise ValueError("file_name must not replace the Spark package's existing module API.")
+
+
+@contextmanager
+def _publication_file_lock(path, name):
+    # Writers share a file lock; readers only need the atomically replaced state.
+    _validate_code_namespace(name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".lock", "a+b") as stream:
+        if os.name == "nt":
+            import msvcrt
+
+            stream.seek(0)
+            if not stream.read(1):
+                stream.write(b"0")
+                stream.flush()
+            stream.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    time.sleep(0.05)
+
+            def unlock():
+                stream.seek(0)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+
+            def unlock():
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+        try:
+            yield
+        finally:
+            primary = sys.exc_info()[1]
+            try:
+                unlock()
+            except OSError:
+                if primary is None:
+                    raise
+                logger.exception("Failed to release the custom-code publication lock.")
+
+
 def broadcast_code(custom_code="", file_name="mylearner"):
     """Write customized learner/metric code contents to a file for importing.
     It is necessary for using the customized learner/metric in spark backend.
@@ -204,43 +335,33 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     revision = f"_flaml_custom_{file_name}_{digest}"
     custom_path = os.path.join(flaml_path, revision + ".py")
     alias_path = os.path.join(flaml_path, file_name + ".py")
-    with _broadcast_code_lock:
-        package = sys.modules.get("flaml.tune.spark")
-        if package is not None:
-            existing = vars(package).get(file_name)
-            existing_revision = vars(existing).get("_flaml_revision") if isinstance(existing, ModuleType) else None
-            initial_revision = (
-                vars(existing).get("_flaml_initial_revision", "") if isinstance(existing, ModuleType) else ""
-            )
-            owned_alias = (
-                isinstance(existing, ModuleType)
-                and existing.__name__ == f"flaml.tune.spark.{file_name}"
-                and (
-                    isinstance(initial_revision, str)
-                    and initial_revision.startswith(f"_flaml_custom_{file_name}_")
-                    or isinstance(existing_revision, ModuleType)
-                    and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
-                )
-            )
-            reserved = {
-                name.casefold()
-                for name in vars(package)
-                if name not in _published_code_aliases and not (name == file_name and owned_alias)
-            }
-            if file_name.casefold() in reserved or (
-                existing is not None
-                and not (isinstance(existing, ModuleType) and existing.__name__ == f"flaml.tune.spark.{file_name}")
-            ):
-                raise ValueError("file_name must not replace the Spark package's existing module API.")
-        if not os.path.exists(custom_path):
-            _publish_code_file(custom_path, custom_code)
+    state_path = _publication_file(flaml_path, file_name)
+    with _broadcast_code_lock, _publication_file_lock(state_path, file_name):
+        previous_alias = None
+        if os.path.exists(alias_path):
+            with open(alias_path, encoding="utf-8", newline="") as source:
+                previous_alias = source.read()
+        state_exists, committed = _read_publication(flaml_path, file_name)
+        if not state_exists:
+            committed = _legacy_publication(previous_alias, file_name)
+            _publish_code_file(state_path, json.dumps(committed) + "\n")
+        previous = _published_code_revisions.get(file_name)
+        if committed is None:
+            previous = None
+        elif previous is None or (previous[0], previous[2]) != (
+            committed["revision"].rsplit("_", 1)[-1],
+            committed["sequence"],
+        ):
+            previous = (committed["revision"].rsplit("_", 1)[-1], None, committed["sequence"], None)
+        _published_code_revisions[file_name] = previous
         spark = SparkSession.builder.getOrCreate() if spark_available else None
         root = pyspark.SparkFiles.getRootDirectory() if spark_available else None
-        previous = _published_code_revisions.get(file_name)
         if previous and previous[:2] == (digest, root) and (previous[3] is None or os.path.exists(previous[3])):
             sequence, archive_path = previous[2:]
         else:
-            _publication_sequence = max(_publication_sequence + 1, time.time_ns())
+            _publication_sequence = max(
+                _publication_sequence + 1, time.time_ns(), committed["sequence"] + 1 if committed else 0
+            )
             sequence = _publication_sequence
             archive_path = (
                 os.path.join(root, f"{sequence:020d}_{file_name}_{digest}_flaml_custom_code.zip")
@@ -251,8 +372,14 @@ def broadcast_code(custom_code="", file_name="mylearner"):
             "from . import _install_code_alias as _flaml_install_alias\n"
             f"_flaml_install_alias(__name__, {revision!r}, {sequence})\n"
         )
-        if spark_available:
-            if not os.path.exists(archive_path):
+        publication = _validate_publication({"revision": revision, "sequence": sequence}, file_name)
+        cached_alias = importlib.util.cache_from_source(alias_path)
+        alias_prepared = False
+        archive_created = False
+        try:
+            if not os.path.exists(custom_path):
+                _publish_code_file(custom_path, custom_code)
+            if spark_available and not os.path.exists(archive_path):
                 descriptor, temporary = tempfile.mkstemp(dir=os.path.dirname(archive_path), suffix=".zip")
                 os.close(descriptor)
                 try:
@@ -260,19 +387,12 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                         archive.writestr(f"_flaml_code/{revision}.py", custom_code)
                         archive.writestr(f"_flaml_code/{file_name}.py", alias)
                     os.replace(temporary, archive_path)
+                    archive_created = True
                 finally:
                     if os.path.exists(temporary):
                         os.unlink(temporary)
-        previous_alias = None
-        if os.path.exists(alias_path):
-            with open(alias_path, encoding="utf-8", newline="") as source:
-                previous_alias = source.read()
-        cached_alias = importlib.util.cache_from_source(alias_path)
-        if os.path.exists(cached_alias):
-            os.unlink(cached_alias)
-        _published_code_revisions.setdefault(file_name, None)
-        alias_prepared = False
-        try:
+            if os.path.exists(cached_alias):
+                os.unlink(cached_alias)
             _publish_code_file(alias_path, alias)
             alias_prepared = True
             importlib.invalidate_caches()
@@ -291,7 +411,14 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                     importlib.invalidate_caches()
                 except Exception:
                     logger.exception("Failed to restore the driver alias after custom-code publication failed.")
+            if archive_created:
+                try:
+                    os.unlink(archive_path)
+                except OSError:
+                    logger.exception("Failed to remove an uncommitted custom-code archive.")
             raise
+        # Keep delivered artifacts if state publication fails: its atomic replacement may have completed.
+        _publish_code_file(state_path, json.dumps(publication) + "\n")
         _published_code_aliases.add(file_name)
         _published_code_revisions[file_name] = (digest, root, sequence, archive_path)
 

@@ -93,6 +93,20 @@ def test_panel_auto_holdout_preserves_composite_keys_covariates_and_absolute_ind
         renamed, original["target"], estimator__period=2, estimator__group_ids=["country", "site"]
     )
     assert len(refitted.predict(renamed)) == len(renamed)
+    feature_refit = clone(make_automl_feature_transformer(automl, automl.model)).fit_transform(
+        renamed, original["target"], feature_transformer__group_ids=["country", "site"]
+    )
+    pd.testing.assert_series_equal(feature_refit["site"], renamed["site"])
+    for invalid in ("", [], ("country", "site")):
+        with pytest.raises(ValueError, match="nonempty list"):
+            clone(pipeline).fit(renamed, original["target"], estimator__group_ids=invalid)
+    with pytest.raises(ValueError, match="must agree"):
+        clone(pipeline).fit(
+            renamed,
+            original["target"],
+            estimator__group_ids=["country", "site"],
+            feature_transformer__group_ids=["country", "store"],
+        )
 
 
 @pytest.mark.parametrize("train_full", [False, True])
@@ -197,7 +211,10 @@ def test_legacy_forecast_replay_honors_embedded_validation(tmp_path):
 @pytest.mark.parametrize("time_idx", ["time_idx", "step"])
 @pytest.mark.parametrize("explicit_validation", [False, True])
 @pytest.mark.parametrize("train_full", [False, True])
-def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx, explicit_validation, train_full):
+@pytest.mark.parametrize("legacy_order", [False, True])
+def test_panel_replay_preserves_the_exact_sampled_group_rows(
+    tmp_path, time_idx, explicit_validation, train_full, legacy_order
+):
     class PanelRows(TimeSeriesEstimator):
         @classmethod
         def search_space(cls, **kwargs):
@@ -246,6 +263,8 @@ def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx,
     )[0]
     expected = sampled.training_keys
     record["sample_size"] = 5
+    if legacy_order:
+        record["training_info"].pop("group_sorted")
     log.write_text(json.dumps(record) + "\n")
     restored = AutoML(n_jobs=1, mlflow_logging=False, verbose=0)
     restored.add_learner("panel_rows", PanelRows)
@@ -254,6 +273,51 @@ def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx,
     )
     assert len(expected) == (len(dataset.train_data) if train_full else 5)
     assert restored.model.training_keys == expected
+
+
+def test_explicit_panel_partitions_keep_mixed_integer_group_keys_exact():
+    class PanelKeys(TimeSeriesEstimator):
+        @classmethod
+        def search_space(cls, **kwargs):
+            return {}
+
+        def fit(self, X_train, y_train=None, **kwargs):
+            super().fit(X_train, y_train, **kwargs)
+            self.training_keys = set(X_train.train_data["store"])
+            self._model = DummyRegressor().fit(np.zeros((len(X_train.train_data), 1)), X_train.train_data["target"])
+            return 0.0
+
+        def predict(self, X, **kwargs):
+            frame = X.test_data if isinstance(X, TimeSeriesDataset) else X
+            self.validation_keys = set(frame["store"])
+            return self._model.predict(np.zeros((len(frame), 1)))
+
+    keys = [2**53, 2**53 + 1]
+    frame = pd.DataFrame(
+        {
+            "date": np.repeat(pd.date_range("2026-01-01", periods=20), 2),
+            "store": np.array(keys * 20, dtype=np.int64),
+            "time_idx": np.repeat(np.arange(20), 2),
+            "target": np.arange(40.0),
+        }
+    )
+    validation = frame.iloc[-4:].astype({"store": "uint64"})
+    dataset = TimeSeriesDataset(frame.iloc[:-4], "date", "target", test_data=validation)
+    before_train, before_test = dataset.train_data.copy(), dataset.test_data.copy()
+    automl = AutoML(max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, retrain_full=False)
+    automl.add_learner("panel_keys", PanelKeys)
+    automl.fit(
+        X_train=dataset,
+        task="ts_forecast_panel",
+        period=2,
+        group_ids=["store"],
+        estimator_list=["panel_keys"],
+        metric="mae",
+    )
+    assert automl.model.training_keys == set(keys)
+    assert automl.model.validation_keys == set(keys)
+    pd.testing.assert_frame_equal(dataset.train_data, before_train)
+    pd.testing.assert_frame_equal(dataset.test_data, before_test)
 
 
 @pytest.mark.parametrize("location", ["top", "estimator"])
@@ -537,13 +601,27 @@ def test_tft_cohort_preparation_does_not_rescan_all_group_histories(tft_decoder,
         ignore_index=True,
     )
     work = []
+    merges = []
     merge = pd.DataFrame.merge
+    groupby = pd.DataFrame.groupby
+    isin = pd.Series.isin
 
     def counted_merge(self, *args, **kwargs):
         work.append(len(self))
+        merges.append(len(self))
         return merge(self, *args, **kwargs)
 
+    def counted_groupby(self, *args, **kwargs):
+        work.append(len(self))
+        return groupby(self, *args, **kwargs)
+
+    def counted_isin(self, *args, **kwargs):
+        work.append(len(self))
+        return isin(self, *args, **kwargs)
+
     monkeypatch.setattr(pd.DataFrame, "merge", counted_merge)
+    monkeypatch.setattr(pd.DataFrame, "groupby", counted_groupby)
+    monkeypatch.setattr(pd.Series, "isin", counted_isin)
 
     def predict(data, **kwargs):
         assert data.frame["group"].nunique() == 1
@@ -561,7 +639,8 @@ def test_tft_cohort_preparation_does_not_rescan_all_group_histories(tft_decoder,
         }
     )
     assert estimator.predict(request).tolist() == [1.0] * groups
-    assert sum(work) <= groups * (estimator.max_encoder_length + 1)
+    assert not merges
+    assert 0 < sum(work) <= 4 * len(estimator.data)
 
 
 def test_tft_incompatible_timestamp_timezone_has_a_clear_error(tft_decoder):

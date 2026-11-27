@@ -91,6 +91,15 @@ def test_full_forecast_refit_keeps_an_old_target_name_used_as_a_regressor():
     assert set(pipeline.predict(features.iloc[-2:])) <= {"cold", "warm"}
 
 
+def test_forecast_refit_reserves_normalized_feature_names_for_external_targets():
+    automl, X, y = _forecast()
+    features = X.rename(columns={"y": 0})
+    pipeline = clone(automl.automl_pipeline).fit(features, y.rename("flaml_column_0"), estimator__period=2)
+    assert "flaml_column_0" in pipeline.steps[-1][1].user_regressors
+    assert "flaml_column_0" not in pipeline.named_steps["feature_transformer"].task_.target_names
+    assert set(pipeline.predict(features.iloc[-2:])) <= {"cold", "warm"}
+
+
 def test_forecast_preprocessing_without_a_fitted_trial_has_an_actionable_error(monkeypatch):
     frame = pd.DataFrame({"date": pd.date_range("2026-01-01", periods=30), "target": np.arange(30.0)})
     automl = AutoML(estimator_list=["rf"], max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, featurization="auto")
@@ -355,6 +364,38 @@ def test_autofe_validates_the_effective_class_vocabulary_at_each_fit(stage):
         pipeline = clone(automl.automl_pipeline).set_params(resampler=DropMiddleClass())
         with pytest.raises(ValueError, match="every class.*training"):
             pipeline.fit(X, y)
+
+
+@pytest.mark.parametrize("mode", ["auto", "force"])
+def test_invalid_cv_vocabulary_is_rejected_before_supervised_feature_extraction(mode, monkeypatch):
+    from sklearn.model_selection import TimeSeriesSplit
+
+    observed_classes = []
+    fit_transform = Featurization.fit_transform
+
+    def observe_transform(self, X, y=None):
+        if y is not None:
+            observed_classes.append(set(np.unique(y)))
+        return fit_transform(self, X, y)
+
+    monkeypatch.setattr(Featurization, "fit_transform", observe_transform)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization=mode,
+        starting_points={"rf": {"n_estimators": 4, "fe.extraction": "LDA"}},
+        eval_method="cv",
+        split_type=TimeSeriesSplit(n_splits=2),
+        retrain_full=False,
+        metric="accuracy",
+        auto_augment=False,
+    )
+    with pytest.raises(ValueError, match="every class.*training"):
+        automl.fit(pd.DataFrame({"feature": np.arange(90.0)}), np.repeat(["A", "B", "C"], 30))
+    assert all(len(classes) == 3 for classes in observed_classes)
 
 
 def test_unused_tft_structural_kwargs_do_not_change_the_forecast_task():

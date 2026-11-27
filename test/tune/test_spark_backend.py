@@ -118,22 +118,29 @@ def test_spark_tuning_restores_backend_after_error(spark_backend, monkeypatch, e
     sleep.assert_not_called()
 
 
-def test_inline_spark_reports_do_not_cross_trial_or_nested_tune_contexts(spark_backend):
+@pytest.mark.parametrize("report_after_nested", [False, True])
+def test_inline_spark_reports_do_not_cross_trial_or_nested_tune_contexts(spark_backend, report_after_nested):
+    ready = Barrier(2)
+
     def objective(config):
-        tune.report(loss=config["x"] + 10)
-        inner = tune.run(
-            lambda inner_config: {"loss": 100},
-            config={"x": 1},
-            metric="loss",
-            mode="min",
-            num_samples=1,
-            use_ray=False,
-            use_spark=False,
-            mlflow_logging=False,
-            verbose=0,
-        )
-        assert inner.best_result["loss"] == 100
         tune.report(loss=config["x"])
+        ready.wait(timeout=10)
+        if config["x"] == 1:
+            inner = tune.run(
+                lambda inner_config: tune.report(loss=100),
+                config={"x": 1},
+                metric="loss",
+                mode="min",
+                num_samples=1,
+                use_ray=False,
+                use_spark=False,
+                mlflow_logging=False,
+                verbose=0,
+            )
+            assert inner.best_result["loss"] == 100
+        ready.wait(timeout=10)
+        if report_after_nested:
+            tune.report(loss=config["x"] + 10)
 
     result = tune.run(
         objective,
@@ -143,11 +150,69 @@ def test_inline_spark_reports_do_not_cross_trial_or_nested_tune_contexts(spark_b
         mode="min",
         num_samples=2,
         use_spark=True,
-        n_concurrent_trials=1,
+        n_concurrent_trials=2,
         mlflow_logging=False,
         verbose=0,
     )
-    assert [trial.last_result["loss"] for trial in result.trials] == [1, 2]
+    assert [trial.last_result["loss"] for trial in result.trials] == ([11, 12] if report_after_nested else [1, 2])
+
+
+@pytest.mark.parametrize("delivery", ["report", "return", "both"])
+def test_spark_scheduler_stop_preserves_siblings_and_completes_searcher_trials(spark_backend, monkeypatch, delivery):
+    from flaml.tune.trial_runner import SparkTrialRunner
+
+    runners = []
+    initialize = SparkTrialRunner.__init__
+
+    def capture_runner(self, *args, **kwargs):
+        initialize(self, *args, **kwargs)
+        self._search_alg.on_trial_complete = Mock(wraps=self._search_alg.on_trial_complete)
+        runners.append(self)
+
+    monkeypatch.setattr(SparkTrialRunner, "__init__", capture_runner)
+
+    class StopFirst:
+        def set_search_properties(self, **kwargs):
+            return True
+
+        def on_trial_add(self, runner, trial):
+            pass
+
+        def on_trial_result(self, runner, trial, result):
+            return "STOP" if trial.config["x"] == 1 else "CONTINUE"
+
+        def on_trial_remove(self, runner, trial):
+            pass
+
+        def on_trial_complete(self, *args):
+            pass
+
+    def objective(config):
+        if delivery != "return":
+            tune.report(loss=float(config["x"]))
+        if delivery != "report":
+            return {"loss": float(config["x"]) + 10}
+
+    result = tune.run(
+        objective,
+        config={"x": tune.choice([1, 2, 3, 4])},
+        points_to_evaluate=[{"x": value} for value in (1, 2, 3, 4)],
+        metric="loss",
+        mode="min",
+        num_samples=4,
+        use_spark=True,
+        n_concurrent_trials=2,
+        scheduler=StopFirst(),
+        mlflow_logging=False,
+        verbose=0,
+    )
+    expected = [1.0, 2.0, 3.0, 4.0] if delivery == "report" else [11.0, 12.0, 13.0, 14.0]
+    if delivery == "both":
+        expected[0] = 1.0
+    assert [trial.last_result["loss"] for trial in result.trials] == expected
+    assert all(trial.status == "TERMINATED" for trial in result.trials)
+    assert runners[0].running_trials == []
+    assert runners[0]._search_alg.on_trial_complete.call_count == 4
 
 
 @pytest.mark.parametrize("learner", ["rf", "extra_tree"])
@@ -509,3 +574,242 @@ def test_secondary_alias_rollback_failure_preserves_the_distribution_error(monke
     with pytest.raises(RuntimeError, match="original distribution error"):
         utils.broadcast_code("value = 2\n", name)
     logged.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", ["alias", "distribution"])
+def test_restarted_driver_keeps_its_on_disk_publication_after_failure(monkeypatch, broadcast_files, failure):
+    utils, context, driver = broadcast_files
+    package = importlib.import_module("flaml.tune.spark")
+    monkeypatch.setattr(package, "__path__", type(package.__path__)([str(driver)]))
+    name = f"_test_restarted_{failure}"
+    qualified = f"flaml.tune.spark.{name}"
+    utils.broadcast_code("value = 1\n", name)
+    alias_path = driver / f"{name}.py"
+    original = alias_path.read_bytes()
+    archives = set(driver.parent.joinpath("spark-files").glob("*_flaml_custom_code.zip"))
+    state_file = driver / ".flaml-code-state" / f"{name}.json"
+    if state_file.exists():
+        state_file.unlink()
+    utils._published_code_revisions.pop(name, None)
+    utils._published_code_aliases.discard(name)
+    publish = utils._publish_code_file
+    if failure == "alias":
+
+        def fail_alias(path, content):
+            if Path(path) == alias_path:
+                raise RuntimeError("publication failed")
+            return publish(path, content)
+
+        monkeypatch.setattr(utils, "_publish_code_file", fail_alias)
+    else:
+        context.addPyFile.side_effect = RuntimeError("publication failed")
+    try:
+        with pytest.raises(RuntimeError, match="publication failed"):
+            utils.broadcast_code("value = 2\n", name)
+        assert alias_path.read_bytes() == original
+        assert importlib.import_module(qualified).value == 1
+        assert set(driver.parent.joinpath("spark-files").glob("*_flaml_custom_code.zip")) == archives
+    finally:
+        package.__dict__.pop(name, None)
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
+
+
+@pytest.mark.parametrize("previous", [False, True])
+def test_separate_interpreter_cannot_import_an_uncommitted_alias(broadcast_files, previous):
+    utils, context, driver = broadcast_files
+    name = f"_test_shared_alias_{int(previous)}"
+    if previous:
+        utils.broadcast_code("value = 1\n", name)
+    observed = []
+    script = """
+import importlib
+import json
+import sys
+package = importlib.import_module("flaml.tune.spark")
+package.__path__ = type(package.__path__)([sys.argv[1]])
+try:
+    module = importlib.import_module("flaml.tune.spark." + sys.argv[2])
+    result = {"value": module.value}
+except ModuleNotFoundError:
+    result = {"unavailable": True}
+print(json.dumps(result))
+"""
+
+    def reject_distribution(path):
+        result = subprocess.run(
+            [sys.executable, "-c", script, str(driver), name],
+            capture_output=True,
+            text=True,
+            timeout=45,
+            check=True,
+        )
+        observed.append(json.loads(result.stdout.strip().splitlines()[-1]))
+        raise RuntimeError("distribution failed")
+
+    context.addPyFile.side_effect = reject_distribution
+    with pytest.raises(RuntimeError, match="distribution failed"):
+        utils.broadcast_code("value = 2\n", name)
+    assert observed == ([{"value": 1}] if previous else [{"unavailable": True}])
+
+
+def test_alias_resolution_does_not_hold_the_publication_lock_during_module_import(broadcast_files):
+    utils, _, driver = broadcast_files
+    dependency = "_test_import_dependency"
+    name = "_test_import_primary"
+    utils.broadcast_code("value = 7\n", dependency)
+    revision = Path(
+        utils.broadcast_code(
+            "from _flaml_test_import_sync import entered, release\n"
+            "entered.set()\n"
+            "assert release.wait(10)\n"
+            f"from flaml.tune.spark.{dependency} import value\n",
+            name,
+        )
+    ).stem
+    script = """
+import importlib
+import json
+import sys
+import threading
+from types import ModuleType
+package = importlib.import_module("flaml.tune.spark")
+package.__path__ = type(package.__path__)([sys.argv[1]])
+sync = ModuleType("_flaml_test_import_sync")
+sync.entered, sync.release = threading.Event(), threading.Event()
+sys.modules[sync.__name__] = sync
+waiting = threading.Event()
+original = importlib.import_module
+revision = "flaml.tune.spark." + sys.argv[3]
+values = []
+def observe(name, *args, **kwargs):
+    if name == revision and threading.current_thread().name == "alias":
+        waiting.set()
+    return original(name, *args, **kwargs)
+package.importlib.import_module = observe
+direct = threading.Thread(target=lambda: values.append(original(revision).value), daemon=True)
+alias = threading.Thread(
+    target=lambda: values.append(original("flaml.tune.spark." + sys.argv[2]).value),
+    name="alias", daemon=True,
+)
+direct.start()
+assert sync.entered.wait(10)
+alias.start()
+assert waiting.wait(10)
+sync.release.set()
+direct.join(10)
+alias.join(10)
+print(json.dumps({"values": values, "blocked": direct.is_alive() or alias.is_alive()}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(driver), name, revision],
+        capture_output=True,
+        text=True,
+        timeout=45,
+        check=True,
+    )
+    assert json.loads(result.stdout.strip().splitlines()[-1]) == {"values": [7, 7], "blocked": False}
+
+
+@pytest.mark.parametrize("replacement_completed", [False, True])
+def test_state_publication_error_keeps_delivered_code_recoverable(monkeypatch, broadcast_files, replacement_completed):
+    utils, context, driver = broadcast_files
+    package = importlib.import_module("flaml.tune.spark")
+    monkeypatch.setattr(package, "__path__", type(package.__path__)([str(driver)]))
+    name = f"_test_state_error_{int(replacement_completed)}"
+    qualified = f"flaml.tune.spark.{name}"
+    utils.broadcast_code("value = 1\n", name)
+    state_path = Path(utils._publication_file(str(driver), name))
+    publish = utils._publish_code_file
+
+    def fail_state(path, contents):
+        if Path(path) == state_path:
+            if replacement_completed:
+                publish(path, contents)
+            raise RuntimeError("state publication failed")
+        return publish(path, contents)
+
+    monkeypatch.setattr(utils, "_publish_code_file", fail_state)
+    try:
+        with pytest.raises(RuntimeError, match="state publication failed"):
+            utils.broadcast_code("value = 2\n", name)
+        assert Path(context.addPyFile.call_args.args[0]).exists()
+        assert importlib.import_module(qualified).value == (2 if replacement_completed else 1)
+    finally:
+        package.__dict__.pop(name, None)
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
+
+
+def test_worker_archives_supersede_a_copied_older_installation(broadcast_files):
+    utils, context, driver = broadcast_files
+    name = "_test_copied_installation"
+    old_revision = Path(utils.broadcast_code("value = 1\n", name))
+    old_alias = (driver / f"{name}.py").read_bytes()
+    old_state = Path(utils._publication_file(str(driver), name)).read_bytes()
+    utils.broadcast_code("value = 2\n", name)
+    archive = context.addPyFile.call_args.args[0]
+    worker = driver.parent / "copied-installation"
+    worker.mkdir()
+    (worker / f"{name}.py").write_bytes(old_alias)
+    (worker / old_revision.name).write_bytes(old_revision.read_bytes())
+    state = Path(utils._publication_file(str(worker), name))
+    state.parent.mkdir()
+    state.write_bytes(old_state)
+    script = """
+import importlib
+import sys
+package = importlib.import_module("flaml.tune.spark")
+package.__path__ = type(package.__path__)([sys.argv[1]])
+sys.path.insert(0, sys.argv[3])
+print(importlib.import_module("flaml.tune.spark." + sys.argv[2]).value)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(worker), name, archive],
+        capture_output=True,
+        text=True,
+        timeout=45,
+        check=True,
+    )
+    assert result.stdout.strip().splitlines()[-1] == "2"
+
+
+def test_publication_holds_a_process_lock_through_distribution(broadcast_files):
+    utils, context, driver = broadcast_files
+    name = "_test_process_lock"
+    observed = []
+    script = """
+import errno
+import os
+import sys
+with open(sys.argv[1], "r+b") as stream:
+    try:
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as error:
+        if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+            raise
+        print("blocked")
+    else:
+        print("acquired")
+"""
+
+    def probe_lock(path):
+        result = subprocess.run(
+            [sys.executable, "-c", script, utils._publication_file(str(driver), name) + ".lock"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+        observed.append(result.stdout.strip())
+
+    context.addPyFile.side_effect = probe_lock
+    utils.broadcast_code("value = 1\n", name)
+    assert observed == ["blocked"]

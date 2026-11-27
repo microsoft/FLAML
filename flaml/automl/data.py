@@ -941,7 +941,8 @@ def _spark_numeric_precision_loss(col_name: str):
     exact = F.expr(f"try_cast(`{escaped}` as decimal(38,18))")
     roundtrip = F.expr(f"try_cast(try_cast(`{escaped}` as double) as decimal(38,18))")
     literal = F.regexp_replace(_spark_column(col_name), r"^\s+|\s+$", "").rlike(
-        r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$"
+        r"^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+        r"|0[xX](?:[0-9a-fA-F]+(?:\.[0-9a-fA-F]*)?|\.[0-9a-fA-F]+)[pP][+-]?\d+)[dDfF]?$"
     )
     finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
     return (finite & _spark_decimal_key(_spark_column(col_name)).isNull()) | (
