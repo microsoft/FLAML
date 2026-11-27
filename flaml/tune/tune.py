@@ -8,8 +8,9 @@ import os
 import sys
 import time
 from collections import defaultdict
+from contextvars import ContextVar
 from importlib import import_module
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 
@@ -30,6 +31,7 @@ from flaml.fabric.logger import init_kusto_logger
 from flaml.fabric.telemetry import log_telemetry
 from flaml.tune.spark.utils import PySparkOvertimeMonitor, check_spark
 
+from .analysis import ExperimentAnalysis as LocalExperimentAnalysis
 from .logger import logger, logger_formatter
 from .result import (
     AUTO_RESULT_KEYS,
@@ -61,6 +63,7 @@ _runner = None
 _verbose = 0
 _running_trial = None
 _training_iteration = 0
+_worker_report_context = ContextVar("flaml_worker_report_context", default=None)
 
 INCUMBENT_RESULT = "__incumbent_result__"
 _REPORT_METADATA = frozenset(
@@ -68,10 +71,40 @@ _REPORT_METADATA = frozenset(
 )
 
 
-def _reported_trial_metrics(result):
+def _reported_trial_metrics(result, metric=None):
     return {
-        key: value for key, value in result.items() if key not in _REPORT_METADATA and not key.startswith(CONFIG_PREFIX)
+        key: value
+        for key, value in result.items()
+        if key == metric or key not in _REPORT_METADATA and not key.startswith(CONFIG_PREFIX)
     }
+
+
+class _SparkTrialResult(NamedTuple):
+    trial_id: str
+    result: object
+    last_report: Optional[dict]
+
+
+def _evaluate_spark_trial(evaluation_function, config, trial_id, evaluation_kwargs):
+    reports = {"last": None}
+    token = _worker_report_context.set(reports)
+    try:
+        result = evaluation_function(config, **evaluation_kwargs)
+        return _SparkTrialResult(trial_id, result, reports["last"])
+    finally:
+        _worker_report_context.reset(token)
+
+
+def _isolate_nested_reporting(function):
+    @functools.wraps(function)
+    def wrapped(*args, **kwargs):
+        token = _worker_report_context.set(None)
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _worker_report_context.reset(token)
+
+    return wrapped
 
 
 def _ray_trial_id():
@@ -96,6 +129,11 @@ def _ray_trial_id():
             if trial_id is not None:
                 return trial_id
     raise RuntimeError("Unable to identify the active Ray Tune trial with the installed Ray APIs.")
+
+
+class _RayExperimentAnalysis(EA):
+    def get_best_trial(self, metric=None, mode=None, scope="last", filter_nan_and_inf=True):
+        return LocalExperimentAnalysis.get_best_trial(self, metric, mode, scope, filter_nan_and_inf)
 
 
 class ExperimentAnalysis(EA):
@@ -127,7 +165,13 @@ class ExperimentAnalysis(EA):
             return self.get_best_config(self.default_metric, self.default_mode)
 
     def lexico_best(self, trials):
-        results = {index: trial.last_result for index, trial in enumerate(trials) if trial.last_result}
+        results = {
+            index: trial.last_result
+            for index, trial in enumerate(trials)
+            if trial.last_result and getattr(trial, "status", None) != Trial.ERROR
+        }
+        if not results:
+            return None
         metrics = self.lexico_objectives["metrics"]
         modes = self.lexico_objectives["modes"]
         f_best = {}
@@ -164,7 +208,7 @@ class ExperimentAnalysis(EA):
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
-        best_trial = trials[feasible_index[-1]]
+        best_trial = trials[keys[feasible_index[-1]]]
         return best_trial
 
     def get_best_trial(
@@ -177,7 +221,7 @@ class ExperimentAnalysis(EA):
         if self.lexico_objectives is not None:
             best_trial = self.lexico_best(self.trials)
         else:
-            best_trial = super().get_best_trial(metric, mode, scope, filter_nan_and_inf)
+            best_trial = LocalExperimentAnalysis.get_best_trial(self, metric, mode, scope, filter_nan_and_inf)
         return best_trial
 
     @property
@@ -241,6 +285,13 @@ def report(_metric=None, **kwargs):
     global _verbose
     global _running_trial
     global _training_iteration
+    worker_report = _worker_report_context.get()
+    if worker_report is not None:
+        result = dict(kwargs)
+        if _metric is not None:
+            result[DEFAULT_METRIC] = _metric
+        worker_report["last"] = result
+        return None
     if _use_ray:
         try:
             from ray import __version__ as ray_version
@@ -287,6 +338,7 @@ def report(_metric=None, **kwargs):
         raise StopIteration
 
 
+@_isolate_nested_reporting
 def run(
     evaluation_function,
     config: Optional[dict] = None,
@@ -778,6 +830,10 @@ def run(
                 resources_per_trial=resources_per_trial,
                 **ray_args,
             )
+            if ray_available and isinstance(analysis, EA):
+                native = analysis
+                analysis = _RayExperimentAnalysis.__new__(_RayExperimentAnalysis)
+                analysis.__dict__.update(native.__dict__)
             if log_file_name:
                 with open(log_file_name, "w") as f:
                     for trial in analysis.trials:
@@ -786,7 +842,9 @@ def run(
             if _internal_mlflow:
                 for trial in analysis.trials:
                     if trial.last_result:
-                        mlflow_integration.record_trial(_reported_trial_metrics(trial.last_result), trial, metric)
+                        mlflow_integration.record_trial(
+                            _reported_trial_metrics(trial.last_result, metric), trial, metric
+                        )
                 mlflow_integration.log_tune(analysis, metric)
                 mlflow_finalized = True
             return analysis
@@ -903,13 +961,16 @@ def run(
                             f"Configs of Trials to run: {[trial_to_run.config for trial_to_run in trials_to_run]}"
                         )
                         results = None
+                        trials_by_id = {trial.trial_id: trial for trial in trials_to_run}
                         with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
                             # The configured Parallel instance still uses Spark; inline trials need a local backend.
                             with parallel_backend("threading"):
                                 results = parallel(
-                                    delayed(evaluation_function)(
+                                    delayed(_evaluate_spark_trial)(
+                                        evaluation_function,
                                         trial_to_run.config,
-                                        **(
+                                        trial_to_run.trial_id,
+                                        (
                                             {"_flaml_trial_id": trial_to_run.trial_id}
                                             if _internal_mlflow and mlflow_integration.autolog
                                             else {}
@@ -919,9 +980,12 @@ def run(
                                 )
                         # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
                         while results:
-                            result = results.pop(0)
-                            trial_to_run = trials_to_run[0]
+                            outcome = results.pop(0)
+                            result = outcome.result
+                            trial_to_run = trials_by_id[outcome.trial_id]
                             _runner.running_trial = trial_to_run
+                            if outcome.last_report is not None:
+                                report(**outcome.last_report)
                             if result is not None:
                                 if isinstance(result, dict):
                                     if result:
@@ -935,7 +999,9 @@ def run(
                                     report(_metric=result)
                             if _internal_mlflow and trial_to_run.last_result is not None:
                                 mlflow_integration.record_trial(
-                                    result if result is not None else _reported_trial_metrics(trial_to_run.last_result),
+                                    result
+                                    if result is not None
+                                    else _reported_trial_metrics(trial_to_run.last_result, metric),
                                     trial_to_run,
                                     metric,
                                 )
@@ -1026,7 +1092,7 @@ def run(
                         report(_metric=result)
                 if _internal_mlflow and trial_to_run.last_result is not None:
                     mlflow_integration.record_trial(
-                        result if result is not None else _reported_trial_metrics(trial_to_run.last_result),
+                        result if result is not None else _reported_trial_metrics(trial_to_run.last_result, metric),
                         trial_to_run,
                         metric,
                     )

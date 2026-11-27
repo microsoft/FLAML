@@ -1373,7 +1373,12 @@ class AutoML(BaseEstimator):
         ):
             dataset = self._state.X_train_all
             frame = dataset.train_data
-            if task.is_ts_forecastpanel():
+            explicit_validation = dataset.test_data is not None and not dataset.test_data.empty
+            if (
+                not train_full
+                and task.is_ts_forecastpanel()
+                and training_info.get("group_sorted", not explicit_validation)
+            ):
                 frame = frame.sort_values(self._state.fit_kwargs["group_ids"] + [dataset.time_col, dataset.time_idx])
             if not train_full:
                 if "time_idx_cutoff" in training_info:
@@ -3194,6 +3199,7 @@ class AutoML(BaseEstimator):
                 }
                 if self._state.task.is_ts_forecastpanel():
                     training_info["time_idx_cutoff"] = int(dataset.train_data[dataset.time_idx].max())
+                    training_info["group_sorted"] = getattr(self._state, "_panel_group_sorted", False)
                 else:
                     training_info["training_end_time"] = pd.Timestamp(
                         dataset.train_data[dataset.time_col].iloc[-1]

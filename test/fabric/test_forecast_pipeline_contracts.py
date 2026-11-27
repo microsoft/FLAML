@@ -82,6 +82,15 @@ def test_feature_only_forecast_transform_keeps_features_named_like_an_old_target
     assert "target" in actual
 
 
+def test_full_forecast_refit_keeps_an_old_target_name_used_as_a_regressor():
+    automl, X, y = _forecast()
+    features = X.rename(columns={"y": "target"})
+    pipeline = clone(automl.automl_pipeline).fit(features, y.to_numpy(), estimator__period=2)
+    assert "target" in pipeline.steps[-1][1].user_regressors
+    assert "target" not in pipeline.named_steps["feature_transformer"].task_.target_names
+    assert set(pipeline.predict(features.iloc[-2:])) <= {"cold", "warm"}
+
+
 def test_forecast_preprocessing_without_a_fitted_trial_has_an_actionable_error(monkeypatch):
     frame = pd.DataFrame({"date": pd.date_range("2026-01-01", periods=30), "target": np.arange(30.0)})
     automl = AutoML(estimator_list=["rf"], max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, featurization="auto")
@@ -306,6 +315,46 @@ def test_tabular_autofe_rejects_a_group_holdout_with_an_unseen_class():
     )
     with pytest.raises(ValueError, match="every class.*training"):
         automl.fit(X, y, groups=np.repeat(np.arange(3), 10))
+
+
+@pytest.mark.parametrize("stage", ["holdout", "cv", "export"])
+def test_autofe_validates_the_effective_class_vocabulary_at_each_fit(stage):
+    from sklearn.base import BaseEstimator
+    from sklearn.model_selection import TimeSeriesSplit
+
+    class DropMiddleClass(BaseEstimator):
+        def fit_resample(self, X, y):
+            keep = np.asarray(y) != 1
+            return X.loc[keep], np.asarray(y)[keep]
+
+    X = pd.DataFrame({"feature": np.arange(90.0)})
+    y = np.tile(["A", "B", "C"], 30)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        starting_points={"rf": {"n_estimators": 4, "fe.extraction": "null", "fe.selection": "null"}},
+        eval_method="cv" if stage == "cv" else "holdout",
+        split_type=TimeSeriesSplit(n_splits=2) if stage == "cv" else "stratified",
+        retrain_full=False,
+        metric="accuracy",
+        auto_augment=False,
+    )
+    if stage == "cv":
+        y = np.repeat(["A", "B", "C"], 30)
+        with pytest.raises(ValueError, match="every class.*training"):
+            automl.fit(X, y)
+    elif stage == "holdout":
+        with pytest.raises(ValueError, match="every class.*training"):
+            automl.fit(X, y, resampler=DropMiddleClass())
+    else:
+        automl.fit(X, y)
+        pipeline = clone(automl.automl_pipeline).set_params(resampler=DropMiddleClass())
+        with pytest.raises(ValueError, match="every class.*training"):
+            pipeline.fit(X, y)
 
 
 def test_unused_tft_structural_kwargs_do_not_change_the_forecast_task():

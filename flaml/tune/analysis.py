@@ -133,6 +133,8 @@ class ExperimentAnalysis:
         best_trial = None
         best_metric_score = None
         for trial in self.trials:
+            if getattr(trial, "status", None) == Trial.ERROR:
+                continue
             if metric not in trial.metric_analysis:
                 continue
             if scope in ["last", "avg", "last-5-avg", "last-10-avg"]:

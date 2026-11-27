@@ -26,11 +26,12 @@ def test_panel_auto_holdout_preserves_composite_keys_covariates_and_absolute_ind
         def fit(self, X_train, y_train=None, **kwargs):
             super().fit(X_train, y_train, **kwargs)
             frame = X_train.train_data
-            assert {"country", "store", "static", time_idx} <= set(frame)
+            groups = kwargs.get("group_ids", ["country", "store"])
+            assert {*groups, "static", time_idx} <= set(frame)
             assert frame[time_idx].min() == 100
             assert frame[time_idx].dtype.kind == "i"
-            assert set(frame["store"].unique()) == set(group_values)
-            for _, group in frame.groupby(["country", "store"], observed=True):
+            assert set(frame[groups[-1]].unique()) == set(group_values)
+            for _, group in frame.groupby(groups, observed=True):
                 assert group[time_idx].is_monotonic_increasing
             seen.append(frame.copy())
             self._model = DummyRegressor().fit(np.zeros((len(frame), 1)), frame["target"])
@@ -87,6 +88,11 @@ def test_panel_auto_holdout_preserves_composite_keys_covariates_and_absolute_ind
     pd.testing.assert_series_equal(transformed["country"], features["country"])
     pd.testing.assert_series_equal(transformed[time_idx], features[time_idx])
     assert "static" in transformed
+    renamed = features.rename(columns={"store": "site"})
+    refitted = clone(pipeline).fit(
+        renamed, original["target"], estimator__period=2, estimator__group_ids=["country", "site"]
+    )
+    assert len(refitted.predict(renamed)) == len(renamed)
 
 
 @pytest.mark.parametrize("train_full", [False, True])
@@ -189,7 +195,9 @@ def test_legacy_forecast_replay_honors_embedded_validation(tmp_path):
 
 
 @pytest.mark.parametrize("time_idx", ["time_idx", "step"])
-def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx):
+@pytest.mark.parametrize("explicit_validation", [False, True])
+@pytest.mark.parametrize("train_full", [False, True])
+def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx, explicit_validation, train_full):
     class PanelRows(TimeSeriesEstimator):
         @classmethod
         def search_space(cls, **kwargs):
@@ -213,7 +221,13 @@ def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx)
             "target": np.arange(40.0),
         }
     )
-    dataset = TimeSeriesDataset(frame, "date", "target", time_idx=time_idx)
+    dataset = TimeSeriesDataset(
+        frame.iloc[:-4] if explicit_validation else frame,
+        "date",
+        "target",
+        time_idx=time_idx,
+        test_data=frame.iloc[-4:] if explicit_validation else None,
+    )
     log = tmp_path / "panel.log"
     source = AutoML(max_iter=2, n_jobs=1, verbose=0, mlflow_logging=False, retrain_full=False, keep_search_state=True)
     source.add_learner("panel_rows", PanelRows)
@@ -227,14 +241,18 @@ def test_panel_replay_preserves_the_exact_sampled_group_rows(tmp_path, time_idx)
         log_file_name=str(log),
     )
     record = next(json.loads(line) for line in log.read_text().splitlines() if "validation_loss" in line)
-    sampled = source._state._train_with_config("panel_rows", record["config"], sample_size=5)[0]
+    sampled = source._state._train_with_config(
+        "panel_rows", record["config"], sample_size=len(dataset.train_data) if train_full else 5
+    )[0]
     expected = sampled.training_keys
     record["sample_size"] = 5
     log.write_text(json.dumps(record) + "\n")
     restored = AutoML(n_jobs=1, mlflow_logging=False, verbose=0)
     restored.add_learner("panel_rows", PanelRows)
-    restored.retrain_from_log(str(log), X_train=dataset, task="ts_forecast_panel", period=2, group_ids=["store"])
-    assert len(expected) == 5
+    restored.retrain_from_log(
+        str(log), X_train=dataset, task="ts_forecast_panel", period=2, group_ids=["store"], train_full=train_full
+    )
+    assert len(expected) == (len(dataset.train_data) if train_full else 5)
     assert restored.model.training_keys == expected
 
 
@@ -483,6 +501,98 @@ def test_tft_groups_with_different_origins_get_separate_prediction_boundaries(tf
         frame, horizon = call.args
         origins = frame.groupby("group")["time_idx"].max() - horizon + 1
         assert origins.nunique() == 1
+
+
+def test_tft_reconciles_exact_large_group_keys_before_concatenation(tft_decoder):
+    estimator = tft_decoder()
+    keys = [2**53, 2**53 + 1]
+    estimator.data["group"] = estimator.data["group"].map(dict(zip(["a", "b"], keys))).astype("int64")
+
+    def predict(data, **kwargs):
+        assert set(data.frame["group"]) == set(keys)
+        return SimpleNamespace(
+            output=np.array([[1.0], [2.0]]),
+            index=pd.DataFrame({"group": keys, "time_idx": [110, 110]}),
+        )
+
+    estimator.model.predict.side_effect = predict
+    request = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-11"] * 2),
+            "group": np.array(keys[::-1], dtype="uint64"),
+            "time_idx": [110, 110],
+        }
+    )
+    original = request.copy(deep=True)
+    np.testing.assert_array_equal(estimator.predict(request), [2.0, 1.0])
+    pd.testing.assert_frame_equal(request, original)
+
+
+def test_tft_cohort_preparation_does_not_rescan_all_group_histories(tft_decoder, monkeypatch):
+    estimator = tft_decoder()
+    groups = 16
+    template = estimator.data.loc[estimator.data["group"] == "a"]
+    estimator.data = pd.concat(
+        [template.assign(group=f"group_{i}", time_idx=template["time_idx"] + i * 100) for i in range(groups)],
+        ignore_index=True,
+    )
+    work = []
+    merge = pd.DataFrame.merge
+
+    def counted_merge(self, *args, **kwargs):
+        work.append(len(self))
+        return merge(self, *args, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "merge", counted_merge)
+
+    def predict(data, **kwargs):
+        assert data.frame["group"].nunique() == 1
+        return SimpleNamespace(
+            output=np.array([[1.0]]),
+            index=data.frame.groupby("group", as_index=False)["time_idx"].max(),
+        )
+
+    estimator.model.predict.side_effect = predict
+    request = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-11"] * groups),
+            "group": [f"group_{i}" for i in range(groups)],
+            "time_idx": [110 + i * 100 for i in range(groups)],
+        }
+    )
+    assert estimator.predict(request).tolist() == [1.0] * groups
+    assert sum(work) <= groups * (estimator.max_encoder_length + 1)
+
+
+def test_tft_incompatible_timestamp_timezone_has_a_clear_error(tft_decoder):
+    estimator = tft_decoder()
+    request = pd.DataFrame(
+        {"date": pd.date_range("2026-01-11", periods=1, tz="UTC"), "group": ["a"], "time_idx": [110]}
+    )
+    with pytest.raises(ValueError, match="timezone compatible"):
+        estimator.predict(request)
+    estimator.model.predict.assert_not_called()
+
+
+@pytest.mark.parametrize("fault", ["row_count", "duplicate_group", "wrong_origin", "wrong_length", "missing_group"])
+def test_tft_refuses_inconsistent_decoder_output_coordinates(tft_decoder, fault):
+    estimator = tft_decoder()
+    request = pd.DataFrame({"date": pd.to_datetime(["2026-01-11"] * 2), "group": ["a", "b"], "time_idx": [110, 110]})
+    values = np.array([[1.0], [2.0]])
+    index = pd.DataFrame({"group": ["a", "b"], "time_idx": [110, 110]})
+    if fault == "row_count":
+        values = values[:1]
+    elif fault == "duplicate_group":
+        index["group"] = "a"
+    elif fault == "wrong_origin":
+        index["time_idx"] = 109
+    elif fault == "wrong_length":
+        values = np.array([[1.0, 2.0], [3.0, 4.0]])
+    else:
+        values, index = values[:1], index.iloc[:1]
+    estimator.model.predict.side_effect = lambda *args, **kwargs: SimpleNamespace(output=values, index=index)
+    with pytest.raises(ValueError, match="TFT"):
+        estimator.predict(request)
 
 
 @pytest.mark.parametrize(

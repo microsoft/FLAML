@@ -166,6 +166,43 @@ def test_tune_noautolog_parentrun_parallel():
     _check_mlflow_logging([4, 3], "r2", True, experiment_id)
 
 
+@pytest.mark.parametrize("autolog", [False, True])
+def test_reported_spark_objectives_keep_latest_metric_and_trial_identity(autolog):
+    def objective(config):
+        from pyspark import TaskContext
+
+        from flaml import tune
+
+        assert TaskContext.get() is not None
+        tune.report(loss=config["x"] + 100)
+        tune.report(loss=float(config["x"]))
+
+    experiment = mlflow.set_experiment(f"reported-spark-{uuid4().hex}")
+    mlflow.autolog(disable=not autolog, log_models=False, silent=True)
+    with mlflow.start_run() as parent:
+        result = flaml.tune.run(
+            objective,
+            config={"x": flaml.tune.choice([1, 2])},
+            points_to_evaluate=[{"x": 1}, {"x": 2}],
+            metric="loss",
+            mode="min",
+            num_samples=2,
+            use_spark=True,
+            n_concurrent_trials=2,
+            verbose=0,
+        )
+        assert len(result.trials) == 2
+        assert result.best_result["loss"] == 1.0
+        client = mlflow.MlflowClient()
+        children = client.search_runs(
+            [experiment.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+        )
+        by_trial = {run.data.tags["flaml.trial_id"]: run for run in children}
+        for trial in result.trials:
+            assert by_trial[trial.trial_id].data.metrics == {"loss": float(trial.config["x"])}
+        assert result.best_run_id == by_trial[result.best_trial.trial_id].info.run_id
+
+
 def _test_automl_sparkdata(is_autolog, is_parent_run):
     estimator_list = ["rf_spark"]
 

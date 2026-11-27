@@ -303,6 +303,40 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  ray:
+    name: Ray compatibility (${{ matrix.ray-version }}, Python 3.10)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        ray-version: ["1.13.0", "2.4.0"]
+    env:
+      RAY_USAGE_STATS_ENABLED: "0"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      FLAML_FABRIC_RUNTIME: "false"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install declared Ray compatibility profile
+        run: |
+          python -m pip install --upgrade pip "setuptools<82" wheel
+          python -m pip install -e ".[automl]" "ray[tune]==${{ matrix.ray-version }}" \
+            "numpy<2" "pandas<3" "pyarrow<21" "pydantic<2" "protobuf<4" \
+            "mlflow-skinny==2.22.1" "optuna==3.6.1" "plotly>=5.16.1" pytest
+          python -m pip check
+      - name: Verify real Ray reporting and trial ownership
+        timeout-minutes: 10
+        run: python -m pytest -q test/fabric/test_ray_reporting.py --tb=short
+
   save-dependencies:
     if: github.ref == 'refs/heads/main'
     needs: build

@@ -1,8 +1,9 @@
 import pytest
+from packaging.version import Version
 
 ray = pytest.importorskip("ray")
 
-pytestmark = pytest.mark.skipif(not ray.__version__.startswith("2."), reason="Declared Ray compatibility is 2.x.")
+pytestmark = pytest.mark.skipif(Version(ray.__version__) < Version("1.13"), reason="Requires Ray >=1.13.")
 
 
 @pytest.fixture(scope="module")
@@ -27,8 +28,9 @@ def ray_workers():
 
 @pytest.mark.parametrize("autolog", [False, True])
 @pytest.mark.parametrize("reported", [False, True])
+@pytest.mark.parametrize("failed_first", [False, True])
 def test_native_ray_mlflow_associates_returned_and_reported_objectives(
-    ray_workers, tmp_path, monkeypatch, autolog, reported
+    ray_workers, tmp_path, monkeypatch, autolog, reported, failed_first
 ):
     import inspect
     from unittest.mock import patch
@@ -40,6 +42,9 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
     from flaml import tune
 
     def objective(config, offset):
+        if failed_first and config["x"] == 1:
+            tune.report(loss=0.0)
+            raise RuntimeError("trial failed after its first report")
         metrics = {"loss": float(config["x"]) + offset, "converged": True, "note": "not a metric"}
         if reported:
             tune.report(**metrics)
@@ -68,6 +73,7 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
                     mode="min",
                     num_samples=2,
                     use_ray=True,
+                    raise_on_failed_trial=not failed_first,
                     time_budget_s=90,
                     verbose=0,
                     **{storage_key: str(tmp_path / "ray-results")},
@@ -76,14 +82,20 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
                 children = client.search_runs(
                     [parent.info.experiment_id], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
                 )
-                assert len(result.trials) == len(children) == 2
+                assert len(result.trials) == 2
+                assert len(children) == (1 if failed_first and not autolog else 2)
                 by_trial = {child.data.tags["flaml.trial_id"]: child for child in children}
                 for trial in result.trials:
+                    if trial.status == "ERROR":
+                        if autolog:
+                            assert by_trial[trial.trial_id].info.status == "FAILED"
+                        continue
                     child = by_trial[trial.trial_id]
                     assert child.data.metrics == {"loss": float(trial.config["x"])}
                     assert child.data.params["enabled"] == "True"
                     assert child.data.params["x"] == str(trial.config["x"])
                 assert result.best_run_id == by_trial[result.best_trial.trial_id].info.run_id
+                assert result.best_config["x"] == (2 if failed_first else 1)
                 assert mlflow.active_run().info.run_id == parent.info.run_id
     finally:
         mlflow.set_tracking_uri(previous_uri)

@@ -225,6 +225,8 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
 
     def _prediction_frame(self, decoder, time_idx):
         decoder[self.time_col] = pd.to_datetime(decoder[self.time_col])
+        for column in self.group_ids:
+            decoder[column] = decoder[column].astype(object)
         supplied_index = time_idx in decoder
         if supplied_index and (decoder[time_idx].dtype.kind != "i" or decoder[time_idx].isna().any()):
             raise ValueError("TFT prediction time indexes must be nonmissing signed integers.")
@@ -241,6 +243,8 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             except KeyError as exc:
                 raise ValueError(f"TFT prediction contains an unknown group: {key!r}") from exc
             history[self.time_col] = pd.to_datetime(history[self.time_col])
+            for column in self.group_ids:
+                history[column] = history[column].astype(object)
             future = decoder.iloc[positions].sort_values(time_idx if supplied_index else self.time_col)
             decoder.loc[future.index, time_idx] = self._prediction_indexes(history, future, time_idx, supplied_index)
             decoder.loc[future.index, self.target_names[0]] = history[self.target_names[0]].iloc[-1]
@@ -274,14 +278,17 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         if decoder.empty:
             return pd.Series(dtype=float, index=pd.MultiIndex.from_frame(decoder[ids]))
         data = self._prediction_frame(decoder, time_idx)
-        grouped = decoder.groupby(self.group_ids, observed=True, sort=False)[time_idx]
-        lengths, starts = grouped.transform("size"), grouped.transform("min")
-        cohorts = pd.DataFrame({"horizon": lengths, "start": starts}).drop_duplicates()
+        by = self.group_ids[0] if len(self.group_ids) == 1 else self.group_ids
+        data_groups = data.groupby(by, observed=True, sort=False).indices
+        cohorts = {}
+        for group, positions in decoder.groupby(by, observed=True, sort=False).indices.items():
+            key = (len(positions), int(decoder.iloc[positions][time_idx].min()))
+            cohorts.setdefault(key, []).append((positions, data_groups[group]))
         forecasts = {}
         # A fitted maximum decoder length must not consume recent encoder rows in shorter requests.
-        for horizon, origin in cohorts.itertuples(index=False, name=None):
-            requested = decoder.loc[(lengths == horizon) & (starts == origin)]
-            subset = data.merge(requested[self.group_ids].drop_duplicates(), on=self.group_ids, how="inner", sort=False)
+        for (horizon, origin), groups in cohorts.items():
+            requested = decoder.iloc[np.concatenate([positions for positions, _ in groups])]
+            subset = data.iloc[np.concatenate([positions for _, positions in groups])]
             prediction_data = self._prediction_dataset(subset, int(horizon))
             result = self._model.predict(prediction_data, return_index=True)
             values, index = (result.output, result.index) if hasattr(result, "output") else result[:2]

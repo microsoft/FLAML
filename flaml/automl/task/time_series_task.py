@@ -276,6 +276,7 @@ class TimeSeriesTask(Task):
         sample_weight_full,
         time_col=None,
     ):
+        state._panel_group_sorted = False
         if self.is_ts_forecastpanel() and eval_method != "holdout":
             raise ValueError("Panel forecast cross-validation is not supported; use eval_method='holdout'.")
         state.kf = None
@@ -295,6 +296,7 @@ class TimeSeriesTask(Task):
             period = state.fit_kwargs["period"]
 
             if self.name == TS_FORECASTPANEL:
+                state._panel_group_sorted = True
                 # TODO: move this into the TimeSeriesDataset class
                 X_train_all = ts_data.X_train
                 y_train_all = ts_data.y_train

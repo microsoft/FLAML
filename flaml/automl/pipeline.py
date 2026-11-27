@@ -31,11 +31,11 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
     def __sklearn_is_fitted__(self):
         return self._is_fitted
 
-    def fit(self, X, y=None):
-        self.fit_transform(X, y)
+    def fit(self, X, y=None, *, group_ids=None):
+        self.fit_transform(X, y, group_ids=group_ids)
         return self
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None, *, group_ids=None):
         from flaml.automl.data import DataTransformer
         from flaml.automl.task.factory import task_factory
         from flaml.automl.time_series.ts_data import DataTransformerTS, TimeSeriesDataset, normalize_ts_data
@@ -43,6 +43,10 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
         self._is_fitted = False
         self.task_ = task_factory(self.task, X, y) if isinstance(self.task, str) else deepcopy(self.task)
         task = self.task_
+        if group_ids is not None:
+            if not isinstance(group_ids, list) or not group_ids:
+                raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
+            task.group_ids = group_ids.copy()
         if task.is_ts_forecast():
             time_idx = getattr(self.transformer, "time_idx", "time_idx")
             test_data = None
@@ -76,6 +80,21 @@ class _TaskPreprocessor(TransformerMixin, BaseEstimator):
                         index=features.index,
                         columns=task.target_names,
                     )
+            elif y is not None and not isinstance(X, TimeSeriesDataset):
+                features = normalize_ts_data(
+                    X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
+                    task.target_names,
+                    task.time_col,
+                )
+                targets, used = [], set(features.columns)
+                for name in task.target_names:
+                    candidate = name
+                    while candidate in used:
+                        candidate = f"{candidate}_target"
+                    targets.append(candidate)
+                    used.add(candidate)
+                task.target_names = targets
+                labels = pd.DataFrame(np.asarray(y).reshape(len(features), -1), index=features.index, columns=targets)
             else:
                 frame = normalize_ts_data(
                     X.copy() if isinstance(X, (pd.DataFrame, np.ndarray)) else X,
@@ -169,6 +188,14 @@ class AutoMLPipeline(Pipeline):
     def fit(self, X, y=None, **params):
         from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+        estimator_groups = params.get(f"{self.steps[-1][0]}__group_ids")
+        if estimator_groups is not None:
+            for name, step in self.steps[:-1]:
+                if isinstance(step, _TaskPreprocessor):
+                    key = f"{name}__group_ids"
+                    if key in params and params[key] != estimator_groups:
+                        raise ValueError("Preprocessing and estimator group_ids must agree.")
+                    params = {**params, key: estimator_groups}
         label_transformer = clone(self.label_transformer) if self.label_transformer is not None else None
         if label_transformer is not None:
             if isinstance(X, TimeSeriesDataset):
@@ -213,7 +240,15 @@ class AutoMLPipeline(Pipeline):
             }
             X = preprocessing.fit_transform(X, y, **preprocessing_params)
             self.steps = preprocessing.steps + [(estimator_name, estimator)]
-        X, y = _resample_training_data(X, y, resampler=self.resampler)
+        expected_classes = (
+            np.unique(y)
+            if any(
+                isinstance(step, _TaskPreprocessor) and getattr(step.task_, "_autofe_classes", None) is not None
+                for _, step in self.steps[:-1]
+            )
+            else None
+        )
+        X, y = _resample_training_data(X, y, resampler=self.resampler, expected_classes=expected_classes)
         estimator.fit(X, y, **step_params[estimator_name])
         self._set_label_transformer(label_transformer)
         return self

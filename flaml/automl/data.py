@@ -944,11 +944,17 @@ def _spark_numeric_precision_loss(col_name: str):
         r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$"
     )
     finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
-    return literal & (
-        ~finite
-        | ~_spark_decimal_key(_spark_column(col_name)).eqNullSafe(_spark_decimal_key(numeric))
-        | ((numeric % 1 == 0) & (exact % 1 != 0))
-        | ((F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING) & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip)))
+    return (finite & _spark_decimal_key(_spark_column(col_name)).isNull()) | (
+        literal
+        & (
+            ~finite
+            | ~_spark_decimal_key(_spark_column(col_name)).eqNullSafe(_spark_decimal_key(numeric))
+            | ((numeric % 1 == 0) & (exact % 1 != 0))
+            | (
+                (F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING)
+                & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip))
+            )
+        )
     )
 
 

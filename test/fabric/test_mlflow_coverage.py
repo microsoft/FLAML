@@ -241,6 +241,7 @@ class TestMlflowWrapper:
             result = wrapped("arg1")
         assert result == "result"
         mock_func.assert_called_once_with("arg1")
+        mock_set_config.assert_called_once_with(mock_config)
 
     def test_wrapper_synapse_import_fails(self):
         from flaml.fabric.mlflow import _mlflow_wrapper
@@ -848,6 +849,8 @@ class TestAdoptChildren:
         return integration
 
     def test_adopt_children_with_empty_run_deletion(self):
+        from flaml.fabric.mlflow import _system_tag_fingerprint
+
         integration = self._make_integration()
         integration.autolog = True
         integration.best_iteration = 0
@@ -860,7 +863,10 @@ class TestAdoptChildren:
         empty_run.info.start_time = (time.time() + 10) * 1000
         empty_run.data.params = {}
         empty_run.data.metrics = {}
-        empty_run.data.tags = integration.extra_tag.copy()
+        empty_run.data.tags = {**integration.extra_tag, "mlflow.runName": "empty", "flaml.initial_run_name": "empty"}
+        empty_run.data.tags["flaml.initial_system_tags"] = _system_tag_fingerprint(empty_run.data.tags)
+        empty_run.inputs = None
+        integration.mlflow_client.get_run.return_value = empty_run
         integration.mlflow_client.list_artifacts.return_value = []
 
         with patch.object(mlflow, "search_runs", return_value=[empty_run]):
@@ -912,6 +918,7 @@ class TestAdoptChildren:
         integration = self._make_integration()
         integration.autolog = True
         integration.best_iteration = None  # triggers warning
+        integration.mlflow_client = MagicMock()
 
         old_run = MagicMock()
         old_run.info.run_id = "old_run"
@@ -922,6 +929,10 @@ class TestAdoptChildren:
 
         with patch.object(mlflow, "search_runs", return_value=[old_run]):
             integration.adopt_children()
+        assert integration.child_counter == 0
+        integration.mlflow_client.delete_run.assert_not_called()
+        integration.mlflow_client.set_tag.assert_not_called()
+        integration.mlflow_client.log_batch.assert_not_called()
 
     def test_adopt_children_automl_log_params(self):
         """Cover lines 1021-1028: log learner/sample_size when missing."""
@@ -979,6 +990,10 @@ class TestAdoptChildren:
 
         with patch.object(mlflow, "search_runs", return_value=[child]):
             integration.adopt_children()
+        integration.mlflow_client.delete_run.assert_not_called()
+        integration.mlflow_client.log_batch.assert_not_called()
+        integration.mlflow_client.set_tag.assert_any_call("child1", "mlflow.parentRunId", integration.parent_run_id)
+        assert integration.child_counter == 1
 
 
 # ---------------------------------------------------------------------------

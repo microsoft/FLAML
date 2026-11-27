@@ -544,15 +544,22 @@ def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_e
     )
 
 
-def _resample_training_data(X_train, y_train, task=None, *, resampler=None):
+def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expected_classes=None):
     if resampler is None:
         resampler = getattr(task, "_resampler", None)
-    if resampler is None:
-        return X_train, y_train
+    if resampler is not None:
+        from sklearn.base import clone
 
-    from sklearn.base import clone
+        X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
+    if expected_classes is None:
+        expected_classes = getattr(task, "_autofe_classes", None)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError(
+            "AutoFE requires every class to be represented in the effective training data. "
+            "Use a suitable split and a resampler that preserves the class vocabulary."
+        )
 
-    return clone(resampler).fit_resample(X_train, y_train)
+    return X_train, y_train
 
 
 def norm_confusion_matrix(y_true: Union[np.array, Series], y_pred: Union[np.array, Series]):

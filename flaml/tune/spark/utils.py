@@ -270,6 +270,7 @@ def broadcast_code(custom_code="", file_name="mylearner"):
         cached_alias = importlib.util.cache_from_source(alias_path)
         if os.path.exists(cached_alias):
             os.unlink(cached_alias)
+        _published_code_revisions.setdefault(file_name, None)
         alias_prepared = False
         try:
             _publish_code_file(alias_path, alias)
@@ -285,13 +286,12 @@ def broadcast_code(custom_code="", file_name="mylearner"):
                         os.unlink(alias_path)
                     else:
                         _publish_code_file(alias_path, previous_alias)
+                    if os.path.exists(cached_alias):
+                        os.unlink(cached_alias)
                     importlib.invalidate_caches()
                 except Exception:
                     logger.exception("Failed to restore the driver alias after custom-code publication failed.")
             raise
-        sys.modules.pop(f"flaml.tune.spark.{file_name}", None)
-        if package is not None:
-            package.__dict__.pop(file_name, None)
         _published_code_aliases.add(file_name)
         _published_code_revisions[file_name] = (digest, root, sequence, archive_path)
 

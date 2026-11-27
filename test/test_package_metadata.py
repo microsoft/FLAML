@@ -219,6 +219,20 @@ def test_spark_installation_and_pandas_cap_are_limited_to_spark_jobs():
     assert '"pandas>=2.0,<3"' in content
 
 
+def test_declared_ray_compatibility_uses_real_worker_ci_profiles():
+    yaml = pytest.importorskip("yaml")
+    workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"
+    job = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["ray"]
+    assert job["runs-on"] == "ubuntu-latest"
+    assert set(job["strategy"]["matrix"]["ray-version"]) == {"1.13.0", "2.4.0"}
+    assert job["permissions"] == {"contents": "read"}
+    setup = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@"))
+    assert setup["with"]["python-version"] == "3.10"
+    tests = next(step for step in job["steps"] if step.get("name") == "Verify real Ray reporting and trial ownership")
+    assert "test/fabric/test_ray_reporting.py" in tests["run"]
+    assert tests["timeout-minutes"] <= job["timeout-minutes"]
+
+
 def test_offline_nlp_coverage_has_a_maintained_ci_step():
     yaml = pytest.importorskip("yaml")
     workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "python-package.yml"

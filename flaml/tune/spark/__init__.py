@@ -20,15 +20,24 @@ def _archive_publication(path):
 
 
 def _resolve_code_alias(module):
-    revision = vars(module)["_flaml_initial_revision"]
-    sequence = vars(module)["_flaml_publication_sequence"]
-    name = module.__name__.rsplit(".", 1)[-1]
-    for path in sys.path:
-        publication = _archive_publication(path)
-        if publication and publication[1] == name and publication[0] > sequence:
-            sequence = publication[0]
-            revision = f"_flaml_custom_{name}_{publication[2]}"
-    return importlib.import_module(f"{__name__}.{revision}")
+    from flaml.tune.spark.utils import _broadcast_code_lock, _published_code_revisions
+
+    with _broadcast_code_lock:
+        name = module.__name__.rsplit(".", 1)[-1]
+        if name in _published_code_revisions:
+            publication = _published_code_revisions[name]
+            if publication is None:
+                raise ModuleNotFoundError(f"Custom module {name!r} has no successful publication.")
+            revision = f"_flaml_custom_{name}_{publication[0]}"
+        else:
+            revision = vars(module)["_flaml_initial_revision"]
+            sequence = vars(module)["_flaml_publication_sequence"]
+            for path in sys.path:
+                publication = _archive_publication(path)
+                if publication and publication[1] == name and publication[0] > sequence:
+                    sequence = publication[0]
+                    revision = f"_flaml_custom_{name}_{publication[2]}"
+        return importlib.import_module(f"{__name__}.{revision}")
 
 
 class _CodeAlias(ModuleType):

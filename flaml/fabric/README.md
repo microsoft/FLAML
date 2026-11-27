@@ -83,6 +83,8 @@ Time and group holdouts must also represent every advertised class in training,
 so probability columns cannot silently disagree with `classes_`.
 AutoFE trial samples must retain that vocabulary too; increase `min_sample_size`
 or disable sampling if a time-ordered prefix omits a class.
+Coverage is also checked on each actual CV training fold and after fit-only
+resampling, including exported refits, before the learner is trained.
 Feature-off augmentation is unchanged.
 Selecting AutoFE with an ensemble emits a warning and records the effective
 `off` setting rather than silently claiming to apply it.
@@ -130,7 +132,9 @@ the replay time budget; `train_full=True` fits the supplied training data withou
 constructing an unused validation split. For legacy sampled logs without boundary
 metadata, pass the original `eval_method` explicitly when the split is ambiguous.
 An embedded validation partition remains an explicit holdout for legacy replay.
-Panel replay reproduces the original group/time ordering before tail sampling.
+Panel logs record whether automatic holdout preparation applied group/time
+ordering. Replay reproduces that choice before tail sampling; explicit-validation
+and full-data refits retain their original training-row order.
 
 Forecast AutoFE fits feature statistics and target encoders on each training
 partition. Explicit validation rows are never eligible for final refitting;
@@ -144,6 +148,8 @@ preserved through search, final refitting, and prediction. Panel indexes must be
 signed integers without missing values, as required by TFT.
 Numeric group keys are not imputed or converted through floating point.
 The same structural protection applies when refitting an exported panel pipeline.
+An explicit `estimator__group_ids` refit override is propagated to preprocessing
+so renamed group columns retain the same protection.
 Custom dataset time-index names are retained. TFT prediction supports consecutive
 coordinates immediately after each group's training boundary, up to the fitted
 horizon; unsupported gaps are rejected rather than relabeled. Predictions are
@@ -154,6 +160,9 @@ and strictly increasing future timestamps. An empty validation partition produce
 no forecasts; TFT's unsupported in-sample training metric is omitted with a warning
 when `log_training_metric=True`, without suppressing validation or weakening the
 future-coordinate checks.
+Exact integer group values are preserved when request and training integer dtypes
+differ. Staggered-origin prediction cohorts partition the panel once rather than
+repeatedly scanning every group's history.
 
 MLflow pipeline registration remains available as
 `flaml.automl.register_automl_pipeline`. MLflow is optional, and registration
@@ -188,6 +197,8 @@ requires training labels, which may be embedded in a `TimeSeriesDataset`.
 Detached feature refits propagate the resolved timestamp name between stages.
 Full forecast pipeline refits preserve named targets
 and an existing explicit timestamp column even when it is not the first column.
+Separate external targets use a collision-free internal name when a regressor
+has the old target name; that regressor is not removed.
 Refitting a numeric-target forecast classifier with strings also learns the new
 prediction vocabulary instead of returning encoded class indexes.
 Configured resampling remains a cloneable, fit-only operation after feature
@@ -205,20 +216,34 @@ artifacts; explicitly calling `register_automl_pipeline` still registers the req
 Tune preserves the caller's local autolog configuration and propagates those
 options to remote workers without permanently reconfiguring reused workers.
 Remote logging uses the driver's tracking URI, which must be reachable from the
-workers. Worker restoration includes the previous tracking URI and active experiment, and parallel trial/run
+workers. Each worker trial uses an isolated fluent run stack; unrelated worker runs
+are hidden while the objective executes and restored without being ended. Manual
+objectives may create their own fluent runs; FLAML's manual result recording remains
+driver-owned. Unclosed trial-created runs are ended before restoring the worker.
+Worker restoration includes the raw tracking-URI override, tracking environment,
+active experiment and previous run stack, so inherited settings remain inherited.
+Parallel trial/run
 matching uses trial identities rather than task start order.
 Tagged trial association does not depend on worker clock agreement. Local, Spark,
 and native Ray results use the winning trial ID. Local and Ray report-style
-objectives retain their final reported numeric metrics; framework bookkeeping,
+objectives retain their final reported numeric metrics; Spark worker reports are
+captured per trial and delivered when that objective returns, rather than streamed
+to the driver scheduler. Nested tuning has a separate reporting context.
+Framework bookkeeping,
 config values, strings, and booleans are not logged as objective metrics.
+An explicitly selected objective such as `time_total_s` is retained even when its
+name is also used for framework bookkeeping.
 Errored trials are not recorded as empty successes. Successful adoption writes each trial's metrics
 once, and secondary cleanup errors do not replace an objective failure.
 Remote trials retain their driver's lineage without ending an unrelated active
 worker run. Objective and restoration `RuntimeError`s are not retried as cluster
 failures.
 Child-run adoption requires an integration-owned tag; unrelated runs in the same
-experiment are not changed. Failed runs, diagnostic artifacts, and user-authored
-tags are retained rather than classified as empty placeholders.
+experiment are not changed. Failed runs, dataset-input lineage, diagnostic artifacts,
+renamed runs and user-authored tags are retained rather than classified as empty
+placeholders. Returning `{}` marks an owned autolog run failed; an errored trial's
+intermediate score cannot displace a successful winner. Failed trials remain in
+analysis history, including native-Ray-backed analyses.
 Trial artifacts use that trial's fitted model, and
 fit completion waits for dependent artifact-environment writes.
 Fluent model writes stay on the run-owning thread; only client-addressed metadata
@@ -282,6 +307,9 @@ local alias and bytecode preparation precedes distribution, so a locked local
 file cannot report failure after already publishing the new revision to workers.
 A distribution failure restores the previous driver alias; if restoring local
 state also fails, that secondary failure is logged without masking the original.
+Driver alias resolution is coordinated with publication and uses only committed
+revisions, including a first import racing with distribution. A failed initial
+publication is not importable, and rollback invalidates any generated bytecode.
 As before, the driver package directory must be writable. The returned source
 path is revision-specific; workers do not need writable package installations.
 

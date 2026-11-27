@@ -209,3 +209,18 @@ def test_sampled_integer_cast_never_silently_nulls_a_finite_value(dtype_spark, m
     else:
         with pytest.raises(ValueError, match="finite numeric values incompatible"):
             auto_convert_dtypes_spark(frame, convert_threshold=1.0)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        ["9007199254740992D", "9007199254740993D"],
+        ["9007199254740992F", "9007199254740993F"],
+        ["0x20000000000000p0", "0x20000000000001p0"],
+    ],
+)
+def test_noncanonical_numeric_spellings_cannot_bypass_double_precision_validation(dtype_spark, values):
+    frame = dtype_spark.sql(f"SELECT * FROM VALUES ('{values[0]}'), ('{values[1]}') AS input(value)")
+    converted, schema = auto_convert_dtypes_spark(frame, sample_ratio=1.0, convert_threshold=1.0)
+    assert schema["value"] == "string"
+    assert sorted(row.value for row in converted.collect()) == sorted(values)

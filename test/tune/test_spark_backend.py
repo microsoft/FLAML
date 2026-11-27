@@ -118,6 +118,38 @@ def test_spark_tuning_restores_backend_after_error(spark_backend, monkeypatch, e
     sleep.assert_not_called()
 
 
+def test_inline_spark_reports_do_not_cross_trial_or_nested_tune_contexts(spark_backend):
+    def objective(config):
+        tune.report(loss=config["x"] + 10)
+        inner = tune.run(
+            lambda inner_config: {"loss": 100},
+            config={"x": 1},
+            metric="loss",
+            mode="min",
+            num_samples=1,
+            use_ray=False,
+            use_spark=False,
+            mlflow_logging=False,
+            verbose=0,
+        )
+        assert inner.best_result["loss"] == 100
+        tune.report(loss=config["x"])
+
+    result = tune.run(
+        objective,
+        config={"x": tune.choice([1, 2])},
+        points_to_evaluate=[{"x": 1}, {"x": 2}],
+        metric="loss",
+        mode="min",
+        num_samples=2,
+        use_spark=True,
+        n_concurrent_trials=1,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    assert [trial.last_result["loss"] for trial in result.trials] == [1, 2]
+
+
 @pytest.mark.parametrize("learner", ["rf", "extra_tree"])
 def test_automl_spark_single_worker(spark_backend, learner):
     X, y = make_classification(n_samples=80, n_features=6, random_state=41)
@@ -402,3 +434,78 @@ def test_fallible_alias_preparation_does_not_publish_code_to_workers(monkeypatch
         for key in list(sys.modules):
             if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
                 sys.modules.pop(key, None)
+
+
+@pytest.mark.parametrize("previous", [False, True])
+def test_first_driver_import_cannot_observe_a_failed_pending_publication(monkeypatch, broadcast_files, previous):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    utils, context, driver = broadcast_files
+    package = importlib.import_module("flaml.tune.spark")
+    monkeypatch.setattr(package, "__path__", type(package.__path__)([str(driver)]))
+    name = f"_test_concurrent_alias_{int(previous)}"
+    qualified = f"flaml.tune.spark.{name}"
+    if previous:
+        utils.broadcast_code("value = 1\n", name)
+    distributing, importing, release = Event(), Event(), Event()
+    install = package._install_code_alias
+
+    def observed_install(*args):
+        importing.set()
+        return install(*args)
+
+    def blocked_distribution(path):
+        distributing.set()
+        assert release.wait(10)
+        raise RuntimeError("distribution rejected")
+
+    monkeypatch.setattr(package, "_install_code_alias", observed_install)
+    context.addPyFile.side_effect = blocked_distribution
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            publication = executor.submit(utils.broadcast_code, "value = 2\n", name)
+            assert distributing.wait(10)
+            imported = executor.submit(importlib.import_module, qualified)
+            try:
+                assert importing.wait(10)
+            finally:
+                release.set()
+            with pytest.raises(RuntimeError, match="distribution rejected"):
+                publication.result(timeout=10)
+            assert not Path(importlib.util.cache_from_source(str(driver / f"{name}.py"))).exists()
+            if previous:
+                module = imported.result(timeout=10)
+                assert module.value == 1
+                assert importlib.import_module(qualified).value == 1
+            else:
+                with pytest.raises(ModuleNotFoundError):
+                    imported.result(timeout=10)
+                assert not (driver / f"{name}.py").exists()
+    finally:
+        release.set()
+        package.__dict__.pop(name, None)
+        for key in list(sys.modules):
+            if key == qualified or key.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                sys.modules.pop(key, None)
+
+
+def test_secondary_alias_rollback_failure_preserves_the_distribution_error(monkeypatch, broadcast_files):
+    utils, context, driver = broadcast_files
+    name = "_test_rollback_error"
+    utils.broadcast_code("value = 1\n", name)
+    before = (driver / f"{name}.py").read_text()
+    publish = utils._publish_code_file
+
+    def fail_rollback(path, content):
+        if Path(path) == driver / f"{name}.py" and content == before:
+            raise PermissionError("rollback blocked")
+        return publish(path, content)
+
+    monkeypatch.setattr(utils, "_publish_code_file", fail_rollback)
+    context.addPyFile.side_effect = RuntimeError("original distribution error")
+    logged = Mock()
+    monkeypatch.setattr(utils.logger, "exception", logged)
+    with pytest.raises(RuntimeError, match="original distribution error"):
+        utils.broadcast_code("value = 2\n", name)
+    logged.assert_called_once()
