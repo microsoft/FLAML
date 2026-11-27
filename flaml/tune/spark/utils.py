@@ -509,6 +509,7 @@ class PySparkOvertimeMonitor:
         self._time_budget_s = time_budget_s
         self._start_time = start_time
         self._force_cancel = force_cancel
+        self._cancelled_error = False
         # TODO: add support for non-spark scenario
         if self._force_cancel and _have_spark:
             self._monitor_daemon = None
@@ -572,10 +573,12 @@ class PySparkOvertimeMonitor:
             # self._setLogLevel("WARN")
             if not exc_type:
                 return True
-            elif exc_type == py4j.protocol.Py4JJavaError:
+            elif self._cancel_flag and exc_type == py4j.protocol.Py4JJavaError:
+                self._cancelled_error = True
                 logger.debug("Py4JJavaError Exception: %s", exc_value)
                 return True
-            elif exc_type == TypeError:
+            elif self._cancel_flag and exc_type == TypeError:
+                self._cancelled_error = True
                 # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
                 logger.debug("TypeError Exception: %s", exc_value)
                 return True

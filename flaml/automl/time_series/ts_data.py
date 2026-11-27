@@ -659,7 +659,7 @@ class DataTransformerTS:
         for column in self.num_columns:
             X[column] = X[column].fillna(np.nan)
 
-        if self.transformer is not None:
+        if self.transformer is not None and len(X):
             X[self.num_columns] = self.transformer.transform(X[self.num_columns])
 
         if y is None:

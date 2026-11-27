@@ -848,6 +848,18 @@ class TestAdoptChildren:
             integration = MLflowIntegration()
         return integration
 
+    def _owned_run(self, integration, run_id):
+        run = MagicMock()
+        run.info.run_id = run_id
+        run.info.run_name = run_id
+        run.info.experiment_id = str(integration.experiment_id)
+        run.info.lifecycle_stage = "active"
+        run.info.status = "FINISHED"
+        run.data.params = {}
+        run.data.metrics = {}
+        run.data.tags = integration.extra_tag.copy()
+        return run
+
     def test_adopt_children_retains_empty_runs(self):
         integration = self._make_integration()
         integration.autolog = True
@@ -855,7 +867,7 @@ class TestAdoptChildren:
         integration.has_summary = False
         integration.mlflow_client = MagicMock()
 
-        empty_run = MagicMock()
+        empty_run = self._owned_run(integration, "empty_run")
         empty_run.info.run_id = "empty_run"
         empty_run.info.status = "FINISHED"
         empty_run.info.lifecycle_stage = "active"
@@ -880,7 +892,7 @@ class TestAdoptChildren:
         integration.experiment_type = "automl"
         integration.mlflow_client = MagicMock()
 
-        run1 = MagicMock()
+        run1 = self._owned_run(integration, "run1")
         run1.info.run_id = "run1"
         run1.info.start_time = (time.time() + 10) * 1000
         run1.data.params = {"n_estimators": "100", "lr": "0.1"}
@@ -888,7 +900,7 @@ class TestAdoptChildren:
         run1.data.tags = integration.extra_tag.copy()
 
         # Duplicate (same params after removing n_estimators)
-        run2 = MagicMock()
+        run2 = self._owned_run(integration, "run2")
         run2.info.run_id = "run2"
         run2.info.start_time = (time.time() + 11) * 1000
         run2.data.params = {"n_estimators": "200", "lr": "0.1"}
@@ -904,9 +916,7 @@ class TestAdoptChildren:
             }
         ]
 
-        mock_child_run = MagicMock()
-        mock_child_run.data.params = {"lr": "0.1"}
-        integration.mlflow_client.get_run = MagicMock(return_value=mock_child_run)
+        integration.mlflow_client.get_run.side_effect = lambda run_id: {"run1": run1, "run2": run2}[run_id]
 
         with patch.object(mlflow, "search_runs", return_value=[run1, run2]):
             with patch.object(integration, "_log_info_to_run") as log_info:
@@ -921,7 +931,7 @@ class TestAdoptChildren:
         integration.best_iteration = None  # triggers warning
         integration.mlflow_client = MagicMock()
 
-        old_run = MagicMock()
+        old_run = self._owned_run(integration, "old_run")
         old_run.info.run_id = "old_run"
         old_run.info.start_time = (integration.start_time - 100) * 1000  # before start
         old_run.data.params = {"p": "v"}
@@ -944,7 +954,7 @@ class TestAdoptChildren:
         integration.experiment_type = "automl"
         integration.mlflow_client = MagicMock()
 
-        child = MagicMock()
+        child = self._owned_run(integration, "child1")
         child.info.run_id = "child1"
         child.info.start_time = (time.time() + 10) * 1000
         child.data.params = {"n_estimators": "10"}
@@ -960,10 +970,8 @@ class TestAdoptChildren:
             }
         ]
 
-        mock_child_run = MagicMock()
-        mock_child_run.data.params = {}  # missing learner and sample_size
-        mock_child_run.info.run_name = "child_name"
-        integration.mlflow_client.get_run = MagicMock(return_value=mock_child_run)
+        child.info.run_name = "child_name"
+        integration.mlflow_client.get_run.return_value = child
 
         result_obj = MagicMock()
         with patch.object(mlflow, "search_runs", return_value=[child]):
@@ -982,12 +990,13 @@ class TestAdoptChildren:
         integration.infos = []  # no infos
         integration.mlflow_client = MagicMock()
 
-        child = MagicMock()
+        child = self._owned_run(integration, "child1")
         child.info.run_id = "child1"
         child.info.start_time = (time.time() + 10) * 1000
         child.data.params = {"p": "v"}
         child.data.metrics = {"m": 1}
         child.data.tags = integration.extra_tag.copy()
+        integration.mlflow_client.get_run.return_value = child
 
         with patch.object(mlflow, "search_runs", return_value=[child]):
             integration.adopt_children()

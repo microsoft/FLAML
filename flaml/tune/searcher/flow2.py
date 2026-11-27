@@ -299,7 +299,9 @@ class FLOW2(Searcher):
             self.seed + 1,
             self.lexico_objectives,
         )
-        if self.lexico_objectives is not None:
+        if not self._valid_objective(obj):
+            flow2.best_obj = None
+        elif self.lexico_objectives is not None:
             flow2.best_obj = {}
             for k, v in obj.items():
                 flow2.best_obj[k] = (
@@ -415,6 +417,9 @@ class FLOW2(Searcher):
     def _remember_objective(self, trial_id, obj, result):
         if getattr(self, "_observations", None) is None:
             self._observations = {}
+            self._observation_order = {}
+            self._next_observation_order = 0
+            self._committed_order = -1
             self._initial_observation = (
                 self.best_obj.copy() if isinstance(self.best_obj, dict) else self.best_obj,
                 self.best_config.copy(),
@@ -431,6 +436,8 @@ class FLOW2(Searcher):
             previous.append(observation)
         elif not previous or obj < previous[0][0]:
             previous[:] = [observation]
+            self._observation_order[trial_id] = self._next_observation_order
+            self._next_observation_order += 1
 
     def _commit_objective(self, trial_id):
         if self.lexico_objectives is not None:
@@ -438,18 +445,32 @@ class FLOW2(Searcher):
         history = (self._observations or {}).pop(trial_id, None)
         if history:
             candidate = history[0]
-            if self._committed_observation[0] is None or candidate[0] < self._committed_observation[0]:
+            order = self._observation_order.pop(trial_id)
+            if (
+                self._committed_observation[0] is None
+                or candidate[0] < self._committed_observation[0]
+                or candidate[0] == self._committed_observation[0]
+                and order < self._committed_order
+            ):
                 self._committed_observation = candidate
+                self._committed_order = order
 
     def _remove_failed_objectives(self, trial_id):
         observations = getattr(self, "_observations", None)
         if observations is None or trial_id not in observations:
             return
         del observations[trial_id]
+        self._observation_order.pop(trial_id, None)
         baseline = self._initial_observation if self.lexico_objectives is not None else self._committed_observation
-        candidates = ([baseline] if baseline[0] is not None else []) + [
-            observation for history in observations.values() for observation in history
-        ]
+        if self.lexico_objectives is None:
+            ordered = ([(self._committed_order, baseline)] if baseline[0] is not None else []) + [
+                (self._observation_order[key], history[0]) for key, history in observations.items() if history
+            ]
+            candidates = [observation for _, observation in sorted(ordered, key=lambda item: item[0])]
+        else:
+            candidates = ([baseline] if baseline[0] is not None else []) + [
+                observation for history in observations.values() for observation in history
+            ]
         if self.lexico_objectives is not None:
             self._histories = defaultdict(list) if candidates else None
             self._f_best = {}
@@ -478,6 +499,11 @@ class FLOW2(Searcher):
         self._proposed_by.clear()
         self._iter_best_config = self.trial_count_complete
 
+    @staticmethod
+    def _valid_objective(obj):
+        values = obj.values() if isinstance(obj, dict) else (obj,)
+        return all(value is not None and not np.isnan(value) for value in values)
+
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """
         Compare with incumbent.
@@ -493,7 +519,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj is not None and (isinstance(obj, dict) or not np.isnan(obj)):
+            if self._valid_objective(obj):
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]
@@ -554,7 +580,7 @@ class FLOW2(Searcher):
                 if self.lexico_objectives is None
                 else {k: result[k] for k in self.lexico_objectives["metrics"]}
             )
-            if obj is not None and (isinstance(obj, dict) or not np.isnan(obj)):
+            if self._valid_objective(obj):
                 obj = (
                     {
                         k: -obj[k] if m == "max" else obj[k]

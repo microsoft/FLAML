@@ -356,16 +356,27 @@ def test_panel_numeric_group_features_work_with_a_real_tree_estimator():
         ([-1], [2**63, 2**63 + 1], "object"),
     ],
 )
-def test_panel_concatenation_chooses_a_lossless_group_representation(signed, unsigned, dtype):
+@pytest.mark.parametrize(
+    "categorical_left,categorical_right", [(False, False), (True, False), (False, True), (True, True)]
+)
+def test_panel_concatenation_chooses_a_lossless_group_representation(
+    signed, unsigned, dtype, categorical_left, categorical_right
+):
     from flaml.automl.time_series.ts_data import _concat_panel_frames
 
     left = pd.DataFrame({"store": np.array(signed, dtype="int64")})
     right = pd.DataFrame({"store": np.array(unsigned, dtype="uint64")})
+    if categorical_left:
+        left["store"] = left["store"].astype("category")
+    if categorical_right:
+        right["store"] = right["store"].astype("category")
+    original_left, original_right = left.copy(deep=True), right.copy(deep=True)
     result = _concat_panel_frames([left, right], ["store"], ignore_index=True)
     assert result["store"].tolist() == signed + unsigned
     assert result["store"].dtype == dtype
     assert result.groupby("store").ngroups == len(signed + unsigned)
-    assert left["store"].dtype == "int64" and right["store"].dtype == "uint64"
+    pd.testing.assert_frame_equal(left, original_left)
+    pd.testing.assert_frame_equal(right, original_right)
 
 
 @pytest.mark.parametrize("integer, floating, dtype", [(1, 1.5, "float64"), (2**53 + 1, float(2**53), "object")])
@@ -655,14 +666,15 @@ def test_tft_prediction_retains_absolute_coordinates_and_request_order(tft_decod
     assert getattr(sent, "frame", sent)[time_idx].max() == 111
 
 
-@pytest.mark.parametrize("entry", ["automl", "pipeline"])
-@pytest.mark.parametrize("case", ["datetime", "strings", "misordered"])
+@pytest.mark.parametrize("entry", ["automl", "pipeline", "passthrough"])
+@pytest.mark.parametrize("case", ["datetime", "strings", "dates", "misordered", "empty"])
 def test_public_tft_prediction_preserves_caller_keys_through_preprocessing(tft_decoder, monkeypatch, entry, case):
-    from flaml.automl.pipeline import make_automl_pipeline
+    from flaml.automl.pipeline import AutoMLPipeline, make_automl_pipeline
     from flaml.automl.task.factory import task_factory
     from flaml.automl.time_series.ts_data import DataTransformerTS
 
     estimator = tft_decoder()
+    estimator.data["temperature"] = np.arange(len(estimator.data), dtype=float)
     transformer = DataTransformerTS("date", ["target"])
     transformer.fit(
         estimator.data.drop(columns="target"), estimator.data[["target"]], group_columns=estimator.group_ids
@@ -674,16 +686,27 @@ def test_public_tft_prediction_preserves_caller_keys_through_preprocessing(tft_d
     automl.preserve_checkpoint = True
     automl._transformer, automl._label_transformer = transformer, None
     automl._trained_estimator = estimator
-    predictor = automl if entry == "automl" else make_automl_pipeline(automl, estimator)
+    predictor = (
+        automl
+        if entry == "automl"
+        else AutoMLPipeline([("estimator", estimator)])
+        if entry == "passthrough"
+        else make_automl_pipeline(automl, estimator)
+    )
     request = pd.DataFrame(
         {
             "date": pd.to_datetime(["2026-01-12", "2026-01-11", "2026-01-11", "2026-01-12"]),
             "group": ["b", "a", "b", "a"],
             "time_idx": [111, 110, 110, 111],
+            "temperature": [15.0, 12.0, 16.0, 13.0],
         }
     )
-    if case != "datetime":
+    if case in ("strings", "misordered"):
         request["date"] = request["date"].dt.strftime("%Y-%m-%d")
+    elif case == "dates":
+        request["date"] = request["date"].dt.date
+    elif case == "empty":
+        request = request.iloc[:0]
     original = request.copy(deep=True)
     if case == "misordered":
         final = estimator if entry == "automl" else predictor._final_estimator
@@ -693,8 +716,11 @@ def test_public_tft_prediction_preserves_caller_keys_through_preprocessing(tft_d
             predictor.predict(request)
     else:
         prediction = predictor.predict(request)
-        np.testing.assert_array_equal(prediction, [21.0, 10.0, 20.0, 11.0])
+        np.testing.assert_array_equal(prediction, [] if case == "empty" else [21.0, 10.0, 20.0, 11.0])
         pd.testing.assert_index_equal(prediction.index, pd.MultiIndex.from_frame(request[["group", "date"]]))
+        if case == "empty":
+            final = estimator if entry == "automl" else predictor._final_estimator
+            final.model.predict.assert_not_called()
     pd.testing.assert_frame_equal(request, original)
 
 

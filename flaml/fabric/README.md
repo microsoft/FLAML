@@ -244,6 +244,9 @@ Native-Ray MLflow logging in AutoML and Tune requires transactional tracking, su
 `mlflow.set_tracking_uri("sqlite:///tracking.db")` or a tracking server.
 Relative SQLite filenames are resolved against the driver's directory before
 worker execution; SQLite URI options and the caller's tracking settings are retained.
+Active AutoML Ray workers use the same store and state isolation, without enabling
+duplicate automatic model logging. Private temporary stores and SQLite's memory
+VFS are not persistent tracking stores.
 Use a tracking server for multi-host Ray clusters; in-memory databases cannot
 share tracking state across worker processes.
 File-based tracking is rejected before worker execution because Ray can stop a
@@ -251,6 +254,7 @@ worker during FileStore's non-atomic metadata rewrite. Non-Ray file tracking and
 history-only collection remain available. For an explicitly identified or uniquely matched owned
 attempt that Ray has completed, the driver reconciles a still-running status;
 it retains an observed terminal status and does not finalize unrelated runs.
+This also reconciles uniquely owned failed attempts that never delivered a report.
 Tagged trial association does not depend on worker clock agreement. Local, Spark,
 and native Ray results use the winning trial ID. Local and Ray report-style
 objectives retain their final reported numeric metrics; Spark worker reports are
@@ -267,7 +271,9 @@ trials are still adopted. Use returned metrics or `flaml.tune.report` when
 accepted-attempt association must be guaranteed.
 Known accepted run IDs are checked directly against experiment, owner and trial
 identity. Fallback uniqueness checks include all owned result pages, not only a
-truncated latest-run window.
+truncated latest-run window, and count failed or killed attempts before selecting
+an eligible run. Ownership is checked again before adoption writes; this is not
+an atomic compare-and-set guarantee against concurrent external changes.
 Framework bookkeeping,
 config values, strings, and booleans are not logged as objective metrics.
 User reports are captured before optimizer callbacks add constraint annotations;
@@ -275,6 +281,8 @@ a user-authored metric with a similar name is not removed by suffix guessing.
 Callbacks use separate working results, including nested report containers, so
 public trial/analysis metrics remain unchanged. Opaque model/artifact payloads
 are not deep-copied; completed AutoML callbacks release cached estimator payloads.
+Snapshots preserve standard mapping interfaces such as `Counter`, `defaultdict`,
+and `OrderedDict`; custom container subclasses remain opaque.
 Generated elapsed time is included in analysis and tracking when it is the selected
 objective. Spark measures it on the worker at the accepted report or return,
 not while the driver waits for sibling trials.
@@ -297,13 +305,17 @@ running natively. An errored trial's
 intermediate score cannot displace a successful winner or become a successful
 Optuna observation or CFO starting point. Failed trials remain in analysis history,
 including native-Ray-backed analyses. Raised local objectives notify their searcher
-of failure before propagating the original error. Clean scheduler stops preserve accepted
+of failure before propagating the original error. Aborted Spark batches release
+unfinished trials without rolling back previously completed siblings. Only a
+confirmed cancellation may suppress Spark cancellation exceptions. Clean scheduler stops preserve accepted
 reports and finish their owned runs without aborting sibling trials. Native Ray
 generator functions retain their yield semantics and trial context.
 Provisional local-search updates remain enabled. If their trial fails, its
 observations are removed and the search center is recovered from surviving
 observations, including concurrent successful trials. Scalar rollback retains only
-the best committed observation and unfinished trials. Clean local stops must match
+the best committed observation and unfinished trials, with equal scores retaining
+first-observation order. Invalid scalar or lexicographic objective values do not
+become incumbents. Clean local stops must match
 the active local trial; clean Ray exits require an
 explicit active Ray context; Spark worker exits are not inferred from module
 defaults. A caller's already-handled exception is not an objective failure.

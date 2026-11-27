@@ -361,9 +361,15 @@ def test_numeric_categories_with_missing_values_remain_encodable():
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_local_tune_preserves_autolog_options_and_parent_run(tmp_path, fail):
+def test_local_tune_preserves_autolog_options_and_parent_run(tmp_path, monkeypatch, fail):
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "9876543210987654321")
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "another-test-experiment")
+    monkeypatch.setenv("MLFLOW_RUN_ID", "f" * 32)
     code = f"""
 import copy
+import os
+for name in ("MLFLOW_EXPERIMENT_ID", "MLFLOW_EXPERIMENT_NAME", "MLFLOW_RUN_ID"):
+    os.environ.pop(name, None)
 import mlflow
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 from flaml import tune

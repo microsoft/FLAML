@@ -68,6 +68,7 @@ _running_trial = None
 _training_iteration = 0
 _worker_report_context = ContextVar("flaml_worker_report_context", default=None)
 _trial_run_context = ContextVar("flaml_trial_run_context", default=None)
+_run_context = ContextVar("flaml_tune_run_context", default=None)
 
 INCUMBENT_RESULT = "__incumbent_result__"
 _MLFLOW_RUN_ID = "__flaml_mlflow_run_id"
@@ -178,6 +179,20 @@ def _finish_trial(trial, *, release_model_payload=False):
         callback_result = getattr(trial, "_last_callback_result", None)
         if release_model_payload and isinstance(callback_result, dict):
             callback_result.pop("trained_estimator", None)
+
+
+def _fail_running_trials(primary_error, *, release_model_payload=False):
+    first_error = None
+    for trial in list(_runner.running_trials):
+        trial.set_status(Trial.ERROR)
+        try:
+            _finish_trial(trial, release_model_payload=release_model_payload)
+        except Exception as error:
+            if first_error is None:
+                first_error = error
+            logger.exception("Failed to complete an abandoned Spark trial.")
+    if first_error is not None and primary_error is None:
+        raise first_error
 
 
 def _isolate_nested_reporting(function):
@@ -431,7 +446,63 @@ def report(_metric=None, **kwargs):
         raise StopIteration
 
 
+def _unwrap_searcher(searcher):
+    seen = set()
+    while True:
+        if id(searcher) in seen:
+            raise ValueError("Cyclic searcher wrappers are not supported.")
+        seen.add(id(searcher))
+        nested = getattr(searcher, "searcher", None)
+        if nested is None:
+            return searcher
+        searcher = nested
+
+
+def _primary_objective(searcher):
+    objectives = getattr(searcher, "lexico_objectives", None)
+    metric = objectives["metrics"] if objectives else getattr(searcher, "metric", None)
+    return (metric[0] if metric else None) if isinstance(metric, (list, tuple)) else metric
+
+
+@contextmanager
+def _tuning_runtime():
+    global _use_ray, _verbose, _runner, _running_trial, _training_iteration
+
+    previous = (_use_ray, _verbose, _runner, _running_trial, _training_iteration, logger.handlers, logger.level)
+    state = {"handlers": [], "cleanup": None}
+    token = _run_context.set(state)
+    primary_error = None
+    try:
+        yield
+    except BaseException as error:
+        primary_error = error
+        raise
+    finally:
+        errors = []
+        try:
+            if state["cleanup"] is not None:
+                state["cleanup"](primary_error)
+        except BaseException as error:
+            errors.append(error)
+            if primary_error is not None:
+                logger.exception("Tuning cleanup failed while handling an earlier error.")
+        finally:
+            _use_ray, _verbose, _runner, _running_trial, _training_iteration = previous[:5]
+            logger.handlers = previous[-2]
+            logger.setLevel(previous[-1])
+            _run_context.reset(token)
+            for handler in state["handlers"]:
+                try:
+                    handler.close()
+                except BaseException as error:
+                    errors.append(error)
+                    logger.exception("Failed to close an owned tuning log handler.")
+        if errors and primary_error is None:
+            raise errors[0]
+
+
 @_isolate_nested_reporting
+@_tuning_runtime()
 def run(
     evaluation_function,
     config: Optional[dict] = None,
@@ -688,11 +759,14 @@ def run(
     global _training_iteration
     global internal_mlflow
     global is_log_telemetry_tune
+    configured_searcher = _unwrap_searcher(search_alg)
     primary_metric = (
         (lexico_objectives["metrics"][0] if lexico_objectives else None)
         or metric
-        or getattr(search_alg, "metric", None)
+        or _primary_objective(configured_searcher)
     )
+    if isinstance(primary_metric, (list, tuple)):
+        primary_metric = primary_metric[0] if primary_metric else None
     if primary_metric == "training_iteration":
         raise ValueError("training_iteration is reserved for framework progress; choose a different objective name.")
     old_use_ray = _use_ray
@@ -734,11 +808,14 @@ def run(
             logger.addHandler(old_handlers[0])
         if verbose > 0:
             if log_file_name:
-                logger.addHandler(logging.FileHandler(log_file_name))
+                handler = logging.FileHandler(log_file_name)
+                _run_context.get()["handlers"].append(handler)
+                logger.addHandler(handler)
             elif not logger.hasHandlers():
                 # Add the console handler.
                 _ch = logging.StreamHandler(stream=sys.stdout)
                 _ch.setFormatter(logger_formatter)
+                _run_context.get()["handlers"].append(_ch)
                 logger.addHandler(_ch)
             if verbose <= 2:
                 logger.setLevel(logging.INFO)
@@ -761,16 +838,17 @@ def run(
 
     mlflow_finalized = False
 
-    def cleanup_mlflow():
+    def cleanup_mlflow(primary_error):
         if not _internal_mlflow or mlflow_finalized:
             return
-        original_error = sys.exc_info()[0]
         try:
             mlflow_integration.adopt_children()
         except Exception:
-            if original_error is None:
+            if primary_error is None:
                 raise
             logger.exception("MLflow cleanup failed while handling an objective error.")
+
+    _run_context.get()["cleanup"] = cleanup_mlflow
 
     from .searcher.blendsearch import CFO, BlendSearch, RandomSearch
 
@@ -852,18 +930,11 @@ def run(
     else:
         if metric is None or mode is None:
             if lexico_objectives:
-                metric = lexico_objectives["metrics"][0] or metric or search_alg.metric or DEFAULT_METRIC
-                mode = lexico_objectives["modes"][0] or mode or search_alg.mode
+                metric = lexico_objectives["metrics"][0] or metric or configured_searcher.metric or DEFAULT_METRIC
+                mode = lexico_objectives["modes"][0] or mode or configured_searcher.mode
             else:
-                metric = metric or search_alg.metric or DEFAULT_METRIC
-                mode = mode or search_alg.mode
-        if ray_available and use_ray:
-            if ray_version.startswith("1."):
-                from ray.tune.suggest import ConcurrencyLimiter
-            else:
-                from ray.tune.search import ConcurrencyLimiter
-        else:
-            from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+                metric = metric or configured_searcher.metric or DEFAULT_METRIC
+                mode = mode or configured_searcher.mode
         if (
             search_alg.__class__.__name__
             in [
@@ -874,7 +945,7 @@ def run(
             and use_incumbent_result_in_evaluation is not None
         ):
             search_alg.use_incumbent_result_in_evaluation = use_incumbent_result_in_evaluation
-        searcher = search_alg.searcher if isinstance(search_alg, ConcurrencyLimiter) else search_alg
+        searcher = configured_searcher
         if lexico_objectives:
             # TODO: Modify after supporting BlendSearch in lexicographic optimization
             assert search_alg.__class__.__name__ in [
@@ -891,7 +962,7 @@ def run(
             searcher.set_search_properties(metric, mode, config, **setting)
         else:
             searcher.set_search_properties(metric, mode, config)
-        if getattr(searcher, "metric", None) == "training_iteration":
+        if _primary_objective(searcher) == "training_iteration":
             try:
                 raise ValueError(
                     "training_iteration is reserved for framework progress; configure a different searcher objective."
@@ -905,7 +976,6 @@ def run(
                     _runner = old_runner
                     logger.handlers = old_handlers
                     logger.setLevel(old_level)
-                cleanup_mlflow()
     if scheduler in ("asha", "asynchyperband", "async_hyperband"):
         params = {}
         # scheduler resource_dimension=resource_attr
@@ -986,8 +1056,9 @@ def run(
             analysis.search_space = config
             if _internal_mlflow:
                 for trial in analysis.trials:
+                    last_result = trial.last_result or {}
+                    mlflow_integration._finalize_native_trial(trial, last_result.get(_MLFLOW_RUN_ID))
                     if trial.last_result:
-                        mlflow_integration._finalize_native_trial(trial, trial.last_result.get(_MLFLOW_RUN_ID))
                         mlflow_integration.record_trial(
                             _reported_trial_metrics(trial.last_result, metric),
                             trial,
@@ -1002,7 +1073,6 @@ def run(
             _verbose = old_verbose
             _running_trial = old_running_trial
             _training_iteration = old_training_iteration
-            cleanup_mlflow()
 
     if use_spark:
         # parallel run with spark
@@ -1111,49 +1181,55 @@ def run(
                         )
                         results = None
                         trials_by_id = {trial.trial_id: trial for trial in trials_to_run}
-                        with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
-                            # The configured Parallel instance still uses Spark; inline trials need a local backend.
-                            with parallel_backend("threading"):
-                                results = parallel(
-                                    delayed(_evaluate_spark_trial)(
-                                        evaluation_function,
-                                        trial_to_run.config,
-                                        trial_to_run.trial_id,
-                                        (
-                                            {"_flaml_trial_id": trial_to_run.trial_id}
-                                            if _internal_mlflow and mlflow_integration.autolog
-                                            else {}
-                                        ),
+                        primary_error = None
+                        try:
+                            with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel, parallel=parallel):
+                                # The configured Parallel instance still uses Spark; inline trials need a local backend.
+                                with parallel_backend("threading"):
+                                    results = parallel(
+                                        delayed(_evaluate_spark_trial)(
+                                            evaluation_function,
+                                            trial_to_run.config,
+                                            trial_to_run.trial_id,
+                                            (
+                                                {"_flaml_trial_id": trial_to_run.trial_id}
+                                                if _internal_mlflow and mlflow_integration.autolog
+                                                else {}
+                                            ),
+                                        )
+                                        for trial_to_run in trials_to_run
                                     )
-                                    for trial_to_run in trials_to_run
-                                )
-                        # results = [evaluation_function(trial_to_run.config) for trial_to_run in trials_to_run]
-                        while results:
-                            outcome = results.pop(0)
-                            result = outcome.result
-                            trial_to_run = trials_by_id[outcome.trial_id]
-                            _runner.running_trial = trial_to_run
-                            if outcome.last_report is not None:
-                                _report_trial_result(
-                                    trial_to_run,
-                                    outcome.last_report,
-                                    elapsed_time=getattr(outcome, "report_elapsed_time", None),
-                                )
-                            if isinstance(result, dict) and not result:
-                                trial_to_run.set_status(Trial.ERROR)
-                            elif result is not None and not trial_to_run.is_finished():
-                                logger.info(f"Brief result: {result}")
-                                _report_trial_result(
-                                    trial_to_run, result, elapsed_time=getattr(outcome, "elapsed_time", None)
-                                )
-                            if _internal_mlflow and trial_to_run.last_result is not None:
-                                mlflow_integration.record_trial(
-                                    _reported_trial_metrics(trial_to_run.last_reported_result, metric),
-                                    trial_to_run,
-                                    metric,
-                                    run_id=outcome.mlflow_run_id,
-                                )
-                            _finish_trial(trial_to_run, release_model_payload=bool(automl_info))
+                            while results:
+                                outcome = results.pop(0)
+                                result = outcome.result
+                                trial_to_run = trials_by_id[outcome.trial_id]
+                                _runner.running_trial = trial_to_run
+                                if outcome.last_report is not None:
+                                    _report_trial_result(
+                                        trial_to_run,
+                                        outcome.last_report,
+                                        elapsed_time=getattr(outcome, "report_elapsed_time", None),
+                                    )
+                                if isinstance(result, dict) and not result:
+                                    trial_to_run.set_status(Trial.ERROR)
+                                elif result is not None and not trial_to_run.is_finished():
+                                    logger.info(f"Brief result: {result}")
+                                    _report_trial_result(
+                                        trial_to_run, result, elapsed_time=getattr(outcome, "elapsed_time", None)
+                                    )
+                                if _internal_mlflow and trial_to_run.last_result is not None:
+                                    mlflow_integration.record_trial(
+                                        _reported_trial_metrics(trial_to_run.last_reported_result, metric),
+                                        trial_to_run,
+                                        metric,
+                                        run_id=outcome.mlflow_run_id,
+                                    )
+                                _finish_trial(trial_to_run, release_model_payload=bool(automl_info))
+                        except BaseException as error:
+                            primary_error = error
+                            raise
+                        finally:
+                            _fail_running_trials(primary_error, release_model_payload=bool(automl_info))
                         num_failures = 0
                     analysis = ExperimentAnalysis(
                         _runner.get_trials(),
@@ -1187,7 +1263,6 @@ def run(
                         _runner = old_runner
                         logger.handlers = old_handlers
                         logger.setLevel(old_level)
-                    cleanup_mlflow()
 
     # simple sequential run without using tune.run() from ray
     time_start = time.time()
@@ -1222,7 +1297,8 @@ def run(
                 primary_error = None
                 try:
                     with _capture_trial_run(trial_to_run.trial_id, backend="local"):
-                        with PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel):
+                        monitor = PySparkOvertimeMonitor(time_start, time_budget_s, force_cancel)
+                        with monitor:
                             try:
                                 result = evaluation_function(
                                     trial_to_run.config,
@@ -1236,7 +1312,7 @@ def run(
                                 if not trial_to_run.is_finished():
                                     raise
                     logger.debug(f"result in tune: {trial_to_run}, {result}")
-                    if isinstance(result, dict) and not result:
+                    if getattr(monitor, "_cancelled_error", False) or isinstance(result, dict) and not result:
                         trial_to_run.set_status(Trial.ERROR)
                     elif result is not None and not trial_to_run.is_finished():
                         _report_trial_result(trial_to_run, result)
@@ -1299,7 +1375,6 @@ def run(
             _runner = old_runner
             logger.handlers = old_handlers
             logger.setLevel(old_level)
-        cleanup_mlflow()
 
 
 class Tuner:

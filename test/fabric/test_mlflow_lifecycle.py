@@ -277,7 +277,12 @@ def test_parallel_tune_adoption_joins_trial_identity_not_start_order(monkeypatch
     runs = [
         SimpleNamespace(
             info=SimpleNamespace(
-                run_id=f"run-{index}", run_name=f"trial-{index}", start_time=(integration.start_time + index + 1) * 1000
+                run_id=f"run-{index}",
+                run_name=f"trial-{index}",
+                start_time=(integration.start_time + index + 1) * 1000,
+                experiment_id="experiment",
+                lifecycle_stage="active",
+                status="FINISHED",
             ),
             data=SimpleNamespace(
                 params={"x": str(index)}, metrics={}, tags={**integration.extra_tag, "flaml.trial_id": str(index)}
@@ -618,6 +623,9 @@ def test_successful_autolog_trial_inside_a_handled_exception_finishes(tracking):
         "sqlite:///file:%3Amemory%3A?uri=true",
         "sqlite:///file:flaml?mode=memory&uri=true",
         "sqlite:///file:?uri=true",
+        "sqlite:///file://?uri=true",
+        "sqlite:///file://localhost?uri=true",
+        "sqlite:///file:/flaml?vfs=memdb&uri=true",
     ],
 )
 def test_native_ray_rejects_nontransactional_tracking_paths(uri):
@@ -644,7 +652,9 @@ def test_native_ray_accepts_transactional_or_service_tracking(uri):
     _validate_ray_tracking_uri(uri)
 
 
-@pytest.mark.parametrize("uri", ["sqlite:///tracking.db", "sqlite:///file:tracking%20%23.db?mode=rwc&uri=true"])
+@pytest.mark.parametrize(
+    "uri", ["sqlite:///tracking.db", "sqlite:///file:tracking%20%23.db?mode=rwc&uri=true", "absolute-file"]
+)
 def test_sqlite_worker_tracking_uses_the_driver_database(tracking, tmp_path, monkeypatch, uri):
     import json
     import subprocess
@@ -653,12 +663,16 @@ def test_sqlite_worker_tracking_uses_the_driver_database(tracking, tmp_path, mon
 
     import cloudpickle
 
-    from flaml.fabric.mlflow import _mlflow_wrapper
+    from flaml.fabric.mlflow import _mlflow_wrapper, _worker_tracking_uri
 
     driver, worker = tmp_path / "driver", tmp_path / "worker"
     driver.mkdir()
     worker.mkdir()
     monkeypatch.chdir(driver)
+    if uri == "absolute-file":
+        uri = f"sqlite:///{(driver / 'tracking.db').as_uri()}?mode=rwc&uri=true"
+    resolved = _worker_tracking_uri(uri)
+    assert _worker_tracking_uri(resolved) == resolved
     mlflow.set_tracking_uri(uri)
     client = mlflow.MlflowClient()
     experiment = client.create_experiment("driver-store", artifact_location=(driver / "artifacts").as_uri())
@@ -755,7 +769,7 @@ def test_native_finalization_skips_invalid_or_unavailable_run_ids(tracking, monk
     assert integration.infos == []
 
 
-@pytest.mark.parametrize("accepted", ["unique", "ambiguous", "explicit"])
+@pytest.mark.parametrize("accepted", ["unique", "ambiguous", "explicit", "mixed-terminal"])
 def test_native_adoption_finalizes_only_the_unambiguous_accepted_attempt(tracking, accepted):
     from flaml.fabric.mlflow import MLflowIntegration
 
@@ -767,6 +781,9 @@ def test_native_adoption_finalizes_only_the_unambiguous_accepted_attempt(trackin
         ).info.run_id
         for _ in range(1 if accepted == "unique" else 2)
     ]
+    if accepted == "mixed-terminal":
+        tracking.set_terminated(run_ids[-1], "FAILED")
+    initial_statuses = [tracking.get_run(run_id).info.status for run_id in run_ids]
     trial = SimpleNamespace(trial_id="trial", config={"x": 1}, status="TERMINATED", last_result={"loss": 1.0})
     integration.record_trial(trial.last_result, trial, "loss", run_id=run_ids[-1] if accepted == "explicit" else None)
     analysis = SimpleNamespace(
@@ -779,13 +796,87 @@ def test_native_adoption_finalizes_only_the_unambiguous_accepted_attempt(trackin
         best_run_name=None,
     )
     integration.log_tune(analysis, "loss")
-    if accepted == "ambiguous":
+    if accepted in ("ambiguous", "mixed-terminal"):
         assert analysis.best_run_id is None
-        assert all(tracking.get_run(run_id).info.status == "RUNNING" for run_id in run_ids)
+        assert [tracking.get_run(run_id).info.status for run_id in run_ids] == initial_statuses
+        assert all(not tracking.get_run(run_id).data.metrics for run_id in run_ids)
     else:
         assert analysis.best_run_id == run_ids[-1]
         assert tracking.get_run(run_ids[-1]).info.status == "FINISHED"
         assert all(tracking.get_run(run_id).info.status == "RUNNING" for run_id in run_ids[:-1])
+
+
+@pytest.mark.parametrize("field", ["flaml.owner_id", "flaml.trial_id"])
+def test_native_adoption_skips_all_writes_after_a_fresh_ownership_mismatch(tracking, monkeypatch, field):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    with mlflow.start_run():
+        integration = MLflowIntegration("tune")
+        integration.autolog, integration.manual_log, integration._native_ray = True, False, True
+        run_id = tracking.create_run(
+            integration.experiment_id, tags={**integration.extra_tag, "flaml.trial_id": "trial"}
+        ).info.run_id
+        trial = SimpleNamespace(trial_id="trial", config={"x": 1}, status="TERMINATED")
+        integration.record_trial({"loss": 1.0}, trial, "loss", run_id=run_id)
+        integration.set_best_iter(SimpleNamespace(best_iteration=0, best_trial=trial))
+        lookup = integration._runs_for_adoption
+
+        def change_after_lookup(owner):
+            runs = lookup(owner)
+            tracking.set_tag(run_id, field, "another-owner-or-trial")
+            return runs
+
+        monkeypatch.setattr(integration, "_runs_for_adoption", change_after_lookup)
+        result = SimpleNamespace(best_run_id=None)
+        integration.adopt_children(result)
+        stored = tracking.get_run(run_id)
+        assert not stored.data.metrics and not stored.data.params
+        assert "mlflow.parentRunId" not in stored.data.tags
+        assert "flaml.child_counter" not in stored.data.tags
+        assert "flaml.best_run" not in stored.data.tags
+        assert stored.info.status == "RUNNING"
+        assert result.best_run_id is None and integration.best_run_id is None
+
+
+@pytest.mark.parametrize("reported", [False, True])
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_native_failed_trials_reconcile_without_successful_metric_records(tracking, reported, ambiguous):
+    from flaml.fabric.mlflow import MLflowIntegration
+
+    integration = MLflowIntegration("tune")
+    integration.autolog, integration.manual_log, integration._native_ray = True, False, True
+    failed_runs = [
+        tracking.create_run(
+            integration.experiment_id, tags={**integration.extra_tag, "flaml.trial_id": "failed"}
+        ).info.run_id
+        for _ in range(2 if ambiguous else 1)
+    ]
+    failed = SimpleNamespace(
+        trial_id="failed", config={}, status="ERROR", last_result={"loss": -10.0} if reported else {}
+    )
+    integration._finalize_native_trial(failed, None)
+    integration.record_trial(failed.last_result, failed, "loss")
+    winner = SimpleNamespace(trial_id="winner", config={}, status="TERMINATED", last_result={"loss": 1.0})
+    winner_run = tracking.create_run(
+        integration.experiment_id, tags={**integration.extra_tag, "flaml.trial_id": "winner"}
+    ).info.run_id
+    integration.record_trial(winner.last_result, winner, "loss", run_id=winner_run)
+    analysis = SimpleNamespace(
+        trials=[failed, winner],
+        best_trial=winner,
+        best_iteration=1,
+        best_config=winner.config,
+        best_result=winner.last_result,
+        best_run_id=None,
+        best_run_name=None,
+    )
+    integration.log_tune(analysis, "loss")
+    assert analysis.best_run_id == winner_run
+    assert tracking.get_run(winner_run).data.metrics == {"loss": 1.0}
+    for run_id in failed_runs:
+        stored = tracking.get_run(run_id)
+        assert stored.info.status == ("RUNNING" if ambiguous else "FAILED")
+        assert not stored.data.metrics and "flaml.child_counter" not in stored.data.tags
 
 
 @pytest.mark.parametrize("operation", ["lookup", "finalize"])

@@ -104,18 +104,29 @@ class BaseTrialRunner:
         callback_result = getattr(trial, "_last_callback_result", None)
         if callback_result is None and trial.last_result is not None:
             callback_result = _copy_result(trial.last_result)
-        if trial.status not in [Trial.ERROR, Trial.TERMINATED]:
+        error = trial.status == Trial.ERROR
+        scheduler_error = None
+        try:
             if self._scheduler_alg:
-                self._scheduler_alg.on_trial_complete(self, trial.trial_id, callback_result)
-            self._search_alg.on_trial_complete(trial.trial_id, callback_result)
-            trial.set_status(Trial.TERMINATED)
-        else:
-            if self._scheduler_alg:
-                self._scheduler_alg.on_trial_remove(self, trial)
-            if trial.status == Trial.ERROR:
+                if trial.status in (Trial.ERROR, Trial.TERMINATED):
+                    self._scheduler_alg.on_trial_remove(self, trial)
+                else:
+                    self._scheduler_alg.on_trial_complete(self, trial.trial_id, callback_result)
+        except Exception as failure:
+            scheduler_error = failure
+        try:
+            if error:
                 self._search_alg.on_trial_complete(trial.trial_id, callback_result, error=True)
             else:
                 self._search_alg.on_trial_complete(trial.trial_id, callback_result)
+        except Exception:
+            if scheduler_error is None:
+                raise
+            logger.exception("Searcher completion also failed after a scheduler error.")
+        finally:
+            trial.set_status(Trial.ERROR if error else Trial.TERMINATED)
+        if scheduler_error is not None:
+            raise scheduler_error
 
 
 class SequentialTrialRunner(BaseTrialRunner):
@@ -142,8 +153,10 @@ class SequentialTrialRunner(BaseTrialRunner):
         return trial
 
     def stop_trial(self, trial):
-        super().stop_trial(trial)
-        self.running_trial = None
+        try:
+            super().stop_trial(trial)
+        finally:
+            self.running_trial = None
 
 
 class SparkTrialRunner(BaseTrialRunner):
@@ -181,7 +194,10 @@ class SparkTrialRunner(BaseTrialRunner):
         return trial
 
     def stop_trial(self, trial):
-        super().stop_trial(trial)
-        self.running_trials.remove(trial)
-        if self.running_trial is trial:
-            self.running_trial = None
+        try:
+            super().stop_trial(trial)
+        finally:
+            if trial in self.running_trials:
+                self.running_trials.remove(trial)
+            if self.running_trial is trial:
+                self.running_trial = None

@@ -17,13 +17,14 @@
 # Copyright (c) Microsoft Corporation.
 import time
 import uuid
-from collections import deque
+from collections import Counter, OrderedDict, defaultdict, deque
 from numbers import Number
 
 
 def _copy_result(value, memo=None):
     """Snapshot report containers without cloning opaque model or artifact payloads."""
-    if not isinstance(value, (dict, list)) and type(value) is not tuple:
+    container_type = type(value)
+    if container_type not in (dict, list, tuple, Counter, defaultdict, OrderedDict):
         return value
     if memo is None:
         memo = {}
@@ -31,8 +32,11 @@ def _copy_result(value, memo=None):
     if identity in memo:
         return memo[identity]
     if isinstance(value, dict):
-        result = memo[identity] = {}
-        result.update((key, _copy_result(item, memo)) for key, item in value.items())
+        result = memo[identity] = (
+            defaultdict(value.default_factory) if container_type is defaultdict else container_type()
+        )
+        for key, item in value.items():
+            result[key] = _copy_result(item, memo)
     elif isinstance(value, list):
         result = memo[identity] = []
         result.extend(_copy_result(item, memo) for item in value)

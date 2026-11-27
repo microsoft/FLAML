@@ -1,5 +1,8 @@
 import inspect
+import os
+from contextlib import contextmanager
 from tempfile import TemporaryDirectory
+from uuid import uuid4
 
 import pytest
 from packaging.version import Version
@@ -16,18 +19,43 @@ def _ray_storage(tmp_path):
     return {key: str(tmp_path / "ray-results")}
 
 
+@contextmanager
 def _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind="absolute"):
-    if uri_kind != "absolute":
-        monkeypatch.chdir(tmp_path)
-    uri = {
-        "absolute": f"sqlite:///{tmp_path / 'tracking.db'}",
-        "relative": "sqlite:///tracking.db",
-        "file": "sqlite:///file:tracking.db?mode=rwc&uri=true",
-    }[uri_kind]
-    mlflow.set_tracking_uri(uri)
-    experiment = mlflow.create_experiment("native-ray", artifact_location=(tmp_path / "artifacts").as_uri())
-    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
-    return experiment
+    from mlflow.tracking import fluent
+    from mlflow.tracking._tracking_service import utils as tracking_utils
+
+    previous_uri = tracking_utils._tracking_uri
+    previous_environment_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    last = fluent._last_active_run_id
+    previous_last = last.get() if callable(getattr(last, "get", None)) else last
+    with monkeypatch.context() as state:
+        if uri_kind != "absolute":
+            state.chdir(tmp_path)
+        state.setattr(fluent, "_active_experiment_id", None)
+        state.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+        state.delenv("MLFLOW_RUN_ID", raising=False)
+        # MLflow caches stores by URI, not by the current working directory.
+        relative_name = f"tracking-{uuid4().hex}.db"
+        uri = {
+            "absolute": f"sqlite:///{tmp_path / 'tracking.db'}",
+            "relative": f"sqlite:///{relative_name}",
+            "file": f"sqlite:///file:{relative_name}?mode=rwc&uri=true",
+        }[uri_kind]
+        try:
+            mlflow.set_tracking_uri(uri)
+            experiment = mlflow.create_experiment("native-ray", artifact_location=(tmp_path / "artifacts").as_uri())
+            state.setenv("MLFLOW_EXPERIMENT_ID", experiment)
+            yield experiment
+        finally:
+            mlflow.set_tracking_uri(previous_uri)
+            if previous_environment_uri is None:
+                os.environ.pop("MLFLOW_TRACKING_URI", None)
+            else:
+                os.environ["MLFLOW_TRACKING_URI"] = previous_environment_uri
+            if callable(getattr(last, "set", None)):
+                last.set(previous_last)
+            else:
+                fluent._last_active_run_id = previous_last
 
 
 @pytest.fixture(scope="module")
@@ -56,6 +84,44 @@ def ray_workers():
             yield
         finally:
             ray.shutdown()
+
+
+@pytest.mark.parametrize("explicit_override", [False, True])
+def test_transactional_tracking_restores_raw_configuration_after_setup_failure(
+    tmp_path, monkeypatch, explicit_override
+):
+    from pathlib import Path
+    from unittest.mock import Mock
+
+    import mlflow
+    from mlflow.tracking._tracking_service import utils as tracking_utils
+
+    inherited = f"sqlite:///{tmp_path / 'inherited.db'}"
+    override = f"sqlite:///{tmp_path / 'override.db'}" if explicit_override else None
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", inherited)
+    monkeypatch.setattr(tracking_utils, "_tracking_uri", override)
+    failure = RuntimeError("experiment setup failed")
+    monkeypatch.setattr(mlflow, "create_experiment", Mock(side_effect=failure))
+    original_directory = Path.cwd()
+    with pytest.raises(RuntimeError) as caught:
+        with _transactional_tracking(mlflow, monkeypatch, tmp_path, "relative"):
+            pytest.fail("A failed setup must not enter the test body.")
+    assert caught.value is failure
+    assert tracking_utils._tracking_uri == override
+    assert os.environ["MLFLOW_TRACKING_URI"] == inherited
+    assert Path.cwd() == original_directory
+
+
+@pytest.mark.parametrize("uri_kind", ["relative", "file"])
+def test_transactional_tracking_keeps_sdk_cached_stores_distinct_between_directories(tmp_path, monkeypatch, uri_kind):
+    import mlflow
+
+    for name in ("first", "second"):
+        directory = tmp_path / name
+        directory.mkdir()
+        with _transactional_tracking(mlflow, monkeypatch, directory, uri_kind) as experiment:
+            stored = mlflow.MlflowClient().get_experiment(experiment)
+            assert stored.artifact_location == (directory / "artifacts").as_uri()
 
 
 @pytest.mark.parametrize("autolog", [False, True])
@@ -105,13 +171,11 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
     else:
         trainable = ray_tune.with_parameters(objective, offset=0.0)
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             if autolog:
                 mlflow.autolog(log_models=False, silent=True)
@@ -153,8 +217,6 @@ def test_native_ray_mlflow_associates_returned_and_reported_objectives(
                 assert result.best_run_id == by_trial[result.best_trial.trial_id].info.run_id
                 assert result.best_config["x"] == (2 if failed_first else 1)
                 assert mlflow.active_run().info.run_id == parent.info.run_id
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_native_ray_empty_results_fail_without_mlflow(ray_workers, tmp_path):
@@ -195,13 +257,11 @@ def test_native_ray_scalar_result_preserves_attempt_identity(ray_workers, tmp_pa
     from flaml.tune.result import DEFAULT_METRIC
     from flaml.tune.tune import _MLFLOW_RUN_ID
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(experiment_id=experiment_id):
@@ -218,8 +278,6 @@ def test_native_ray_scalar_result_preserves_attempt_identity(ray_workers, tmp_pa
                 assert result.best_result[DEFAULT_METRIC] == 2.0
                 assert result.best_result[_MLFLOW_RUN_ID] == result.best_run_id
                 assert mlflow.MlflowClient().get_run(result.best_run_id).data.metrics == {DEFAULT_METRIC: 2.0}
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_native_ray_tune_result_supports_reporting(ray_workers, tmp_path):
@@ -271,13 +329,11 @@ def test_native_ray_generators_preserve_yields_and_tracking(
         else:
             yield {"loss": 2.0}
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             if logging_mode == "autolog":
                 mlflow.autolog(log_models=False, silent=True)
@@ -314,8 +370,6 @@ def test_native_ray_generators_preserve_yields_and_tracking(
                     if logging_mode == "autolog":
                         assert result.best_result[_MLFLOW_RUN_ID] == child.info.run_id
                 assert mlflow.active_run().info.run_id == parent.info.run_id
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
@@ -351,15 +405,13 @@ def test_native_only_ray_reports_preserve_results_without_guessing_attempts(
                 from ray import train as native
             native.report(metrics)
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
     warning = Mock(wraps=integration_module.logger.warning)
     monkeypatch.setattr(integration_module.logger, "warning", warning)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(experiment_id=experiment_id) as parent:
@@ -395,8 +447,6 @@ def test_native_only_ray_reports_preserve_results_without_guessing_attempts(
                     )
                 else:
                     assert client.get_run(result.best_run_id).data.metrics == {"loss": 1.0}
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 @pytest.mark.parametrize("user_lagrange", [False, True])
@@ -415,13 +465,11 @@ def test_native_ray_report_metrics_exclude_optimizer_annotations(ray_workers, tm
     def objective(config):
         tune.report(**metrics)
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(experiment_id=experiment_id):
@@ -437,8 +485,6 @@ def test_native_ray_report_metrics_exclude_optimizer_annotations(ray_workers, tm
                     **_ray_storage(tmp_path),
                 )
                 assert mlflow.MlflowClient().get_run(result.best_run_id).data.metrics == metrics
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_native_ray_report_stop_finishes_the_owned_run(ray_workers, tmp_path, monkeypatch):
@@ -453,13 +499,11 @@ def test_native_ray_report_stop_finishes_the_owned_run(ray_workers, tmp_path, mo
         tune.report(loss=3.0)
         tune.report(loss=2.0)
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
     monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
     monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    experiment_id = _transactional_tracking(mlflow, monkeypatch, tmp_path)
-    try:
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment_id:
         with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(experiment_id=experiment_id) as parent:
@@ -480,8 +524,6 @@ def test_native_ray_report_stop_finishes_the_owned_run(ray_workers, tmp_path, mo
                 assert run.info.status == "FINISHED"
                 assert run.data.metrics == {"loss": 3.0}
                 assert mlflow.active_run().info.run_id == parent.info.run_id
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_automl_native_ray_rejects_file_tracking_before_search(tmp_path, monkeypatch):
@@ -510,8 +552,12 @@ def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp
     import sys
     from test.automl import test_notebook_example
     from types import ModuleType
+    from unittest.mock import patch
 
     import mlflow
+    from mlflow.tracking import fluent
+    from mlflow.tracking._tracking_service import utils as tracking_utils
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
     from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
 
@@ -527,7 +573,7 @@ def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp
 
     def bounded_fit(self, *args, **kwargs):
         call = (kwargs.get("use_ray", False), mlflow.get_tracking_uri())
-        kwargs.update(n_jobs=1, max_iter=2, time_budget=30)
+        kwargs.update(n_jobs=1, max_iter=2, time_budget=30, estimator_list=["rf"])
         if call[0]:
             kwargs["use_ray"] = _ray_storage(tmp_path)
         result = fit(self, *args, **kwargs)
@@ -535,8 +581,154 @@ def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp
         return result
 
     monkeypatch.setattr(AutoML, "fit", bounded_fit)
-    previous_uri = mlflow.get_tracking_uri()
-    test_notebook_example.test_mlflow(tmp_path)
-    assert [native for native, _ in calls] == [False, True]
-    assert calls[-1][1].startswith("sqlite:///")
-    assert mlflow.get_tracking_uri() == previous_uri
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    with (
+        _transactional_tracking(mlflow, monkeypatch, tmp_path),
+        patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
+    ):
+        names = ("MLFLOW_TRACKING_URI", "MLFLOW_EXPERIMENT_ID", "MLFLOW_EXPERIMENT_NAME", "MLFLOW_RUN_ID")
+
+        def tracking_state():
+            last = fluent._last_active_run_id
+            return (
+                tracking_utils._tracking_uri,
+                {name: os.environ.get(name) for name in names},
+                fluent._active_experiment_id,
+                last.get() if callable(getattr(last, "get", None)) else last,
+            )
+
+        before = tracking_state()
+        test_notebook_example.test_mlflow(tmp_path)
+        assert [native for native, _ in calls] == [False, True]
+        assert calls[-1][1].startswith("sqlite:///")
+        assert tracking_state() == before
+        client = mlflow.MlflowClient(tracking_uri=f"sqlite:///{tmp_path / 'ray-tracking.db'}")
+        experiment = client.get_experiment_by_name("ray-example")
+        assert experiment is not None
+        runs = client.search_runs([experiment.experiment_id])
+        parents = [run for run in runs if "mlflow.parentRunId" not in run.data.tags]
+        assert len(parents) == 1 and parents[0].info.status == "FINISHED"
+        children = [run for run in runs if run.data.tags.get("mlflow.parentRunId") == parents[0].info.run_id]
+        assert children and all(run.info.status == "FINISHED" for run in children)
+
+
+def test_native_ray_worker_exit_before_reporting_finalizes_its_unique_run(ray_workers, tmp_path, monkeypatch):
+    from unittest.mock import patch
+
+    import mlflow
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    from flaml import tune
+
+    def objective(config):
+        import os
+
+        mlflow.log_param("worker_exit_probe", True)
+        os._exit(23)
+
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    with (
+        _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment,
+        patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
+    ):
+        mlflow.autolog(log_models=False, silent=True)
+        with mlflow.start_run(experiment_id=experiment) as parent:
+            result = tune.run(
+                objective,
+                config={},
+                metric="loss",
+                mode="min",
+                num_samples=1,
+                use_ray=True,
+                raise_on_failed_trial=False,
+                max_failures=0,
+                time_budget_s=60,
+                verbose=0,
+                **_ray_storage(tmp_path),
+            )
+            assert len(result.trials) == 1 and result.trials[0].status == "ERROR"
+            assert "loss" not in (result.trials[0].last_result or {})
+            runs = mlflow.MlflowClient().search_runs(
+                [experiment], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+            )
+            assert len(runs) == 1 and runs[0].info.status == "FAILED"
+            assert runs[0].data.params["worker_exit_probe"] == "True"
+            assert "loss" not in runs[0].data.metrics
+
+
+def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_path, monkeypatch):
+    from pathlib import Path
+    from unittest.mock import patch
+
+    import mlflow
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from sklearn.datasets import load_iris
+
+    from flaml import AutoML
+
+    def logged_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+        mlflow.log_metric("worker_store_probe", 73.0)
+        mlflow.log_param("worker_directory", os.getcwd())
+        return float((estimator.predict(X_val) != y_val).mean()), {}
+
+    X, y = load_iris(return_X_y=True)
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    with (
+        _transactional_tracking(mlflow, monkeypatch, tmp_path, "relative") as experiment,
+        patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
+        mlflow.start_run(experiment_id=experiment) as parent,
+    ):
+        automl = AutoML()
+        automl.fit(
+            X,
+            y,
+            estimator_list=["rf"],
+            max_iter=2,
+            time_budget=60,
+            n_jobs=1,
+            metric=logged_metric,
+            retrain_full=False,
+            use_ray=_ray_storage(tmp_path),
+            eval_method="holdout",
+            verbose=0,
+            starting_points={"rf": {"n_estimators": 4, "max_leaves": 4, "max_features": 1.0}},
+        )
+        assert automl.model is not None
+        diagnostics = [
+            run
+            for run in mlflow.MlflowClient().search_runs([experiment])
+            if run.data.metrics.get("worker_store_probe") == 73.0
+        ]
+        assert len(diagnostics) == 2
+        assert all(run.info.status == "FINISHED" for run in diagnostics)
+        assert all(Path(run.data.params["worker_directory"]).resolve() != tmp_path.resolve() for run in diagnostics)
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_native_ray_reuses_the_objective_inside_retained_native_limiters(ray_workers, tmp_path):
+    from ray import tune as native
+
+    if Version(ray.__version__) < Version("2"):
+        from ray.tune.suggest import ConcurrencyLimiter
+        from ray.tune.suggest.optuna import OptunaSearch
+    else:
+        from ray.tune.search import ConcurrencyLimiter
+        from ray.tune.search.optuna import OptunaSearch
+
+    from flaml import tune
+
+    searcher = OptunaSearch(None, metric="training_iteration", mode="max")
+    limiter = ConcurrencyLimiter(ConcurrencyLimiter(searcher, max_concurrent=1), max_concurrent=1)
+    settings = dict(search_alg=limiter, num_samples=1, use_ray=True, mlflow_logging=False, verbose=0)
+    tune.run(
+        lambda config: {"loss": 1.0},
+        config={"x": native.uniform(0, 1)},
+        metric="loss",
+        mode="min",
+        **settings,
+        **_ray_storage(tmp_path / "first"),
+    )
+    result = tune.run(lambda config: {"loss": 2.0}, **settings, **_ray_storage(tmp_path / "second"))
+    assert result.best_result["loss"] == 2.0
+    assert searcher.metric == "loss" and searcher.mode == "min"
+    assert not limiter.live_trials and not limiter.searcher.live_trials

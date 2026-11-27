@@ -1979,6 +1979,8 @@ class AutoML(BaseEstimator):
         if self._use_ray is not False:
             from ray.tune import with_parameters
 
+            if self.mlflow_integration:
+                train = self.mlflow_integration.wrap_evaluation_function(train)
             return with_parameters(
                 train,
                 state=self._state,

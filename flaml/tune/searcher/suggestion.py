@@ -260,6 +260,14 @@ class ConcurrencyLimiter(Searcher):
         self.cached_results = {}
         super().__init__(metric=self.searcher.metric, mode=self.searcher.mode)
 
+    @property
+    def metric(self):
+        return self.searcher.metric
+
+    @property
+    def mode(self):
+        return self.searcher.mode
+
     def suggest(self, trial_id: str) -> Optional[Dict]:
         assert trial_id not in self.live_trials, f"Trial ID {trial_id} must be unique: already found in set."
         if len(self.live_trials) >= self.max_concurrent:
@@ -280,18 +288,30 @@ class ConcurrencyLimiter(Searcher):
             return
         elif self.batch:
             self.cached_results[trial_id] = (result, error)
-            if len(self.cached_results) == self.max_concurrent:
+            if len(self.cached_results) == len(self.live_trials):
                 # Update the underlying searcher once the
                 # full batch is completed.
-                for trial_id, (result, error) in self.cached_results.items():
-                    self.searcher.on_trial_complete(trial_id, result=result, error=error)
-                    self.live_trials.remove(trial_id)
+                completed = self.cached_results
                 self.cached_results = {}
+                first_error = None
+                try:
+                    for trial_id, (result, error) in completed.items():
+                        try:
+                            self.searcher.on_trial_complete(trial_id, result=result, error=error)
+                        except Exception as failure:
+                            if first_error is None:
+                                first_error = failure
+                finally:
+                    self.live_trials.difference_update(completed)
+                if first_error is not None:
+                    raise first_error
             else:
                 return
         else:
-            self.searcher.on_trial_complete(trial_id, result=result, error=error)
-            self.live_trials.remove(trial_id)
+            try:
+                self.searcher.on_trial_complete(trial_id, result=result, error=error)
+            finally:
+                self.live_trials.discard(trial_id)
 
     def get_state(self) -> Dict:
         state = self.__dict__.copy()

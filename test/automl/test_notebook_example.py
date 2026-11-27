@@ -373,7 +373,12 @@ def _test_nobudget(tmp_path):
 def test_mlflow(tmp_path):
     pytest.importorskip("openml", reason="The OpenML task example requires the optional OpenML SDK.")
     # subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow"])
+    from importlib import import_module
+
     import mlflow
+    import numpy as np
+    from mlflow.tracking import fluent
+    from mlflow.tracking._tracking_service import utils as tracking_utils
 
     from flaml.automl.data import load_openml_task
 
@@ -394,43 +399,63 @@ def test_mlflow(tmp_path):
         "log_file_name": artifact_path(__file__, "adult.log"),
         "learner_selector": "roundrobin",
     }
-    mlflow.set_experiment("flaml")
-    with mlflow.start_run() as run:
-        automl.fit(X_train=X_train, y_train=y_train, **settings)
-        mlflow.sklearn.log_model(automl, "automl")
-    loaded_model = mlflow.pyfunc.load_model(f"{run.info.artifact_uri}/automl")
-    print(loaded_model.predict(X_test))
-    automl._mem_thres = 0
-    print(automl.trainable(automl.points_to_evaluate[0]))
-
-    settings["use_ray"] = True
-    from mlflow.tracking import fluent
-    from mlflow.tracking._tracking_service import utils as tracking_utils
-
     previous_uri = getattr(tracking_utils, "_tracking_uri", mlflow.get_tracking_uri())
-    previous_environment_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    previous_environment = {
+        name: os.environ.get(name)
+        for name in ("MLFLOW_TRACKING_URI", "MLFLOW_EXPERIMENT_ID", "MLFLOW_EXPERIMENT_NAME", "MLFLOW_RUN_ID")
+    }
     last = fluent._last_active_run_id
     previous_last = last.get() if callable(getattr(last, "get", None)) else last
     try:
-        mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'ray-tracking.db'}")
-        experiment = mlflow.create_experiment("ray-example", artifact_location=(tmp_path / "ray-artifacts").as_uri())
         with pytest.MonkeyPatch.context() as state:
             state.setattr(fluent, "_active_experiment_id", None)
-            state.setenv("MLFLOW_EXPERIMENT_ID", experiment)
+            state.delenv("MLFLOW_EXPERIMENT_ID", raising=False)
             state.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+            state.delenv("MLFLOW_RUN_ID", raising=False)
+            mlflow.set_tracking_uri((tmp_path / "tracking").as_uri())
+            mlflow.set_experiment("flaml")
+            with mlflow.start_run() as run:
+                automl.fit(X_train=X_train, y_train=y_train, **settings)
+                assert automl.best_estimator is not None and automl.model is not None
+                expected_labels = automl.predict(X_test)
+                assert np.shape(expected_labels) == (len(X_test),)
+                mlflow.sklearn.log_model(automl, "automl")
+            loaded_model = mlflow.pyfunc.load_model(f"{run.info.artifact_uri}/automl")
+            np.testing.assert_array_equal(loaded_model.predict(X_test), expected_labels)
+            automl._mem_thres = 0
+            print(automl.trainable(automl.points_to_evaluate[0]))
+
+            try:
+                import_module("ray")
+            except ModuleNotFoundError as error:
+                if error.name != "ray":
+                    raise
+                return
+            settings["use_ray"] = True
+            mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'ray-tracking.db'}")
+            experiment = mlflow.create_experiment(
+                "ray-example", artifact_location=(tmp_path / "ray-artifacts").as_uri()
+            )
+            mlflow.set_experiment(experiment_id=experiment)
             with mlflow.start_run(experiment_id=experiment) as run:
                 automl.fit(X_train=X_train, y_train=y_train, **settings)
+                assert automl.best_estimator is not None and automl.model is not None
+                expected_probabilities = automl.predict_proba(X_test)
+                assert np.shape(expected_probabilities) == (len(X_test), len(np.unique(y_train)))
+                assert np.isfinite(expected_probabilities).all()
                 mlflow.sklearn.log_model(automl, "automl")
             automl = mlflow.sklearn.load_model(f"{run.info.artifact_uri}/automl")
-            print(automl.predict_proba(X_test))
-    except ImportError:
-        pass
+            probabilities = automl.predict_proba(X_test)
+            assert np.shape(probabilities) == np.shape(expected_probabilities)
+            assert np.isfinite(probabilities).all()
+            np.testing.assert_allclose(probabilities, expected_probabilities)
     finally:
         mlflow.set_tracking_uri(previous_uri)
-        if previous_environment_uri is None:
-            os.environ.pop("MLFLOW_TRACKING_URI", None)
-        else:
-            os.environ["MLFLOW_TRACKING_URI"] = previous_environment_uri
+        for name, value in previous_environment.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         if callable(getattr(last, "set", None)):
             last.set(previous_last)
         else:

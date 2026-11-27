@@ -7,6 +7,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from collections import Counter, OrderedDict, defaultdict
 from pathlib import Path
 from threading import Barrier
 from types import ModuleType, SimpleNamespace
@@ -180,6 +181,176 @@ def test_spark_reports_snapshot_nested_metrics_before_the_objective_continues(sp
     assert [trial.last_result["diagnostics"]["score"] for trial in result.trials] == [1.0, 2.0]
 
 
+@pytest.mark.parametrize("use_spark", [False, True])
+def test_report_snapshots_preserve_mapping_interfaces_and_opaque_payloads(spark_backend, use_spark):
+    class OpaqueList(list):
+        pass
+
+    opaque = OpaqueList([object()])
+    opaque.units = "seconds"
+
+    def objective(config):
+        counts = Counter({"first": 2, "second": 1})
+        defaults = defaultdict(list, {"values": [1]})
+        ordered = OrderedDict([("first", 1), ("second", 2)])
+        tune.report(loss=1.0, counts=counts, defaults=defaults, ordered=ordered, opaque=opaque)
+        counts["first"] = 0
+        defaults["values"].append(2)
+        ordered.move_to_end("first")
+
+    result = tune.run(
+        objective,
+        config={},
+        metric="loss",
+        mode="min",
+        num_samples=1,
+        use_spark=use_spark,
+        mlflow_logging=False,
+        verbose=0,
+    ).best_result
+    assert result["counts"].most_common() == [("first", 2), ("second", 1)]
+    assert result["counts"]["absent"] == 0
+    assert result["defaults"].default_factory is list
+    assert result["defaults"]["values"] == [1]
+    assert isinstance(result["ordered"], OrderedDict)
+    assert list(result["ordered"]) == ["first", "second"]
+    assert result["opaque"] is opaque and result["opaque"].units == "seconds"
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch, cancelled):
+    from threading import Event
+
+    from optuna.trial import TrialState
+
+    import flaml.tune.spark.utils as utils
+    import flaml.tune.tune as tuning
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    cancellation = Event()
+    context = Mock()
+    context.cancelAllJobs.side_effect = cancellation.set
+    monkeypatch.setattr(utils, "_have_spark", True)
+    monkeypatch.setattr(
+        utils, "py4j", SimpleNamespace(protocol=SimpleNamespace(Py4JJavaError=RuntimeError)), raising=False
+    )
+    monitor = utils.PySparkOvertimeMonitor
+    monkeypatch.setattr(
+        tuning,
+        "PySparkOvertimeMonitor",
+        lambda start, budget, force: monitor(start, None if cancelled else budget, force, sc=context),
+    )
+    searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
+    failure = TypeError("objective failed independently of Spark")
+
+    def objective(config):
+        if cancelled:
+            assert cancellation.wait(5)
+        tune.report(loss=0.0)
+        raise failure
+
+    settings = dict(
+        search_alg=limiter,
+        num_samples=1,
+        force_cancel=True,
+        time_budget_s=30,
+        mlflow_logging=False,
+        verbose=0,
+    )
+    if cancelled:
+        result = tune.run(objective, **settings)
+        assert result.trials[0].status == "ERROR"
+    else:
+        with pytest.raises(TypeError) as caught:
+            tune.run(objective, **settings)
+        assert caught.value is failure
+        context.cancelAllJobs.assert_not_called()
+    assert searcher._ot_study.trials[0].state == TrialState.FAIL
+    assert not limiter.live_trials
+
+
+@pytest.mark.parametrize("failure_phase", ["worker", "second-result", "cancel"])
+def test_spark_batch_failure_releases_remaining_trials_without_losing_completed_siblings(
+    spark_backend, monkeypatch, failure_phase
+):
+    from optuna.trial import TrialState
+
+    import flaml.tune.trial_runner as runners
+    import flaml.tune.tune as tuning
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    captured = []
+
+    class CapturedRunner(runners.SparkTrialRunner):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    monkeypatch.setattr(runners, "SparkTrialRunner", CapturedRunner)
+    failure = ValueError("batch failed")
+    barrier = Barrier(2)
+
+    def objective(config):
+        barrier.wait(timeout=10)
+        if failure_phase != "second-result" and config["x"] == 1:
+            raise failure
+        return {"loss": float(config["x"]), "trained_estimator": object()}
+
+    if failure_phase == "second-result":
+        report = tuning._report_trial_result
+
+        def report_then_fail(trial, *args, **kwargs):
+            report(trial, *args, **kwargs)
+            if trial.config["x"] == 2:
+                raise failure
+
+        monkeypatch.setattr(tuning, "_report_trial_result", report_then_fail)
+    elif failure_phase == "cancel":
+
+        class CancelledMonitor:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                assert exc_value is failure
+                return True
+
+        monkeypatch.setattr(tuning, "PySparkOvertimeMonitor", CancelledMonitor)
+
+    searcher = OptunaSearch(
+        {"x": tune.choice([1, 2])},
+        metric="loss",
+        mode="min",
+        points_to_evaluate=[{"x": 1}, {"x": 2}],
+    )
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=2)
+    settings = dict(
+        search_alg=limiter,
+        num_samples=2,
+        use_spark=True,
+        n_concurrent_trials=2,
+        mlflow_logging=False,
+        automl_info=(0, "all"),
+        verbose=0,
+    )
+    if failure_phase == "cancel":
+        tune.run(objective, **settings)
+    else:
+        with pytest.raises(ValueError) as caught:
+            tune.run(objective, **settings)
+        assert caught.value is failure
+    runner = captured[0]
+    assert not runner.running_trials and runner.running_trial is None
+    assert not limiter.live_trials
+    expected = [TrialState.COMPLETE, TrialState.FAIL] if failure_phase == "second-result" else [TrialState.FAIL] * 2
+    assert [trial.state for trial in searcher._ot_study.trials] == expected
+    assert all("trained_estimator" not in (trial._last_callback_result or {}) for trial in runner.get_trials())
+
+
 @pytest.mark.parametrize("delivery", ["report", "return", "both"])
 @pytest.mark.parametrize("explicit", [False, True])
 def test_spark_timing_objective_uses_accepted_worker_elapsed_time(spark_backend, monkeypatch, delivery, explicit):
@@ -308,6 +479,10 @@ def test_automl_spark_single_worker(spark_backend, learner):
 def broadcast_files(monkeypatch, tmp_path):
     package = importlib.import_module("flaml.tune.spark")
     utils = importlib.import_module("flaml.tune.spark.utils")
+    attributes = package.__dict__.copy()
+    modules = {name: module for name, module in sys.modules.items() if name.startswith("flaml.tune.spark.")}
+    monkeypatch.setattr(utils, "_published_code_revisions", {})
+    monkeypatch.setattr(utils, "_published_code_aliases", set())
     for name in ("sys", "os", "check_spark", "get_n_cpus", "with_parameters", "broadcast_code", "_SparkCodePaths"):
         if hasattr(package, name):
             monkeypatch.setattr(package, name, getattr(package, name))
@@ -331,7 +506,30 @@ def broadcast_files(monkeypatch, tmp_path):
         raising=False,
     )
     monkeypatch.setattr(package, "__path__", type(package.__path__)([str(tmp_path / "isolated-worker")]))
-    return utils, context, driver
+    try:
+        yield utils, context, driver
+    finally:
+        for name in set(package.__dict__) - attributes.keys():
+            package.__dict__.pop(name, None)
+        package.__dict__.update(attributes)
+        for name in list(sys.modules):
+            if name.startswith("flaml.tune.spark.") and name not in modules:
+                sys.modules.pop(name, None)
+        sys.modules.update(modules)
+
+
+@pytest.mark.parametrize("value", [1, 2])
+def test_broadcast_fixture_does_not_retain_previous_publications(broadcast_files, monkeypatch, value):
+    utils, context, _ = broadcast_files
+    package = importlib.import_module("flaml.tune.spark")
+    name = "_test_fixture_cleanup"
+    assert name not in package.__dict__
+    assert f"flaml.tune.spark.{name}" not in sys.modules
+    assert not utils._published_code_revisions and not utils._published_code_aliases
+    utils.broadcast_code(f"VALUE = {value}", name)
+    monkeypatch.syspath_prepend(context.addPyFile.call_args.args[0])
+    published = importlib.import_module(f"flaml.tune.spark.{name}")
+    assert published.VALUE == value
 
 
 def test_broadcast_code_supports_isolated_and_late_workers(monkeypatch, broadcast_files):

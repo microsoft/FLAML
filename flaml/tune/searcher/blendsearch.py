@@ -391,6 +391,7 @@ class BlendSearch(Searcher):
         self._thread_count = 1  # total # threads created
         self._init_used = self._ls.init_config is None
         self._trial_proposed_by = {}  # trial_id: str -> thread_id: int
+        self._trial_signatures = {}
         self._ls_bound_min = normalize(
             self._ls.init_config.copy(),
             self._ls.space,
@@ -451,6 +452,9 @@ class BlendSearch(Searcher):
 
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """search thread updater and cleaner."""
+        reserved_signature = self._trial_signatures.pop(trial_id, None)
+        if error and reserved_signature is not None and not self._result.get(reserved_signature):
+            self._result.pop(reserved_signature, None)
         metric_constraint_satisfied = True
         if result and not error and self._metric_constraints:
             # account for metric constraints if any
@@ -485,9 +489,7 @@ class BlendSearch(Searcher):
             if self._allow_empty_config and not config:
                 return
             signature = self._ls.config_signature(config, self._subspace.get(trial_id, {}))
-            if error:  # remove from result cache
-                del self._result[signature]
-            else:  # add to result cache
+            if not error:  # add to result cache
                 self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
@@ -782,6 +784,7 @@ class BlendSearch(Searcher):
                 self._gs_admissible_max.update(self._ls_bound_max)
             signature = self._ls.config_signature(config, space)
             self._result[signature] = {}
+            self._trial_signatures[trial_id] = signature
             self._subspace[trial_id] = space
         else:  # use init config
             if self._candidate_start_points is not None and self._points_to_evaluate:
@@ -807,6 +810,7 @@ class BlendSearch(Searcher):
                         # violate config constraints
                         return
                     self._result[config_signature] = {}
+                    self._trial_signatures[trial_id] = config_signature
                 else:  # running but no result yet
                     return
             self._init_used = True

@@ -241,23 +241,103 @@ def test_lexicographic_rollback_uses_the_secondary_metric_at_the_boundary(tolera
 
 
 @pytest.mark.parametrize("seeded", [False, True])
-def test_nan_report_does_not_hide_a_finite_completed_sibling(seeded):
+@pytest.mark.parametrize("lexicographic", [False, True])
+@pytest.mark.parametrize("invalid", [float("nan"), None])
+def test_nan_report_does_not_hide_a_finite_completed_sibling(seeded, lexicographic, invalid):
     from flaml import tune
     from flaml.tune.searcher.flow2 import FLOW2
 
     space = {"x": tune.uniform(0, 1)}
     initial = {"x": 0.5}
-    searcher = FLOW2(initial, metric="loss", mode="min", space=space)
+    objectives = (
+        {
+            "metrics": ["loss", "cost"],
+            "modes": ["min", "min"],
+            "tolerances": {"loss": 0.0, "cost": 0.0},
+            "targets": {"loss": -float("inf"), "cost": -float("inf")},
+        }
+        if lexicographic
+        else None
+    )
+    searcher = FLOW2(initial, metric="loss", mode="min", space=space, lexico_objectives=objectives)
     if seeded:
-        searcher = searcher.create(initial, 10.0, 1.0, space)
+        searcher = searcher.create(initial, {"loss": 10.0, "cost": 2.0} if lexicographic else 10.0, 1.0, space)
     successful = searcher.suggest("successful")
     searcher.suggest("failed")
-    searcher.on_trial_result("successful", {"loss": float("nan")})
-    searcher.on_trial_result("failed", {"loss": 0.0})
-    searcher.on_trial_complete("successful", {"loss": 5.0})
+    searcher.on_trial_result("successful", {"loss": invalid, "cost": 1.0})
+    searcher.on_trial_result("failed", {"loss": 0.0, "cost": 2.0})
+    searcher.on_trial_complete("successful", {"loss": 5.0, "cost": 1.0})
     searcher.on_trial_complete("failed", error=True)
-    assert searcher.best_obj == 5.0
+    assert searcher.best_obj == ({"loss": 5.0, "cost": 1.0} if lexicographic else 5.0)
     assert searcher.best_config == successful
+
+
+@pytest.mark.parametrize("late_improvement", [False, True])
+def test_scalar_rollback_preserves_observation_order_when_completion_order_differs(late_improvement):
+    from flaml import tune
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    space = {"x": tune.uniform(0, 1)}
+    initial = {"x": 0.5}
+    searcher = FLOW2(initial, metric="loss", mode="min", space=space).create(initial, 10.0, 9.0, space)
+    configs = {name: searcher.suggest(name) for name in ("first", "second")}
+    searcher.on_trial_result("first", {"loss": 7.0 if late_improvement else 5.0, "time_total_s": 1.0})
+    searcher.on_trial_result("second", {"loss": 5.0, "time_total_s": 2.0})
+    if late_improvement:
+        searcher.on_trial_result("first", {"loss": 5.0, "time_total_s": 1.0})
+    order = ("first", "second") if late_improvement else ("second", "first")
+    for name in order:
+        searcher.on_trial_complete(name, {"loss": 5.0, "time_total_s": 1.0 if name == "first" else 2.0})
+    winner = "second" if late_improvement else "first"
+    assert searcher.best_config == configs[winner]
+    assert searcher.suggest("failed") is not None
+    searcher.on_trial_result("failed", {"loss": 7.0})
+    searcher.on_trial_complete("failed", error=True)
+    assert searcher.best_config == configs[winner]
+    assert searcher.cost_incumbent == (2.0 if late_improvement else 1.0)
+
+
+@pytest.mark.parametrize("lexicographic", [False, True])
+def test_invalid_flow2_seed_and_final_scores_do_not_poison_finite_trials(lexicographic):
+    from flaml import tune
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    space = {"x": tune.uniform(0, 1)}
+    initial = {"x": 0.5}
+    objectives = (
+        {
+            "metrics": ["loss", "cost"],
+            "modes": ["min", "min"],
+            "tolerances": {"loss": 0.0, "cost": 0.0},
+            "targets": {"loss": -float("inf"), "cost": -float("inf")},
+        }
+        if lexicographic
+        else None
+    )
+    invalid = {"loss": 1.0, "cost": float("nan")} if lexicographic else float("nan")
+    searcher = FLOW2(initial, metric="loss", mode="min", space=space, lexico_objectives=objectives)
+    searcher = searcher.create(initial, invalid, 1.0, space)
+    searcher.suggest("invalid")
+    searcher.on_trial_complete("invalid", invalid if isinstance(invalid, dict) else {"loss": invalid})
+    successful = searcher.suggest("successful")
+    assert successful is not None
+    searcher.on_trial_complete("successful", {"loss": 5.0, "cost": 1.0})
+    assert searcher.best_config == successful
+    assert searcher.best_obj == ({"loss": 5.0, "cost": 1.0} if lexicographic else 5.0)
+
+
+def test_cfo_releases_a_configuration_when_the_objective_fails_before_reporting():
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import CFO
+
+    searcher = CFO(space={"x": 1}, metric="loss", mode="min")
+
+    def objective(config):
+        raise ValueError("failed before reporting")
+
+    with pytest.raises(ValueError, match="failed before reporting"):
+        tune.run(objective, search_alg=searcher, num_samples=1, mlflow_logging=False, verbose=0)
+    assert searcher.suggest("retry") == {"x": 1}
 
 
 def test_scalar_rollback_retains_only_committed_best_and_unfinished_observations():
@@ -304,8 +384,10 @@ def test_automl_completion_releases_estimator_payloads_from_the_search_cache():
     assert len(automl.predict(X[:3])) == 3
 
 
-@pytest.mark.parametrize("callback_fails", [False, True])
+@pytest.mark.parametrize("callback_fails", [None, "searcher", "scheduler"])
 def test_raised_local_objective_completes_the_retained_searcher(monkeypatch, callback_fails):
+    from unittest.mock import Mock
+
     from optuna.trial import TrialState
 
     from flaml import tune
@@ -317,10 +399,15 @@ def test_raised_local_objective_completes_the_retained_searcher(monkeypatch, cal
 
     def on_complete(*args, **kwargs):
         complete(*args, **kwargs)
-        if callback_fails:
+        if callback_fails == "searcher":
             raise RuntimeError("completion callback failed")
 
     monkeypatch.setattr(searcher, "on_trial_complete", on_complete)
+    scheduler = None
+    if callback_fails == "scheduler":
+        scheduler = Mock()
+        scheduler.on_trial_result.return_value = "CONTINUE"
+        scheduler.on_trial_remove.side_effect = RuntimeError("scheduler removal failed")
     failure = ValueError("objective failed after reporting")
 
     def objective(config):
@@ -328,13 +415,43 @@ def test_raised_local_objective_completes_the_retained_searcher(monkeypatch, cal
         raise failure
 
     with pytest.raises(ValueError) as caught:
-        tune.run(objective, search_alg=limiter, num_samples=1, mlflow_logging=False, verbose=0)
+        tune.run(objective, search_alg=limiter, scheduler=scheduler, num_samples=1, mlflow_logging=False, verbose=0)
     assert caught.value is failure
     assert searcher._ot_study.trials[0].state == TrialState.FAIL
-    if not callback_fails:
-        assert limiter.suggest("next") is not None
-        limiter.on_trial_complete("next", {"loss": 2.0})
-        assert searcher._ot_study.best_value == 2.0
+    monkeypatch.setattr(searcher, "on_trial_complete", complete)
+    assert limiter.suggest("next") is not None
+    limiter.on_trial_complete("next", {"loss": 2.0})
+    assert searcher._ot_study.best_value == 2.0
+
+
+def test_batched_limiter_completes_siblings_and_releases_slots_after_a_callback_error(monkeypatch):
+    from optuna.trial import TrialState
+
+    from flaml import tune
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=2, batch=True)
+    complete = searcher.on_trial_complete
+    failure = RuntimeError("first completion failed")
+
+    def on_complete(trial_id, *args, **kwargs):
+        complete(trial_id, *args, **kwargs)
+        if trial_id == "first":
+            raise failure
+
+    monkeypatch.setattr(searcher, "on_trial_complete", on_complete)
+    assert limiter.suggest("first") is not None
+    assert limiter.suggest("second") is not None
+    limiter.on_trial_complete("first", {"loss": 1.0})
+    with pytest.raises(RuntimeError) as caught:
+        limiter.on_trial_complete("second", {"loss": 2.0})
+    assert caught.value is failure
+    assert not limiter.live_trials and not limiter.cached_results
+    assert all(trial.state == TrialState.COMPLETE for trial in searcher._ot_study.trials)
+    assert limiter.suggest("next") is not None
+    limiter.on_trial_complete("next", {"loss": 3.0})
+    assert not limiter.live_trials
 
 
 @pytest.mark.parametrize("limited", [False, True])
@@ -370,3 +487,155 @@ def test_effective_searcher_objective_cannot_remain_framework_progress(limited, 
         assert result.best_result["loss"] == 1.0
         assert searcher.metric == "loss"
     assert (tuning._use_ray, tuning._runner, tuning.logger.handlers, tuning.logger.getEffectiveLevel()) == before
+
+
+@pytest.mark.parametrize("layers", [1, 2])
+def test_retained_limiter_uses_its_current_underlying_objective(layers):
+    from flaml import tune
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    searcher = OptunaSearch(None, metric="training_iteration", mode="max")
+    configured = searcher
+    for _ in range(layers):
+        configured = ConcurrencyLimiter(configured, max_concurrent=1)
+    settings = dict(search_alg=configured, num_samples=1, mlflow_logging=False, verbose=0)
+    tune.run(lambda config: {"loss": 1.0}, config={"x": tune.uniform(0, 1)}, metric="loss", mode="min", **settings)
+    result = tune.run(lambda config: {"loss": 2.0}, **settings)
+    assert result.best_result["loss"] == 2.0
+    assert configured.metric == "loss" and configured.mode == "min"
+
+
+def test_local_tuning_uses_the_objective_inside_a_retained_ray_limiter():
+    pytest.importorskip("ray")
+    from ray import tune as native
+
+    try:
+        from ray.tune.search import ConcurrencyLimiter
+        from ray.tune.search.optuna import OptunaSearch
+    except ImportError:
+        from ray.tune.suggest import ConcurrencyLimiter
+        from ray.tune.suggest.optuna import OptunaSearch
+
+    from flaml import tune
+
+    searcher = OptunaSearch(None, metric="training_iteration", mode="max")
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
+    settings = dict(search_alg=limiter, num_samples=1, mlflow_logging=False, verbose=0)
+    tune.run(lambda config: {"loss": 1.0}, config={"x": native.uniform(0, 1)}, metric="loss", mode="min", **settings)
+    assert tune.run(lambda config: {"loss": 2.0}, **settings).best_result["loss"] == 2.0
+
+
+@pytest.mark.parametrize("algorithm", ["lexicographic", "multiobjective"])
+def test_configured_primary_objective_cannot_be_framework_progress(algorithm):
+    from unittest.mock import Mock
+
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import CFO
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    space = {"x": tune.uniform(0, 1)}
+    if algorithm == "lexicographic":
+        searcher = CFO(
+            space=space,
+            metric="loss",
+            mode="min",
+            lexico_objectives={
+                "metrics": ["training_iteration", "loss"],
+                "modes": ["max", "min"],
+                "tolerances": {"training_iteration": 0.0, "loss": 0.0},
+                "targets": {"training_iteration": float("inf"), "loss": -float("inf")},
+            },
+        )
+    else:
+        searcher = OptunaSearch(space, metric=["training_iteration", "loss"], mode=["max", "min"])
+    configured = ConcurrencyLimiter(ConcurrencyLimiter(searcher, max_concurrent=1), max_concurrent=1)
+    objective = Mock(return_value={"loss": 1.0})
+    with pytest.raises(ValueError, match="training_iteration.*reserved"):
+        tune.run(objective, search_alg=configured, num_samples=1, mlflow_logging=False, verbose=0)
+    objective.assert_not_called()
+
+
+@pytest.mark.parametrize("phase", ["ray-arguments", "searcher", "tracking", "success"])
+def test_tuning_restores_runtime_and_closes_owned_logs_even_when_setup_fails(tmp_path, monkeypatch, phase):
+    import logging
+    from unittest.mock import Mock
+
+    import flaml.tune.tune as tuning
+    from flaml import tune
+    from flaml.tune.searcher.suggestion import OptunaSearch
+
+    before = (
+        tuning._use_ray,
+        tuning._verbose,
+        tuning._runner,
+        tuning._running_trial,
+        tuning._training_iteration,
+        tuning.logger.handlers,
+        tuning.logger.level,
+    )
+    owned = []
+    add_handler = tuning.logger.addHandler
+
+    def capture(handler):
+        if isinstance(handler, logging.FileHandler):
+            owned.append(handler)
+        add_handler(handler)
+
+    monkeypatch.setattr(tuning.logger, "addHandler", capture)
+    searcher = OptunaSearch(None, metric="loss", mode="min")
+    settings = dict(
+        config={"x": tune.uniform(0, 1)},
+        metric="loss",
+        mode="min",
+        search_alg=searcher,
+        num_samples=1,
+        mlflow_logging=False,
+        log_file_name=str(tmp_path / "owned.log"),
+        verbose=1,
+    )
+    if phase == "ray-arguments":
+        settings["unexpected_ray_argument"] = True
+    elif phase == "searcher":
+        monkeypatch.setattr(searcher, "set_search_properties", Mock(side_effect=ValueError("searcher setup failed")))
+    elif phase == "tracking":
+        settings["mlflow_logging"] = True
+        monkeypatch.setattr(tuning, "internal_mlflow", True)
+        monkeypatch.setattr(tuning.mlflow, "active_run", Mock(return_value=object()))
+        monkeypatch.setattr(tuning, "MLflowIntegration", Mock(side_effect=ValueError("tracking setup failed")))
+    try:
+        if phase == "success":
+            assert tune.run(lambda config: {"loss": 1.0}, **settings).best_result["loss"] == 1.0
+        else:
+            with pytest.raises(AssertionError if phase == "ray-arguments" else ValueError):
+                tune.run(lambda config: {"loss": 1.0}, **settings)
+        assert (
+            tuning._use_ray,
+            tuning._verbose,
+            tuning._runner,
+            tuning._running_trial,
+            tuning._training_iteration,
+            tuning.logger.handlers,
+            tuning.logger.level,
+        ) == before
+        if phase != "ray-arguments":
+            assert owned and all(handler.stream is None for handler in owned)
+    finally:
+        for handler in owned:
+            handler.close()
+        tuning._use_ray, tuning._verbose, tuning._runner, tuning._running_trial, tuning._training_iteration = before[:5]
+        tuning.logger.handlers = before[-2]
+        tuning.logger.setLevel(before[-1])
+
+
+def test_cyclic_searcher_wrappers_fail_before_evaluation():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from flaml import tune
+
+    wrapper = SimpleNamespace()
+    wrapper.searcher = wrapper
+    objective = Mock()
+    with pytest.raises(ValueError, match="Cyclic searcher"):
+        tune.run(objective, search_alg=wrapper, metric="loss", mlflow_logging=False)
+    objective.assert_not_called()

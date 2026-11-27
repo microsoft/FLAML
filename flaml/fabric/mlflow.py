@@ -17,6 +17,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextlib import closing, contextmanager, nullcontext
 from importlib import import_module
 from pathlib import Path
+from types import SimpleNamespace
 from typing import MutableMapping
 from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
@@ -301,7 +302,11 @@ def _validate_ray_tracking_uri(uri):
     in_memory = scheme.split("+", 1)[0] == "sqlite" and (
         parsed.path in ("", "/", "/:memory:")
         or sqlite_uri
-        and (unquote(parsed.path) in ("/file:", "/file::memory:") or "memory" in query.get("mode", []))
+        and (
+            unquote(urlsplit(parsed.path[1:]).path) in ("", ":memory:")
+            or "memory" in query.get("mode", [])
+            or "memdb" in query.get("vfs", [])
+        )
     )
     if not scheme or scheme == "file" or ntpath.splitdrive(uri)[0] or in_memory:
         raise ValueError(
@@ -326,7 +331,8 @@ def _worker_tracking_uri(uri):
         path = unquote(file_uri.path)
         if not path or path == ":memory:" or url.query.get("mode") == "memory":
             return uri
-        if file_uri.netloc or os.path.isabs(path):
+        windows_drive_uri = os.name == "nt" and path.startswith("/") and ntpath.isabs(path[1:])
+        if file_uri.netloc or os.path.isabs(path) or windows_drive_uri:
             return uri
         absolute = urlsplit(Path(os.path.abspath(path)).as_uri())
         filename = absolute._replace(fragment=file_uri.fragment).geturl()
@@ -605,6 +611,7 @@ class MLflowIntegration:
         self.infos = []
         self._recorded_trials = []
         self._native_ray = False
+        self._unresolved_native_trials = {}
         self.manual_run_ids = []
         self.manual_run_ids_by_trial = {}
         self._adopted_run_ids = set()
@@ -787,14 +794,20 @@ class MLflowIntegration:
 
     def _finalize_native_trial(self, trial, run_id, *, run=None):
         status = getattr(trial, "status", None)
+        trial_id = getattr(trial, "trial_id", None)
         owner = self.extra_tag.get("flaml.owner_id")
         if (
             not self.autolog
             or not owner
-            or not isinstance(run_id, str)
-            or not run_id
+            or not isinstance(trial_id, (str, int))
             or status not in {"ERROR", "TERMINATED"}
         ):
+            return
+        trial_id = str(trial_id)
+        unresolved = self.__dict__.setdefault("_unresolved_native_trials", {})
+        if not isinstance(run_id, str) or not run_id:
+            if run_id is None:
+                unresolved[trial_id] = status
             return
         if run is None:
             try:
@@ -809,13 +822,14 @@ class MLflowIntegration:
             or run.info.experiment_id != str(self.experiment_id)
             or run.info.lifecycle_stage != "active"
             or run.data.tags.get("flaml.owner_id") != owner
-            or run.data.tags.get("flaml.trial_id") != str(trial.trial_id)
+            or run.data.tags.get("flaml.trial_id") != trial_id
         ):
             logger.warning("Native trial run %s does not match ownership; leaving it unchanged.", run_id)
             return
         # Ray can stop an actor before its worker thread finalizes the owned run.
         if run.info.status == "RUNNING":
             self.mlflow_client.set_terminated(run_id, "FAILED" if status == "ERROR" else "FINISHED")
+        unresolved.pop(trial_id, None)
 
     def record_trial(self, result, trial, metric, *, run_id=None):
         if getattr(trial, "status", None) == "ERROR":
@@ -1337,6 +1351,7 @@ class MLflowIntegration:
         if (
             self.experiment_type != "tune"
             or not self.infos
+            or getattr(self, "_unresolved_native_trials", None)
             or not all(info.get("run_id") and info.get("trial_id") for info in self.infos)
         ):
             return self._search_owned_runs(owner)
@@ -1387,15 +1402,33 @@ class MLflowIntegration:
             if adopted is None:
                 self._adopted_run_ids = adopted = set()
 
+            owned_runs = [
+                run
+                for run in raw_autolog_child_runs
+                if run.data.tags.get("flaml.owner_id") == owner
+                and run.info.run_id != self.parent_run_id
+                and run.info.experiment_id == str(self.experiment_id)
+                and run.info.lifecycle_stage == "active"
+            ]
+            trial_run_ids = {}
+            for run in owned_runs:
+                trial_id = run.data.tags.get("flaml.trial_id")
+                if trial_id is not None:
+                    trial_run_ids.setdefault(trial_id, set()).add(run.info.run_id)
+            for trial_id, status in list(getattr(self, "_unresolved_native_trials", {}).items()):
+                if trial_id in trial_infos:
+                    continue
+                run_ids = trial_run_ids.get(trial_id, set())
+                if len(run_ids) == 1:
+                    self._finalize_native_trial(SimpleNamespace(trial_id=trial_id, status=status), next(iter(run_ids)))
+                elif run_ids:
+                    logger.warning("Cannot identify the accepted attempt for trial %s; retaining its runs.", trial_id)
+
             # From latest to earliest, skip duplicate cross-validation runs during adoption.
             _exist_child_run_params = []  # for deduplication of cross-validation child runs
             _to_keep_autolog_child_runs = []
-            for autolog_child_run in raw_autolog_child_runs:
-                if (
-                    autolog_child_run.data.tags.get("flaml.owner_id") != owner
-                    or autolog_child_run.info.run_id == self.parent_run_id
-                    or getattr(autolog_child_run.info, "status", None) in {"FAILED", "KILLED"}
-                ):
+            for autolog_child_run in owned_runs:
+                if getattr(autolog_child_run.info, "status", None) in {"FAILED", "KILLED"}:
                     continue
                 if autolog_child_run.data.tags.get(
                     "flaml.trial_id"
@@ -1414,21 +1447,15 @@ class MLflowIntegration:
 
             # From earliest to latest, set tags and child_counter
             autolog_child_runs = _to_keep_autolog_child_runs[::-1]
-            trial_run_ids = {}
-            for run in autolog_child_runs:
-                trial_id = run.data.tags.get("flaml.trial_id")
-                if trial_id in trial_infos:
-                    trial_run_ids.setdefault(trial_id, set()).add(run.info.run_id)
             ambiguous_trials = {
                 trial_id
                 for trial_id, run_ids in trial_run_ids.items()
-                if len(run_ids) > 1 and not trial_infos[trial_id][1].get("run_id")
+                if trial_id in trial_infos and len(run_ids) > 1 and not trial_infos[trial_id][1].get("run_id")
             }
             for trial_id in ambiguous_trials:
                 logger.warning("Cannot identify the accepted attempt for trial %s; retaining its runs.", trial_id)
             for autolog_child_run in autolog_child_runs:
                 child_run_id = autolog_child_run.info.run_id
-                child_run_parent_id = autolog_child_run.data.tags.get("mlflow.parentRunId", None)
                 info_index = self.child_counter
                 matched = None
                 use_trial_identity = bool(trial_infos) or (
@@ -1449,6 +1476,25 @@ class MLflowIntegration:
                 if use_trial_identity and matched is None:
                     continue
 
+                try:
+                    child_run = self.mlflow_client.get_run(child_run_id)
+                except MlflowException as error:
+                    if error.error_code != "RESOURCE_DOES_NOT_EXIST":
+                        raise
+                    logger.warning("MLflow child run %s is unavailable; skipping adoption.", child_run_id)
+                    continue
+                if (
+                    child_run.info.run_id != child_run_id
+                    or child_run.info.experiment_id != str(self.experiment_id)
+                    or child_run.info.lifecycle_stage != "active"
+                    or child_run.data.tags.get("flaml.owner_id") != owner
+                    or child_run.data.tags.get("flaml.trial_id") != autolog_child_run.data.tags.get("flaml.trial_id")
+                ):
+                    logger.warning("MLflow child run %s changed ownership; skipping adoption.", child_run_id)
+                    continue
+                if child_run.info.status in {"FAILED", "KILLED"}:
+                    continue
+                child_run_parent_id = child_run.data.tags.get("mlflow.parentRunId")
                 if all(
                     [
                         child_run_id != self.parent_run_id,
@@ -1474,10 +1520,8 @@ class MLflowIntegration:
                     # more child runs than the number of FLAML trials recorded in self.infos.
                     # TODO: need more tests in nested scenarios.
                     flaml_info = None
-                    child_run = None
                     if info_index < num_infos:
                         flaml_info = self.infos[info_index]
-                        child_run = self.mlflow_client.get_run(child_run_id)
                         if self.experiment_type == "tune" and getattr(self, "_native_ray", False):
                             self._finalize_native_trial(self._recorded_trials[info_index], child_run_id, run=child_run)
                         if child_run_id not in adopted:

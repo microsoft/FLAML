@@ -272,6 +272,7 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             return prediction
         ids = self.group_ids + [self.time_col]
         original = request[ids]
+        original_index = pd.MultiIndex.from_frame(original)
         normalized = original.copy()
         normalized[self.time_col] = pd.to_datetime(normalized[self.time_col])
         expected = pd.MultiIndex.from_frame(normalized)
@@ -280,10 +281,13 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
             not isinstance(index, pd.MultiIndex)
             or index.names != expected.names
             or len(index) != len(expected)
-            or any(actual != requested for actual, requested in zip(index, expected))
+            or (
+                any(actual != requested for actual, requested in zip(index, expected))
+                and any(actual != requested for actual, requested in zip(index, original_index))
+            )
         ):
             raise ValueError("TFT preprocessing changed prediction coordinates or order.")
-        return prediction.set_axis(pd.MultiIndex.from_frame(original))
+        return prediction.set_axis(original_index)
 
     def predict(self, X):
         time_idx = getattr(self, "time_idx", "time_idx")
