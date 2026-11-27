@@ -44,8 +44,8 @@ executing==2.3.0
 fastapi==0.165.0
 fastjsonschema==2.22.3
 filelock==4.2.10
--e git+https://github.com/microsoft/FLAML@ce692c431218cd7df6df1dbc906c2ed34e16962f#egg=FLAML
-fonttools==4.68.0
+-e git+https://github.com/microsoft/FLAML@7965c1034a4167ec37078953d18a956966b2f645#egg=FLAML
+fonttools==4.69.1
 formulaic==1.2.2
 fqdn==1.6.0
 frozenlist==1.8.0
@@ -59,9 +59,9 @@ hcrystalball==0.1.12
 hf-xet==1.8.0
 httpcore==1.0.9
 httpcore2==2.16.2
-httpx==0.28.1
+httpx==0.29.0
 httpx2==2.16.2
-huggingface_hub==2.4.0
+huggingface_hub==2.5.0
 identify==2.6.20
 idna==3.20
 importlib_metadata==8.9.0
@@ -167,7 +167,7 @@ pywinpty==3.1.2
 PyYAML==6.0.4
 pyzmq==27.3.0
 referencing==0.37.0
-regex==2026.11.24
+regex==2026.11.25
 requests==2.34.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
@@ -207,7 +207,7 @@ tqdm==4.70.1
 traitlets==5.16.1
 transformers==5.24.1
 truststore==0.10.5
-typer==0.29.2
+typer==0.29.3
 typing-inspection==0.4.5
 typing_extensions==4.16.0
 tzdata==2026.6
