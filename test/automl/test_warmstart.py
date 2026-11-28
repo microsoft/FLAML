@@ -52,7 +52,7 @@ class TestWarmStart(unittest.TestCase):
                 space = LGBMEstimator.search_space(**params)
                 # (2) Set up the fixed value from hps from the starting point
                 for hp_name in hps_to_freeze:
-                    # if an hp is specifed to be freezed, use tine value provided in the starting_point
+                    # if an hp is specified to be frozen, use the value provided in the starting_point
                     # otherwise use the setting from the original search space
                     if hp_name in starting_point:
                         space[hp_name] = {"domain": starting_point[hp_name]}
