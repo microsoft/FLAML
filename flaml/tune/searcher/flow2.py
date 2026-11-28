@@ -313,6 +313,44 @@ class FLOW2(Searcher):
         self.seed += 1
         return flow2
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        observations = getattr(self, "_observations", None)
+        if observations is None:
+            return
+        orders = getattr(self, "_observation_order", None)
+        if (
+            isinstance(orders, dict)
+            and hasattr(self, "_next_observation_order")
+            and hasattr(self, "_committed_order")
+            and all(
+                key in orders
+                and (
+                    isinstance(orders[key], list) and len(orders[key]) == len(history)
+                    if self.lexico_objectives is not None
+                    else isinstance(orders[key], int)
+                )
+                for key, history in observations.items()
+            )
+        ):
+            return
+        self._observation_order = {}
+        sequence = 0
+        for key, history in observations.items():
+            restored = []
+            for objective, config, _ in history:
+                # Old checkpoints lack arrival order; preserve their known incumbent on ties.
+                restored.append(-2 if objective == self.best_obj and config == self.best_config else sequence)
+                sequence += 1
+            if self.lexico_objectives is not None:
+                self._observation_order[key] = restored
+            elif restored:
+                self._observation_order[key] = restored[0]
+        self._next_observation_order = sequence
+        self._committed_order = -1
+        if not hasattr(self, "_committed_observation"):
+            self._committed_observation = self._initial_observation
+
     def normalize(self, config, recursive=False) -> Dict:
         """normalize each dimension in config to [0,1]."""
         return normalize(config, self._space, self.best_config, self.incumbent, recursive)
@@ -372,15 +410,13 @@ class FLOW2(Searcher):
     def lexico_compare(self, result) -> bool:
         if self._histories is None:
             self._histories, self._f_best = defaultdict(list), {}
-            for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            return True
-        else:
-            for k in self.lexico_objectives["metrics"]:
-                self._histories[k].append(result[k])
-            self.update_fbest()
-            return self._lexico_better(result, self.best_obj)
+            if self.best_obj is not None:
+                for k in self.lexico_objectives["metrics"]:
+                    self._histories[k].append(self.best_obj[k])
+        for k in self.lexico_objectives["metrics"]:
+            self._histories[k].append(result[k])
+        self.update_fbest()
+        return self.best_obj is None or self._lexico_better(result, self.best_obj)
 
     def _lexico_better(self, result, incumbent):
         for k_metric, k_mode in zip(self.lexico_objectives["metrics"], self.lexico_objectives["modes"]):
@@ -434,6 +470,8 @@ class FLOW2(Searcher):
         previous = self._observations.setdefault(trial_id, [])
         if self.lexico_objectives is not None:
             previous.append(observation)
+            self._observation_order.setdefault(trial_id, []).append(self._next_observation_order)
+            self._next_observation_order += 1
         elif not previous or obj < previous[0][0]:
             previous[:] = [observation]
             self._observation_order[trial_id] = self._next_observation_order
@@ -468,9 +506,12 @@ class FLOW2(Searcher):
             ]
             candidates = [observation for _, observation in sorted(ordered, key=lambda item: item[0])]
         else:
-            candidates = ([baseline] if baseline[0] is not None else []) + [
-                observation for history in observations.values() for observation in history
+            ordered = ([(-1, baseline)] if baseline[0] is not None else []) + [
+                (order, observation)
+                for key, history in observations.items()
+                for order, observation in zip(self._observation_order[key], history)
             ]
+            candidates = [observation for _, observation in sorted(ordered, key=lambda item: item[0])]
         if self.lexico_objectives is not None:
             self._histories = defaultdict(list) if candidates else None
             self._f_best = {}
@@ -517,7 +558,7 @@ class FLOW2(Searcher):
             obj = (
                 result.get(self._metric)
                 if self.lexico_objectives is None
-                else {k: result[k] for k in self.lexico_objectives["metrics"]}
+                else {k: result.get(k) for k in self.lexico_objectives["metrics"]}
             )
             if self._valid_objective(obj):
                 obj = (
@@ -533,9 +574,9 @@ class FLOW2(Searcher):
                 )
                 self._remember_objective(trial_id, obj, result)
                 if (
-                    self.best_obj is None
-                    or (self.lexico_objectives is None and obj < self.best_obj)
-                    or (self.lexico_objectives is not None and self.lexico_compare(obj))
+                    self.lexico_compare(obj)
+                    if self.lexico_objectives is not None
+                    else self.best_obj is None or obj < self.best_obj
                 ):
                     self.best_obj = obj
                     self.best_config, self.step = self._configs[trial_id]
@@ -578,7 +619,7 @@ class FLOW2(Searcher):
             obj = (
                 result.get(self._metric)
                 if self.lexico_objectives is None
-                else {k: result[k] for k in self.lexico_objectives["metrics"]}
+                else {k: result.get(k) for k in self.lexico_objectives["metrics"]}
             )
             if self._valid_objective(obj):
                 obj = (
@@ -594,9 +635,9 @@ class FLOW2(Searcher):
                 )
                 self._remember_objective(trial_id, obj, result)
                 if (
-                    self.best_obj is None
-                    or (self.lexico_objectives is None and obj < self.best_obj)
-                    or (self.lexico_objectives is not None and self.lexico_compare(obj))
+                    self.lexico_compare(obj)
+                    if self.lexico_objectives is not None
+                    else self.best_obj is None or obj < self.best_obj
                 ):
                     self.best_obj = obj
                     config = self._configs[trial_id][0]

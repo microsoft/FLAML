@@ -1976,11 +1976,11 @@ class AutoML(BaseEstimator):
                 tune.report(**result)
             return result
 
+        if (self._use_ray is not False or self._use_spark) and self.mlflow_integration:
+            train = self.mlflow_integration.wrap_evaluation_function(train)
         if self._use_ray is not False:
             from ray.tune import with_parameters
 
-            if self.mlflow_integration:
-                train = self.mlflow_integration.wrap_evaluation_function(train)
             return with_parameters(
                 train,
                 state=self._state,
@@ -3158,7 +3158,9 @@ class AutoML(BaseEstimator):
             (
                 trial
                 for trial in analysis.trials
-                if trial.last_result and trial.last_result.get("wall_clock_time") is not None
+                if getattr(trial, "status", None) != "ERROR"
+                and trial.last_result
+                and trial.last_result.get("wall_clock_time") is not None
             ),
             key=lambda x: x.last_result["wall_clock_time"],
         )
@@ -3389,7 +3391,11 @@ class AutoML(BaseEstimator):
                 if analysis.trials
                 else logger.debug("result in automl: [], None")
             )
-            if analysis.trials and analysis.trials[-1].last_result:
+            if (
+                analysis.trials
+                and getattr(analysis.trials[-1], "status", None) != "ERROR"
+                and analysis.trials[-1].last_result
+            ):
                 result = analysis.trials[-1].last_result
                 self._update_search_state(search_state, result, time_used)
                 if self._estimator_index is None:

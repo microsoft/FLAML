@@ -434,6 +434,30 @@ class BlendSearch(Searcher):
         with open(checkpoint_path, "wb") as outputFile:
             pickle.dump(save_object, outputFile)
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if hasattr(self, "_trial_signatures"):
+            return
+        self._trial_signatures = {}
+        for trial_id, thread_id in self._trial_proposed_by.items():
+            thread = self._search_thread_pool.get(thread_id)
+            searcher = getattr(thread, "_search_alg", None)
+            if isinstance(searcher, FLOW2) and trial_id in searcher._configs:
+                config = searcher._configs[trial_id][0]
+                signature = self._ls.config_signature(config, self._subspace.get(trial_id, self._ls.space))
+                if signature in self._result:
+                    self._trial_signatures[trial_id] = signature
+        missing = set(self._trial_proposed_by) - self._trial_signatures.keys()
+        pending = [
+            signature
+            for signature, result in self._result.items()
+            if not result and signature not in self._trial_signatures.values()
+        ]
+        if len(missing) == len(pending) == 1:
+            self._trial_signatures[missing.pop()] = pending[0]
+        elif missing and pending:
+            logger.warning("Legacy checkpoint has pending configurations without recoverable trial identity.")
+
     def restore(self, checkpoint_path: str):
         """restore states from checkpoint."""
         with open(checkpoint_path, "rb") as inputFile:
@@ -450,13 +474,23 @@ class BlendSearch(Searcher):
     def is_ls_ever_converged(self):
         return self._is_ls_ever_converged
 
+    def _valid_result(self, result):
+        if not result:
+            return False
+        objective = (
+            {name: result.get(name) for name in self.lexico_objectives["metrics"]}
+            if self.lexico_objectives is not None
+            else result.get(self._ls.metric)
+        )
+        return FLOW2._valid_objective(objective)
+
     def on_trial_complete(self, trial_id: str, result: Optional[Dict] = None, error: bool = False):
         """search thread updater and cleaner."""
         reserved_signature = self._trial_signatures.pop(trial_id, None)
-        if error and reserved_signature is not None and not self._result.get(reserved_signature):
+        if (error or not result) and reserved_signature is not None and not self._result.get(reserved_signature):
             self._result.pop(reserved_signature, None)
         metric_constraint_satisfied = True
-        if result and not error and self._metric_constraints:
+        if result and not error and self._metric_constraints and FLOW2._valid_objective(result.get(self._metric)):
             # account for metric constraints if any
             objective = result[self._metric]
             for i, constraint in enumerate(self._metric_constraints):
@@ -493,8 +527,9 @@ class BlendSearch(Searcher):
                 self._cost_used += result.get(self.cost_attr, 0)
                 self._result[signature] = result
                 # update target metric if improved
-                objective = result[self._ls.metric]
-                if (objective - self._metric_target) * self._ls.metric_op < 0:
+                objective = result.get(self._ls.metric)
+                valid_result = self._valid_result(result)
+                if valid_result and (objective - self._metric_target) * self._ls.metric_op < 0:
                     self._metric_target = objective
                     if self._ls.resource:
                         self._best_resource = config[self._ls.resource_attr]
@@ -506,7 +541,12 @@ class BlendSearch(Searcher):
                             self._ls_bound_max,
                             self._subspace.get(trial_id, self._ls.space),
                         )
-                    if self._gs is not None and self._experimental and (not getattr(self, "_use_define_by_run", False)):
+                    if (
+                        valid_result
+                        and self._gs is not None
+                        and self._experimental
+                        and (not getattr(self, "_use_define_by_run", False))
+                    ):
                         self._gs.add_evaluated_point(flatten_dict(config), objective)
                         # TODO: recover when supported
                         # converted = convert_key(config, self._gs.space)
@@ -535,9 +575,9 @@ class BlendSearch(Searcher):
 
     def _create_thread(self, config, result, space):
         if self.lexico_objectives is None:
-            obj = result[self._ls.metric]
+            obj = result.get(self._ls.metric)
         else:
-            obj = {k: result[k] for k in self.lexico_objectives["metrics"]}
+            obj = {k: result.get(k) for k in self.lexico_objectives["metrics"]}
         self._search_thread_pool[self._thread_count] = SearchThread(
             self._ls.mode,
             self._ls.create(
@@ -603,6 +643,8 @@ class BlendSearch(Searcher):
         """create thread condition"""
         if len(self._search_thread_pool) < 2:
             return True
+        if not self._valid_result(result):
+            return False
         obj_median = np.median([thread.obj_best1 for id, thread in self._search_thread_pool.items() if id])
         return result[self._ls.metric] * self._ls.metric_op < obj_median
 
@@ -654,7 +696,7 @@ class BlendSearch(Searcher):
         best_trial_id = None
         obj_best = None
         for trial_id, r in self._candidate_start_points.items():
-            if r and (best_trial_id is None or r[self._ls.metric] * self._ls.metric_op < obj_best):
+            if self._valid_result(r) and (best_trial_id is None or r[self._ls.metric] * self._ls.metric_op < obj_best):
                 best_trial_id = trial_id
                 obj_best = r[self._ls.metric] * self._ls.metric_op
         if best_trial_id:
@@ -1127,9 +1169,15 @@ class CFO(BlendSearchTuner):
         if len(self._search_thread_pool) == 2:
             return False
         if self._candidate_start_points and self._thread_count == 1:
+            if not self._valid_result(result):
+                return False
             # result needs to match or exceed the best candidate start point
             obj_best = min(
-                (self._ls.metric_op * r[self._ls.metric] for r in self._candidate_start_points.values() if r),
+                (
+                    self._ls.metric_op * r[self._ls.metric]
+                    for r in self._candidate_start_points.values()
+                    if self._valid_result(r)
+                ),
                 default=-np.inf,
             )
 

@@ -172,25 +172,31 @@ def _report_trial_result(trial, result, *, elapsed_time=None):
             raise
 
 
-def _finish_trial(trial, *, release_model_payload=False):
+def _finish_trial(trial, *, release_model_payload=False, runner=None):
     try:
-        _runner.stop_trial(trial)
+        (_runner if runner is None else runner).stop_trial(trial)
     finally:
         callback_result = getattr(trial, "_last_callback_result", None)
         if release_model_payload and isinstance(callback_result, dict):
             callback_result.pop("trained_estimator", None)
 
 
-def _fail_running_trials(primary_error, *, release_model_payload=False):
+def _fail_running_trials(primary_error, *, runner, release_model_payload=False):
+    if runner is None:
+        return
+    running = getattr(runner, "running_trials", None)
+    if running is None:
+        trial = getattr(runner, "running_trial", None)
+        running = [] if trial is None else [trial]
     first_error = None
-    for trial in list(_runner.running_trials):
+    for trial in list(running):
         trial.set_status(Trial.ERROR)
         try:
-            _finish_trial(trial, release_model_payload=release_model_payload)
-        except Exception as error:
+            _finish_trial(trial, release_model_payload=release_model_payload, runner=runner)
+        except BaseException as error:
             if first_error is None:
                 first_error = error
-            logger.exception("Failed to complete an abandoned Spark trial.")
+            logger.exception("Failed to complete an abandoned trial.")
     if first_error is not None and primary_error is None:
         raise first_error
 
@@ -270,14 +276,19 @@ class ExperimentAnalysis(EA):
             return self.get_best_config(self.default_metric, self.default_mode)
 
     def lexico_best(self, trials):
+        metrics = self.lexico_objectives["metrics"]
         results = {
             index: trial.last_result
             for index, trial in enumerate(trials)
-            if trial.last_result and getattr(trial, "status", None) != Trial.ERROR
+            if trial.last_result
+            and getattr(trial, "status", None) != Trial.ERROR
+            and all(
+                trial.last_result.get(metric) is not None and not np.isnan(trial.last_result[metric])
+                for metric in metrics
+            )
         }
         if not results:
             return None
-        metrics = self.lexico_objectives["metrics"]
         modes = self.lexico_objectives["modes"]
         f_best = {}
         keys = list(results.keys())
@@ -313,6 +324,8 @@ class ExperimentAnalysis(EA):
                 )
             )[0]
             feasible_index = feasible_index.take(feasible_index_filter)
+            if not len(feasible_index):
+                return None
         best_trial = trials[keys[feasible_index[-1]]]
         return best_trial
 
@@ -447,15 +460,20 @@ def report(_metric=None, **kwargs):
 
 
 def _unwrap_searcher(searcher):
+    from .searcher.suggestion import ConcurrencyLimiter
+
+    limiter_types = (ConcurrencyLimiter,) + tuple(
+        limiter
+        for module in ("ray.tune.search", "ray.tune.suggest")
+        if isinstance(limiter := getattr(sys.modules.get(module), "ConcurrencyLimiter", None), type)
+    )
     seen = set()
-    while True:
+    while type(searcher) in limiter_types:
         if id(searcher) in seen:
             raise ValueError("Cyclic searcher wrappers are not supported.")
         seen.add(id(searcher))
-        nested = getattr(searcher, "searcher", None)
-        if nested is None:
-            return searcher
-        searcher = nested
+        searcher = searcher.searcher
+    return searcher
 
 
 def _primary_objective(searcher):
@@ -469,7 +487,7 @@ def _tuning_runtime():
     global _use_ray, _verbose, _runner, _running_trial, _training_iteration
 
     previous = (_use_ray, _verbose, _runner, _running_trial, _training_iteration, logger.handlers, logger.level)
-    state = {"handlers": [], "cleanup": None}
+    state = {"handlers": [], "cleanup": None, "runner": None, "release_model_payload": False}
     token = _run_context.set(state)
     primary_error = None
     try:
@@ -480,12 +498,19 @@ def _tuning_runtime():
     finally:
         errors = []
         try:
-            if state["cleanup"] is not None:
-                state["cleanup"](primary_error)
-        except BaseException as error:
-            errors.append(error)
-            if primary_error is not None:
-                logger.exception("Tuning cleanup failed while handling an earlier error.")
+            cleanups = (
+                lambda: _fail_running_trials(
+                    primary_error, runner=state["runner"], release_model_payload=state["release_model_payload"]
+                ),
+                lambda: state["cleanup"](primary_error) if state["cleanup"] is not None else None,
+            )
+            for cleanup in cleanups:
+                try:
+                    cleanup()
+                except BaseException as error:
+                    errors.append(error)
+                    if primary_error is not None:
+                        logger.exception("Tuning cleanup failed while handling an earlier error.")
         finally:
             _use_ray, _verbose, _runner, _running_trial, _training_iteration = previous[:5]
             logger.handlers = previous[-2]
@@ -1030,6 +1055,16 @@ def run(
             evaluation_function = ray_generator if inspect.isgeneratorfunction(wrapped_evaluation) else ray_evaluation
         if _internal_mlflow:
             mlflow_integration._native_ray = True
+            if mlflow_integration.autolog:
+
+                class _MLflowTrialCallback(tune.Callback):
+                    def on_trial_error(self, iteration, trials, trial, **info):
+                        mlflow_integration._record_native_trial(trial, "ERROR")
+
+                    def on_trial_complete(self, iteration, trials, trial, **info):
+                        mlflow_integration._record_native_trial(trial, "TERMINATED")
+
+                ray_args["callbacks"] = [_MLflowTrialCallback(), *(ray_args.get("callbacks") or [])]
         _use_ray = True
         try:
             analysis = tune.run(
@@ -1143,6 +1178,7 @@ def run(
                         metric=metric,
                         mode=mode,
                     )
+                    _run_context.get().update(runner=_runner, release_model_payload=bool(automl_info))
                     num_trials = 0
                     if time_budget_s is None:
                         time_budget_s = np.inf
@@ -1229,7 +1265,7 @@ def run(
                             primary_error = error
                             raise
                         finally:
-                            _fail_running_trials(primary_error, release_model_payload=bool(automl_info))
+                            _fail_running_trials(primary_error, runner=_runner, release_model_payload=bool(automl_info))
                         num_failures = 0
                     analysis = ExperimentAnalysis(
                         _runner.get_trials(),
@@ -1278,6 +1314,7 @@ def run(
             metric=metric,
             mode=mode,
         )
+        _run_context.get().update(runner=_runner, release_model_payload=bool(automl_info))
         num_trials = 0
         if time_budget_s is None:
             time_budget_s = np.inf
@@ -1329,7 +1366,7 @@ def run(
                 finally:
                     try:
                         _finish_trial(trial_to_run, release_model_payload=bool(automl_info))
-                    except Exception:
+                    except BaseException:
                         if primary_error is None:
                             raise
                         logger.exception("Failed to complete an errored trial.")

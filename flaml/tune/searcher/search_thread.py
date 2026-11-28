@@ -65,10 +65,12 @@ class SearchThread:
         self._is_ls = isinstance(search_alg, FLOW2)
         self._mode = mode
         self._metric_op = 1 if mode == "min" else -1
-        self.cost_best = self.cost_last = self.cost_total = self.cost_best1 = getattr(search_alg, "cost_incumbent", 0)
+        cost = getattr(search_alg, "cost_incumbent", None)
+        self.cost_best = self.cost_last = self.cost_total = self.cost_best1 = 0 if cost is None else cost
         self._eps = eps
         self.cost_best2 = 0
-        self.obj_best1 = self.obj_best2 = getattr(search_alg, "best_obj", np.inf)  # inherently minimize
+        best_obj = getattr(search_alg, "best_obj", None)
+        self.obj_best1 = self.obj_best2 = best_obj if FLOW2._valid_objective(best_obj) else np.inf
         self.best_result = None
         # eci: estimated cost for improvement
         self.eci = self.cost_best
@@ -81,6 +83,15 @@ class SearchThread:
             if self.space and not isinstance(search_alg, FLOW2) and isinstance(search_alg._space, dict):
                 # remember const config
                 self._const = add_cost_to_space(self.space, {}, {})
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        for name in ("obj_best1", "obj_best2"):
+            if not FLOW2._valid_objective(getattr(self, name, None)):
+                setattr(self, name, np.inf)
+        for name in ("cost_best", "cost_last", "cost_total", "cost_best1", "cost_best2"):
+            if getattr(self, name, None) is None:
+                setattr(self, name, 0)
 
     def suggest(self, trial_id: str) -> Optional[Dict]:
         """Use the suggest() of the underlying search algorithm."""
@@ -147,6 +158,7 @@ class SearchThread:
             if (
                 not error
                 and self._search_alg.metric in result
+                and FLOW2._valid_objective(result[self._search_alg.metric])
                 and getattr(self._search_alg, "lexico_objectives", None) is None
             ):
                 # TODO: Improve this behavior. When lexico_objectives is provided to CFO,

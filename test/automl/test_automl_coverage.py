@@ -10,6 +10,52 @@ import pytest
 from flaml import AutoML
 
 
+def test_sequential_search_does_not_select_an_error_trial_with_a_report(monkeypatch):
+    from sklearn.datasets import load_iris
+
+    from flaml import tune
+
+    original_run = tune.run
+    invocations = 0
+
+    def fail_first_trial(*args, **kwargs):
+        nonlocal invocations
+        analysis = original_run(*args, **kwargs)
+        if invocations == 0:
+            analysis.trials[-1].set_status("ERROR")
+        invocations += 1
+        return analysis
+
+    monkeypatch.setattr(tune, "run", fail_first_trial)
+    automl = AutoML()
+    X, y = load_iris(return_X_y=True)
+    automl.fit(
+        X,
+        y,
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        retrain_full=False,
+        eval_method="holdout",
+        metric=lambda X, y, estimator, *args, **kwargs: (
+            0.1 if estimator.params["n_estimators"] == 4 else 0.9,
+            {},
+        ),
+        starting_points={
+            "rf": [
+                {"n_estimators": 4, "max_leaves": 4, "max_features": 1.0},
+                {"n_estimators": 8, "max_leaves": 4, "max_features": 1.0},
+            ]
+        },
+    )
+    assert invocations == 2
+    assert automl.best_loss == 0.9
+    assert automl.best_config["n_estimators"] == 8
+    assert automl._iter_per_learner["rf"] == 1
+
+
 class TestAutoMLImportFallbacks:
     """Cover import fallback branches at module top (lines 52-90)."""
 

@@ -109,6 +109,65 @@ def test_get_n_cpus_spark():
     assert isinstance(n_cpus, int)
 
 
+@pytest.mark.parametrize("via_joblib", [False, True])
+def test_overtime_monitor_requires_a_real_spark_cancellation(monkeypatch, via_joblib):
+    from time import monotonic, sleep, time
+
+    from joblib import Parallel, delayed, parallel_backend
+    from joblibspark import register_spark
+
+    from flaml.tune.spark.utils import PySparkOvertimeMonitor
+
+    context = SparkSession.builder.getOrCreate().sparkContext
+    context.parallelize([1, 2], 2).map(lambda value: value).collect()
+    monkeypatch.setattr(PySparkOvertimeMonitor, "_setLogLevel", lambda self, level: None)
+    tracker = context.statusTracker()
+    properties = ("spark.jobGroup.id", "spark.job.description", "spark.job.interruptOnCancel")
+    previous = {name: context.getLocalProperty(name) for name in properties}
+
+    def cancel_started_group(group, cancel):
+        deadline = monotonic() + 30
+        while not tracker.getJobIdsForGroup(group):
+            if monotonic() >= deadline:
+                raise RuntimeError("The cancellation test's Spark job never started.")
+            sleep(0.01)
+        cancel()
+
+    sentinel = object()
+    result = sentinel
+    try:
+        if via_joblib:
+            register_spark()
+            with parallel_backend("spark"), Parallel(n_jobs=2) as parallel:
+                backend = parallel._backend
+                monitor = PySparkOvertimeMonitor(
+                    time(),
+                    None,
+                    True,
+                    cancel_func=lambda: cancel_started_group(backend._job_group, backend.terminate),
+                    sc=context,
+                )
+                with monitor:
+                    result = parallel(delayed(sleep)(10) for _ in range(2))
+        else:
+            group = "flaml-cancel-test-" + uuid4().hex
+            context.setJobGroup(group, "FLAML cancellation regression", interruptOnCancel=True)
+            monitor = PySparkOvertimeMonitor(
+                time(),
+                None,
+                True,
+                cancel_func=lambda: cancel_started_group(group, lambda: context.cancelJobGroup(group)),
+                sc=context,
+            )
+            with monitor:
+                result = context.parallelize([1, 2], 2).map(lambda value: (sleep(10), value)[1]).collect()
+        assert result is sentinel
+        assert monitor._cancelled_error
+    finally:
+        for name, value in previous.items():
+            context.setLocalProperty(name, value)
+
+
 @contextmanager
 def _publication_namespace(tmp_path):
     package = importlib.import_module("flaml.tune.spark")

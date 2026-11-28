@@ -918,12 +918,12 @@ class TestAdoptChildren:
 
         integration.mlflow_client.get_run.side_effect = lambda run_id: {"run1": run1, "run2": run2}[run_id]
 
-        with patch.object(mlflow, "search_runs", return_value=[run1, run2]):
+        with patch.object(mlflow, "search_runs", return_value=[run2, run1]):
             with patch.object(integration, "_log_info_to_run") as log_info:
                 integration.adopt_children()
         integration.mlflow_client.delete_run.assert_not_called()
         log_info.assert_called_once()
-        assert log_info.call_args.args[1] == "run1"
+        assert log_info.call_args.args[1] == "run2"
 
     def test_adopt_children_before_start_time(self):
         integration = self._make_integration()

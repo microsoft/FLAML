@@ -3,6 +3,7 @@ import os
 import socket
 import sys
 from builtins import ConnectionError as SocketConnectionError
+from http.client import IncompleteRead
 from test._artifact_paths import artifact_path
 from urllib.error import HTTPError as UrllibHTTPError
 from urllib.error import URLError
@@ -26,7 +27,7 @@ except ImportError:
 
 
 from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError, Timeout
-from urllib3.exceptions import MaxRetryError, ProtocolError
+from urllib3.exceptions import InvalidChunkLength, MaxRetryError, ProtocolError
 from urllib3.exceptions import TimeoutError as Urllib3TimeoutError
 
 _OPENML_AVAILABILITY_ERRORS = (
@@ -47,11 +48,23 @@ _OPENML_AVAILABILITY_ERRORS = (
 
 def _skip_openml_unavailability(error, resource):
     cause, seen = error, set()
-    while isinstance(cause, MaxRetryError):
+    while isinstance(cause, (MaxRetryError, ChunkedEncodingError, ProtocolError, ConnectionError)):
         if id(cause) in seen:
             raise error
         seen.add(id(cause))
-        cause = cause.reason
+        if isinstance(cause, MaxRetryError):
+            nested = cause.reason
+        else:
+            nested = cause.__cause__ or next(
+                (argument for argument in cause.args if isinstance(argument, BaseException)), cause.__context__
+            )
+            if nested is None and isinstance(cause, ConnectionError):
+                break
+        if not isinstance(nested, BaseException):
+            raise error
+        cause = nested
+    if isinstance(cause, InvalidChunkLength):
+        raise error
     if isinstance(cause, OpenMLServerException):
         # OpenML's SDK retries service code 107 (database connection failure), not arbitrary application errors.
         if getattr(cause, "code", None) != 107:
@@ -91,9 +104,8 @@ def _skip_openml_unavailability(error, resource):
             ConnectionError,
             SocketConnectionError,
             Timeout,
-            ChunkedEncodingError,
+            IncompleteRead,
             Urllib3TimeoutError,
-            ProtocolError,
         ),
     ):
         raise error
@@ -105,7 +117,7 @@ def test_retry_exhaustion_requires_a_known_transient_cause(reason):
     from urllib3.exceptions import ResponseError
 
     causes = {
-        "offline": ProtocolError("connection dropped"),
+        "offline": ProtocolError("connection dropped", ConnectionResetError("connection reset")),
         "socket": ConnectionRefusedError("connection refused"),
         "redirect": ResponseError("too many redirects"),
         "unknown": ValueError("invalid endpoint"),
@@ -278,10 +290,15 @@ def test_notebook_cache_corruption_is_not_silently_accepted(tmp_path, monkeypatc
         "urllib_missing_file",
         "urllib_connection",
         "socket_connection",
+        "chunk_connection",
+        "chunk_incomplete",
+        "malformed_chunk",
+        "unknown_protocol",
+        "invalid_protocol_payload",
     ],
 )
 def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeypatch, example, failure):
-    from types import ModuleType
+    from types import ModuleType, SimpleNamespace
     from urllib.error import HTTPError as UrllibHTTPError
 
     from requests import Response
@@ -296,7 +313,7 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         "connection": ConnectionError("offline"),
         "request_timeout": Timeout("offline"),
         "socket_timeout": TimeoutError("offline"),
-        "urllib_retry": MaxRetryError(None, "/", ProtocolError("offline")),
+        "urllib_retry": MaxRetryError(None, "/", ProtocolError("offline", ConnectionResetError("connection reset"))),
         "urllib_timeout": ReadTimeoutError(None, "/", "offline"),
         "invalid_url": InvalidURL("broken URL construction"),
         "missing_schema": MissingSchema("broken URL construction"),
@@ -309,6 +326,16 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         "urllib_missing_file": URLError(FileNotFoundError("missing local resource")),
         "urllib_connection": URLError(ConnectionRefusedError("connection refused")),
         "socket_connection": ConnectionResetError("connection reset"),
+        "chunk_connection": ChunkedEncodingError(ProtocolError("connection broken", ConnectionResetError("reset"))),
+        "chunk_incomplete": ChunkedEncodingError(ProtocolError("connection broken", IncompleteRead(b"data", 10))),
+        "malformed_chunk": ChunkedEncodingError(
+            ProtocolError(
+                "connection broken",
+                InvalidChunkLength(SimpleNamespace(tell=lambda: 4, length_remaining=10), b"not-hex"),
+            )
+        ),
+        "unknown_protocol": ProtocolError("unrecognized response"),
+        "invalid_protocol_payload": ProtocolError("invalid response", ValueError("malformed payload")),
     }[failure]
 
     def unavailable(**kwargs):
@@ -335,6 +362,9 @@ def test_notebook_network_unavailability_is_explicitly_skipped(tmp_path, monkeyp
         "urllib_client",
         "urllib_scheme",
         "urllib_missing_file",
+        "malformed_chunk",
+        "unknown_protocol",
+        "invalid_protocol_payload",
     }:
         with pytest.raises(type(error)):
             try:
@@ -391,7 +421,10 @@ def test_mlflow(tmp_path):
 
     automl = AutoML()
     settings = {
-        "time_budget": 5,  # total running time in seconds
+        "time_budget": 60,  # total running time in seconds
+        "max_iter": 3,
+        "n_jobs": 1,
+        "eval_method": "holdout",
         "metric": "accuracy",  # primary metrics can be chosen from: ['accuracy','roc_auc','roc_auc_ovr','roc_auc_ovo','f1','log_loss','mae','mse','r2']
         "estimator_list": ["lgbm", "rf", "xgboost"],  # list of ML learners
         "task": "classification",  # task type

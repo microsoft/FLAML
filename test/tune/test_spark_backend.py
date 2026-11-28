@@ -218,7 +218,8 @@ def test_report_snapshots_preserve_mapping_interfaces_and_opaque_payloads(spark_
 
 
 @pytest.mark.parametrize("cancelled", [False, True])
-def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch, cancelled):
+@pytest.mark.parametrize("kind", ["python", "java-other", "java-cancel", "legacy-other", "legacy-cancel"])
+def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch, cancelled, kind):
     from threading import Event
 
     from optuna.trial import TrialState
@@ -231,8 +232,19 @@ def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch,
     context = Mock()
     context.cancelAllJobs.side_effect = cancellation.set
     monkeypatch.setattr(utils, "_have_spark", True)
+
+    class JavaError(RuntimeError):
+        def __init__(self, cancellation):
+            super().__init__("backend error")
+            self.java_exception = SimpleNamespace(
+                getClass=lambda: SimpleNamespace(getName=lambda: "org.apache.spark.SparkException"),
+                getErrorClass=lambda: "SPARK_JOB_CANCELLED" if cancellation else "DIVIDE_BY_ZERO",
+                getMessage=lambda: "Job 1 cancelled part of cancelled job group test" if cancellation else "bad data",
+                getCause=lambda: None,
+            )
+
     monkeypatch.setattr(
-        utils, "py4j", SimpleNamespace(protocol=SimpleNamespace(Py4JJavaError=RuntimeError)), raising=False
+        utils, "py4j", SimpleNamespace(protocol=SimpleNamespace(Py4JJavaError=JavaError)), raising=False
     )
     monitor = utils.PySparkOvertimeMonitor
     monkeypatch.setattr(
@@ -242,7 +254,18 @@ def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch,
     )
     searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
     limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
-    failure = TypeError("objective failed independently of Spark")
+    failure = (
+        TypeError("objective failed independently of Spark") if kind == "python" else JavaError(kind.endswith("cancel"))
+    )
+    if kind.startswith("legacy"):
+        from joblib.externals.loky.process_executor import _ExceptionWithTraceback
+
+        namespace = {"__name__": "joblib.parallel", "wrapped": _ExceptionWithTraceback(failure)}
+        exec("def _retrieve():\n    batched_results = wrapped\n    return list(batched_results)\n", namespace)
+        try:
+            namespace["_retrieve"]()
+        except TypeError as error:
+            failure = error
 
     def objective(config):
         if cancelled:
@@ -258,14 +281,15 @@ def test_overtime_monitor_does_not_promote_a_failed_local_objective(monkeypatch,
         mlflow_logging=False,
         verbose=0,
     )
-    if cancelled:
+    if cancelled and kind in ("java-cancel", "legacy-cancel"):
         result = tune.run(objective, **settings)
         assert result.trials[0].status == "ERROR"
     else:
-        with pytest.raises(TypeError) as caught:
+        with pytest.raises(type(failure)) as caught:
             tune.run(objective, **settings)
         assert caught.value is failure
-        context.cancelAllJobs.assert_not_called()
+        if not cancelled:
+            context.cancelAllJobs.assert_not_called()
     assert searcher._ot_study.trials[0].state == TrialState.FAIL
     assert not limiter.live_trials
 
@@ -349,6 +373,105 @@ def test_spark_batch_failure_releases_remaining_trials_without_losing_completed_
     expected = [TrialState.COMPLETE, TrialState.FAIL] if failure_phase == "second-result" else [TrialState.FAIL] * 2
     assert [trial.state for trial in searcher._ot_study.trials] == expected
     assert all("trained_estimator" not in (trial._last_callback_result or {}) for trial in runner.get_trials())
+
+
+@pytest.mark.parametrize("use_spark,phase", [(True, "suggest"), (True, "add"), (False, "add")])
+def test_proposal_failure_releases_undispatched_trial_reservations(spark_backend, monkeypatch, use_spark, phase):
+    from optuna.trial import TrialState
+
+    import flaml.tune.trial_runner as runners
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    captured = []
+    name = "SparkTrialRunner" if use_spark else "SequentialTrialRunner"
+    base = getattr(runners, name)
+
+    class CapturedRunner(base):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            captured.append(self)
+
+    monkeypatch.setattr(runners, name, CapturedRunner)
+    searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
+    completed = Mock(wraps=searcher.on_trial_complete)
+    monkeypatch.setattr(searcher, "on_trial_complete", completed)
+    failure = ValueError("proposal failed before dispatch")
+    scheduler = None
+    if phase == "suggest":
+        suggest = searcher.suggest
+        calls = []
+
+        def fail_second(trial_id):
+            calls.append(trial_id)
+            if len(calls) == 2:
+                raise failure
+            return suggest(trial_id)
+
+        monkeypatch.setattr(searcher, "suggest", fail_second)
+    else:
+        scheduler = Mock()
+        scheduler.on_trial_add.side_effect = failure
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=2)
+    objective = Mock(return_value={"loss": 1.0})
+    with pytest.raises(ValueError) as caught:
+        tune.run(
+            objective,
+            search_alg=limiter,
+            scheduler=scheduler,
+            num_samples=2,
+            use_spark=use_spark,
+            n_concurrent_trials=2 if use_spark else 1,
+            mlflow_logging=False,
+            verbose=0,
+        )
+    assert caught.value is failure
+    objective.assert_not_called()
+    assert not limiter.live_trials
+    completed.assert_called_once()
+    assert searcher._ot_study.trials[0].state == TrialState.FAIL
+    assert not getattr(captured[0], "running_trials", [])
+    assert getattr(captured[0], "running_trial", None) is None
+
+
+@pytest.mark.parametrize("use_spark", [False, True])
+@pytest.mark.parametrize("secondary", [KeyboardInterrupt, SystemExit])
+def test_completion_base_exception_does_not_replace_the_objective_failure(
+    spark_backend, monkeypatch, use_spark, secondary
+):
+    from optuna.trial import TrialState
+
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
+    complete = searcher.on_trial_complete
+    notifications = []
+
+    def interrupted(trial_id, *args, **kwargs):
+        notifications.append(trial_id)
+        complete(trial_id, *args, **kwargs)
+        raise secondary("secondary completion interruption")
+
+    monkeypatch.setattr(searcher, "on_trial_complete", interrupted)
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
+    primary = ValueError("original objective failure")
+
+    def objective(config):
+        raise primary
+
+    with pytest.raises(BaseException) as caught:
+        tune.run(
+            objective,
+            search_alg=limiter,
+            num_samples=1,
+            use_spark=use_spark,
+            n_concurrent_trials=1,
+            mlflow_logging=False,
+            verbose=0,
+        )
+    assert caught.value is primary
+    assert len(notifications) == 1
+    assert not limiter.live_trials
+    assert searcher._ot_study.trials[0].state == TrialState.FAIL
 
 
 @pytest.mark.parametrize("delivery", ["report", "return", "both"])

@@ -40,6 +40,7 @@ def _transactional_tracking(mlflow, monkeypatch, tmp_path, uri_kind="absolute"):
             "absolute": f"sqlite:///{tmp_path / 'tracking.db'}",
             "relative": f"sqlite:///{relative_name}",
             "file": f"sqlite:///file:{relative_name}?mode=rwc&uri=true",
+            "directory": (tmp_path / "tracking").as_uri(),
         }[uri_kind]
         try:
             mlflow.set_tracking_uri(uri)
@@ -532,20 +533,13 @@ def test_automl_native_ray_rejects_file_tracking_before_search(tmp_path, monkeyp
 
     from flaml import AutoML
 
-    previous_uri = mlflow.get_tracking_uri()
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
-    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "0")
-    monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
-    monkeypatch.setattr(mlflow.tracking.fluent, "_active_experiment_id", None)
-    mlflow.set_tracking_uri((tmp_path / "tracking").as_uri())
-    try:
-        with mlflow.start_run(experiment_id="0"):
+    with _transactional_tracking(mlflow, monkeypatch, tmp_path, "directory") as experiment:
+        with mlflow.start_run(experiment_id=experiment):
             automl = AutoML(max_iter=1, estimator_list=["rf"], verbose=0)
             with pytest.raises(ValueError, match="transactional tracking"):
                 automl.fit(np.arange(40).reshape(20, 2), np.tile([0, 1], 10), use_ray=True)
             assert automl.model is None
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp_path, monkeypatch):
@@ -612,51 +606,126 @@ def test_notebook_automl_ray_branch_uses_transactional_tracking(ray_workers, tmp
         assert children and all(run.info.status == "FINISHED" for run in children)
 
 
-def test_native_ray_worker_exit_before_reporting_finalizes_its_unique_run(ray_workers, tmp_path, monkeypatch):
+def _native_worker_exit_probe(directory, raise_on_failed_trial):
+    from pathlib import Path
     from unittest.mock import patch
 
     import mlflow
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from ray.tune.error import TuneError
 
     from flaml import tune
+
+    tmp_path = Path(directory)
+    driver_pid = os.getpid()
+    worker_marker = tmp_path / "worker-pid.txt"
+    native_run = ray.tune.run
+    native_errors = []
+    storage = _ray_storage(tmp_path)
+
+    def capture_native_error(*args, **kwargs):
+        try:
+            return native_run(*args, **kwargs)
+        except BaseException as error:
+            native_errors.append(error)
+            raise
 
     def objective(config):
         import os
 
+        worker_pid = os.getpid()
+        assert worker_pid != driver_pid, "The death probe must not execute in the driver."
+        worker_marker.write_text(str(worker_pid), encoding="ascii")
         mlflow.log_param("worker_exit_probe", True)
         os._exit(23)
 
-    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+    assert not ray.is_initialized()
     with (
-        _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment,
-        patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
+        TemporaryDirectory(prefix="flaml-ray-death-", ignore_cleanup_errors=True) as ray_directory,
+        pytest.MonkeyPatch.context() as monkeypatch,
     ):
-        mlflow.autolog(log_models=False, silent=True)
-        with mlflow.start_run(experiment_id=experiment) as parent:
-            result = tune.run(
-                objective,
-                config={},
-                metric="loss",
-                mode="min",
-                num_samples=1,
-                use_ray=True,
-                raise_on_failed_trial=False,
-                max_failures=0,
-                time_budget_s=60,
-                verbose=0,
-                **_ray_storage(tmp_path),
+        monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
+        monkeypatch.delenv("RAY_ADDRESS", raising=False)
+        monkeypatch.setattr(ray.tune, "run", capture_native_error)
+        try:
+            ray.init(
+                address="local" if Version(ray.__version__) >= Version("2") else None,
+                local_mode=False,
+                _temp_dir=ray_directory,
+                num_cpus=1,
+                num_gpus=0,
+                include_dashboard=False,
+                log_to_driver=False,
+                object_store_memory=80 * 1024 * 1024,
+                _memory=256 * 1024 * 1024,
             )
-            assert len(result.trials) == 1 and result.trials[0].status == "ERROR"
-            assert "loss" not in (result.trials[0].last_result or {})
-            runs = mlflow.MlflowClient().search_runs(
-                [experiment], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
-            )
-            assert len(runs) == 1 and runs[0].info.status == "FAILED"
-            assert runs[0].data.params["worker_exit_probe"] == "True"
-            assert "loss" not in runs[0].data.metrics
+            with (
+                _transactional_tracking(mlflow, monkeypatch, tmp_path) as experiment,
+                patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
+            ):
+                mlflow.autolog(log_models=False, silent=True)
+                with mlflow.start_run(experiment_id=experiment) as parent:
+                    arguments = dict(
+                        config={},
+                        metric="loss",
+                        mode="min",
+                        num_samples=1,
+                        use_ray=True,
+                        raise_on_failed_trial=raise_on_failed_trial,
+                        max_failures=0,
+                        time_budget_s=60,
+                        verbose=0,
+                        **storage,
+                    )
+                    if raise_on_failed_trial:
+                        with pytest.raises(TuneError) as caught:
+                            tune.run(objective, **arguments)
+                        assert caught.value is native_errors[0]
+                    else:
+                        result = tune.run(objective, **arguments)
+                        assert len(result.trials) == 1 and result.trials[0].status == "ERROR"
+                        assert "loss" not in (result.trials[0].last_result or {})
+                    assert int(worker_marker.read_text(encoding="ascii")) != driver_pid
+                    assert mlflow.active_run().info.run_id == parent.info.run_id
+                    runs = mlflow.MlflowClient().search_runs(
+                        [experiment], filter_string=f"tags.`mlflow.parentRunId` = '{parent.info.run_id}'"
+                    )
+                    assert len(runs) == 1 and runs[0].info.status == "FAILED"
+                    assert runs[0].data.params["worker_exit_probe"] == "True"
+                    assert "loss" not in runs[0].data.metrics
+        finally:
+            ray.shutdown()
 
 
-def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_path, monkeypatch):
+@pytest.mark.parametrize("raise_on_failed_trial", [False, True])
+def test_native_ray_worker_exit_before_reporting_finalizes_its_unique_run(tmp_path, raise_on_failed_trial):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    environment = {**os.environ, "PYTHONPATH": str(root)}
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from test.fabric.test_ray_reporting import _native_worker_exit_probe; "
+            "_native_worker_exit_probe(sys.argv[1], sys.argv[2] == 'true')",
+            str(tmp_path),
+            str(raise_on_failed_trial).lower(),
+        ],
+        cwd=root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=240,
+    )
+    assert child.returncode == 0, child.stdout + child.stderr
+
+
+@pytest.mark.parametrize("cleanup_failure", [False, True])
+def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_path, monkeypatch, cleanup_failure):
+    import copy
     from pathlib import Path
     from unittest.mock import patch
 
@@ -667,9 +736,20 @@ def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_pat
     from flaml import AutoML
 
     def logged_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+        from flaml.fabric import mlflow as integration_module
+
         mlflow.log_metric("worker_store_probe", 73.0)
         mlflow.log_param("worker_directory", os.getcwd())
-        return float((estimator.predict(X_val) != y_val).mean()), {}
+        if cleanup_failure and estimator.params["n_estimators"] == 4:
+            restore = integration_module._apply_autolog_configurations
+
+            def fail_after_restore(configurations):
+                integration_module._apply_autolog_configurations = restore
+                restore(configurations)
+                raise RuntimeError("worker cleanup failed after reporting")
+
+            integration_module._apply_autolog_configurations = fail_after_restore
+        return (0.1 if estimator.params["n_estimators"] == 4 else 0.9), {}
 
     X, y = load_iris(return_X_y=True)
     monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "false")
@@ -678,6 +758,8 @@ def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_pat
         patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True),
         mlflow.start_run(experiment_id=experiment) as parent,
     ):
+        mlflow.sklearn.autolog(log_models=False, log_datasets=False, silent=True)
+        configurations = copy.deepcopy(AUTOLOGGING_INTEGRATIONS)
         automl = AutoML()
         automl.fit(
             X,
@@ -691,18 +773,51 @@ def test_native_automl_worker_logging_uses_the_driver_store(ray_workers, tmp_pat
             use_ray=_ray_storage(tmp_path),
             eval_method="holdout",
             verbose=0,
-            starting_points={"rf": {"n_estimators": 4, "max_leaves": 4, "max_features": 1.0}},
+            starting_points={
+                "rf": [
+                    {"n_estimators": 4, "max_leaves": 4, "max_features": 1.0},
+                    {"n_estimators": 8, "max_leaves": 4, "max_features": 1.0},
+                ]
+            },
         )
         assert automl.model is not None
-        diagnostics = [
-            run
-            for run in mlflow.MlflowClient().search_runs([experiment])
-            if run.data.metrics.get("worker_store_probe") == 73.0
-        ]
+        assert automl.best_config["n_estimators"] == (8 if cleanup_failure else 4)
+        assert automl.best_loss == (0.9 if cleanup_failure else 0.1)
+        assert len(automl.mlflow_integration.infos) == (1 if cleanup_failure else 2)
+        client = mlflow.MlflowClient()
+        runs = client.search_runs([experiment])
+        diagnostics = [run for run in runs if run.data.metrics.get("worker_store_probe") == 73.0]
         assert len(diagnostics) == 2
         assert all(run.info.status == "FINISHED" for run in diagnostics)
         assert all(Path(run.data.params["worker_directory"]).resolve() != tmp_path.resolve() for run in diagnostics)
+        assert all(not client.list_artifacts(run.info.run_id) for run in diagnostics)
+        expected_ids = {
+            parent.info.run_id,
+            *(run.info.run_id for run in diagnostics),
+            *automl.mlflow_integration.manual_run_ids,
+        }
+        assert {run.info.run_id for run in runs} == expected_ids
+        assert AUTOLOGGING_INTEGRATIONS == configurations
         assert mlflow.active_run().info.run_id == parent.info.run_id
+
+
+def test_local_tuning_uses_the_objective_inside_a_retained_ray_limiter():
+    from ray import tune as native
+
+    if Version(ray.__version__) < Version("2"):
+        from ray.tune.suggest import ConcurrencyLimiter
+        from ray.tune.suggest.optuna import OptunaSearch
+    else:
+        from ray.tune.search import ConcurrencyLimiter
+        from ray.tune.search.optuna import OptunaSearch
+
+    from flaml import tune
+
+    searcher = OptunaSearch(None, metric="training_iteration", mode="max")
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
+    settings = dict(search_alg=limiter, num_samples=1, mlflow_logging=False, verbose=0)
+    tune.run(lambda config: {"loss": 1.0}, config={"x": native.uniform(0, 1)}, metric="loss", mode="min", **settings)
+    assert tune.run(lambda config: {"loss": 2.0}, **settings).best_result["loss"] == 2.0
 
 
 def test_native_ray_reuses_the_objective_inside_retained_native_limiters(ray_workers, tmp_path):

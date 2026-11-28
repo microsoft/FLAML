@@ -112,14 +112,14 @@ class BaseTrialRunner:
                     self._scheduler_alg.on_trial_remove(self, trial)
                 else:
                     self._scheduler_alg.on_trial_complete(self, trial.trial_id, callback_result)
-        except Exception as failure:
+        except BaseException as failure:
             scheduler_error = failure
         try:
             if error:
                 self._search_alg.on_trial_complete(trial.trial_id, callback_result, error=True)
             else:
                 self._search_alg.on_trial_complete(trial.trial_id, callback_result)
-        except Exception:
+        except BaseException:
             if scheduler_error is None:
                 raise
             logger.exception("Searcher completion also failed after a scheduler error.")
@@ -145,6 +145,7 @@ class SequentialTrialRunner(BaseTrialRunner):
         config = self._search_alg.suggest(trial_id)
         if config is not None:
             trial = SimpleTrial(config, trial_id)
+            self.running_trial = trial
             self.add_trial(trial)
             trial.set_status(Trial.RUNNING)
         else:
@@ -186,9 +187,9 @@ class SparkTrialRunner(BaseTrialRunner):
         config = self._search_alg.suggest(trial_id)
         if config is not None:
             trial = SimpleTrial(config, trial_id)
+            self.running_trials.append(trial)
             self.add_trial(trial)
             trial.set_status(Trial.RUNNING)
-            self.running_trials.append(trial)
         else:
             trial = None
         return trial

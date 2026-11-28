@@ -242,9 +242,10 @@ Parallel trial/run
 matching uses trial identities rather than task start order.
 Native-Ray MLflow logging in AutoML and Tune requires transactional tracking, such as
 `mlflow.set_tracking_uri("sqlite:///tracking.db")` or a tracking server.
-Relative SQLite filenames are resolved against the driver's directory before
+Relative SQLite filenames are bound to the database actually opened by the driver before
 worker execution; SQLite URI options and the caller's tracking settings are retained.
-Active AutoML Ray workers use the same store and state isolation, without enabling
+This also preserves the original store if the driver's working directory has changed.
+Active AutoML Ray and Spark workers use the same store and state isolation, without enabling
 duplicate automatic model logging. Private temporary stores and SQLite's memory
 VFS are not persistent tracking stores.
 Use a tracking server for multi-host Ray clusters; in-memory databases cannot
@@ -254,7 +255,8 @@ worker during FileStore's non-atomic metadata rewrite. Non-Ray file tracking and
 history-only collection remain available. For an explicitly identified or uniquely matched owned
 attempt that Ray has completed, the driver reconciles a still-running status;
 it retains an observed terminal status and does not finalize unrelated runs.
-This also reconciles uniquely owned failed attempts that never delivered a report.
+Public Ray lifecycle callbacks retain terminal identities even when native `tune.run`
+raises. This also reconciles uniquely owned failed attempts that never delivered a report.
 Tagged trial association does not depend on worker clock agreement. Local, Spark,
 and native Ray results use the winning trial ID. Local and Ray report-style
 objectives retain their final reported numeric metrics; Spark worker reports are
@@ -315,7 +317,11 @@ observations are removed and the search center is recovered from surviving
 observations, including concurrent successful trials. Scalar rollback retains only
 the best committed observation and unfinished trials, with equal scores retaining
 first-observation order. Invalid scalar or lexicographic objective values do not
-become incumbents. Clean local stops must match
+become incumbents. Legacy checkpoints initialize missing reservation and ordering
+state from the information they retained. Lost arrival order cannot be recovered
+exactly, so deterministic reconstruction gives the saved incumbent priority on ties.
+Unrecoverable in-flight reservations are retained with a warning rather than guessed
+or discarded. Clean local stops must match
 the active local trial; clean Ray exits require an
 explicit active Ray context; Spark worker exits are not inferred from module
 defaults. A caller's already-handled exception is not an objective failure.

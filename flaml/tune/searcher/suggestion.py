@@ -288,7 +288,10 @@ class ConcurrencyLimiter(Searcher):
             return
         elif self.batch:
             self.cached_results[trial_id] = (result, error)
-            if len(self.cached_results) == len(self.live_trials):
+            if len(self.cached_results) == self.max_concurrent or (
+                len(self.cached_results) == len(self.live_trials)
+                and any(failed for _, failed in self.cached_results.values())
+            ):
                 # Update the underlying searcher once the
                 # full batch is completed.
                 completed = self.cached_results
@@ -298,7 +301,7 @@ class ConcurrencyLimiter(Searcher):
                     for trial_id, (result, error) in completed.items():
                         try:
                             self.searcher.on_trial_complete(trial_id, result=result, error=error)
-                        except Exception as failure:
+                        except BaseException as failure:
                             if first_error is None:
                                 first_error = failure
                 finally:

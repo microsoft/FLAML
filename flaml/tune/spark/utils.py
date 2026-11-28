@@ -463,6 +463,54 @@ def get_broadcast_data(broadcast_data):
     return broadcast_data
 
 
+def _is_spark_cancellation(error):
+    candidate = error
+    if isinstance(error, TypeError):
+        traceback = error.__traceback__
+        for _ in range(64):
+            if traceback is None:
+                break
+            frame = traceback.tb_frame
+            if frame.f_globals.get("__name__") == "joblib.parallel" and frame.f_code.co_name == "_retrieve":
+                # Older joblib-Spark transports retain the real error in a non-iterable batch wrapper.
+                try:
+                    from joblib.externals.loky.process_executor import _ExceptionWithTraceback
+                except ImportError:
+                    return False
+                wrapped = frame.f_locals.get("batched_results")
+                if isinstance(wrapped, _ExceptionWithTraceback):
+                    candidate = getattr(wrapped, "exc", None)
+                    break
+            traceback = traceback.tb_next
+    if not isinstance(candidate, py4j.protocol.Py4JJavaError):
+        return False
+    java = getattr(candidate, "java_exception", None)
+    for _ in range(8):
+        if java is None:
+            break
+        try:
+            name = java.getClass().getName()
+            message = str(java.getMessage() or "")
+            try:
+                condition = java.getErrorClass()
+            except Exception:
+                condition = None
+            words = message.split(" ", 3)
+            if name == "org.apache.spark.SparkException" and (
+                condition == "SPARK_JOB_CANCELLED"
+                or message.startswith("[SPARK_JOB_CANCELLED]")
+                or len(words) >= 3
+                and words[0] == "Job"
+                and words[1].isdigit()
+                and words[2] == "cancelled"
+            ):
+                return True
+            java = java.getCause()
+        except Exception:
+            return False
+    return False
+
+
 class PySparkOvertimeMonitor:
     """A context manager class to monitor if the PySpark job is overtime.
     Example:
@@ -573,14 +621,9 @@ class PySparkOvertimeMonitor:
             # self._setLogLevel("WARN")
             if not exc_type:
                 return True
-            elif self._cancel_flag and exc_type == py4j.protocol.Py4JJavaError:
+            elif self._cancel_flag and _is_spark_cancellation(exc_value):
                 self._cancelled_error = True
-                logger.debug("Py4JJavaError Exception: %s", exc_value)
-                return True
-            elif self._cancel_flag and exc_type == TypeError:
-                self._cancelled_error = True
-                # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
-                logger.debug("TypeError Exception: %s", exc_value)
+                logger.debug("Spark cancellation exception: %s", exc_value)
                 return True
             else:
                 return False

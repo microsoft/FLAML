@@ -31,6 +31,16 @@ def _runtime_namespace(request, monkeypatch):
         mlflow.end_run()
 
 
+@pytest.fixture
+def _isolated_autologging():
+    from unittest.mock import patch
+
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    with patch.dict(AUTOLOGGING_INTEGRATIONS, {}, clear=True):
+        yield
+
+
 def _sklearn_tune(config):
     config = config.copy()
     is_autolog = config.pop("is_autolog")
@@ -215,6 +225,65 @@ def test_reported_spark_objectives_keep_latest_metric_and_trial_identity(autolog
         assert result.best_run_id == by_trial[result.best_trial.trial_id].info.run_id
         if autolog:
             assert set(accepted_run_ids) == {run.info.run_id for run in children}
+
+
+def test_automl_spark_workers_use_the_driver_store_and_isolate_autologging(_isolated_autologging, monkeypatch):
+    import copy
+
+    from joblib import wrap_non_picklable_objects
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    def logged_metric(X_val, y_val, estimator, labels, *args, **kwargs):
+        from mlflow.utils.autologging_utils import autologging_is_disabled
+        from pyspark import TaskContext
+
+        assert TaskContext.get() is not None
+        assert autologging_is_disabled("sklearn")
+        assert mlflow.active_run() is None
+        mlflow.log_metric("automl_spark_worker_probe", 73.0)
+        return float(estimator.params["n_estimators"]), {}
+
+    monkeypatch.setenv("FLAML_MAX_CONCURRENT", "2")
+    experiment = mlflow.set_experiment(f"automl-spark-workers-{uuid4().hex}")
+    mlflow.sklearn.autolog(log_models=False, silent=True)
+    configurations = copy.deepcopy(AUTOLOGGING_INTEGRATIONS)
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    with mlflow.start_run() as parent:
+        automl = flaml.AutoML()
+        automl.fit(
+            X,
+            y,
+            task="regression",
+            estimator_list=["rf"],
+            max_iter=2,
+            time_budget=90,
+            n_jobs=1,
+            n_concurrent_trials=2,
+            use_spark=True,
+            metric=wrap_non_picklable_objects(logged_metric),
+            retrain_full=False,
+            model_history=False,
+            eval_method="holdout",
+            verbose=0,
+            starting_points={
+                "rf": [
+                    {"n_estimators": 4, "max_leaves": 4, "max_features": 1.0},
+                    {"n_estimators": 8, "max_leaves": 4, "max_features": 1.0},
+                ]
+            },
+        )
+        assert automl.model is not None and automl.best_config["n_estimators"] == 4
+        client = mlflow.MlflowClient()
+        diagnostics = [
+            run
+            for run in client.search_runs([experiment.experiment_id])
+            if run.data.metrics.get("automl_spark_worker_probe") == 73.0
+        ]
+        assert len(diagnostics) == 2
+        assert all(run.info.status == "FINISHED" for run in diagnostics)
+        assert all(not client.list_artifacts(run.info.run_id) for run in diagnostics)
+        assert mlflow.active_run().info.run_id == parent.info.run_id
+        assert AUTOLOGGING_INTEGRATIONS == configurations
 
 
 def _test_automl_sparkdata(is_autolog, is_parent_run):

@@ -273,25 +273,46 @@ def test_nan_report_does_not_hide_a_finite_completed_sibling(seeded, lexicograph
 
 
 @pytest.mark.parametrize("late_improvement", [False, True])
-def test_scalar_rollback_preserves_observation_order_when_completion_order_differs(late_improvement):
+@pytest.mark.parametrize("lexicographic", [False, True])
+@pytest.mark.parametrize("legacy_checkpoint", [False, True])
+def test_scalar_rollback_preserves_observation_order_when_completion_order_differs(
+    late_improvement, lexicographic, legacy_checkpoint
+):
     from flaml import tune
     from flaml.tune.searcher.flow2 import FLOW2
 
     space = {"x": tune.uniform(0, 1)}
     initial = {"x": 0.5}
-    searcher = FLOW2(initial, metric="loss", mode="min", space=space).create(initial, 10.0, 9.0, space)
+    objectives = (
+        {
+            "metrics": ["loss", "cost"],
+            "modes": ["min", "min"],
+            "tolerances": {"loss": 0.0, "cost": 0.0},
+            "targets": {"loss": -float("inf"), "cost": -float("inf")},
+        }
+        if lexicographic
+        else None
+    )
+    searcher = FLOW2(initial, metric="loss", mode="min", space=space, lexico_objectives=objectives)
+    searcher = searcher.create(initial, {"loss": 10.0, "cost": 1.0} if lexicographic else 10.0, 9.0, space)
     configs = {name: searcher.suggest(name) for name in ("first", "second")}
-    searcher.on_trial_result("first", {"loss": 7.0 if late_improvement else 5.0, "time_total_s": 1.0})
-    searcher.on_trial_result("second", {"loss": 5.0, "time_total_s": 2.0})
+    searcher.on_trial_result("first", {"loss": 7.0 if late_improvement else 5.0, "cost": 1.0, "time_total_s": 1.0})
+    searcher.on_trial_result("second", {"loss": 5.0, "cost": 1.0, "time_total_s": 2.0})
     if late_improvement:
-        searcher.on_trial_result("first", {"loss": 5.0, "time_total_s": 1.0})
+        searcher.on_trial_result("first", {"loss": 5.0, "cost": 1.0, "time_total_s": 1.0})
     order = ("first", "second") if late_improvement else ("second", "first")
     for name in order:
-        searcher.on_trial_complete(name, {"loss": 5.0, "time_total_s": 1.0 if name == "first" else 2.0})
+        searcher.on_trial_complete(name, {"loss": 5.0, "cost": 1.0, "time_total_s": 1.0 if name == "first" else 2.0})
     winner = "second" if late_improvement else "first"
     assert searcher.best_config == configs[winner]
+    if legacy_checkpoint:
+        import pickle
+
+        for field in ("_observation_order", "_next_observation_order", "_committed_order"):
+            searcher.__dict__.pop(field, None)
+        searcher = pickle.loads(pickle.dumps(searcher))
     assert searcher.suggest("failed") is not None
-    searcher.on_trial_result("failed", {"loss": 7.0})
+    searcher.on_trial_result("failed", {"loss": 7.0, "cost": 1.0})
     searcher.on_trial_complete("failed", error=True)
     assert searcher.best_config == configs[winner]
     assert searcher.cost_incumbent == (2.0 if late_improvement else 1.0)
@@ -324,6 +345,64 @@ def test_invalid_flow2_seed_and_final_scores_do_not_poison_finite_trials(lexicog
     searcher.on_trial_complete("successful", {"loss": 5.0, "cost": 1.0})
     assert searcher.best_config == successful
     assert searcher.best_obj == ({"loss": 5.0, "cost": 1.0} if lexicographic else 5.0)
+    searcher.suggest("worse")
+    searcher.on_trial_result("worse", {"loss": 100.0, "cost": 100.0})
+    searcher.on_trial_complete("worse", {"loss": 100.0, "cost": 100.0})
+    assert searcher.best_config == successful
+    assert searcher.best_obj == ({"loss": 5.0, "cost": 1.0} if lexicographic else 5.0)
+
+
+@pytest.mark.parametrize("algorithm", ["CFO", "BlendSearch"])
+@pytest.mark.parametrize("invalid", [float("nan"), None])
+@pytest.mark.parametrize("explicit_points", [False, True])
+def test_public_search_recovers_from_an_invalid_initial_score(algorithm, invalid, explicit_points):
+    from flaml import tune
+    from flaml.tune.searcher import blendsearch
+
+    visited = []
+    searcher = getattr(blendsearch, algorithm)(
+        space={"x": tune.uniform(0, 1)},
+        low_cost_partial_config={"x": 0.5},
+        points_to_evaluate=[{"x": 0.5}, {"x": 0.7}] if explicit_points else None,
+        metric="loss",
+        mode="min",
+    )
+
+    def objective(config):
+        visited.append(config.copy())
+        return {"loss": invalid if len(visited) == 1 else 1.0}
+
+    analysis = tune.run(objective, search_alg=searcher, num_samples=2, mlflow_logging=False, verbose=0)
+    assert len(visited) == 2
+    assert analysis.best_result["loss"] == 1.0
+    assert analysis.best_config == visited[1]
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), None])
+@pytest.mark.parametrize("valid_sibling", [False, True])
+def test_lexicographic_analysis_filters_the_entire_objective_vector(invalid, valid_sibling):
+    from flaml.tune.trial_runner import SimpleTrial
+    from flaml.tune.tune import ExperimentAnalysis
+
+    trials = []
+    for index, cost in enumerate([invalid, 1.0] if valid_sibling else [invalid]):
+        trial = SimpleTrial({"x": index})
+        trial.set_status("RUNNING")
+        trial.update_last_result({"loss": 1.0, "cost": cost})
+        trial.set_status("TERMINATED")
+        trials.append(trial)
+    objectives = {
+        "metrics": ["loss", "cost"],
+        "modes": ["min", "min"],
+        "tolerances": {"loss": 0.0, "cost": 0.0},
+        "targets": {"loss": -float("inf"), "cost": -float("inf")},
+    }
+    analysis = ExperimentAnalysis(trials, metric="loss", mode="min", lexico_objectives=objectives)
+    if valid_sibling:
+        assert analysis.best_trial is trials[1]
+        assert analysis.best_result["cost"] == 1.0
+    else:
+        assert analysis.get_best_trial() is None
 
 
 def test_cfo_releases_a_configuration_when_the_objective_fails_before_reporting():
@@ -337,6 +416,15 @@ def test_cfo_releases_a_configuration_when_the_objective_fails_before_reporting(
 
     with pytest.raises(ValueError, match="failed before reporting"):
         tune.run(objective, search_alg=searcher, num_samples=1, mlflow_logging=False, verbose=0)
+    assert searcher.suggest("retry") == {"x": 1}
+
+
+def test_cfo_releases_an_unreported_normal_stop_configuration():
+    from flaml import tune
+    from flaml.tune.searcher.blendsearch import CFO
+
+    searcher = CFO(space={"x": 1}, metric="loss", mode="min")
+    tune.run(lambda config: None, search_alg=searcher, num_samples=1, mlflow_logging=False, verbose=0)
     assert searcher.suggest("retry") == {"x": 1}
 
 
@@ -451,7 +539,33 @@ def test_batched_limiter_completes_siblings_and_releases_slots_after_a_callback_
     assert all(trial.state == TrialState.COMPLETE for trial in searcher._ot_study.trials)
     assert limiter.suggest("next") is not None
     limiter.on_trial_complete("next", {"loss": 3.0})
+    assert limiter.live_trials == {"next"}
+    assert limiter.suggest("last") is not None
+    limiter.on_trial_complete("last", {"loss": 4.0})
     assert not limiter.live_trials
+
+
+@pytest.mark.parametrize("error", [False, True])
+def test_limiter_preserves_full_normal_batches_but_flushes_aborted_partial_batches(error):
+    from optuna.trial import TrialState
+
+    from flaml import tune
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
+
+    searcher = OptunaSearch({"x": tune.uniform(0, 1)}, metric="loss", mode="min")
+    limiter = ConcurrencyLimiter(searcher, max_concurrent=2, batch=True)
+    limiter.suggest("first")
+    limiter.on_trial_complete("first", None if error else {"loss": 1.0}, error=error)
+    if error:
+        assert not limiter.live_trials
+        assert searcher._ot_study.trials[0].state == TrialState.FAIL
+    else:
+        assert limiter.live_trials == {"first"}
+        assert searcher._ot_study.trials[0].state == TrialState.RUNNING
+        limiter.suggest("second")
+        limiter.on_trial_complete("second", {"loss": 2.0})
+        assert not limiter.live_trials
+        assert all(trial.state == TrialState.COMPLETE for trial in searcher._ot_study.trials)
 
 
 @pytest.mark.parametrize("limited", [False, True])
@@ -503,26 +617,6 @@ def test_retained_limiter_uses_its_current_underlying_objective(layers):
     result = tune.run(lambda config: {"loss": 2.0}, **settings)
     assert result.best_result["loss"] == 2.0
     assert configured.metric == "loss" and configured.mode == "min"
-
-
-def test_local_tuning_uses_the_objective_inside_a_retained_ray_limiter():
-    pytest.importorskip("ray")
-    from ray import tune as native
-
-    try:
-        from ray.tune.search import ConcurrencyLimiter
-        from ray.tune.search.optuna import OptunaSearch
-    except ImportError:
-        from ray.tune.suggest import ConcurrencyLimiter
-        from ray.tune.suggest.optuna import OptunaSearch
-
-    from flaml import tune
-
-    searcher = OptunaSearch(None, metric="training_iteration", mode="max")
-    limiter = ConcurrencyLimiter(searcher, max_concurrent=1)
-    settings = dict(search_alg=limiter, num_samples=1, mlflow_logging=False, verbose=0)
-    tune.run(lambda config: {"loss": 1.0}, config={"x": native.uniform(0, 1)}, metric="loss", mode="min", **settings)
-    assert tune.run(lambda config: {"loss": 2.0}, **settings).best_result["loss"] == 2.0
 
 
 @pytest.mark.parametrize("algorithm", ["lexicographic", "multiobjective"])
@@ -628,14 +722,52 @@ def test_tuning_restores_runtime_and_closes_owned_logs_even_when_setup_fails(tmp
 
 
 def test_cyclic_searcher_wrappers_fail_before_evaluation():
-    from types import SimpleNamespace
     from unittest.mock import Mock
 
     from flaml import tune
+    from flaml.tune.searcher.suggestion import ConcurrencyLimiter, OptunaSearch
 
-    wrapper = SimpleNamespace()
+    wrapper = ConcurrencyLimiter(OptunaSearch(None, metric="loss", mode="min"), max_concurrent=1)
     wrapper.searcher = wrapper
     objective = Mock()
     with pytest.raises(ValueError, match="Cyclic searcher"):
         tune.run(objective, search_alg=wrapper, metric="loss", mlflow_logging=False)
     objective.assert_not_called()
+
+
+@pytest.mark.parametrize("reserved", [False, True])
+def test_custom_searcher_incidental_member_does_not_replace_its_public_interface(reserved):
+    from unittest.mock import Mock
+
+    from flaml import tune
+    from flaml.tune.searcher.suggestion import Searcher
+
+    class CustomSearcher(Searcher):
+        def __init__(self):
+            super().__init__(metric="training_iteration" if reserved else "loss", mode="min")
+            self.searcher = object()
+            self.configured = False
+
+        def set_search_properties(self, metric, mode, config):
+            self.configured = True
+            if reserved:
+                return False
+            self._metric, self._mode = metric, mode
+            return True
+
+        def suggest(self, trial_id):
+            return {"x": 1}
+
+        def on_trial_complete(self, *args, **kwargs):
+            pass
+
+    searcher = CustomSearcher()
+    objective = Mock(return_value={"loss": 1.0})
+    settings = dict(search_alg=searcher, metric="loss", mode="min", num_samples=1, mlflow_logging=False, verbose=0)
+    if reserved:
+        with pytest.raises(ValueError, match="training_iteration.*reserved"):
+            tune.run(objective, **settings)
+        objective.assert_not_called()
+    else:
+        assert tune.run(objective, **settings).best_result["loss"] == 1.0
+    assert searcher.configured

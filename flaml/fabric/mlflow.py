@@ -329,7 +329,7 @@ def _worker_tracking_uri(uri):
     if sqlite_uri and filename.startswith("file:"):
         file_uri = urlsplit(filename)
         path = unquote(file_uri.path)
-        if not path or path == ":memory:" or url.query.get("mode") == "memory":
+        if not path or path == ":memory:" or url.query.get("mode") == "memory" or url.query.get("vfs") == "memdb":
             return uri
         windows_drive_uri = os.name == "nt" and path.startswith("/") and ntpath.isabs(path[1:])
         if file_uri.netloc or os.path.isabs(path) or windows_drive_uri:
@@ -340,6 +340,33 @@ def _worker_tracking_uri(uri):
         return uri
     else:
         filename = os.path.abspath(filename)
+    return url.set(database=filename).render_as_string(hide_password=False)
+
+
+def _driver_tracking_uri(uri):
+    resolved = _worker_tracking_uri(uri)
+    if resolved == uri:
+        return uri
+    from sqlalchemy.engine import make_url
+
+    # MLflow caches relative URI stores independently of subsequent directory changes.
+    try:
+        engine = mlflow.MlflowClient(tracking_uri=uri)._tracking_client.store.engine
+    except AttributeError as error:
+        raise ValueError("Cannot resolve the driver's SQLite store; configure an absolute tracking URI.") from error
+    if not callable(getattr(engine, "connect", None)):
+        raise ValueError("Cannot resolve the driver's SQLite store; configure an absolute tracking URI.")
+    with engine.connect() as connection:
+        filename = next(
+            (row[2] for row in connection.exec_driver_sql("PRAGMA database_list") if row[1] == "main"), None
+        )
+    if not filename or not os.path.isabs(filename):
+        raise ValueError("Cannot identify a persistent driver SQLite file; configure an absolute tracking URI.")
+    url = make_url(uri)
+    sqlite_uri = str(url.query.get("uri", "")).lower() in {"1", "true", "t", "yes", "y", "on"}
+    if sqlite_uri and url.database.startswith("file:"):
+        original = urlsplit(url.database)
+        filename = urlsplit(Path(filename).as_uri())._replace(fragment=original.fragment).geturl()
     return url.set(database=filename).render_as_string(hide_password=False)
 
 
@@ -453,7 +480,7 @@ def _mlflow_wrapper(evaluation_func, mlflow_exp_id, mlflow_config=None, extra_ta
     configurations = {name: options.copy() for name, options in AUTOLOGGING_INTEGRATIONS.items()}
     parent = mlflow.active_run()
     parent_run_id = parent.info.run_id if parent is not None else None
-    driver_tracking_uri = _worker_tracking_uri(mlflow.get_tracking_uri())
+    driver_tracking_uri = _driver_tracking_uri(mlflow.get_tracking_uri())
 
     @contextmanager
     def trial_run(tags, outcome):
@@ -612,6 +639,7 @@ class MLflowIntegration:
         self._recorded_trials = []
         self._native_ray = False
         self._unresolved_native_trials = {}
+        self._pending_native_runs = {}
         self.manual_run_ids = []
         self.manual_run_ids_by_trial = {}
         self._adopted_run_ids = set()
@@ -792,6 +820,24 @@ class MLflowIntegration:
         self.mlflow_client.log_batch(run_id=target_id, metrics=_metrics, params=[], tags=_tags)
         return f"Successfully copy_mlflow_run run_id {src_id} to run_id {target_id}"
 
+    def _record_native_trial(self, trial, status):
+        from flaml.tune.tune import _MLFLOW_RUN_ID
+
+        trial_id = getattr(trial, "trial_id", None)
+        if (
+            not self.autolog
+            or not self.extra_tag.get("flaml.owner_id")
+            or not isinstance(trial_id, (str, int))
+            or status not in {"ERROR", "TERMINATED"}
+        ):
+            return
+        trial_id = str(trial_id)
+        run_id = (trial.last_result or {}).get(_MLFLOW_RUN_ID)
+        if isinstance(run_id, str) and run_id:
+            self.__dict__.setdefault("_pending_native_runs", {})[run_id] = (trial_id, status)
+        elif run_id is None:
+            self.__dict__.setdefault("_unresolved_native_trials", {})[trial_id] = status
+
     def _finalize_native_trial(self, trial, run_id, *, run=None):
         status = getattr(trial, "status", None)
         trial_id = getattr(trial, "trial_id", None)
@@ -830,6 +876,7 @@ class MLflowIntegration:
         if run.info.status == "RUNNING":
             self.mlflow_client.set_terminated(run_id, "FAILED" if status == "ERROR" else "FINISHED")
         unresolved.pop(trial_id, None)
+        getattr(self, "_pending_native_runs", {}).pop(run_id, None)
 
     def record_trial(self, result, trial, metric, *, run_id=None):
         if getattr(trial, "status", None) == "ERROR":
@@ -1387,6 +1434,10 @@ class MLflowIntegration:
             if not owner:
                 logger.warning("Skipping MLflow child adoption without an ownership marker.")
                 return
+            pending = getattr(self, "_pending_native_runs", {})
+            for run_id, (trial_id, status) in list(pending.items()):
+                self._finalize_native_trial(SimpleNamespace(trial_id=trial_id, status=status), run_id)
+                pending.pop(run_id, None)
             best_iteration = self.best_iteration
             if best_iteration is None and getattr(self, "best_trial_id", None) is None:
                 logger.warning("best_iteration is None, cannot identify best run")
@@ -1454,9 +1505,9 @@ class MLflowIntegration:
             }
             for trial_id in ambiguous_trials:
                 logger.warning("Cannot identify the accepted attempt for trial %s; retaining its runs.", trial_id)
-            for autolog_child_run in autolog_child_runs:
+            for position, autolog_child_run in enumerate(autolog_child_runs):
                 child_run_id = autolog_child_run.info.run_id
-                info_index = self.child_counter
+                info_index = position
                 matched = None
                 use_trial_identity = bool(trial_infos) or (
                     self.experiment_type == "tune" and autolog_child_run.data.tags.get("flaml.trial_id") is not None
@@ -1495,6 +1546,7 @@ class MLflowIntegration:
                 if child_run.info.status in {"FAILED", "KILLED"}:
                     continue
                 child_run_parent_id = child_run.data.tags.get("mlflow.parentRunId")
+                renamed_run_name = None
                 if all(
                     [
                         child_run_id != self.parent_run_id,
@@ -1508,10 +1560,11 @@ class MLflowIntegration:
                             self.parent_run_id,
                         )
                         if IS_RENAME_CHILD_RUN:
+                            renamed_run_name = f"{self.parent_run_name}_child_{info_index}"
                             self.mlflow_client.set_tag(
                                 child_run_id,
                                 "mlflow.runName",
-                                f"{self.parent_run_name}_child_{info_index}",
+                                renamed_run_name,
                             )
                         self.mlflow_client.set_tag(child_run_id, self._tag("child_counter"), info_index)
 
@@ -1562,10 +1615,10 @@ class MLflowIntegration:
                     if flaml_info is not None and is_best:
                         self.mlflow_client.set_tag(child_run_id, self._tag("best_run"), True)
                         if result is not None:
-                            if child_run is None:
-                                child_run = self.mlflow_client.get_run(child_run_id)
                             result.best_run_id = child_run_id
-                            result.best_run_name = child_run.info.run_name
+                            result.best_run_name = (
+                                renamed_run_name if renamed_run_name is not None else child_run.info.run_name
+                            )
                             self.best_run_id = child_run_id
                         if self.parent_run_id is not None and not self.has_summary:
                             self.copy_mlflow_run(child_run_id, self.parent_run_id)
