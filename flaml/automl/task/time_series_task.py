@@ -1,3 +1,4 @@
+import copy
 import logging
 import time
 from typing import List
@@ -106,12 +107,25 @@ class TimeSeriesTask(Task):
         groups_val=None,
         groups=None,
     ):
+        group_ids = state.fit_kwargs.get("group_ids")
+        requested = getattr(state, "_requested_estimators", None)
+        missing_groups = group_ids is None or isinstance(group_ids, list) and not group_ids
+        if missing_groups and (requested is None or requested == "auto" or "tft" in requested):
+            group_ids = (getattr(state, "fit_kwargs_by_estimator", None) or {}).get("tft", {}).get("group_ids")
+        if group_ids is not None and not isinstance(group_ids, list):
+            raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
+        if group_ids or self.is_ts_forecastpanel():
+            if not group_ids:
+                raise ValueError("Panel forecasting requires a nonempty list of group_ids.")
+            self.name = TS_FORECASTPANEL
+            self.group_ids = group_ids.copy()
+            state.fit_kwargs["group_ids"] = group_ids.copy()
+        automl._df = True
         # first beat the data into a TimeSeriesDataset shape
         if isinstance(X_train_all, TimeSeriesDataset):
             # in this case, we're most likely being called by another FLAML instance
             # so all the preliminary cleaning has already been done
             pre_data = X_train_all
-            val_len = len(pre_data.X_val)
         else:
             if label is None and dataframe is not None:
                 raise ValueError("If data is specified via dataframe parameter, you must also specify label")
@@ -126,7 +140,7 @@ class TimeSeriesTask(Task):
             else:
                 target_names = label
 
-            if self.time_col is None:
+            if getattr(self, "time_col", None) is None:
                 if isinstance(X_train_all, pd.DataFrame):
                     assert dataframe is None, "One of dataframe and X arguments must be None"
                     self.time_col = X_train_all.columns[0]
@@ -150,21 +164,26 @@ class TimeSeriesTask(Task):
             else:
                 raise ValueError("Must supply either X_train_all and y_train_all, or dataframe and label")
 
+            dataframe = dataframe.copy()
             try:
-                dataframe.loc[:, self.time_col] = pd.to_datetime(dataframe[self.time_col])
+                dataframe[self.time_col] = pd.to_datetime(dataframe[self.time_col])
             except Exception:
                 raise ValueError(
                     f"For '{TS_FORECAST}' task, time column {self.time_col} must contain timestamp values."
                 )
 
-            dataframe = remove_ts_duplicates(dataframe, self.time_col)
+            dataframe = remove_ts_duplicates(
+                dataframe,
+                self.time_col,
+                allow_repeated_timestamps=self.is_ts_forecastpanel() or bool(state.fit_kwargs.get("group_ids")),
+            )
 
             if X_val is not None:
                 assert y_val is not None, "If X_val is not None, y_val must also be"
                 val_df = TimeSeriesDataset.to_dataframe(X_val, y_val, target_names, self.time_col)
-                val_len = len(val_df)
+                val_df = val_df.copy()
+                val_df[self.time_col] = pd.to_datetime(val_df[self.time_col])
             else:
-                val_len = 0
                 val_df = None
 
             pre_data = TimeSeriesDataset(
@@ -175,21 +194,56 @@ class TimeSeriesTask(Task):
             )
 
         # TODO: should the transformer be a property of the dataset instead?
-        automl._transformer = DataTransformerTS(self.time_col, label)
-        Xt, yt = automl._transformer.fit_transform(pre_data.X_all, pre_data.y_all)
+        self.time_col = pre_data.time_col
+        self.target_names = pre_data.target_names
+        if self.is_ts_forecastpanel():
+            for frame in (pre_data.train_data, pre_data.test_data):
+                if len(frame) and (
+                    pre_data.time_idx not in frame
+                    or frame[pre_data.time_idx].dtype.kind != "i"
+                    or frame[pre_data.time_idx].isna().any()
+                ):
+                    raise ValueError("Panel time_idx must contain nonmissing signed integer values.")
+                if len(frame) and (not set(group_ids).issubset(frame.columns) or frame[group_ids].isna().any().any()):
+                    raise ValueError("Panel group_ids must refer to nonmissing group keys.")
+        self._preprocess_for_autofe = (
+            getattr(automl, "_featurization", "off") != "off" and not self.is_ts_forecastpanel()
+        )
+        automl._transformer = DataTransformerTS(self.time_col, label, time_idx=pre_data.time_idx)
+        if self._preprocess_for_autofe:
+            # The fitted trial preprocessor owns both feature statistics and target encoding.
+            data = pre_data
+            automl._transformer.label_transformer = None
+        else:
+            from flaml.automl.time_series.ts_data import _concat_panel_frames
 
-        df_t = pd.concat([Xt, yt], axis=1)
-
-        data = TimeSeriesDataset(
-            train_data=df_t,
-            time_col=pre_data.time_col,
-            target_names=pre_data.target_names,
-        ).move_validation_boundary(-val_len)
+            features = (
+                _concat_panel_frames(
+                    [frame.dropna(axis=1, how="all") for frame in (pre_data.X_train, pre_data.X_val)],
+                    group_ids,
+                )
+                if self.is_ts_forecastpanel()
+                else pre_data.X_all
+            )
+            Xt, yt = automl._transformer.fit_transform(
+                features,
+                pre_data.y_all,
+                protected_columns=pre_data.X_train.columns if self.is_ts_forecastpanel() else (),
+                group_columns=group_ids if self.is_ts_forecastpanel() else (),
+            )
+            df_t = pd.concat([Xt, yt], axis=1)
+            data = TimeSeriesDataset(
+                train_data=df_t.iloc[: len(pre_data.train_data)],
+                time_col=pre_data.time_col,
+                target_names=pre_data.target_names,
+                time_idx=pre_data.time_idx,
+                test_data=df_t.iloc[len(pre_data.train_data) :],
+            )
 
         # now setup the properties of all the other relevant objects
 
         # TODO: where are these used? Replace with pointers to data?
-        automl._X_train_all, automl._y_train_all = Xt, yt
+        automl._X_train_all, automl._y_train_all = data.X_train, data.y_train
 
         # TODO: where are these used?
         automl._nrow, automl._ndim = data.X_train.shape
@@ -208,14 +262,13 @@ class TimeSeriesTask(Task):
         automl._state.X_train = data
         automl._state.y_train = None
         automl._state.y_val = None
-        if data.test_data is not None and len(data.test_data) > 0:
-            automl._state.X_train_all = data.move_validation_boundary(len(data.test_data))
-        else:
-            automl._state.X_train_all = data
+        automl._state.X_train_all = TimeSeriesDataset(
+            data.train_data.copy(), data.time_col, data.target_names, time_idx=data.time_idx
+        )
         automl._state.y_train_all = None
 
         automl._state.data_size = data.train_data.shape
-        automl.data_size_full = len(data.all_data)
+        automl.data_size_full = len(data.train_data)
         automl._state.groups = None
         automl._sample_weight_full = None
 
@@ -233,6 +286,9 @@ class TimeSeriesTask(Task):
         sample_weight_full,
         time_col=None,
     ):
+        state._panel_group_sorted = False
+        if self.is_ts_forecastpanel() and eval_method != "holdout":
+            raise ValueError("Panel forecast cross-validation is not supported; use eval_method='holdout'.")
         state.kf = None
         state.data_size_full = len(y_train_all)
 
@@ -250,24 +306,23 @@ class TimeSeriesTask(Task):
             period = state.fit_kwargs["period"]
 
             if self.name == TS_FORECASTPANEL:
+                state._panel_group_sorted = True
                 # TODO: move this into the TimeSeriesDataset class
                 X_train_all = ts_data.X_train
                 y_train_all = ts_data.y_train
 
-                X_train_all["time_idx"] -= X_train_all["time_idx"].min()
-                X_train_all["time_idx"] = X_train_all["time_idx"].astype("int")
                 ids = state.fit_kwargs["group_ids"].copy()
                 ids.append(ts_data.time_col)
-                ids.append("time_idx")
+                ids.append(ts_data.time_idx)
                 y_train_all = pd.DataFrame(y_train_all)
                 y_train_all[ids] = X_train_all[ids]
                 X_train_all = X_train_all.sort_values(ids)
                 y_train_all = y_train_all.sort_values(ids)
-                training_cutoff = X_train_all["time_idx"].max() - period
-                X_train = X_train_all[lambda x: x.time_idx <= training_cutoff]
-                y_train = y_train_all[lambda x: x.time_idx <= training_cutoff].drop(columns=ids)
-                X_val = X_train_all[lambda x: x.time_idx > training_cutoff]
-                y_val = y_train_all[lambda x: x.time_idx > training_cutoff].drop(columns=ids)
+                training_cutoff = X_train_all[ts_data.time_idx].max() - period
+                X_train = X_train_all[lambda x: x[ts_data.time_idx] <= training_cutoff]
+                y_train = y_train_all[lambda x: x[ts_data.time_idx] <= training_cutoff].drop(columns=ids)
+                X_val = X_train_all[lambda x: x[ts_data.time_idx] > training_cutoff]
+                y_val = y_train_all[lambda x: x[ts_data.time_idx] > training_cutoff].drop(columns=ids)
 
                 train_data = normalize_ts_data(
                     X_train,
@@ -285,8 +340,8 @@ class TimeSeriesTask(Task):
                     train_data,
                     ts_data.time_col,
                     ts_data.target_names,
-                    ts_data.frequency,
-                    test_data,
+                    time_idx=ts_data.time_idx,
+                    test_data=test_data,
                 )
                 state.X_val = ts_data
                 state.X_train = ts_data
@@ -298,6 +353,7 @@ class TimeSeriesTask(Task):
                 state.X_val = ts_data.move_validation_boundary(-period)
                 state.X_train = state.X_val
 
+        state.data_size = state.X_train.train_data.shape
         if eval_method != "holdout":
             if self.name != TS_FORECASTPANEL:
                 period = state.fit_kwargs[
@@ -345,10 +401,9 @@ class TimeSeriesTask(Task):
 
         else:
             assert split_type in ["auto", "time"]
-            assert isinstance(
-                fit_kwargs.get("period"),
-                int,  # NOTE: _decide_split_type is before kwargs is updated to fit_kwargs_by_estimator
-            ), f"missing a required integer 'period' for '{TS_FORECAST}' task."
+            period = fit_kwargs.get("period")
+            if not isinstance(period, int) or isinstance(period, bool) or period < 1:
+                raise ValueError(f"'period' must be a positive integer for '{TS_FORECAST}' task.")
             if fit_kwargs.get("group_ids"):
                 # TODO (MARK) This will likely not play well with the task class
                 self.name = TS_FORECASTPANEL
@@ -418,12 +473,12 @@ class TimeSeriesTask(Task):
         train_time = pred_time = 0
         total_fold_num = 0
         n = kf.get_n_splits()
-        if self.is_classification():
+        if self.is_classification() and y_train_all is not None:
             labels = np.unique(y_train_all)
         else:
             labels = fit_kwargs.get("label_list")  # pass the label list on to compute the evaluation metric
         ts_data = X_train_all
-        budget_per_train = budget / n
+        budget_per_train = budget / n if budget is not None and budget > 0 else None
         ts_data = X_train_all
         for data in ts_data.cv_train_val_sets(kf.n_splits, kf.test_size, kf.step_size):
             estimator.cleanup()
@@ -451,7 +506,7 @@ class TimeSeriesTask(Task):
             log_metric_folds.append(metric_i)
             train_time += train_time_i
             pred_time += pred_time_i
-            if time.time() - start_time >= budget:
+            if budget is not None and budget > 0 and time.time() - start_time >= budget:
                 break
         val_loss, metric = cv_score_agg_func(val_loss_folds, log_metric_folds)
         n = total_fold_num
@@ -507,8 +562,10 @@ class TimeSeriesTask(Task):
     def prepare_sample_train_data(automlstate, sample_size):
         # we take the tail, rather than the head, for compatibility with time series
 
-        shift = sample_size - len(automlstate.X_train.train_data)
-        sampled_X_train = automlstate.X_train.move_validation_boundary(shift)
+        if sample_size <= 0:
+            raise ValueError("Forecast sample_size must be positive.")
+        sampled_X_train = copy.copy(automlstate.X_train)
+        sampled_X_train.train_data = automlstate.X_train.train_data.iloc[-sample_size:].copy()
 
         return sampled_X_train, None, None, None
 
@@ -516,14 +573,10 @@ class TimeSeriesTask(Task):
 def remove_ts_duplicates(
     X,
     time_col,
+    *,
+    allow_repeated_timestamps=False,
 ):
-    """
-    Assumes the targets are included
-    @param X:
-    @param time_col:
-    @param y:
-    @return:
-    """
+    """Drop identical labeled rows; reject conflicting timestamps outside panel tasks."""
 
     duplicates = X.duplicated()
 
@@ -531,8 +584,7 @@ def remove_ts_duplicates(
         logger.warning("Duplicate timestamp values found in timestamp column. " f"\n{X.loc[duplicates, time_col]}")
         X = X.drop_duplicates()
         logger.warning("Removed duplicate rows based on all columns")
-        assert (
-            X[[X.columns[0]]].duplicated() is None
-        ), "Duplicate timestamp values with different values for other columns."
+    if not allow_repeated_timestamps and X[time_col].duplicated().any():
+        raise ValueError("Duplicate timestamp values have different values for other columns.")
 
     return X

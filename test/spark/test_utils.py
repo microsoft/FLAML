@@ -1,7 +1,12 @@
 import atexit
+import importlib
 import os
+import sys
+from contextlib import contextmanager
 from functools import partial
+from pathlib import Path
 from timeit import timeit
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -104,7 +109,95 @@ def test_get_n_cpus_spark():
     assert isinstance(n_cpus, int)
 
 
-def test_broadcast_code():
+@pytest.mark.parametrize("via_joblib", [False, True])
+def test_overtime_monitor_requires_a_real_spark_cancellation(monkeypatch, via_joblib):
+    from time import monotonic, sleep, time
+
+    from joblib import Parallel, delayed, parallel_backend
+    from joblibspark import register_spark
+
+    from flaml.tune.spark.utils import PySparkOvertimeMonitor
+
+    context = SparkSession.builder.getOrCreate().sparkContext
+    context.parallelize([1, 2], 2).map(lambda value: value).collect()
+    monkeypatch.setattr(PySparkOvertimeMonitor, "_setLogLevel", lambda self, level: None)
+    tracker = context.statusTracker()
+    properties = ("spark.jobGroup.id", "spark.job.description", "spark.job.interruptOnCancel")
+    previous = {name: context.getLocalProperty(name) for name in properties}
+
+    def cancel_started_group(group, cancel):
+        deadline = monotonic() + 30
+        while not tracker.getJobIdsForGroup(group):
+            if monotonic() >= deadline:
+                raise RuntimeError("The cancellation test's Spark job never started.")
+            sleep(0.01)
+        cancel()
+
+    sentinel = object()
+    result = sentinel
+    try:
+        if via_joblib:
+            register_spark()
+            with parallel_backend("spark"), Parallel(n_jobs=2) as parallel:
+                backend = parallel._backend
+                monitor = PySparkOvertimeMonitor(
+                    time(),
+                    None,
+                    True,
+                    cancel_func=lambda: cancel_started_group(backend._job_group, backend.terminate),
+                    sc=context,
+                )
+                with monitor:
+                    result = parallel(delayed(sleep)(10) for _ in range(2))
+        else:
+            group = "flaml-cancel-test-" + uuid4().hex
+            context.setJobGroup(group, "FLAML cancellation regression", interruptOnCancel=True)
+            monitor = PySparkOvertimeMonitor(
+                time(),
+                None,
+                True,
+                cancel_func=lambda: cancel_started_group(group, lambda: context.cancelJobGroup(group)),
+                sc=context,
+            )
+            with monitor:
+                result = context.parallelize([1, 2], 2).map(lambda value: (sleep(10), value)[1]).collect()
+        assert result is sentinel
+        assert monitor._cancelled_error
+    finally:
+        for name, value in previous.items():
+            context.setLocalProperty(name, value)
+
+
+@contextmanager
+def _publication_namespace(tmp_path):
+    package = importlib.import_module("flaml.tune.spark")
+    utils = importlib.import_module("flaml.tune.spark.utils")
+    name = f"_test_broadcast_learner_{uuid4().hex}"
+    directory = tmp_path / name
+    directory.mkdir()
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(utils, "__file__", str(directory / "utils.py"))
+        patch.setattr(package, "__path__", type(package.__path__)([*package.__path__, str(directory)]))
+        try:
+            yield name, directory
+        finally:
+            for attribute in list(vars(package)):
+                if attribute == name or attribute.startswith(f"_flaml_custom_{name}_"):
+                    package.__dict__.pop(attribute, None)
+            utils._published_code_revisions.pop(name, None)
+            utils._published_code_aliases.discard(name)
+            for module in list(sys.modules):
+                if module == f"flaml.tune.spark.{name}" or module.startswith(f"flaml.tune.spark._flaml_custom_{name}_"):
+                    sys.modules.pop(module, None)
+
+
+@pytest.fixture
+def publication_namespace(tmp_path):
+    with _publication_namespace(tmp_path) as namespace:
+        yield namespace
+
+
+def test_broadcast_code(publication_namespace):
     from flaml.automl.model import LGBMEstimator
     from flaml.tune.spark.utils import broadcast_code
 
@@ -129,10 +222,140 @@ def test_broadcast_code():
             }
     """
 
-    _ = broadcast_code(custom_code=custom_code)
-    from flaml.tune.spark.mylearner import MyLargeLGBM
+    file_name, _ = publication_namespace
+    qualified_name = f"flaml.tune.spark.{file_name}"
+    custom_path = broadcast_code(custom_code=custom_code, file_name=file_name)
+    paths = [custom_path, os.path.join(os.path.dirname(custom_path), file_name + ".py")]
+    broadcast_learner = None
+    broadcast_revisions = None
+    try:
+        module = importlib.import_module(qualified_name)
+        first_learner = module.MyLargeLGBM
+        assert isinstance(first_learner(), LGBMEstimator)
+        context = SparkSession.builder.getOrCreate().sparkContext
+        assert context.getConf().get("spark.python.worker.reuse", "true").lower() == "true"
+        broadcast_learner = context.broadcast(first_learner)
+        reuse_marker = f"_flaml_test_reuse_{file_name}"
 
-    assert isinstance(MyLargeLGBM(), LGBMEstimator)
+        def verify_import_on_worker(_):
+            import importlib
+            import os
+            import socket
+            import sys
+
+            from pyspark import BarrierTaskContext
+
+            BarrierTaskContext.get().barrier()
+            learner = broadcast_learner.value
+            assert isinstance(learner(), LGBMEstimator)
+            public = importlib.import_module(qualified_name)
+            assert public.MyLargeLGBM is learner
+            setattr(sys.modules["flaml.tune.spark"], reuse_marker, (learner.__module__, id(public)))
+            return [(socket.gethostname(), os.getpid(), learner.__module__)]
+
+        workers = os.environ.get("FLAML_TEST_SPARK_WORKERS")
+        partitions = min(context.defaultParallelism, int(workers or "2"))
+        results = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(verify_import_on_worker)
+            .collect()
+        )
+        assert len(results) == partitions
+        assert all(module_name == first_learner.__module__ for _, _, module_name in results)
+        if workers:
+            assert len({host for host, _, _ in results}) == int(workers)
+        updated_path = broadcast_code(custom_code.replace("32768", "16384"), file_name)
+        paths.append(updated_path)
+        updated = importlib.import_module(qualified_name).MyLargeLGBM
+        broadcast_revisions = context.broadcast((first_learner, updated))
+
+        def verify_revisions_on_reused_worker(_, cleanup=False):
+            import importlib
+            import os
+            import socket
+            import sys
+
+            from pyspark import BarrierTaskContext
+
+            BarrierTaskContext.get().barrier()
+            before, after = broadcast_revisions.value
+            marker = vars(sys.modules["flaml.tune.spark"])[reuse_marker]
+            public = importlib.import_module(qualified_name)
+            assert marker == (before.__module__, id(public))
+            if cleanup:
+                vars(sys.modules["flaml.tune.spark"]).pop(reuse_marker)
+            return [
+                (
+                    socket.gethostname(),
+                    os.getpid(),
+                    before.search_space()["n_estimators"]["init_value"],
+                    after.search_space()["n_estimators"]["init_value"],
+                    public.MyLargeLGBM.search_space()["n_estimators"]["init_value"],
+                )
+            ]
+
+        revisions = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(verify_revisions_on_reused_worker)
+            .collect()
+        )
+        assert all((before, after, current) == (32768, 16384, 16384) for _, _, before, after, current in revisions)
+        assert {(host, pid) for host, pid, _, _, _ in revisions} == {(host, pid) for host, pid, _ in results}
+        if workers:
+            assert {host for host, _, _, _, _ in revisions} == {host for host, _, _ in results}
+
+        broadcast_code(custom_code, file_name)
+        assert importlib.import_module(qualified_name).MyLargeLGBM is first_learner
+        reverted = (
+            context.parallelize(range(partitions), partitions)
+            .barrier()
+            .mapPartitions(partial(verify_revisions_on_reused_worker, cleanup=True))
+            .collect()
+        )
+        assert all((before, after, current) == (32768, 16384, 32768) for _, _, before, after, current in reverted)
+        assert {(host, pid) for host, pid, _, _, _ in reverted} == {(host, pid) for host, pid, _ in results}
+    finally:
+        if broadcast_learner is not None:
+            broadcast_learner.destroy()
+        if broadcast_revisions is not None:
+            broadcast_revisions.destroy()
+        sys.modules.pop(qualified_name, None)
+        for path in paths:
+            for owned_path in (path, importlib.util.cache_from_source(path)):
+                if os.path.exists(owned_path):
+                    os.remove(owned_path)
+
+
+@pytest.mark.parametrize("prior_success", [False, True])
+def test_broadcast_failure_cannot_pollute_the_installed_package(tmp_path, monkeypatch, prior_success):
+    package = importlib.import_module("flaml.tune.spark")
+    utils = importlib.import_module("flaml.tune.spark.utils")
+    installed_directory = Path(utils.__file__).parent
+    context = SparkSession.builder.getOrCreate().sparkContext
+    with pytest.raises(RuntimeError, match="injected distribution failure"):
+        with _publication_namespace(tmp_path) as (name, directory):
+            if prior_success:
+                monkeypatch.setattr(context, "addPyFile", lambda path: None)
+                utils.broadcast_code("value = 1\n", name)
+                assert importlib.import_module(f"flaml.tune.spark.{name}").value == 1
+
+            def fail(path):
+                assert list(directory.glob(f"_flaml_custom_{name}_*.py"))
+                raise RuntimeError("injected distribution failure")
+
+            monkeypatch.setattr(context, "addPyFile", fail)
+            utils.broadcast_code("value = 2\n", name)
+    assert not list(installed_directory.glob(f"*{name}*.py"))
+    assert name not in vars(package)
+    assert not any(attribute.startswith(f"_flaml_custom_{name}_") for attribute in vars(package))
+    assert name not in utils._published_code_revisions
+    assert name not in utils._published_code_aliases
+    assert not any(
+        module == f"flaml.tune.spark.{name}" or module.startswith(f"flaml.tune.spark._flaml_custom_{name}_")
+        for module in sys.modules
+    )
 
 
 def test_get_broadcast_data():
@@ -167,22 +390,34 @@ def test_to_pandas_on_spark(capsys):
 
 
 def test_train_test_split_pyspark():
-    pdf = pd.DataFrame({"x": [1, 2, 3, 4], "y": [0, 1, 1, 0]})
+    pdf = pd.DataFrame({"x": range(2000), "y": [0, 1] * 1000})
     spark = SparkSession.builder.getOrCreate()
-    sdf = spark.createDataFrame(pdf).repartition(1)
-    psdf = to_pandas_on_spark(sdf).spark.repartition(1)
-    train_sdf, test_sdf = train_test_split_pyspark(sdf, test_fraction=0.5, to_pandas_spark=False, seed=1)
-    train_psdf, test_psdf = train_test_split_pyspark(psdf, test_fraction=0.5, stratify_column="y", seed=1)
-    assert isinstance(train_sdf, pyspark.sql.dataframe.DataFrame)
-    assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
-    assert isinstance(train_psdf, ps.DataFrame)
-    assert isinstance(test_psdf, ps.DataFrame)
-    assert train_sdf.count() == 2
-    assert train_psdf.shape[0] == 2
-    print(train_sdf.toPandas())
-    print(test_sdf.toPandas())
-    print(train_psdf.to_pandas())
-    print(test_psdf.to_pandas())
+    sdf = spark.createDataFrame(pdf).coalesce(1).cache()
+    try:
+        # Both lazy split branches must sample the same ordered input snapshot.
+        sdf.count()
+        psdf = to_pandas_on_spark(sdf)
+        train_sdf, test_sdf = train_test_split_pyspark(sdf, test_fraction=0.5, to_pandas_spark=False, seed=1)
+        train_psdf, test_psdf = train_test_split_pyspark(psdf, test_fraction=0.5, stratify_column="y", seed=1)
+        assert isinstance(train_sdf, pyspark.sql.dataframe.DataFrame)
+        assert isinstance(test_sdf, pyspark.sql.dataframe.DataFrame)
+        assert isinstance(train_psdf, ps.DataFrame)
+        assert isinstance(test_psdf, ps.DataFrame)
+        expected_rows = set(zip(pdf["x"], pdf["y"]))
+        # Spark sampling is approximate, not an exact-size split of each stratum.
+        for kind, train, test in [
+            ("spark", train_sdf, test_sdf),
+            ("pandas", train_psdf.to_spark(), test_psdf.to_spark()),
+        ]:
+            train_rows = [(row.x, row.y) for row in train.select("x", "y").collect()]
+            test_rows = [(row.x, row.y) for row in test.select("x", "y").collect()]
+            assert len(train_rows) + len(test_rows) == len(pdf), kind
+            assert set(train_rows).isdisjoint(test_rows), kind
+            assert set(train_rows) | set(test_rows) == expected_rows, kind
+            for label in (0, 1):
+                assert sum(row[1] == label for row in test_rows) / 1000 == pytest.approx(0.5, abs=0.1), kind
+    finally:
+        sdf.unpersist()
 
 
 def test_unique_pandas_on_spark():
@@ -191,7 +426,8 @@ def test_unique_pandas_on_spark():
     sdf = spark.createDataFrame(pdf)
     psdf = to_pandas_on_spark(sdf)
     label_set, counts = unique_pandas_on_spark(psdf)
-    assert np.array_equal(label_set, np.array([2, 1, 3]))
+    assert len(label_set) == len(counts) == 3
+    assert dict(zip(label_set, counts)) == {1: 1, 2: 2, 3: 1}
     assert np.array_equal(counts, np.array([2, 1, 1]))
 
 
@@ -202,6 +438,24 @@ def test_len_labels():
     ll, la = len_labels(y2, return_labels=True)
     assert ll == 4
     assert set(la.to_numpy()) == {1, 2, 5, 4}
+
+
+def test_lightweight_label_counter_keeps_distributed_work_in_spark(monkeypatch):
+    from flaml.automl.utils import len_labels as count_labels
+
+    frame = SparkSession.builder.getOrCreate().sql("SELECT id % 3 AS label FROM range(1000)")
+    labels = to_pandas_on_spark(frame)["label"]
+    original = np.unique
+
+    def unique(values, *args, **kwargs):
+        assert values is not labels, "The complete distributed label series was sent to NumPy."
+        return original(values, *args, **kwargs)
+
+    monkeypatch.setattr(np, "unique", unique)
+    assert count_labels(labels) == 3
+    count, distinct = count_labels(labels, return_labels=True)
+    assert count == 3 and isinstance(distinct, type(labels))
+    assert set(distinct.to_pandas()) == {0, 1, 2}
 
 
 def test_unique_value_first_index():

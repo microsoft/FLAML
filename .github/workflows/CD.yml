@@ -36,8 +36,8 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          pip install twine wheel "setuptools<82"
-          python setup.py sdist bdist_wheel
+          pip install twine build
+          python -m build
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}

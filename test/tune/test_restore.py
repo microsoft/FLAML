@@ -4,9 +4,73 @@ import tempfile
 import unittest
 
 import numpy as np
+import pytest
 
 from flaml import CFO, tune
 from flaml.tune.searcher.suggestion import ConcurrencyLimiter
+
+
+@pytest.mark.parametrize(
+    "algorithm,completed,lexicographic",
+    [
+        ("CFO", False, False),
+        ("CFO", True, False),
+        ("BlendSearch", False, False),
+        ("BlendSearch", True, False),
+        ("CFO", True, True),
+    ],
+)
+def test_legacy_checkpoint_restores_reservations_without_resetting_completed_results(
+    tmp_path, algorithm, completed, lexicographic
+):
+    import copy
+
+    from flaml.tune.searcher import blendsearch
+    from flaml.tune.searcher.flow2 import FLOW2
+
+    space = {"x": tune.uniform(0, 1)} if completed or algorithm == "BlendSearch" else {"x": 1}
+    objectives = (
+        {
+            "metrics": ["loss", "cost"],
+            "modes": ["min", "min"],
+            "tolerances": {"loss": 0.0, "cost": 0.0},
+            "targets": {"loss": -float("inf"), "cost": -float("inf")},
+        }
+        if lexicographic
+        else None
+    )
+    cls = getattr(blendsearch, algorithm)
+    searcher = cls(space=space, metric="loss", mode="min", lexico_objectives=objectives)
+    if completed:
+        winner = searcher.suggest("completed")
+        searcher.on_trial_complete(
+            "completed", {"loss": 5.0, "cost": 1.0, "config": winner, "time_total_s": 1.0, "training_iteration": 0}
+        )
+    saved_results = copy.deepcopy(searcher._result)
+    pending = searcher.suggest("pending")
+    assert pending is not None
+    if completed:
+        searcher.on_trial_result(
+            "pending", {"loss": 1.0, "cost": 1.0, "config": pending, "time_total_s": 1.0, "training_iteration": 0}
+        )
+    searcher.__dict__.pop("_trial_signatures")
+    local_searchers = [searcher._ls] + [
+        thread._search_alg for thread in searcher._search_thread_pool.values() if isinstance(thread._search_alg, FLOW2)
+    ]
+    for local in local_searchers:
+        for field in ("_observation_order", "_next_observation_order", "_committed_order"):
+            local.__dict__.pop(field, None)
+    checkpoint = str(tmp_path / "legacy.pkl")
+    searcher.save(checkpoint)
+    restored = cls(space=space, metric="loss", mode="min", lexico_objectives=objectives)
+    restored.restore(checkpoint)
+    assert all(restored._result[key] == result for key, result in saved_results.items())
+    restored.on_trial_complete("pending", error=True)
+    assert restored.suggest("retry") is not None
+    if completed:
+        local = next(thread._search_alg for thread in restored._search_thread_pool.values() if thread._is_ls)
+        assert local.best_config == winner
+        assert local.best_obj == ({"loss": 5.0, "cost": 1.0} if lexicographic else 5.0)
 
 
 class AbstractWarmStartTest:

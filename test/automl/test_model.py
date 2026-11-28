@@ -1,11 +1,13 @@
 import platform
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
 import pytest
 from pandas import DataFrame
 from sklearn.datasets import make_classification
+from sklearn.dummy import DummyClassifier
 
 from flaml.automl.contrib.histgb import HistGradientBoostingEstimator
 from flaml.automl.model import (
@@ -22,11 +24,38 @@ from flaml.automl.time_series import ARIMA, LGBM_TS, Prophet, TimeSeriesDataset
 
 def test_lrl2():
     BaseEstimator.search_space(1, "")
-    X, y = make_classification(100000, 1000)
-    print("start")
-    lr = LRL2Classifier()
+    X, y = make_classification(n_samples=200, n_features=8, class_sep=2.0, random_state=7)
+    lr = LRL2Classifier(max_iter=100, n_jobs=1)
     lr.predict(X)
+    lr.fit(X, y)
+    assert np.mean(lr.predict(X) == y) > 0.8
+
+
+@pytest.mark.parametrize("error_type", [MemoryError, TimeoutError])
+def test_lrl2_resource_failure_uses_fitted_fallback(monkeypatch, error_type):
+    import flaml.automl.model as model_module
+
+    limits = []
+
+    @contextmanager
+    def limit_resource(memory_limit, time_limit):
+        limits.append((memory_limit, time_limit))
+        yield
+
+    def fail_fit(X_train, y_train, **kwargs):
+        raise error_type("forced resource limit")
+
+    monkeypatch.setattr(model_module, "resource", object())
+    monkeypatch.setattr(model_module, "psutil", None)
+    monkeypatch.setattr(model_module, "limit_resource", limit_resource)
+    lr = LRL2Classifier()
+    monkeypatch.setattr(lr, "_fit", fail_fit)
+    X = np.arange(20).reshape(10, 2)
+    y = np.array([0] * 8 + [1] * 2)
     lr.fit(X, y, budget=1e-5)
+    assert limits == [(-1, 1e-5)]
+    assert isinstance(lr.estimator, DummyClassifier)
+    np.testing.assert_array_equal(lr.predict(X), np.zeros(len(y)))
 
 
 @pytest.mark.skipif(

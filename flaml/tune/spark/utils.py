@@ -1,15 +1,30 @@
+import ast
+import errno
+import hashlib
+import importlib
+import json
+import keyword
 import logging
 import os
+import sys
+import tempfile
 import textwrap
 import threading
 import time
+from contextlib import contextmanager
 from functools import lru_cache, partial
+from types import ModuleType
+from zipfile import ZIP_DEFLATED, ZipFile
 
 logger = logging.getLogger(__name__)
 logger_formatter = logging.Formatter(
     "[%(name)s: %(asctime)s] {%(lineno)d} %(levelname)s - %(message)s", "%m-%d %H:%M:%S"
 )
 logger.propagate = False
+_broadcast_code_lock = threading.RLock()
+_published_code_aliases = set()
+_published_code_revisions = {}
+_publication_sequence = 0
 os.environ["PYARROW_IGNORE_TIMEZONE"] = "1"
 try:
     import py4j
@@ -121,10 +136,164 @@ def with_parameters(trainable, **kwargs):
     return partial(trainable, **bc_kwargs)
 
 
+def _publish_code_file(path, contents):
+    descriptor, temporary = tempfile.mkstemp(prefix=".flaml-code-", suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
+            output.write(contents)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _publication_file(directory, name):
+    return os.path.join(directory, ".flaml-code-state", name + ".json")
+
+
+def _latest_archive_sequence(directory, name):
+    if directory is None:
+        return -1
+    from flaml.tune.spark import _archive_publication
+
+    latest = -1
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            publication = _archive_publication(entry.name)
+            if publication and publication[1] == name and entry.is_file():
+                latest = max(latest, publication[0])
+    return latest
+
+
+def _validate_publication(publication, name):
+    if publication is None:
+        return None
+    prefix = f"_flaml_custom_{name}_"
+    if (
+        not isinstance(publication, dict)
+        or not isinstance(publication.get("revision"), str)
+        or not publication["revision"].startswith(prefix)
+        or len(publication["revision"]) != len(prefix) + 64
+        or set(publication["revision"][len(prefix) :]) - set("0123456789abcdef")
+        or type(publication.get("sequence")) is not int
+        or not 0 <= publication["sequence"] < 10**20
+    ):
+        raise ValueError(f"Invalid committed publication for custom module {name!r}.")
+    return publication
+
+
+def _read_publication(directory, name):
+    if not directory:
+        return False, None
+    try:
+        with open(_publication_file(directory, name), encoding="utf-8") as source:
+            return True, _validate_publication(json.load(source), name)
+    except (FileNotFoundError, NotADirectoryError):
+        return False, None
+
+
+def _legacy_publication(source, name):
+    if source is None:
+        return None
+    try:
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_flaml_install_alias"
+                and len(node.args) == 3
+            ):
+                return _validate_publication(
+                    {"revision": ast.literal_eval(node.args[1]), "sequence": ast.literal_eval(node.args[2])},
+                    name,
+                )
+    except (SyntaxError, TypeError, ValueError):
+        pass
+    return None
+
+
+def _validate_code_namespace(file_name):
+    package = sys.modules.get("flaml.tune.spark")
+    if package is None:
+        return
+    existing = vars(package).get(file_name)
+    existing_revision = vars(existing).get("_flaml_revision") if isinstance(existing, ModuleType) else None
+    initial_revision = vars(existing).get("_flaml_initial_revision", "") if isinstance(existing, ModuleType) else ""
+    owned_alias = (
+        isinstance(existing, ModuleType)
+        and existing.__name__ == f"flaml.tune.spark.{file_name}"
+        and (
+            isinstance(initial_revision, str)
+            and initial_revision.startswith(f"_flaml_custom_{file_name}_")
+            or isinstance(existing_revision, ModuleType)
+            and existing_revision.__name__.startswith(f"flaml.tune.spark._flaml_custom_{file_name}_")
+        )
+    )
+    reserved = {
+        name.casefold()
+        for name in vars(package)
+        if name not in _published_code_aliases and not (name == file_name and owned_alias)
+    }
+    if file_name.casefold() in reserved or (
+        existing is not None
+        and not (isinstance(existing, ModuleType) and existing.__name__ == f"flaml.tune.spark.{file_name}")
+    ):
+        raise ValueError("file_name must not replace the Spark package's existing module API.")
+
+
+@contextmanager
+def _publication_file_lock(path, name):
+    # Writers share a file lock; readers only need the atomically replaced state.
+    _validate_code_namespace(name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".lock", "a+b", buffering=0) as stream:
+        if os.name == "nt":
+            import msvcrt
+
+            while True:
+                try:
+                    os.lseek(stream.fileno(), 0, os.SEEK_SET)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    time.sleep(0.05)
+
+            def unlock():
+                os.lseek(stream.fileno(), 0, os.SEEK_SET)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+
+            def unlock():
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+        primary = None
+        try:
+            yield
+        except BaseException as error:
+            primary = error
+            raise
+        finally:
+            try:
+                unlock()
+            except OSError:
+                if primary is None:
+                    raise
+                logger.exception("Failed to release the custom-code publication lock.")
+
+
 def broadcast_code(custom_code="", file_name="mylearner"):
     """Write customized learner/metric code contents to a file for importing.
     It is necessary for using the customized learner/metric in spark backend.
-    The path of the learner/metric file will be returned.
+    The path of the immutable learner/metric source file will be returned.
+    Reimport the public module after publishing changed code; its classes retain
+    revision-specific identities so existing and future Spark workers agree.
+    The driver installation must be writable, as in previous versions.
 
     Args:
         custom_code: str, default="" | code contents of the custom learner/metric.
@@ -162,34 +331,120 @@ def broadcast_code(custom_code="", file_name="mylearner"):
     assert isinstance(MyLargeLGBM(), LGBMEstimator)
     ```
     """
-    # Check if Spark is available
+    global _publication_sequence
+    if (
+        not isinstance(file_name, str)
+        or not file_name.isidentifier()
+        or keyword.iskeyword(file_name)
+        or file_name.casefold() in {"__init__", "utils", "sys", "os"}
+        or file_name.startswith("__")
+        or file_name.casefold().startswith("_flaml_")
+    ):
+        raise ValueError("file_name must be a non-reserved Python module name.")
     spark_available, _ = check_spark()
-
-    # Write to local driver file system
     flaml_path = os.path.dirname(os.path.abspath(__file__))
     custom_code = textwrap.dedent(custom_code)
-    custom_path = os.path.join(flaml_path, file_name + ".py")
-
-    with open(custom_path, "w") as f:
-        f.write(custom_code)
-
-    # If using Spark, broadcast the code content to executors
-    if spark_available:
-        spark = SparkSession.builder.getOrCreate()
-        bc_code = spark.sparkContext.broadcast(custom_code)
-
-        # Execute a job to ensure the code is distributed to all executors
-        def _write_code(bc):
-            code = bc.value
-            import os
-
-            module_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name + ".py")
-            os.makedirs(os.path.dirname(module_path), exist_ok=True)
-            with open(module_path, "w") as f:
-                f.write(code)
-            return True
-
-        spark.sparkContext.parallelize(range(1)).map(lambda _: _write_code(bc_code)).collect()
+    digest = hashlib.sha256(("flaml-code-v4\0" + file_name + "\0" + custom_code).encode("utf-8")).hexdigest()
+    revision = f"_flaml_custom_{file_name}_{digest}"
+    custom_path = os.path.join(flaml_path, revision + ".py")
+    alias_path = os.path.join(flaml_path, file_name + ".py")
+    state_path = _publication_file(flaml_path, file_name)
+    with _broadcast_code_lock, _publication_file_lock(state_path, file_name):
+        previous_alias = None
+        if os.path.exists(alias_path):
+            with open(alias_path, encoding="utf-8", newline="") as source:
+                previous_alias = source.read()
+        state_exists, committed = _read_publication(flaml_path, file_name)
+        if not state_exists:
+            committed = _legacy_publication(previous_alias, file_name)
+            _publish_code_file(state_path, json.dumps(committed) + "\n")
+        previous = _published_code_revisions.get(file_name)
+        if committed is None:
+            previous = None
+        elif previous is None or (previous[0], previous[2]) != (
+            committed["revision"].rsplit("_", 1)[-1],
+            committed["sequence"],
+        ):
+            previous = (committed["revision"].rsplit("_", 1)[-1], None, committed["sequence"], None)
+        _published_code_revisions[file_name] = previous
+        spark = SparkSession.builder.getOrCreate() if spark_available else None
+        root = pyspark.SparkFiles.getRootDirectory() if spark_available else None
+        latest_delivery = _latest_archive_sequence(root, file_name)
+        if (
+            previous
+            and previous[:2] == (digest, root)
+            and previous[2] >= latest_delivery
+            and (previous[3] is None or os.path.exists(previous[3]))
+        ):
+            sequence, archive_path = previous[2:]
+        else:
+            _publication_sequence = max(
+                _publication_sequence + 1,
+                time.time_ns(),
+                committed["sequence"] + 1 if committed else 0,
+                latest_delivery + 1,
+            )
+            sequence = _publication_sequence
+            archive_path = (
+                os.path.join(root, f"{sequence:020d}_{file_name}_{digest}_flaml_custom_code.zip")
+                if root is not None
+                else None
+            )
+        alias = (
+            "from . import _install_code_alias as _flaml_install_alias\n"
+            f"_flaml_install_alias(__name__, {revision!r}, {sequence})\n"
+        )
+        publication = _validate_publication({"revision": revision, "sequence": sequence}, file_name)
+        cached_alias = importlib.util.cache_from_source(alias_path)
+        alias_prepared = False
+        archive_created = False
+        delivery_attempted = False
+        try:
+            if not os.path.exists(custom_path):
+                _publish_code_file(custom_path, custom_code)
+            if spark_available and not os.path.exists(archive_path):
+                descriptor, temporary = tempfile.mkstemp(dir=os.path.dirname(archive_path), suffix=".zip")
+                os.close(descriptor)
+                try:
+                    with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
+                        archive.writestr(f"_flaml_code/{revision}.py", custom_code)
+                        archive.writestr(f"_flaml_code/{file_name}.py", alias)
+                    os.replace(temporary, archive_path)
+                    archive_created = True
+                finally:
+                    if os.path.exists(temporary):
+                        os.unlink(temporary)
+            if os.path.exists(cached_alias):
+                os.unlink(cached_alias)
+            _publish_code_file(alias_path, alias)
+            alias_prepared = True
+            importlib.invalidate_caches()
+            # Complete fallible local preparation before making the revision visible to workers.
+            if spark_available:
+                delivery_attempted = True
+                spark.sparkContext.addPyFile(archive_path)
+        except BaseException:
+            if alias_prepared:
+                try:
+                    if previous_alias is None:
+                        os.unlink(alias_path)
+                    else:
+                        _publish_code_file(alias_path, previous_alias)
+                    if os.path.exists(cached_alias):
+                        os.unlink(cached_alias)
+                    importlib.invalidate_caches()
+                except Exception:
+                    logger.exception("Failed to restore the driver alias after custom-code publication failed.")
+            if archive_created and not delivery_attempted:
+                try:
+                    os.unlink(archive_path)
+                except OSError:
+                    logger.exception("Failed to remove an uncommitted custom-code archive.")
+            raise
+        # Retained archives also preserve possibly delivered sequences if an acknowledgement is lost.
+        _publish_code_file(state_path, json.dumps(publication) + "\n")
+        _published_code_aliases.add(file_name)
+        _published_code_revisions[file_name] = (digest, root, sequence, archive_path)
 
     return custom_path
 
@@ -206,6 +461,54 @@ def get_broadcast_data(broadcast_data):
     if _have_spark and isinstance(broadcast_data, pyspark.broadcast.Broadcast):
         broadcast_data = broadcast_data.value
     return broadcast_data
+
+
+def _is_spark_cancellation(error):
+    candidate = error
+    if isinstance(error, TypeError):
+        traceback = error.__traceback__
+        for _ in range(64):
+            if traceback is None:
+                break
+            frame = traceback.tb_frame
+            if frame.f_globals.get("__name__") == "joblib.parallel" and frame.f_code.co_name == "_retrieve":
+                # Older joblib-Spark transports retain the real error in a non-iterable batch wrapper.
+                try:
+                    from joblib.externals.loky.process_executor import _ExceptionWithTraceback
+                except ImportError:
+                    return False
+                wrapped = frame.f_locals.get("batched_results")
+                if isinstance(wrapped, _ExceptionWithTraceback):
+                    candidate = getattr(wrapped, "exc", None)
+                    break
+            traceback = traceback.tb_next
+    if not isinstance(candidate, py4j.protocol.Py4JJavaError):
+        return False
+    java = getattr(candidate, "java_exception", None)
+    for _ in range(8):
+        if java is None:
+            break
+        try:
+            name = java.getClass().getName()
+            message = str(java.getMessage() or "")
+            try:
+                condition = java.getErrorClass()
+            except Exception:
+                condition = None
+            words = message.split(" ", 3)
+            if name == "org.apache.spark.SparkException" and (
+                condition == "SPARK_JOB_CANCELLED"
+                or message.startswith("[SPARK_JOB_CANCELLED]")
+                or len(words) >= 3
+                and words[0] == "Job"
+                and words[1].isdigit()
+                and words[2] == "cancelled"
+            ):
+                return True
+            java = java.getCause()
+        except Exception:
+            return False
+    return False
 
 
 class PySparkOvertimeMonitor:
@@ -254,6 +557,7 @@ class PySparkOvertimeMonitor:
         self._time_budget_s = time_budget_s
         self._start_time = start_time
         self._force_cancel = force_cancel
+        self._cancelled_error = False
         # TODO: add support for non-spark scenario
         if self._force_cancel and _have_spark:
             self._monitor_daemon = None
@@ -317,12 +621,9 @@ class PySparkOvertimeMonitor:
             # self._setLogLevel("WARN")
             if not exc_type:
                 return True
-            elif exc_type == py4j.protocol.Py4JJavaError:
-                logger.debug("Py4JJavaError Exception: %s", exc_value)
-                return True
-            elif exc_type == TypeError:
-                # When force cancel, joblib>1.2.0 will raise joblib.externals.loky.process_executor._ExceptionWithTraceback
-                logger.debug("TypeError Exception: %s", exc_value)
+            elif self._cancel_flag and _is_spark_cancellation(exc_value):
+                self._cancelled_error = True
+                logger.debug("Spark cancellation exception: %s", exc_value)
                 return True
             else:
                 return False

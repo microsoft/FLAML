@@ -2,6 +2,17 @@
 branch = True
 source =
   flaml
+concurrency = multiprocessing
+parallel = true
 omit =
   */test/*
   */flaml/autogen/*
+  */flaml/tune/spark/mylearner.py
+  */flaml/tune/spark/_flaml_custom_*.py
+  */flaml/tune/spark/_test_*.py
+  */_flaml_code/*.py
+
+[paths]
+source =
+  flaml
+  /workspace/flaml

@@ -2,6 +2,7 @@ import os
 import platform
 import shutil
 import sys
+from test._artifact_paths import artifact_path
 
 import pytest
 import requests
@@ -25,13 +26,13 @@ def test_hf_data():
     try:
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
         automl.score(X_val, y_val, **{"metric": "accuracy"})
-        automl.pickle("automl.pkl")
+        automl.pickle(artifact_path(__file__, "automl.pkl"))
     except requests.exceptions.HTTPError:
         return
 
     import json
 
-    with open("seqclass.log") as fin:
+    with open(automl_settings["log_file_name"]) as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:

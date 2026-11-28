@@ -24,7 +24,11 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import ElasticNet, LassoLars, LogisticRegression, SGDClassifier, SGDRegressor
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC
-from xgboost import __version__ as xgboost_version
+
+try:
+    from xgboost import __version__ as xgboost_version
+except ImportError:
+    xgboost_version = "0"
 
 try:
     from sklearn.utils._tags import ClassifierTags, RegressorTags
@@ -34,6 +38,7 @@ except ImportError:
     SKLEARN_TAGS_AVAILABLE = False
 
 from flaml import tune
+from flaml.automl._lightgbm_compat import patch_lightgbm_sklearn_validation
 from flaml.automl.data import group_counts
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries, sparkDataFrame
@@ -70,6 +75,8 @@ try:
     from lightgbm import LGBMClassifier, LGBMRanker, LGBMRegressor
 except ImportError:
     LGBMClassifier = LGBMRegressor = LGBMRanker = None
+else:
+    patch_lightgbm_sklearn_validation()
 
 xgb_callback = False
 try:
@@ -226,6 +233,8 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             return self._model.feature_names_in_
         if hasattr(self._model, "feature_name_"):  # for lightgbm
             return self._model.feature_name_
+        if hasattr(self._model, "feature_names_"):  # for catboost
+            return self._model.feature_names_
         if hasattr(self._model, "feature_names"):  # for XGBoostEstimator
             return self._model.feature_names
         if hasattr(self._model, "get_booster"):
@@ -1579,6 +1588,10 @@ class LGBMEstimator(BaseEstimator):
         return X
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
+        if self.estimator_class is None:
+            raise ImportError(
+                "The LightGBM learner requires lightgbm. Install flaml[automl] or select an installed learner."
+            )
         if "is_retrain" in kwargs:
             is_retrain = kwargs.pop("is_retrain")
         else:

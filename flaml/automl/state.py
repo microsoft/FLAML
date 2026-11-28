@@ -11,6 +11,11 @@ from flaml.automl.ml import compute_estimator, train_estimator
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.time_series.ts_data import TimeSeriesDataset
 
+try:
+    from flaml.fabric.autofe import parse_autofe_config
+except ImportError:
+    parse_autofe_config = None
+
 
 class SearchState:
     @property
@@ -49,7 +54,7 @@ class SearchState:
 
     def valid_starting_point(self, starting_point, search_space):
         return all(
-            self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
+            name in search_space and self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
             for name, value in starting_point.items()
             if name != "FLAML_sample_size"
         )
@@ -64,7 +69,8 @@ class SearchState:
         custom_hp=None,
         max_iter=None,
         budget=None,
-        featurization="auto",
+        featurization="off",
+        estimator_name=None,
     ):
         self.init_eci = learner_class.cost_relative2lgbm() if budget >= 0 else 1
         self._search_space_domain = {}
@@ -84,18 +90,53 @@ class SearchState:
             search_space = learner_class.search_space(data_size=data_size, task=task)
 
         self.data_size = data_size
+        feature_space = {}
+        if parse_autofe_config is not None:
+            feature_space = parse_autofe_config(featurization, data, task, learner_class, estimator_name=estimator_name)
+            search_space.update(feature_space)
+        elif featurization != "off":
+            raise ImportError("AutoFE is unavailable. Install flaml[autofe] to enable featurization.")
 
         if custom_hp is not None:
             search_space.update(custom_hp)
+        if not feature_space:
+            search_space = {name: space for name, space in search_space.items() if not name.startswith("fe.")}
+        elif featurization == "force":
+            for name, space in (custom_hp or {}).items():
+                if name.startswith("fe."):
+                    domain = space.get("domain")
+                    choices = getattr(domain, "categories", [domain])
+                    if any(value is None or value == "null" for value in choices):
+                        raise ValueError(f"AutoFE custom choices are incompatible with force mode: {name}")
+
+        def normalize_starting_point(point):
+            point = AutoMLState.sanitize(point)
+            disabled = [name for name in point if name.startswith("fe.") and name not in search_space]
+            if disabled:
+                logger.warning(
+                    "Ignoring unsupported AutoFE starting-point choices with featurization=%s.", featurization
+                )
+                point = {name: value for name, value in point.items() if name not in disabled}
+            if featurization == "force":
+                invalid = [
+                    name
+                    for name, value in point.items()
+                    if name.startswith("fe.")
+                    and name in search_space
+                    and not self.valid_starting_point_one_dim(value, search_space[name].get("domain"))
+                ]
+                if invalid:
+                    raise ValueError(f"AutoFE starting choices are incompatible with force mode: {invalid}")
+            return point
 
         if isinstance(starting_point, dict):
-            starting_point = AutoMLState.sanitize(starting_point)
+            starting_point = normalize_starting_point(starting_point)
             if max_iter > 1 and not self.valid_starting_point(starting_point, search_space):
                 # If the number of iterations is larger than 1, remove invalid point
                 logger.warning(f"Starting point {starting_point} removed because it is outside of the search space")
                 starting_point = None
         elif isinstance(starting_point, list):
-            starting_point = [AutoMLState.sanitize(x) for x in starting_point]
+            starting_point = [normalize_starting_point(x) for x in starting_point]
             if max_iter > len(starting_point):
                 # If the number of starting points is no smaller than max iter, avoid the checking
                 starting_point_len = len(starting_point)
@@ -134,6 +175,14 @@ class SearchState:
                 self.init_config[name] = space["init_value"]
 
         if isinstance(starting_point, list):
+            for point in starting_point:
+                for name, space in search_space.items():
+                    if (
+                        name.startswith("fe.")
+                        and "init_value" in space
+                        and self.valid_starting_point_one_dim(space["init_value"], space["domain"])
+                    ):
+                        point.setdefault(name, space["init_value"])
             self.init_config = starting_point
         else:
             self.init_config = [] if self.init_config is None else [self.init_config]
@@ -153,7 +202,7 @@ class SearchState:
         self.sample_size = None
         self.trial_time = 0
 
-    def update(self, result, time_used):
+    def update(self, result, time_used, *, retain_trial_model=False):
         if result:
             config = result["config"]
             if config and "FLAML_sample_size" in config:
@@ -178,6 +227,7 @@ class SearchState:
         else:
             obj, time2eval, trained_estimator = np.inf, 0.0, None
             metric_for_logging = config = None
+        self.trial_model = trained_estimator if retain_trial_model else None
         self.trial_time = time2eval
         self.total_time_used += time_used if self._budget >= 0 else 1
         self.total_iter += 1
@@ -201,7 +251,7 @@ class SearchState:
                 self.trained_estimator.cleanup()
             if trained_estimator:
                 self.trained_estimator = trained_estimator
-        elif trained_estimator:
+        elif trained_estimator and not retain_trial_model:
             trained_estimator.cleanup()
         self.metric_for_logging = metric_for_logging
         self.val_loss, self.config = obj, config
@@ -296,35 +346,46 @@ class AutoMLState:
             )
         )
 
-        (
-            trained_estimator,
-            val_loss,
-            metric_for_logging,
-            _,
-            pred_time,
-        ) = compute_estimator(
-            sampled_X_train,
-            sampled_y_train,
-            state.X_val,
-            state.y_val,
-            state.weight_val,
-            state.groups_val,
-            state.train_time_limit if budget is None else min(budget, state.train_time_limit or np.inf),
-            state.kf,
-            config,
-            state.task,
-            estimator,
-            state.eval_method,
-            state.metric,
-            state.best_loss,
-            state.n_jobs,
-            state.learner_classes.get(estimator),
-            state.cv_score_agg_func,
-            state.log_training_metric,
-            this_estimator_kwargs,
-            state.free_mem_ratio,
-        )
-        if state.retrain_final and not state.model_history:
+        try:
+            (
+                trained_estimator,
+                val_loss,
+                metric_for_logging,
+                _,
+                pred_time,
+            ) = compute_estimator(
+                sampled_X_train,
+                sampled_y_train,
+                state.X_val,
+                state.y_val,
+                state.weight_val,
+                state.groups_val,
+                state.train_time_limit if budget is None else min(budget, state.train_time_limit or np.inf),
+                state.kf,
+                config,
+                state.task,
+                estimator,
+                state.eval_method,
+                state.metric,
+                state.best_loss,
+                state.n_jobs,
+                state.learner_classes.get(estimator),
+                state.cv_score_agg_func,
+                state.log_training_metric,
+                this_estimator_kwargs,
+                state.free_mem_ratio,
+            )
+        except ValueError as exc:
+            if parse_autofe_config is None:
+                raise
+            from flaml.fabric.autofe import AutoFEIncompatibleDataError
+
+            if not isinstance(exc, AutoFEIncompatibleDataError):
+                raise
+            logger.warning("AutoFE candidate rejected for %s: %s", estimator, exc)
+            trained_estimator, val_loss, pred_time = None, np.inf, 0.0
+            metric_for_logging = {"val_loss": np.inf}
+        if trained_estimator is not None and state.retrain_final and not state.model_history:
             trained_estimator.cleanup()
 
         result = {
@@ -356,19 +417,26 @@ class AutoMLState:
         sample_size: Optional[int] = None,
         is_retrain: bool = False,
     ):
-        if not sample_size:
-            sample_size = config_w_resource.get("FLAML_sample_size", len(self.y_train_all))
+        if sample_size is None:
+            sample_size = config_w_resource.get("FLAML_sample_size", self.data_size_full)
         config = AutoMLState.sanitize(config_w_resource)
 
         this_estimator_kwargs = self.fit_kwargs_by_estimator.get(
             estimator
         ).copy()  # NOTE: _train_with_config is after kwargs is updated to fit_kwargs_by_estimator
+        sampling_state = self
+        if isinstance(self.X_train_all, TimeSeriesDataset) and sample_size > self.data_size[0]:
+            sampling_state = copy.copy(self)
+            sampling_state.X_train = self.X_train_all
         (
             sampled_X_train,
             sampled_y_train,
             sampled_weight,
             groups,
-        ) = self.task.prepare_sample_train_data(self, sample_size)
+        ) = self.task.prepare_sample_train_data(sampling_state, sample_size)
+        if isinstance(sampled_X_train, TimeSeriesDataset):
+            sampled_X_train = copy.copy(sampled_X_train)
+            sampled_X_train.test_data = sampled_X_train.train_data.iloc[:0].copy()
         if sampled_weight is not None:
             weight = this_estimator_kwargs[
                 "sample_weight"

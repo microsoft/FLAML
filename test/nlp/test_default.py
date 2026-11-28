@@ -1,9 +1,8 @@
-import os
-import shutil
 import sys
+from pathlib import Path
+from test.nlp.utils import get_automl_settings, get_toy_data_seqclassification
 
 import pytest
-from utils import get_automl_settings, get_toy_data_seqclassification
 
 from flaml.default import portfolio
 
@@ -14,13 +13,12 @@ try:
 except ImportError:
     _transformers_installed = False
 
-if (
+_unsupported_training_runtime = (
     sys.platform.startswith("darwin")
     and sys.version_info >= (3, 11)
     or not _transformers_installed
     or sys.platform == "win32"
-):
-    pytest.skip("skipping Python 3.11 on MacOS or without transformers or on Windows", allow_module_level=True)
+)
 
 pytestmark = (
     pytest.mark.spark
@@ -35,9 +33,30 @@ def pop_args(fit_kwargs):
     fit_kwargs.pop("log_file_name", None)
 
 
-def test_build_portfolio(path="./test/nlp/default", strategy="greedy"):
-    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
+def test_build_portfolio(tmp_path, monkeypatch):
+    source = Path(__file__).parent / "default"
+    (tmp_path / "transformer_ms").mkdir()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "portfolio.py",
+            "--output",
+            str(tmp_path),
+            "--input",
+            str(source),
+            "--metafeatures",
+            str(source / "all" / "metafeatures.csv"),
+            "--task",
+            "seq-classification",
+            "--estimator",
+            "transformer_ms",
+            "--strategy",
+            "greedy",
+        ],
+    )
     portfolio.main()
+    assert (tmp_path / "transformer_ms" / "seq-classification.json").is_file()
 
 
 def test_starting_point_not_in_search_space():
@@ -130,13 +149,8 @@ def test_starting_point_not_in_search_space():
     )
     assert search_state.search_space["model_path"] == "albert-base-v2"
 
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")
 
-
+@pytest.mark.skipif(_unsupported_training_runtime, reason="Online HF training is not supported on this runtime")
 def test_points_to_evaluate():
     from flaml import AutoML
 
@@ -157,14 +171,9 @@ def test_points_to_evaluate():
             pytest.skip(f"Skipping HF model load/training: {message}")
         raise
 
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")
-
 
 # TODO: implement _test_zero_shot_model
+@pytest.mark.skipif(_unsupported_training_runtime, reason="Online HF training is not supported on this runtime")
 def test_zero_shot_nomodel():
     from flaml.default import preprocess_and_suggest_hyperparams
 
@@ -198,28 +207,39 @@ def test_zero_shot_nomodel():
             pytest.skip(f"Skipping HF model load/training: {message}")
         raise
 
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")
 
-
-def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
-    import os
-
-    os.remove("./test/nlp/default/transformer_ms/seq-classification.json")
-    sys.argv = f"portfolio.py --output {path} --input {path} --metafeatures {path}/all/metafeatures_err.csv --task seq-classification --estimator transformer_ms --strategy {strategy}".split()
+def test_build_error_portfolio(tmp_path, monkeypatch):
+    source = Path(__file__).parent / "default"
+    (tmp_path / "transformer_ms").mkdir()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "portfolio.py",
+            "--output",
+            str(tmp_path),
+            "--input",
+            str(source),
+            "--metafeatures",
+            str(source / "all" / "metafeatures_err.csv"),
+            "--task",
+            "seq-classification",
+            "--estimator",
+            "transformer_ms",
+            "--strategy",
+            "greedy",
+        ],
+    )
     portfolio.main()
 
     from flaml.default import preprocess_and_suggest_hyperparams
 
     estimator_name = "transformer_ms"
 
-    location = "test/nlp/default"
+    location = str(tmp_path)
     X_train, y_train, X_val, y_val, X_test = get_toy_data_seqclassification()
 
-    try:
+    with pytest.raises(ValueError, match="not implemented"):
         (
             hyperparams,
             estimator_class,
@@ -230,14 +250,3 @@ def test_build_error_portfolio(path="./test/nlp/default", strategy="greedy"):
         ) = preprocess_and_suggest_hyperparams(
             "seq-classification", X_train, y_train, estimator_name, location=location
         )
-    except ValueError:
-        print("Feature not implemented")
-
-    import os
-    import shutil
-
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")

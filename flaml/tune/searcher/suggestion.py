@@ -260,6 +260,14 @@ class ConcurrencyLimiter(Searcher):
         self.cached_results = {}
         super().__init__(metric=self.searcher.metric, mode=self.searcher.mode)
 
+    @property
+    def metric(self):
+        return self.searcher.metric
+
+    @property
+    def mode(self):
+        return self.searcher.mode
+
     def suggest(self, trial_id: str) -> Optional[Dict]:
         assert trial_id not in self.live_trials, f"Trial ID {trial_id} must be unique: already found in set."
         if len(self.live_trials) >= self.max_concurrent:
@@ -280,18 +288,33 @@ class ConcurrencyLimiter(Searcher):
             return
         elif self.batch:
             self.cached_results[trial_id] = (result, error)
-            if len(self.cached_results) == self.max_concurrent:
+            if len(self.cached_results) == self.max_concurrent or (
+                len(self.cached_results) == len(self.live_trials)
+                and any(failed for _, failed in self.cached_results.values())
+            ):
                 # Update the underlying searcher once the
                 # full batch is completed.
-                for trial_id, (result, error) in self.cached_results.items():
-                    self.searcher.on_trial_complete(trial_id, result=result, error=error)
-                    self.live_trials.remove(trial_id)
+                completed = self.cached_results
                 self.cached_results = {}
+                first_error = None
+                try:
+                    for trial_id, (result, error) in completed.items():
+                        try:
+                            self.searcher.on_trial_complete(trial_id, result=result, error=error)
+                        except BaseException as failure:
+                            if first_error is None:
+                                first_error = failure
+                finally:
+                    self.live_trials.difference_update(completed)
+                if first_error is not None:
+                    raise first_error
             else:
                 return
         else:
-            self.searcher.on_trial_complete(trial_id, result=result, error=error)
-            self.live_trials.remove(trial_id)
+            try:
+                self.searcher.on_trial_complete(trial_id, result=result, error=error)
+            finally:
+                self.live_trials.discard(trial_id)
 
     def get_state(self) -> Dict:
         state = self.__dict__.copy()
@@ -624,9 +647,9 @@ class OptunaSearch(Searcher):
         self._space = space
 
         self._points_to_evaluate = points_to_evaluate or []
-        # rewards should be a list of floats, not a dict
-        # After Optuna > 3.5.0, there is a check for NaN in the list "any(math.isnan(x) for x in self._values)"
-        # which will raise an error when encountering a dict
+        # rewards should be list of floats not dict
+        # After optuna > 3.5.0, there is check for NaN in the list "any(math.isnan(x) for x in self._values)"
+        # which will error when encounter dict
         if evaluated_rewards is not None:
             self._evaluated_rewards = [
                 list(item.values())[0] if isinstance(item, dict) else item for item in evaluated_rewards
@@ -806,19 +829,16 @@ class OptunaSearch(Searcher):
 
         ot_trial = self._ot_trials[trial_id]
 
-        if result:
+        if result and not error:
             if isinstance(self.metric, list):
                 val = [result.get(metric, None) for metric in self.metric]
             else:
                 val = result.get(self.metric, None)
         else:
             val = None
-        ot_trial_state = OptunaTrialState.COMPLETE
-        if val is None:
-            if error:
-                ot_trial_state = OptunaTrialState.FAIL
-            else:
-                ot_trial_state = OptunaTrialState.PRUNED
+        ot_trial_state = OptunaTrialState.FAIL if error else OptunaTrialState.COMPLETE
+        if val is None and not error:
+            ot_trial_state = OptunaTrialState.PRUNED
         try:
             self._ot_study.tell(ot_trial, val, state=ot_trial_state)
         except Exception as exc:
@@ -906,6 +926,8 @@ class OptunaSearch(Searcher):
 
         if not domain_vars and not grid_vars:
             return {}
+        if ot is None:
+            raise ImportError("Optuna search-space conversion requires optuna. Install optuna or flaml[blendsearch].")
 
         if grid_vars:
             raise ValueError("Grid search parameters cannot be automatically converted " "to an Optuna search space.")

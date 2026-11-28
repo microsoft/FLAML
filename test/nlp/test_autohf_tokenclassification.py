@@ -1,18 +1,16 @@
-import os
-import shutil
 import sys
-
-import pytest
-import requests
-from utils import (
+from test.nlp.utils import (
     get_automl_settings,
     get_toy_data_tokenclassification_idlabel,
     get_toy_data_tokenclassification_tokenlabel,
 )
 
+import pytest
+import requests
+
 
 @pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"] or sys.version < "3.7",
+    sys.platform in ["darwin", "win32"] or sys.version_info < (3, 7),
     reason="do not run on mac os, windows or py<3.7",
 )
 def test_tokenclassification_idlabel():
@@ -38,13 +36,13 @@ def test_tokenclassification_idlabel():
 
     try:
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
-    except requests.exceptions.HTTPError:
-        return
+    except requests.exceptions.HTTPError as exc:
+        pytest.skip(f"External model asset unavailable: {type(exc).__name__}")
 
     # perf test
     import json
 
-    with open("seqclass.log") as fin:
+    with open(automl_settings["log_file_name"]) as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:
@@ -57,15 +55,9 @@ def test_tokenclassification_idlabel():
                 if min_inter_result != sys.maxsize:
                     assert val_loss == min_inter_result
 
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")
-
 
 @pytest.mark.skipif(
-    sys.platform in ["darwin", "win32"] or sys.version < "3.7",
+    sys.platform in ["darwin", "win32"] or sys.version_info < (3, 7),
     reason="do not run on mac os, windows or py<3.7",
 )
 def test_tokenclassification_tokenlabel():
@@ -80,13 +72,13 @@ def test_tokenclassification_tokenlabel():
 
     try:
         automl.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, **automl_settings)
-    except requests.exceptions.HTTPError:
-        return
+    except requests.exceptions.HTTPError as exc:
+        pytest.skip(f"External model asset unavailable: {type(exc).__name__}")
 
     # perf test
     import json
 
-    with open("seqclass.log") as fin:
+    with open(automl_settings["log_file_name"]) as fin:
         for line in fin:
             each_log = json.loads(line.strip("\n"))
             if "validation_loss" in each_log:
@@ -98,12 +90,6 @@ def test_tokenclassification_tokenlabel():
 
                 if min_inter_result != sys.maxsize:
                     assert val_loss == min_inter_result
-
-    if os.path.exists("test/data/output/"):
-        try:
-            shutil.rmtree("test/data/output/")
-        except PermissionError:
-            print("PermissionError when deleting test/data/output/")
 
 
 if __name__ == "__main__":

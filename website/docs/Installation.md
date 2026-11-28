@@ -22,6 +22,27 @@ conda install flaml -c conda-forge
 pip install "flaml[automl]"
 ```
 
+#### Tunable feature engineering
+
+```bash
+pip install "flaml[autofe]"
+```
+
+Feature engineering is off by default. Enable it explicitly with
+`AutoML(featurization="auto")` or `"force"`.
+
+#### Fabric Python integration
+
+```bash
+pip install "flaml[fabric_python]"
+```
+
+This optional profile includes AutoFE, MLflow, and plotting dependencies without
+requiring Spark. Use `flaml[synapse]` for the Spark profile. Ordinary
+`flaml[automl]` installations do not require MLflow or Fabric services.
+See the [runtime contracts](https://github.com/microsoft/FLAML/blob/main/flaml/fabric/README.md)
+for detection, explicit overrides, and logging opt-outs.
+
 #### Extra learners/models
 
 - openai models

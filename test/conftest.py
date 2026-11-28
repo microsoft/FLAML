@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Union
 
 import numpy as np
@@ -11,6 +12,72 @@ except ImportError:  # pragma: no cover
     CatBoostClassifier = None
     CatBoostRegressor = None
     Pool = None
+
+
+@pytest.fixture
+def fabric_runtime(monkeypatch):
+    """Enable Fabric defaults only for tests that explicitly exercise them."""
+    monkeypatch.setenv("FLAML_FABRIC_RUNTIME", "true")
+
+
+def pytest_configure(config):
+    # Isolate MLflow tracking per xdist worker (and per process) so that
+    # parallel workers don't race on writes to the same ``mlruns/<exp>/<run>/meta.yaml``
+    # file. Concurrent writers can leave the file half-written, which then
+    # surfaces as ``yaml.parser.ParserError: while parsing a block mapping``
+    # in every subsequent test that talks to MLflow on the same worker.
+    #
+    # ``pytest_configure`` runs in the main pytest process AND in every
+    # xdist worker. The main process runs first and exports
+    # ``MLFLOW_TRACKING_URI``; workers then inherit that value. Without
+    # the override below, all workers would share the main process's
+    # tracking dir and race on writes. We therefore force-override the
+    # URI in xdist workers when the inherited value is one we previously
+    # set ourselves (the exact URI is recorded in a private environment marker); a URI set
+    # externally by the user is left untouched.
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    existing_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
+    inherited_from_main = bool(worker_id) and existing_uri == os.environ.get("FLAML_TEST_MLFLOW_TRACKING_URI")
+    if not existing_uri or inherited_from_main:
+        import tempfile
+        from pathlib import Path
+
+        tag = worker_id or "main"
+        owned = tempfile.TemporaryDirectory(prefix=f"flaml_mlruns_{tag}_")
+        config.add_cleanup(owned.cleanup)
+        # FileStore bootstraps experiment zero only when this child does not exist.
+        tracking_dir = os.path.join(owned.name, "tracking")
+        # ``file:`` URIs need POSIX-style forward slashes even on Windows;
+        # ``Path.as_uri()`` handles the platform-specific prefix correctly.
+        os.environ["MLFLOW_TRACKING_URI"] = Path(tracking_dir).as_uri()
+        os.environ["FLAML_TEST_MLFLOW_TRACKING_URI"] = os.environ["MLFLOW_TRACKING_URI"]
+
+
+@pytest.fixture(autouse=True)
+def _end_mlflow_runs_between_tests():
+    """Ensure no MLflow run leaks between tests.
+
+    A leaked active run causes ``MLflowIntegration.__init__`` (in
+    ``flaml/fabric/mlflow.py``) to adopt that run's id as
+    ``parent_run_id``, which then triggers
+    ``MlflowException: Changing param values is not allowed`` when a
+    later test logs ``n_estimators`` (or any other already-logged param)
+    to that same parent run. Cleaning up both before and after each test
+    keeps cross-test state from leaking in either direction.
+    """
+    try:
+        import mlflow
+    except ModuleNotFoundError as exc:
+        if exc.name is None or exc.name.split(".")[0] != "mlflow":
+            raise
+        yield
+        return
+
+    while mlflow.active_run() is not None:
+        mlflow.end_run()
+    yield
+    while mlflow.active_run() is not None:
+        mlflow.end_run()
 
 
 def _is_catboost_model_type(model_type: type) -> bool:

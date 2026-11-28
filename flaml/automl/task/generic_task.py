@@ -3,6 +3,7 @@ import time
 from typing import List, Optional
 
 import numpy as np
+from sklearn.base import BaseEstimator as SKLearnBaseEstimator
 
 from flaml.automl.data import TS_TIMESTAMP_COL, concat
 from flaml.automl.ml import EstimatorSubclass, default_cv_score_agg_func, get_val_loss
@@ -38,6 +39,41 @@ except ImportError:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _augment_rare_classes(X, y, data_is_df):
+    if isinstance(X, (psDataFrame, psSeries)):
+        label_set, counts = unique_pandas_on_spark(y)
+        set_option("compute.ops_on_diff_frames", True)
+    else:
+        label_set, counts = np.unique(y, return_counts=True)
+    rare_threshold = 20
+    for label, rare_count in zip(label_set[counts < rare_threshold].tolist(), counts[counts < rare_threshold]):
+        count = rare_count
+        rare_index = y == label
+        if isinstance(X, (psDataFrame, psSeries)):
+            rows = X.loc[rare_index]
+            labels = y.loc[rare_index]
+        else:
+            rare_index = np.asarray(rare_index, dtype=bool)
+            rows = X.iloc[rare_index] if data_is_df else X[rare_index, :]
+            labels = y.iloc[rare_index] if isinstance(y, pd.Series) else y[rare_index]
+        while count < rare_threshold:
+            X = concat(X, rows)
+            if isinstance(y, (pd.Series, psSeries)):
+                y = concat(y, labels)
+            else:
+                y = np.concatenate([y, labels])
+            count += rare_count
+        logger.info(f"class {label} augmented from {rare_count} to {count}")
+    return X, y
+
+
+class _TrainingPartitionAugmenter(SKLearnBaseEstimator):
+    """Cloneable training-only form of AutoML's existing rare-class augmentation."""
+
+    def fit_resample(self, X, y):
+        return _augment_rare_classes(X, y, isinstance(X, pd.DataFrame))
 
 
 class GenericTask(Task):
@@ -194,6 +230,13 @@ class GenericTask(Task):
         if isinstance(X, psDataFrame):
             # TODO: support pyspark.pandas dataframe in DataTransformer
             automl._skip_transform = True
+        self._autofe_enabled = (
+            getattr(automl, "_featurization", "off") != "off"
+            and not self.is_nlp()
+            and not issparse(X)
+            and not isinstance(X, psDataFrame)
+        )
+        self._preprocess_for_autofe = self._autofe_enabled and not automl._skip_transform
         if automl._skip_transform or issparse(X_train_all):
             automl._transformer = automl._label_transformer = False
             automl._X_train_all, automl._y_train_all = X, y
@@ -205,7 +248,7 @@ class GenericTask(Task):
             (
                 automl._X_train_all,
                 automl._y_train_all,
-            ) = automl._transformer.fit_transform(X, y, self)
+            ) = automl._transformer.fit_transform(X, y, self, transform_features=not self._preprocess_for_autofe)
             automl._label_transformer = automl._transformer.label_transformer
             if self.is_token_classification():
                 if hasattr(automl._label_transformer, "label_list"):
@@ -846,40 +889,35 @@ class GenericTask(Task):
             X_train_all = X_train_all.tocsr()
         is_spark_dataframe = isinstance(X_train_all, (psDataFrame, psSeries))
         self.is_spark_dataframe = is_spark_dataframe
-        if (
+        can_augment = (
             self.is_classification()
             and auto_augment
             and state.fit_kwargs.get("sample_weight")
             is None  # NOTE: _prepare_data is before kwargs is updated to fit_kwargs_by_estimator
             and split_type in ["stratified", "uniform"]
             and not self.is_token_classification()
-        ):
-            # logger.info(f"label {pd.unique(y_train_all)}")
-            if is_spark_dataframe:
-                label_set, counts = unique_pandas_on_spark(y_train_all)
-                # TODO: optimize this
-                set_option("compute.ops_on_diff_frames", True)
-            else:
-                label_set, counts = np.unique(y_train_all, return_counts=True)
-            # augment rare classes
-            rare_threshld = 20
-            rare = counts < rare_threshld
-            rare_label, rare_counts = label_set[rare], counts[rare]
-            for i, label in enumerate(rare_label.tolist()):
-                count = rare_count = rare_counts[i]
-                rare_index = y_train_all == label
-                n = len(y_train_all)
-                while count < rare_threshld:
-                    if data_is_df:
-                        X_train_all = concat(X_train_all, X_train_all.iloc[:n].loc[rare_index])
-                    else:
-                        X_train_all = concat(X_train_all, X_train_all[:n][rare_index, :])
-                    if isinstance(y_train_all, (pd.Series, psSeries)):
-                        y_train_all = concat(y_train_all, y_train_all.iloc[:n].loc[rare_index])
-                    else:
-                        y_train_all = np.concatenate([y_train_all, y_train_all[:n][rare_index]])
-                    count += rare_count
-                logger.info(f"class {label} augmented from {rare_count} to {count}")
+        )
+        disjoint_autofe = getattr(self, "_autofe_enabled", False) and self.is_classification()
+        if disjoint_autofe:
+            if X_val is None:
+                _, counts = np.unique(y_train_all, return_counts=True)
+                if np.any(counts < 2):
+                    raise ValueError(
+                        "AutoFE requires disjoint training and validation partitions. "
+                        "A singleton class cannot appear in both without duplicating an observation."
+                    )
+            metadata = [state.fit_kwargs, *state.fit_kwargs_by_estimator.values()]
+            if (
+                can_augment
+                and getattr(self, "_resampler", None) is None
+                and state.groups is None
+                and not any(
+                    values.get("sample_weight") is not None or values.get("groups") is not None for values in metadata
+                )
+            ):
+                self._resampler = _TrainingPartitionAugmenter()
+        elif can_augment:
+            X_train_all, y_train_all = _augment_rare_classes(X_train_all, y_train_all, data_is_df)
         state.sample_weight_all = sample_weight_full
         SHUFFLE_SPLIT_TYPES = ["uniform", "stratified"]
         if is_spark_dataframe:
@@ -996,7 +1034,14 @@ class GenericTask(Task):
                 )
 
                 # Handle missing labels using the appropriate strategy
-                if allow_label_overlap:
+                if disjoint_autofe:
+                    labels = set(np.unique(y_train_all))
+                    if labels != set(np.unique(y_train)) or labels != set(np.unique(y_val)):
+                        raise ValueError(
+                            "AutoFE requires disjoint partitions with every class represented. "
+                            "Use a stratified split or provide suitable validation data."
+                        )
+                elif allow_label_overlap:
                     # Fast version: adds first instance to set with missing label (may create overlap)
                     X_train, X_val, y_train, y_val = self._handle_missing_labels_fast(
                         state,
@@ -1034,6 +1079,20 @@ class GenericTask(Task):
             elif self.is_regression():
                 X_train, X_val, y_train, y_val = self._train_test_split(
                     state, X_train_all, y_train_all, split_ratio=split_ratio
+                )
+        self._autofe_classes = set(np.unique(y_train_all)) if disjoint_autofe else None
+        self._resampler_classes = None
+        if self.is_classification() and getattr(self, "_resampler", None) is not None:
+            if self._autofe_classes is not None:
+                self._resampler_classes = self._autofe_classes
+            else:
+                _, labels = len_labels(y_train_all, return_labels=True)
+                self._resampler_classes = labels.to_numpy() if isinstance(labels, psSeries) else labels
+        if disjoint_autofe and eval_method == "holdout":
+            if self._autofe_classes != set(np.unique(y_train)):
+                raise ValueError(
+                    "AutoFE requires every class to be represented in training. "
+                    "Use a stratified split or provide suitable validation data."
                 )
         state.data_size = X_train.shape
         state.data_size_full = len(y_train_all)
@@ -1392,4 +1451,12 @@ class GenericTask(Task):
 
     @staticmethod
     def prepare_sample_train_data(automlstate, sample_size):
-        return automlstate.prepare_sample_train_data(sample_size)
+        sampled = automlstate.prepare_sample_train_data(sample_size)
+        expected_classes = getattr(automlstate.task, "_autofe_classes", None)
+        if expected_classes is not None and sample_size < automlstate.data_size[0]:
+            if set(np.unique(sampled[1])) != expected_classes:
+                raise ValueError(
+                    "AutoFE requires every class to be represented in sampled training data. "
+                    "Increase min_sample_size or disable sampling."
+                )
+        return sampled

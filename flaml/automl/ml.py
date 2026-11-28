@@ -7,9 +7,11 @@ import time
 from typing import Callable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from sklearn.pipeline import Pipeline
 
-from flaml.automl.data import group_counts
+from flaml.automl.data import DataTransformer, group_counts
 from flaml.automl.model import BaseEstimator, TransformersEstimator
+from flaml.automl.pipeline import _TaskPreprocessor
 from flaml.automl.spark import ERROR as SPARK_ERROR
 from flaml.automl.spark import DataFrame, Series, psDataFrame, psSeries
 from flaml.automl.task.task import Task
@@ -30,6 +32,11 @@ try:
     )
 except ImportError:
     pass
+
+try:
+    from flaml.fabric.autofe import Featurization
+except ImportError:
+    Featurization = None
 
 if SPARK_ERROR is None:
     from flaml.automl.spark.metrics import spark_metric_loss_score
@@ -329,6 +336,11 @@ def to_numpy(x):
     return x.reshape((-1, 1))
 
 
+def _attach_task_preprocessor(estimator, task):
+    if getattr(task, "_preprocess_for_autofe", False):
+        estimator._flaml_preprocessor = _TaskPreprocessor(task, DataTransformer(), preserve_features=True)
+
+
 def compute_estimator(
     X_train,
     y_train,
@@ -362,12 +374,21 @@ def compute_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if fe_params and Featurization is None:
+        raise ImportError("Recorded AutoFE stages require flaml[autofe].")
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
+    _attach_task_preprocessor(estimator, task)
 
     if isinstance(estimator, TransformersEstimator):
         # TODO: move the partial function to nlp
@@ -427,8 +448,9 @@ def train_estimator(
     fit_kwargs: Optional[dict] = None,
     eval_metric=None,
     free_mem_ratio=0,
-) -> Tuple[EstimatorSubclass, float]:
+) -> Tuple[Union[EstimatorSubclass, Pipeline], float]:
     start_time = time.time()
+    config_dic = config_dic.copy()
     fe_params = {}
     for param, value in config_dic.items():
         if param.startswith("fe."):
@@ -437,12 +459,28 @@ def train_estimator(
     for param, value in fe_params.items():
         config_dic.pop(param)
 
+    autofe = None
+    if fe_params and Featurization is None:
+        raise ImportError("Recorded AutoFE stages require flaml[autofe].")
+    if Featurization is not None and fe_params:
+        autofe = Featurization(params=fe_params, task=task)
+
     estimator_class = estimator_class or task.estimator_class_from_str(estimator_name)
     estimator = estimator_class(
         **config_dic,
         task=task,
         n_jobs=n_jobs,
     )
+
+    estimator.autofe = autofe
+    _attach_task_preprocessor(estimator, task)
+    if X_train is not None:
+        _validate_autofe_classes(y_train, task)
+        preprocessor = getattr(estimator, "_flaml_preprocessor", None)
+        if preprocessor is not None:
+            X_train = preprocessor.fit_transform(X_train, y_train)
+        if autofe is not None:
+            X_train = autofe.fit_transform(X_train, y_train)
 
     if fit_kwargs is None:
         fit_kwargs = {}
@@ -454,19 +492,105 @@ def train_estimator(
         X_train, y_train = _resample_training_data(X_train, y_train, task)
         train_time = estimator.fit(X_train, y_train, budget=budget, free_mem_ratio=free_mem_ratio, **fit_kwargs)
     else:
-        estimator = estimator.estimator_class(**estimator.params)
+        if not task.is_ts_forecast():
+            estimator = estimator.estimator_class(**estimator.params)
+        if autofe is not None:
+            estimator = Pipeline([("autofe", autofe), ("estimator", estimator)])
     train_time = time.time() - start_time
     return estimator, train_time
 
 
-def _resample_training_data(X_train, y_train, task):
-    resampler = getattr(task, "_resampler", None)
+def _validate_resampler_task(resampler, task=None, X=None):
+    if resampler is None:
+        return
+    from flaml.automl.task.task import TS_FORECAST
+    from flaml.automl.time_series.ts_data import TimeSeriesDataset
+
+    forecasting = task in TS_FORECAST if isinstance(task, str) else task is not None and task.is_ts_forecast()
+    if forecasting or isinstance(X, TimeSeriesDataset):
+        raise ValueError("Generic resampling is not supported for forecast or panel tasks.")
+
+
+def _validate_resampler(resampler, groups, ensemble, fit_kwargs, fit_kwargs_by_estimator, *, task=None):
+    if resampler is None:
+        return fit_kwargs, fit_kwargs_by_estimator
+    _validate_resampler_task(resampler, task)
+    if ensemble:
+        raise ValueError(
+            "Cannot combine 'resampler' with 'ensemble' because stacking performs "
+            "internal cross-validation where pre-resampling can leak synthetic samples "
+            "across folds. Disable ensemble or omit resampler."
+        )
+    metadata_sources = [fit_kwargs] + list((fit_kwargs_by_estimator or {}).values())
+    if any(kwargs.get("sample_weight") is not None for kwargs in metadata_sources):
+        raise ValueError(
+            "Cannot combine 'resampler' with 'sample_weight' (including via "
+            "fit_kwargs_by_estimator); resampling breaks the 1-to-1 row alignment "
+            "with sample weights. Use either resampling or sample weighting, not both."
+        )
+    if groups is not None or any(kwargs.get("groups") is not None for kwargs in metadata_sources):
+        raise ValueError(
+            "Cannot combine 'resampler' with 'groups' because resampling breaks the "
+            "1-to-1 row alignment with group labels."
+        )
+    if not callable(getattr(resampler, "fit_resample", None)):
+        raise TypeError(
+            "'resampler' must expose a fit_resample(X, y) -> (X, y) method "
+            "(e.g., an imbalanced-learn BaseSampler such as SMOTE)."
+        )
+    try:
+        from sklearn.base import clone
+
+        clone(resampler)
+    except Exception as e:
+        raise TypeError(
+            "'resampler' must be cloneable via sklearn.base.clone (implement "
+            "get_params/set_params, e.g. by subclassing sklearn.base.BaseEstimator); "
+            f"cloning failed with: {e}"
+        ) from e
+    return (
+        {key: value for key, value in fit_kwargs.items() if key != "sample_weight"},
+        {
+            name: {key: value for key, value in kwargs.items() if key != "sample_weight"}
+            for name, kwargs in (fit_kwargs_by_estimator or {}).items()
+        },
+    )
+
+
+def _validate_autofe_classes(y_train, task=None, expected_classes=None):
+    if expected_classes is None:
+        expected_classes = getattr(task, "_autofe_classes", None)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError(
+            "AutoFE requires every class to be represented in the effective training data. "
+            "Use a suitable split and a resampler that preserves the class vocabulary."
+        )
+
+
+def _resample_training_data(X_train, y_train, task=None, *, resampler=None, expected_classes=None):
+    if resampler is None:
+        resampler = getattr(task, "_resampler", None)
     if resampler is None:
         return X_train, y_train
-
+    _validate_resampler_task(resampler, task, X_train)
     from sklearn.base import clone
 
-    return clone(resampler).fit_resample(X_train, y_train)
+    if isinstance(task, str):
+        from flaml.automl.task.factory import task_factory
+
+        task = task_factory(task, X_train, y_train)
+    if expected_classes is None and task is not None and task.is_classification():
+        expected_classes = getattr(task, "_resampler_classes", None)
+        if expected_classes is None:
+            expected_classes = np.unique(y_train)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError(
+            "Resampling requires every class in the advertised class vocabulary to be represented in training."
+        )
+    X_train, y_train = clone(resampler).fit_resample(X_train, y_train)
+    if expected_classes is not None and set(np.unique(y_train)) != set(expected_classes):
+        raise ValueError("Resampling must preserve every class in the training data's class vocabulary.")
+    return X_train, y_train
 
 
 def norm_confusion_matrix(y_true: Union[np.array, Series], y_pred: Union[np.array, Series]):
@@ -517,6 +641,14 @@ def multi_class_curves(
     return curve_x, curve_y
 
 
+def _transform_validation_data(transformer, X):
+    if isinstance(X, TimeSeriesDataset) and hasattr(transformer, "_transform_validation_data"):
+        return transformer._transform_validation_data(X)
+    start = time.perf_counter()
+    transformed = transformer.transform(X)
+    return transformed, time.perf_counter() - start
+
+
 def get_val_loss(
     config,
     estimator,
@@ -535,6 +667,21 @@ def get_val_loss(
     free_mem_ratio=0,
 ):
     start = time.time()
+    validation_transform_time = 0.0
+    _validate_autofe_classes(y_train, task)
+    preprocessor = getattr(estimator, "_flaml_preprocessor", None)
+    if preprocessor is not None:
+        X_train = preprocessor.fit_transform(X_train, y_train)
+        if X_val is not None:
+            X_val, transform_time = _transform_validation_data(preprocessor, X_val)
+            validation_transform_time += transform_time
+    autofe = getattr(estimator, "autofe", None)
+    if autofe is not None:
+        # This runs separately for each CV fold as well as for a holdout split.
+        X_train = autofe.fit_transform(X_train, y_train)
+        if X_val is not None:
+            X_val, transform_time = _transform_validation_data(autofe, X_val)
+            validation_transform_time += transform_time
     # if groups_val is not None:
     #     fit_kwargs['groups_val'] = groups_val
     #     fit_kwargs['X_val'] = X_val
@@ -556,6 +703,16 @@ def get_val_loss(
         log_training_metric,
         fit_kwargs,
     )
+    if validation_transform_time:
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = len(X_val.test_data) if X_val.test_data is not None else 0
+        else:
+            num_val_rows = X_val.shape[0]
+        if num_val_rows:
+            pred_time += validation_transform_time / num_val_rows
+            metric_for_logging["pred_time"] = pred_time
+        else:
+            logger.warning("Skipping per-row transform latency for an empty validation partition.")
     if hasattr(estimator, "intermediate_results"):
         metric_for_logging["intermediate_results"] = estimator.intermediate_results
     train_time = time.time() - start
@@ -596,6 +753,13 @@ def _eval_estimator(
     fit_kwargs={},
 ):
     if isinstance(eval_metric, str):
+        if isinstance(X_val, TimeSeriesDataset):
+            num_val_rows = 0 if X_val.test_data is None else len(X_val.test_data)
+        else:
+            num_val_rows = X_val.shape[0]
+        if not num_val_rows:
+            logger.warning("Skipping prediction for an empty validation partition.")
+            return np.inf, {"pred_time": 0.0}, 0.0, None
         pred_start = time.time()
         val_pred_y = get_y_pred(estimator, X_val, eval_metric, task)
 
@@ -608,11 +772,8 @@ def _eval_estimator(
                 val_pred_y = val_pred_y.astype(str)
 
         if isinstance(X_val, TimeSeriesDataset):
-            num_val_rows = len(X_val.test_data)
             y_val = X_val.test_data[X_val.target_names].values.astype(val_pred_y.dtype)
             y_train = X_val.train_data[X_val.target_names].values.astype(val_pred_y.dtype)
-        else:
-            num_val_rows = X_val.shape[0]
 
         pred_time = (time.time() - pred_start) / num_val_rows
 
@@ -630,7 +791,11 @@ def _eval_estimator(
             val_loss = np.inf
             logger.warning(f"ValueError {e} happened in `metric_loss_score`, set `val_loss` to `np.inf`")
         metric_for_logging = {"pred_time": pred_time}
-        if log_training_metric:
+        if log_training_metric and not getattr(estimator, "_supports_in_sample_prediction", True):
+            logger.warning(
+                "Skipping training metric for %s: in-sample prediction is unsupported.", type(estimator).__name__
+            )
+        elif log_training_metric:
             # For time series forecasting, X_train may be a sampled dataset whose
             # test partition can be empty. Use the training partition from X_val
             # (which is the dataset used to define y_train above) to keep shapes

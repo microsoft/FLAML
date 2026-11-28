@@ -1,5 +1,6 @@
 import platform
 import sys
+from test._artifact_paths import artifact_path
 from urllib.error import URLError
 
 import numpy as np
@@ -23,7 +24,7 @@ def _test(split_type):
         "time_budget": 2,
         # "metric": 'accuracy',
         "task": "classification",
-        "log_file_name": f"test/{dataset}.log",
+        "log_file_name": artifact_path(__file__, f"test/{dataset}.log"),
         "model_history": True,
         "log_training_metric": True,
         "split_type": split_type,
@@ -77,7 +78,8 @@ def test_time_split_with_sample_weight():
     assert automl.model is not None
 
 
-def test_group_split_with_sample_weight_alignment():
+@pytest.mark.parametrize("weight_type", [np.asarray, list, tuple])
+def test_group_split_with_sample_weight_alignment(weight_type):
     """Regression for group holdout: sample_weight must be split by the group
     train/val indices, not left full-length and sliced positionally downstream."""
     from unittest.mock import patch
@@ -90,7 +92,7 @@ def test_group_split_with_sample_weight_alignment():
     X = np.column_stack([np.arange(n, dtype=float), rng.normal(size=n)])
     groups = np.repeat(np.arange(20), 10)
     y = (groups % 2).astype(int)
-    sample_weight = 1000.0 + np.arange(n, dtype=float)
+    sample_weight = weight_type(1000.0 + np.arange(n, dtype=float))
 
     captured = []
     original_fit = RandomForestClassifier.fit
@@ -290,41 +292,31 @@ def test_groups_with_sample_weights():
     assert automl.model is not None
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32" and platform.machine() == "ARM64",
-    reason="minio and catboost are not available on win-arm64 machine",
-)
 def test_stratified_groupkfold():
-    from minio.error import ServerError
+    import numpy as np
+    import pandas as pd
+    from sklearn.datasets import make_classification
     from sklearn.model_selection import StratifiedGroupKFold
 
-    from flaml.automl.data import load_openml_dataset
-
-    try:
-        X_train, _, y_train, _ = load_openml_dataset(dataset_id=1169, data_dir="test/")
-    except (ServerError, Exception):
-        return
+    features, y_train = make_classification(n_samples=400, n_features=6, n_informative=4, n_redundant=0, random_state=0)
+    X_train = pd.DataFrame(features, columns=[f"feature_{index}" for index in range(features.shape[1])])
+    X_train["Airline"] = pd.Categorical([f"airline_{index % 20}" for index in range(len(X_train))])
     splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=0)
 
-    automl = AutoML()
+    automl = AutoML(mlflow_logging=False, n_jobs=1, max_iter=2, verbose=0)
     settings = {
         "time_budget": 6,
         "metric": "ap",
         "eval_method": "cv",
         "split_type": splitter,
         "groups": X_train["Airline"],
-        "estimator_list": [
-            "catboost",
-            "lgbm",
-            "rf",
-            "xgboost",
-            "extra_tree",
-            "xgb_limitdepth",
-            "lrl1",
-        ],
+        "estimator_list": ["lgbm"],
     }
 
     automl.fit(X_train=X_train, y_train=y_train, **settings)
+    assert automl.model is not None
+    assert np.isfinite(automl.best_loss)
+    assert automl.predict_proba(X_train).shape == (len(X_train), 2)
 
 
 def test_rank():

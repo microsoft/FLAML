@@ -1572,13 +1572,16 @@ def get_toy_data_tokenclassification_tokenlabel():
 
 
 def get_automl_settings(estimator_name="transformer"):
+    from test._artifact_paths import artifact_path
+    from uuid import uuid4
+
     automl_settings = {
         "gpu_per_trial": 0,
         "max_iter": 3,
         "time_budget": 10,
         "task": "seq-classification",
         "metric": "accuracy",
-        "log_file_name": "seqclass.log",
+        "log_file_name": artifact_path(__file__, f"seqclass-{uuid4().hex}.log"),
         "use_ray": False,
     }
 

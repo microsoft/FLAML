@@ -1,6 +1,8 @@
 import inspect
 import time
 
+import numpy as np
+
 try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
@@ -15,13 +17,14 @@ except ImportError:
     DataFrame = Series = None
 
 from flaml import tune
-from flaml.automl.data import add_time_idx_col
-from flaml.automl.time_series.ts_data import TimeSeriesDataset
+from flaml.automl.time_series.ts_data import TimeSeriesDataset, _concat_panel_frames
 from flaml.automl.time_series.ts_model import TimeSeriesEstimator
 
 
 class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
     """The class for tuning Temporal Fusion Transformer"""
+
+    _supports_in_sample_prediction = False
 
     @classmethod
     def search_space(cls, data, task, pred_horizon, **params):
@@ -54,19 +57,21 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         return space
 
     def transform_ds(self, X_train: TimeSeriesDataset, y_train, **kwargs):
-        self.data = X_train.train_data
+        self.data = X_train.train_data.copy()
+        self.time_idx = X_train.time_idx
 
         max_prediction_length = kwargs["period"]
+        self.max_prediction_length = max_prediction_length
         self.max_encoder_length = kwargs["max_encoder_length"]
-        training_cutoff = self.data["time_idx"].max() - max_prediction_length
+        training_cutoff = self.data[self.time_idx].max() - max_prediction_length
 
         from pytorch_forecasting import TimeSeriesDataSet
         from pytorch_forecasting.data import GroupNormalizer
 
         self.group_ids = kwargs["group_ids"].copy()
         training = TimeSeriesDataSet(
-            self.data[lambda x: x.time_idx <= training_cutoff],
-            time_idx="time_idx",
+            self.data[lambda x: x[self.time_idx] <= training_cutoff],
+            time_idx=self.time_idx,
             target=X_train.target_names[0],
             group_ids=self.group_ids,
             min_encoder_length=kwargs.get(
@@ -189,27 +194,157 @@ class TemporalFusionTransformerEstimator(TimeSeriesEstimator):
         self._model = best_tft
         return train_time
 
-    def predict(self, X):
-        ids = self.group_ids.copy()
-        ids.append(self.time_col)
-        encoder_data = self.data[lambda x: x.time_idx > x.time_idx.max() - self.max_encoder_length]
-        # following pytorchforecasting example, make all target values equal to the last data
-        last_data_cols = self.group_ids.copy()
-        last_data_cols.append(self.target_names[0])
-        last_data = self.data[lambda x: x.time_idx == x.time_idx.max()][last_data_cols]
-        # Use X_train if test_data is empty (e.g., when computing training metrics)
+    def _prediction_indexes(self, history, future, time_idx, supplied_index):
+        maximum = getattr(self, "max_prediction_length", None)
+        if maximum is not None and len(future) > maximum:
+            raise ValueError("TFT prediction exceeds the fitted forecast horizon.")
+        end = int(history[time_idx].iloc[-1])
+        expected = list(range(end + 1, end + 1 + len(future)))
+        if expected[-1] > np.iinfo(np.int64).max:
+            raise ValueError("TFT prediction indexes exceed the signed integer range.")
+        if supplied_index and future[time_idx].tolist() != expected:
+            raise ValueError("TFT requires consecutive prediction indexes immediately after training.")
+        timestamps = future[self.time_col]
+        if timestamps.isna().any() or not timestamps.is_monotonic_increasing or timestamps.duplicated().any():
+            raise ValueError("TFT prediction timestamps must be nonmissing and strictly increasing.")
+        try:
+            starts_after_training = timestamps.iloc[0] > history[self.time_col].iloc[-1]
+        except TypeError as exc:
+            raise ValueError("TFT prediction timestamps must use a timezone compatible with training.") from exc
+        if not starts_after_training:
+            raise ValueError("TFT prediction timestamps must be after the group's training history.")
+        history_dates = history[self.time_col].drop_duplicates()
+        frequency = pd.infer_freq(history_dates) if len(history_dates) >= 3 else None
+        if frequency is not None:
+            dates = pd.date_range(history[self.time_col].iloc[-1], periods=len(future) + 1, freq=frequency)[1:]
+            if list(future[self.time_col]) != list(dates):
+                raise ValueError("TFT requires consecutive prediction timestamps immediately after training.")
+        elif not supplied_index:
+            raise ValueError("Supply explicit TFT time indexes when the training calendar is irregular.")
+        return expected
+
+    def _prediction_frame(self, decoder, time_idx):
+        decoder[self.time_col] = pd.to_datetime(decoder[self.time_col])
+        supplied_index = time_idx in decoder
+        if supplied_index and (decoder[time_idx].dtype.kind != "i" or decoder[time_idx].isna().any()):
+            raise ValueError("TFT prediction time indexes must be nonmissing signed integers.")
+        if not supplied_index:
+            decoder[time_idx] = pd.Series(pd.NA, index=decoder.index, dtype="Int64")
+        by = self.group_ids[0] if len(self.group_ids) == 1 else self.group_ids
+        training = self.data.groupby(by, observed=True, sort=False)
+        parameters = getattr(self._model, "dataset_parameters", None) or {}
+        max_lag = max((lag for lags in (parameters.get("lags") or {}).values() for lag in lags), default=0)
+        encoders = []
+        for key, positions in decoder.groupby(by, observed=True, sort=False).indices.items():
+            try:
+                history = training.get_group(key).sort_values(time_idx)
+            except KeyError as exc:
+                raise ValueError(f"TFT prediction contains an unknown group: {key!r}") from exc
+            history[self.time_col] = pd.to_datetime(history[self.time_col])
+            future = decoder.iloc[positions].sort_values(time_idx if supplied_index else self.time_col)
+            decoder.loc[future.index, time_idx] = self._prediction_indexes(history, future, time_idx, supplied_index)
+            decoder.loc[future.index, self.target_names[0]] = history[self.target_names[0]].iloc[-1]
+            encoders.append(history.tail(self.max_encoder_length + max_lag))
+        decoder[time_idx] = decoder[time_idx].astype("int64")
+        return _concat_panel_frames(
+            [*encoders, decoder.sort_values(self.group_ids + [time_idx])], self.group_ids, ignore_index=True
+        )
+
+    def _prediction_dataset(self, data, horizon):
+        from pytorch_forecasting import TimeSeriesDataSet
+
+        # Changing the fitted maximum can reorder known/unknown lagged features.
+        return TimeSeriesDataSet.from_parameters(
+            self._model.dataset_parameters,
+            data,
+            predict=True,
+            stop_randomization=True,
+            min_prediction_length=horizon,
+            min_prediction_idx=int(data[getattr(self, "time_idx", "time_idx")].max()) - horizon + 1,
+        )
+
+    def _restore_prediction_index(self, X, prediction):
         if isinstance(X, TimeSeriesDataset):
-            decoder_data = X.X_val if len(X.test_data) > 0 else X.X_train
+            request = X.X_val if X.test_data is not None else X.X_train.iloc[:0]
+        elif isinstance(X, pd.DataFrame):
+            request = X
         else:
-            decoder_data = X
-        if "time_idx" not in decoder_data:
-            decoder_data = add_time_idx_col(decoder_data)
-        decoder_data["time_idx"] += encoder_data["time_idx"].max() + 1 - decoder_data["time_idx"].min()
-        decoder_data = decoder_data.merge(last_data, how="inner", on=self.group_ids)
-        decoder_data = decoder_data.sort_values(ids)
-        new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)
-        new_prediction_data["time_idx"] = new_prediction_data["time_idx"].astype("int")
-        new_raw_predictions = self._model.predict(new_prediction_data)
-        index = [decoder_data[idx].to_numpy() for idx in ids]
-        predictions = pd.Series(new_raw_predictions.numpy().ravel(), index=index)
-        return predictions
+            return prediction
+        ids = self.group_ids + [self.time_col]
+        original = request[ids]
+        original_index = pd.MultiIndex.from_frame(original)
+        normalized = original.copy()
+        normalized[self.time_col] = pd.to_datetime(normalized[self.time_col])
+        expected = pd.MultiIndex.from_frame(normalized)
+        index = getattr(prediction, "index", None)
+        if (
+            not isinstance(index, pd.MultiIndex)
+            or index.names != expected.names
+            or len(index) != len(expected)
+            or (
+                any(actual != requested for actual, requested in zip(index, expected))
+                and any(actual != requested for actual, requested in zip(index, original_index))
+            )
+        ):
+            raise ValueError("TFT preprocessing changed prediction coordinates or order.")
+        return prediction.set_axis(original_index)
+
+    def predict(self, X):
+        time_idx = getattr(self, "time_idx", "time_idx")
+        ids = self.group_ids + [self.time_col]
+        if isinstance(X, TimeSeriesDataset):
+            request = X.X_val if X.test_data is not None else X.X_train.iloc[:0]
+        else:
+            request = X
+        decoder = request.drop(columns=self.target_names, errors="ignore").copy().reset_index(drop=True)
+        if not set(ids).issubset(decoder) or decoder[ids].isna().any().any():
+            raise ValueError("TFT prediction requires nonmissing group keys and timestamps.")
+        request_index = pd.MultiIndex.from_frame(decoder[ids])
+        if decoder.empty:
+            return pd.Series(dtype=float, index=request_index)
+        data = self._prediction_frame(decoder, time_idx)
+        by = self.group_ids[0] if len(self.group_ids) == 1 else self.group_ids
+        data_groups = data.groupby(by, observed=True, sort=False).indices
+        cohorts = {}
+        for group, positions in decoder.groupby(by, observed=True, sort=False).indices.items():
+            key = (len(positions), int(decoder.iloc[positions][time_idx].min()))
+            cohorts.setdefault(key, []).append((positions, data_groups[group]))
+        forecasts = {}
+        # A fitted maximum decoder length must not consume recent encoder rows in shorter requests.
+        for (horizon, origin), groups in cohorts.items():
+            requested = decoder.iloc[np.concatenate([positions for positions, _ in groups])]
+            subset = data.iloc[np.concatenate([positions for _, positions in groups])]
+            prediction_data = self._prediction_dataset(subset, int(horizon))
+            result = self._model.predict(prediction_data, return_index=True)
+            values, index = (result.output, result.index) if hasattr(result, "output") else result[:2]
+            values = values.detach().cpu().numpy() if hasattr(values, "detach") else values
+            if len(values) != len(index):
+                raise ValueError("TFT predictions do not match their returned group indexes.")
+            origins = {
+                row[:-1]: int(row[-1])
+                for row in requested.groupby(self.group_ids, observed=True, sort=False)[time_idx]
+                .min()
+                .reset_index()
+                .itertuples(index=False, name=None)
+            }
+            seen = set()
+            for coordinates, predictions in zip(
+                index[self.group_ids + [time_idx]].itertuples(index=False, name=None), values
+            ):
+                group, start = coordinates[:-1], int(coordinates[-1])
+                if group in seen or origins.get(group) != start:
+                    raise ValueError("TFT decoder must start immediately after each group's training history.")
+                seen.add(group)
+                predictions = predictions.detach().cpu().numpy() if hasattr(predictions, "detach") else predictions
+                predictions = np.asarray(predictions).reshape(-1)
+                if len(predictions) != horizon:
+                    raise ValueError("TFT decoder length must match the requested forecast horizon.")
+                forecasts.update({group + (start + offset,): value for offset, value in enumerate(predictions)})
+            if seen != set(origins):
+                raise ValueError("TFT did not produce every requested panel coordinate.")
+        keys = decoder[self.group_ids + [time_idx]].itertuples(index=False, name=None)
+        try:
+            predictions = [forecasts[key] for key in keys]
+        except KeyError as exc:
+            raise ValueError("TFT did not produce every requested panel coordinate.") from exc
+        return pd.Series(predictions, index=request_index)

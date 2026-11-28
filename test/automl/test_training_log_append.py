@@ -2,6 +2,7 @@ import json
 import pickle
 import threading
 
+import numpy as np
 import pytest
 
 from flaml import AutoML
@@ -178,3 +179,37 @@ def test_default_writer_overwrites_existing_records(tmp_path):
         records = list(reader.records())
     assert [record.record_id for record in records] == [0]
     assert records[0].config == {"n_estimators": 8}
+
+
+def test_autofe_fit_append_preserves_records_without_resuming_previous_search(tmp_path):
+    filename = tmp_path / "autofe.log"
+    X = np.arange(120.0).reshape(40, 3)
+    y = np.tile([0, 1], 20)
+    automl = AutoML(
+        estimator_list=["rf"],
+        max_iter=2,
+        n_jobs=1,
+        verbose=0,
+        mlflow_logging=False,
+        featurization="auto",
+        eval_method="holdout",
+        log_type="all",
+        log_file_name=str(filename),
+    )
+    automl.fit(X, y, metric=lambda *args: (0.1, {}))
+    original_bytes = filename.read_bytes()
+    with training_log_reader(filename) as reader:
+        first = list(reader.records())
+    assert first
+    assert all(any(name.startswith("fe.") for name in record.config) for record in first)
+
+    automl.fit(X, y, metric=lambda *args: (0.9, {}), append_log=True)
+    assert filename.read_bytes().startswith(original_bytes)
+    with training_log_reader(filename) as reader:
+        combined = list(reader.records())
+    assert len(combined) > len(first)
+    assert [record.record_id for record in combined] == list(range(len(combined)))
+    assert automl.best_loss == pytest.approx(0.9)
+    assert all(record.validation_loss == pytest.approx(0.9) for record in combined[len(first) :])
+    checkpoint = json.loads(filename.read_text().splitlines()[-1])["curr_best_record_id"]
+    assert checkpoint >= len(first)

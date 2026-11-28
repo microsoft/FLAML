@@ -3,13 +3,15 @@
 #  * Licensed under the MIT License. See LICENSE file in the
 #  * project root for license information.
 import json
+import logging
+import math
 import os
 import random
 import re
 import uuid
 import warnings
 from datetime import datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
@@ -31,14 +33,38 @@ if TYPE_CHECKING:
     from flaml.automl.task import Task
 
 
+logger = logging.getLogger(__name__)
+
 TS_TIMESTAMP_COL = "ds"
 TS_VALUE_COL = "y"
+
+
+def _write_openml_cache(filepath, dataset):
+    import pickle
+    import tempfile
+
+    directory = os.path.dirname(os.path.abspath(filepath))
+    os.makedirs(directory, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=".openml-", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            pickle.dump(dataset, output, pickle.HIGHEST_PROTOCOL)
+        try:
+            os.replace(temporary, filepath)
+        except PermissionError:
+            # A competing writer may have published a cache now held open by a Windows reader.
+            if not os.path.isfile(filepath):
+                raise
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_format="dataframe"):
     """Load dataset from open ML.
 
     If the file is not cached locally, download it from open ML.
+    Cache publication is atomic so concurrent readers do not observe partial pickles.
 
     Args:
         dataset_id: An integer of the dataset id in openml.
@@ -66,31 +92,39 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
     filename = "openml_ds" + str(dataset_id) + ".pkl"
     filepath = os.path.join(data_dir, filename)
     if os.path.isfile(filepath):
-        print("load dataset from", filepath)
+        logger.info("load dataset from %s", filepath)
         with open(filepath, "rb") as f:
             dataset = pickle.load(f)
     else:
-        print("download dataset from openml")
+        logger.info("download dataset from openml")
         dataset = openml.datasets.get_dataset(dataset_id) if openml else None
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        with open(filepath, "wb") as f:
-            pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
-    print("Dataset name:", dataset.name) if dataset else None
+        _write_openml_cache(filepath, dataset)
+    if dataset:
+        logger.info("Dataset name: %s", dataset.name)
     try:
         X, y, *__ = dataset.get_data(target=dataset.default_target_attribute, dataset_format=dataset_format)
     except (ValueError, AttributeError, TypeError):
+        from inspect import signature
+
         from sklearn.datasets import fetch_openml
 
-        X, y = fetch_openml(data_id=dataset_id, return_X_y=True)
+        options = {
+            "data_id": dataset_id,
+            "return_X_y": True,
+            "data_home": data_dir,
+            "as_frame": dataset_format == "dataframe",
+        }
+        if "parser" in signature(fetch_openml).parameters:
+            # The pandas ARFF parser can apply string quote stripping to numeric categories.
+            options["parser"] = "liac-arff"
+        X, y = fetch_openml(**options)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
-    print(
-        "X_train.shape: {}, y_train.shape: {};\nX_test.shape: {}, y_test.shape: {}".format(
-            X_train.shape,
-            y_train.shape,
-            X_test.shape,
-            y_test.shape,
-        )
+    logger.info(
+        "X_train.shape: %s, y_train.shape: %s;\nX_test.shape: %s, y_test.shape: %s",
+        X_train.shape,
+        y_train.shape,
+        X_test.shape,
+        y_test.shape,
     )
     return X_train, X_test, y_train, y_test
 
@@ -100,6 +134,7 @@ def load_openml_task(task_id, data_dir):
 
     Use the first fold of the task.
     If the file is not cached locally, download it from open ML.
+    Cache publication is atomic so concurrent readers do not observe partial pickles.
 
     Args:
         task_id: An integer of the task id in openml.
@@ -119,14 +154,13 @@ def load_openml_task(task_id, data_dir):
     filename = "openml_task" + str(task_id) + ".pkl"
     filepath = os.path.join(data_dir, filename)
     if os.path.isfile(filepath):
-        print("load dataset from", filepath)
+        logger.info("load_openml_task: loading task_id=%s from cache filepath=%r", task_id, filepath)
         with open(filepath, "rb") as f:
             dataset = pickle.load(f)
     else:
-        print("download dataset from openml")
+        logger.info("load_openml_task: downloading task_id=%s from openml", task_id)
         dataset = task.get_dataset()
-        with open(filepath, "wb") as f:
-            pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
+        _write_openml_cache(filepath, dataset)
     X, y, _, _ = dataset.get_data(task.target_name)
     train_indices, test_indices = task.get_train_test_split_indices(
         repeat=0,
@@ -137,13 +171,13 @@ def load_openml_task(task_id, data_dir):
     y_train = y[train_indices]
     X_test = X.iloc[test_indices]
     y_test = y[test_indices]
-    print(
-        "X_train.shape: {}, y_train.shape: {},\nX_test.shape: {}, y_test.shape: {}".format(
-            X_train.shape,
-            y_train.shape,
-            X_test.shape,
-            y_test.shape,
-        )
+    logger.info(
+        "load_openml_task: task_id=%s X_train.shape=%s y_train.shape=%s X_test.shape=%s y_test.shape=%s",
+        task_id,
+        X_train.shape,
+        y_train.shape,
+        X_test.shape,
+        y_test.shape,
     )
     return X_train, X_test, y_train, y_test
 
@@ -243,55 +277,128 @@ def concat(X1, X2):
         return np.concatenate([X1, X2])
 
 
+def _nat_aware_int_series(values: "pd.Series", index: "pd.Index") -> "pd.Series":
+    """Build a nullable ``Int64`` Series from int-coercible values aligned to
+    ``index``; rows whose ``values`` slot is missing become ``pd.NA``.
+
+    Preserve missing timestamps in the calendar-index branches of
+    ``add_time_idx_col`` without promoting integer indexes to float64.
+    """
+    not_na = values.notna()
+    out = pd.Series(pd.NA, index=index, dtype="Int64")
+    if not_na.any():
+        out.loc[not_na] = values[not_na].astype("int64").values
+    return out
+
+
 def add_time_idx_col(X):
-    unique_dates = X[TS_TIMESTAMP_COL].drop_duplicates().sort_values(ascending=True)
-    # assume no missing timestamps
-    dates = pd.DatetimeIndex(unique_dates)
-    freq = pd.infer_freq(dates)
-    if freq is None and dates.tz is not None:
-        # older pandas cannot infer calendar frequencies such as business days across DST
-        # from tz-aware dates, so try the local wall-clock times
-        freq = pd.infer_freq(dates.tz_localize(None))
-        # wall-clock regularity can hide a missing DST fold hour, so only keep the
-        # frequency if it regenerates the tz-aware timestamps exactly
+    """Add a nullable step index, retaining the legacy month-start calendar index."""
+    ts = X[TS_TIMESTAMP_COL]
+    if ts.dtype == object or isinstance(ts.dtype, pd.StringDtype):
+        had_nonnull_before = ts.notna().any()
+        try:
+            ts = pd.to_datetime(ts, errors="coerce")
+        except (ValueError, TypeError):
+            ts = X[TS_TIMESTAMP_COL]
+        else:
+            if had_nonnull_before and not ts.notna().any():
+                raise TypeError(
+                    f"Column {TS_TIMESTAMP_COL!r} must be datetime-like to compute time_idx; "
+                    "all non-null values were unparseable. Convert with pd.to_datetime first."
+                )
+            X = X.copy()
+            X[TS_TIMESTAMP_COL] = ts
+    unique_dates = ts.dropna().drop_duplicates()
+    if len(unique_dates) and not (
+        pd.api.types.is_datetime64_any_dtype(unique_dates) or isinstance(unique_dates.dtype, pd.DatetimeTZDtype)
+    ):
+        raise TypeError(
+            f"Column {TS_TIMESTAMP_COL!r} must be datetime-like to compute time_idx; "
+            f"got dtype {unique_dates.dtype!r}. Convert with pd.to_datetime first."
+        )
+    time_idx = pd.Series(pd.NA, index=X.index, dtype="Int64")
+    valid = ts.notna()
+    if len(unique_dates) < 2:
+        time_idx.iloc[np.flatnonzero(valid.to_numpy())] = 0
+        X["time_idx"] = time_idx
+        return X
+
+    dates = pd.DatetimeIndex(unique_dates.sort_values())
+    try:
+        freq = pd.infer_freq(dates)
+    except (TypeError, ValueError):
+        freq = None
+    if freq is None and dates.tz is not None and len(dates) >= 3:
+        try:
+            freq = pd.infer_freq(dates.tz_localize(None))
+        except (TypeError, ValueError):
+            freq = None
         if freq is not None and not _is_regular_grid(dates, freq):
             freq = None
+
     if freq == "MS":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year * 12 + X[TS_TIMESTAMP_COL].dt.month
+        raw = ts.dt.year * 12 + ts.dt.month
+        X["time_idx"] = _nat_aware_int_series(raw, X.index)
     elif freq == "Y":
-        X["time_idx"] = X[TS_TIMESTAMP_COL].dt.year
+        X["time_idx"] = _nat_aware_int_series(ts.dt.year, X.index)
+    elif freq is not None:
+        X["time_idx"] = pd.Series(dates.get_indexer(ts), index=X.index, dtype="Int64").mask(~valid)
+    elif (month_steps := _calendar_month_steps(dates)) is not None:
+        X["time_idx"] = pd.Series(month_steps[dates.get_indexer(ts)], index=X.index, dtype="Int64").mask(~valid)
     else:
-        # using time frequency to generate all time stamps and then indexing for time_idx
-        # full_range = pd.date_range(X[TS_TIMESTAMP_COL].min(), X[TS_TIMESTAMP_COL].max(), freq=freq).to_list()
-        # X["time_idx"] = [full_range.index(time) for time in X[TS_TIMESTAMP_COL]]
-        if freq is not None:
-            # regular series: a step is the position among the unique timestamps, so calendar
-            # frequencies (month ends) and tz-aware dates across DST are counted correctly
-            X["time_idx"] = pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])
-        elif (month_steps := _calendar_month_steps(dates)) is not None:
-            # month-end (or same day of month) series with gaps: count calendar months, since
-            # months differ in length and an elapsed-time step would turn months into days
-            X["time_idx"] = month_steps[pd.Index(unique_dates).get_indexer(X[TS_TIMESTAMP_COL])]
-        else:
-            # irregular series: the step is the largest interval that divides every gap,
-            # so distinct timestamps never share an index and gaps are kept
-            timestamps = X[TS_TIMESTAMP_COL]
-            if dates.tz is not None and _has_whole_day_steps(dates.tz_localize(None)):
-                # daily data follows the wall clock, so a 23 or 25 hour day across DST is one step
-                timestamps, dates = timestamps.dt.tz_localize(None), dates.tz_localize(None)
-            values = dates.asi8
-            freq = int(np.gcd.reduce(np.diff(values)))
-            X["time_idx"] = (timestamps.astype("int64") - values[0]) // freq
+        axis = dates
+        if dates.tz is not None and _has_whole_day_steps(dates.tz_localize(None)):
+            axis = dates.tz_localize(None)
+        # Retain the native datetime unit and use Python integers only when
+        # the span can overflow int64; neither NaT nor float arithmetic participates.
+        values = axis.asi8
+        if int(values[-1]) - int(values[0]) > np.iinfo(np.int64).max:
+            values = values.astype(object)
+        step = _gcd_time_gaps(np.diff(values))
+        if step <= 0:
+            raise ValueError("Distinct timestamps must have a positive indexing interval.")
+        steps = (values - int(values[0])) // step
+        if int(max(steps)) > np.iinfo(np.int64).max:
+            time_idx = time_idx.astype(object)
+        positions = dates.get_indexer(ts.loc[valid])
+        if (positions < 0).any():
+            raise ValueError("Timestamps must match the inferred time-index grid.")
+        time_idx.iloc[np.flatnonzero(valid.to_numpy())] = list(steps[positions])
+        X["time_idx"] = time_idx
     return X
+
+
+def _make_column_name_mapping(columns):
+    columns = list(columns)
+    if not pd.Index(columns).is_unique:
+        raise ValueError("Feature column labels must be unique.")
+    names = {column for column in columns if isinstance(column, str)}
+    mapping = {}
+    nonstring_columns = sorted(
+        (column for column in columns if not isinstance(column, str)),
+        key=lambda column: (type(column).__module__, type(column).__qualname__, repr(column)),
+    )
+    for index, column in enumerate(nonstring_columns):
+        name = f"flaml_column_{index}"
+        while name in names:
+            name = "flaml_" + name
+        names.add(name)
+        mapping[column] = name
+    return mapping
 
 
 def _calendar_month_steps(dates):
     """Month steps (or multiples, e.g. quarters) for dates that are all month ends, or all the same
     day of the month, at one time of day; None for any other series."""
     wall = dates.tz_localize(None) if dates.tz is not None else dates
-    if len(wall) < 2 or (wall - wall.normalize()).nunique() != 1:
+    if len(wall) < 2:
         return None
     if not (wall.is_month_end.all() or wall.day.nunique() == 1):
+        return None
+    if any(
+        np.any(getattr(wall, component) != getattr(wall[0], component))
+        for component in ("hour", "minute", "second", "microsecond", "nanosecond")
+    ):
         return None
     months = np.asarray(wall.year * 12 + wall.month, dtype="int64")
     if (np.diff(months) <= 0).any():
@@ -301,10 +408,22 @@ def _calendar_month_steps(dates):
     return steps // int(np.gcd.reduce(np.diff(steps)))
 
 
+def _gcd_time_gaps(gaps):
+    if gaps.dtype != object:
+        return int(np.gcd.reduce(gaps))
+    step = 0
+    for gap in gaps:
+        step = math.gcd(step, int(gap))
+        if step == 1:
+            break
+    return step
+
+
 def _has_whole_day_steps(dates):
-    gaps = np.diff(dates.asi8)
-    day = np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns"))
-    return bool((gaps > 0).all()) and np.gcd.reduce(gaps) % day == 0
+    if len(dates) < 2 or not dates.is_monotonic_increasing or not dates.is_unique:
+        return False
+    day = int(np.timedelta64(1, "D") // np.timedelta64(1, getattr(dates, "unit", "ns")))
+    return bool(np.all(dates.asi8 % day == int(dates.asi8[0]) % day))
 
 
 def _is_regular_grid(dates, freq):
@@ -321,13 +440,23 @@ def _is_regular_grid(dates, freq):
 class DataTransformer:
     """Transform input training data."""
 
-    def fit_transform(self, X: Union[DataFrame, np.ndarray], y, task: Union[str, "Task"]):
+    def fit_transform(
+        self,
+        X: Union[DataFrame, np.ndarray],
+        y,
+        task: Union[str, "Task"],
+        *,
+        transform_features=True,
+        preserve_features=False,
+    ):
         """Fit transformer and process the input training data according to the task type.
 
         Args:
             X: A numpy array or a pandas dataframe of training data.
             y: A numpy array or a pandas series of labels.
             task: An instance of type Task, or a str such as 'classification', 'regression'.
+            transform_features: Fit feature statistics, or only normalize target labels and record input schema.
+            preserve_features: Keep constant/identifier columns for fold-local AutoFE to select explicitly.
 
         Returns:
             X: Processed numpy array or pandas dataframe of training data.
@@ -338,7 +467,22 @@ class DataTransformer:
 
             task = task_factory(task, X, y)
 
-        if task.is_nlp():
+        self._skip_feature_transform = not transform_features
+        self._preserve_features = preserve_features
+        if preserve_features and isinstance(X, np.ndarray):
+            X = pd.DataFrame(X).infer_objects()
+        if preserve_features or not transform_features:
+            self._original_columns = list(X.columns) if isinstance(X, DataFrame) else list(range(X.shape[1]))
+            self._str_columns = self._original_columns
+        self._column_mapping = (
+            _make_column_name_mapping(X.columns) if preserve_features and isinstance(X, DataFrame) else {}
+        )
+        if self._column_mapping:
+            X = X.rename(columns=self._column_mapping)
+
+        if not transform_features:
+            X = X.copy()
+        elif task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
             # ids (input ids, token type id, attention mask, etc.)
             str_columns = []
@@ -364,19 +508,25 @@ class DataTransformer:
             for column in X.columns:
                 # sklearn\utils\validation.py needs int/float values
                 if X[column].dtype.name in ("object", "category", "string", "str"):
-                    if X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum():
+                    if not preserve_features and (
+                        X[column].nunique() == 1 or X[column].nunique(dropna=True) == n - X[column].isnull().sum()
+                    ):
                         X = X.drop(columns=column)
                         drop = True
                     elif X[column].dtype.name == "category":
-                        current_categories = X[column].cat.categories
-                        if "__NAN__" not in current_categories:
-                            X[column] = X[column].cat.add_categories("__NAN__")
-                        X[column] = X[column].fillna("__NAN__")
+                        if preserve_features:
+                            X[column] = X[column].cat.remove_unused_categories()
+                        else:
+                            current_categories = X[column].cat.categories
+                            if "__NAN__" not in current_categories:
+                                X[column] = X[column].cat.add_categories("__NAN__")
+                            X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
                     else:
-                        X[column] = X[column].fillna("__NAN__")
+                        if not preserve_features:
+                            X[column] = X[column].fillna("__NAN__")
                         cat_columns.append(column)
-                elif X[column].nunique(dropna=True) < 2:
+                elif not preserve_features and X[column].nunique(dropna=True) < 2:
                     X = X.drop(columns=column)
                     drop = True
                 else:  # datetime or numeric
@@ -414,13 +564,17 @@ class DataTransformer:
                 from sklearn.preprocessing import OrdinalEncoder
 
                 categories = [X[column].cat.categories.to_numpy(dtype=object) for column in cat_columns]
-                self._ordinal_encoder = OrdinalEncoder(
-                    categories=[np.arange(len(values)) for values in categories],
-                    handle_unknown="use_encoded_value",
-                    unknown_value=-1,
-                )
-                self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
-                self._ordinal_encoder.categories_ = categories
+                if preserve_features:
+                    self._ordinal_encoder = None
+                    self._cat_categories = dict(zip(cat_columns, categories))
+                else:
+                    self._ordinal_encoder = OrdinalEncoder(
+                        categories=[np.arange(len(values)) for values in categories],
+                        handle_unknown="use_encoded_value",
+                        unknown_value=-1,
+                    )
+                    self._ordinal_encoder.fit(np.column_stack([X[column].cat.codes for column in cat_columns]))
+                    self._ordinal_encoder.categories_ = categories
             if num_columns:
                 X_num = X[num_columns]
                 try:
@@ -435,11 +589,12 @@ class DataTransformer:
                 from sklearn.compose import ColumnTransformer
                 from sklearn.impute import SimpleImputer
 
+                imputer_kwargs = {"keep_empty_features": True} if preserve_features else {}
                 self.transformer = ColumnTransformer(
                     [
                         (
                             "continuous",
-                            SimpleImputer(missing_values=np.nan, strategy="median"),
+                            SimpleImputer(missing_values=np.nan, strategy="median", **imputer_kwargs),
                             X_num.columns,
                         )
                     ]
@@ -451,7 +606,9 @@ class DataTransformer:
                 datetime_columns,
             )
             self._drop = drop
-        if task.is_classification() or not pd.api.types.is_numeric_dtype(y) and not task.is_nlg():
+        if y is None:
+            self.label_transformer = None
+        elif task.is_classification() or not pd.api.types.is_numeric_dtype(y) and not task.is_nlg():
             if not task.is_token_classification():
                 from sklearn.preprocessing import LabelEncoder
 
@@ -466,6 +623,12 @@ class DataTransformer:
         self._task = task
         return X, y
 
+    def __sklearn_is_fitted__(self):
+        """sklearn 1.8 hook used by `check_is_fitted` (e.g. when this
+        transformer is wrapped in a Pipeline). `_task` is the canonical
+        attribute set by `fit_transform`."""
+        return hasattr(self, "_task")
+
     def transform(self, X: Union[DataFrame, np.array]):
         """Process data using fit transformer.
 
@@ -476,6 +639,12 @@ class DataTransformer:
             X: Processed numpy array or pandas dataframe of training data.
         """
         X = X.copy()
+        if getattr(self, "_skip_feature_transform", False):
+            return X
+        if getattr(self, "_preserve_features", False) and isinstance(X, np.ndarray):
+            X = pd.DataFrame(X, columns=self._original_columns).infer_objects()
+        if getattr(self, "_preserve_features", False):
+            X = X.rename(columns=self._column_mapping)
 
         if self._task.is_nlp():
             # if the mode is NLP, check the type of input, each column must be either string or
@@ -513,6 +682,8 @@ class DataTransformer:
             if self._task.is_ts_forecast():
                 X.insert(0, TS_TIMESTAMP_COL, ds_col)
             for column in cat_columns:
+                if getattr(self, "_preserve_features", False):
+                    continue
                 if X[column].dtype.name in ("object", "string", "str"):
                     X[column] = X[column].fillna("__NAN__")
                 elif X[column].dtype.name == "category":
@@ -534,7 +705,10 @@ class DataTransformer:
                 #      whatever `astype("category")` inferred above.
                 encoder = getattr(self, "_ordinal_encoder", None)
                 saved_cats_map = getattr(self, "_cat_categories", None)
-                if encoder is not None:
+                if getattr(self, "_preserve_features", False) and saved_cats_map:
+                    for column in cat_columns:
+                        X[column] = pd.Categorical(X[column], categories=saved_cats_map[column])
+                elif encoder is not None:
                     for col_idx, column in enumerate(cat_columns):
                         known_cats = list(encoder.categories_[col_idx])
                         # Include "__NAN__" as the sentinel slot even if the
@@ -691,18 +865,207 @@ def get_random_dataframe(n_rows: int = 200, ratio_none: float = 0.1, seed: int =
     return pd.DataFrame(data)
 
 
+# Allowlist of Spark SQL types accepted by ``_spark_try_cast``. Strict
+# matching prevents arbitrary tokens from being interpolated into the
+# generated ``try_cast(... as <type>)`` expression by an upstream caller.
+_SPARK_CAST_ALLOWED_TYPES = frozenset(
+    {"int", "bigint", "long", "double", "float", "string", "boolean", "timestamp", "date"}
+)
+
+# Float64 mantissa is 52 bits, so integers in the range ``[-2**53, 2**53]``
+# (53 bits including the implicit leading 1) are exactly representable.
+# Values at or beyond ``2**53`` start losing the unit's place — e.g.,
+# ``2**53 + 1`` rounds to ``2**53`` on conversion to ``float64``. Used by
+# ``auto_convert_dtypes_pandas`` to gate precision-preserving Int64
+# re-derivation in the ``pd.to_numeric`` fallback path.
+_FLOAT64_SAFE_INT_CEILING = 2**53
+
+
+def _spark_try_cast(col_name: str, sql_type: str):
+    """Cast ``col_name`` to ``sql_type`` returning NULL for unparseable values.
+
+    Wraps Spark SQL's ``try_cast`` (available since Spark 3.2) so the call does
+    not raise ``NumberFormatException`` under ANSI mode, which is enabled by
+    default in Spark 4.x. Embedded backticks in the column name are escaped by
+    doubling so the generated expression remains valid. ``sql_type`` is
+    checked against ``_SPARK_CAST_ALLOWED_TYPES`` so untrusted callers can't
+    inject additional SQL tokens via the type string.
+    """
+    if sql_type not in _SPARK_CAST_ALLOWED_TYPES:
+        raise ValueError(
+            f"_spark_try_cast: unsupported sql_type {sql_type!r}; "
+            f"expected one of {sorted(_SPARK_CAST_ALLOWED_TYPES)}"
+        )
+    escaped = col_name.replace("`", "``")
+    return F.expr(f"try_cast(`{escaped}` as {sql_type})")
+
+
+def _spark_column(col_name: str):
+    return F.col(f"`{col_name.replace('`', '``')}`")
+
+
+def _spark_decimal_key(column):
+    """Normalize numeric text without first rounding it through a fixed-scale decimal."""
+    text = F.regexp_replace(column.cast("string"), r"^\s+|\s+$", "")
+    valid = text.rlike(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+    pattern = r"^[+-]?(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$"
+    whole = F.regexp_extract(text, pattern, 1)
+    fraction = F.regexp_extract(text, pattern, 2)
+    exponent_text = F.regexp_extract(text, pattern, 3)
+    exponent = F.when(exponent_text == "", F.lit(0)).when(F.length(exponent_text) <= 9, exponent_text.cast("int"))
+    digits = F.regexp_replace(F.concat(whole, fraction), r"^0+", "")
+    significant = F.regexp_replace(digits, r"0+$", "")
+    zero = significant == ""
+    power = exponent - F.length(fraction) + F.length(digits) - F.length(significant)
+    return F.when(
+        valid & exponent.isNotNull(),
+        F.struct(
+            F.when(zero, F.lit(False)).otherwise(text.startswith("-")).alias("negative"),
+            F.when(zero, F.lit("0")).otherwise(significant).alias("digits"),
+            F.when(zero, F.lit(0)).otherwise(power).alias("exponent"),
+        ),
+    )
+
+
+def _spark_integral_value(col_name: str):
+    escaped = col_name.replace("`", "``")
+    decimal_sql = f"try_cast(`{escaped}` as decimal(38,18))"
+    rounded = F.expr(f"try_cast(round({decimal_sql}) as bigint)")
+    whole = _spark_decimal_key(_spark_column(col_name))["exponent"] >= 0
+    return F.when(whole, F.coalesce(_spark_try_cast(col_name, "bigint"), rounded))
+
+
+def _spark_numeric_precision_loss(col_name: str):
+    escaped = col_name.replace("`", "``")
+    numeric = _spark_try_cast(col_name, "double")
+    exact = F.expr(f"try_cast(`{escaped}` as decimal(38,18))")
+    roundtrip = F.expr(f"try_cast(try_cast(`{escaped}` as double) as decimal(38,18))")
+    literal = F.regexp_replace(_spark_column(col_name), r"^\s+|\s+$", "").rlike(
+        r"^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+        r"|0[xX](?:[0-9a-fA-F]+(?:\.[0-9a-fA-F]*)?|\.[0-9a-fA-F]+)[pP][+-]?\d+)[dDfF]?$"
+    )
+    finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
+    return (finite & _spark_decimal_key(_spark_column(col_name)).isNull()) | (
+        literal
+        & (
+            ~finite
+            | ~_spark_decimal_key(_spark_column(col_name)).eqNullSafe(_spark_decimal_key(numeric))
+            | ((numeric % 1 == 0) & (exact % 1 != 0))
+            | (
+                (F.abs(numeric) >= _FLOAT64_SAFE_INT_CEILING)
+                & (exact.isNull() | roundtrip.isNull() | (exact != roundtrip))
+            )
+        )
+    )
+
+
+def _validate_na_values_list(na_values, *, arg_name: str = "na_values"):
+    """Validate ``na_values`` and return it materialized as a ``list[str]``.
+
+    Both ``auto_convert_dtypes_pandas`` and ``auto_convert_dtypes_spark``
+    document ``na_values`` as a list of strings and later call
+    ``str.lower`` / ``re.escape`` on each element. Three classes of bad
+    input are caught here so failures happen at the public entry point
+    instead of deep inside the per-column loop:
+
+    1. ``str`` / ``bytes`` for ``na_values`` itself — iterating would
+       silently treat it as a sequence of single characters (e.g.,
+       ``na_values="NA"`` would behave like ``["N", "A"]``).
+    2. Non-``str`` elements (``None``, numbers, ``bytes``, …) — would
+       otherwise raise an opaque ``AttributeError`` from ``v.lower()``
+       or ``TypeError`` from ``re.escape(v)``.
+    3. One-shot iterables (generators / iterators) — would be consumed
+       by the per-element check below and then behave as empty when
+       the caller iterates them again to build the lowered list /
+       regex. Materializing to ``list`` once here avoids that pitfall.
+
+    The error message names the offending index and type so callers
+    can immediately see the problem. Returns the materialized list so
+    callers can re-bind the local name and use it safely downstream.
+    """
+    if isinstance(na_values, (str, bytes)):
+        raise TypeError(
+            f"{arg_name} must be a non-string iterable of str (e.g., list/tuple), "
+            f"got {type(na_values).__name__}: {na_values!r}"
+        )
+    try:
+        materialized = list(na_values)
+    except TypeError as exc:
+        raise TypeError(
+            f"{arg_name} must be a non-string iterable of str (e.g., list/tuple), "
+            f"got non-iterable {type(na_values).__name__}: {na_values!r}"
+        ) from exc
+    for i, v in enumerate(materialized):
+        if not isinstance(v, str):
+            raise TypeError(f"{arg_name}[{i}] must be a str, got {type(v).__name__}: {v!r}")
+    return materialized
+
+
+def _validate_skip_columns(skip_columns, *, arg_name: str = "skip_columns", require_str: bool = False):
+    """Validate ``skip_columns`` and return it materialized as a ``list`` (or ``None``).
+
+    ``set(skip_columns)`` would silently expand a bare ``str``/``bytes``
+    into its characters (``set("abc") == {"a","b","c"}``), causing
+    unrelated single-character columns to be skipped. Reject those
+    upfront and materialize generators / iterators to ``list`` so callers
+    can iterate them more than once without surprises (e.g., consuming
+    a generator during validation and then having ``set(skip_columns)``
+    see an empty iterable).
+
+    By default, allow any *hashable* column labels — pandas DataFrames
+    legitimately have non-string column labels (``int``, ``tuple``, …),
+    and ``set()``-based membership only needs hashability. When
+    ``require_str=True`` (Spark callers, where column names are always
+    strings), enforce ``str`` elements as well. ``None`` is allowed and
+    means "skip no columns"; ``None`` is returned unchanged so callers
+    can keep their existing ``set(skip_columns) if skip_columns else
+    set()`` pattern.
+    """
+    if skip_columns is None:
+        return None
+    if isinstance(skip_columns, (str, bytes)):
+        raise TypeError(
+            f"{arg_name} must be None or a non-string iterable of column labels, "
+            f"got {type(skip_columns).__name__}: {skip_columns!r}"
+        )
+    try:
+        materialized = list(skip_columns)
+    except TypeError as exc:
+        raise TypeError(
+            f"{arg_name} must be None or a non-string iterable of column labels, "
+            f"got non-iterable {type(skip_columns).__name__}: {skip_columns!r}"
+        ) from exc
+    for i, v in enumerate(materialized):
+        if require_str:
+            if not isinstance(v, str):
+                raise TypeError(f"{arg_name}[{i}] must be a str, got {type(v).__name__}: {v!r}")
+        else:
+            try:
+                hash(v)
+            except TypeError as exc:
+                raise TypeError(f"{arg_name}[{i}] must be hashable, got {type(v).__name__}: {v!r}") from exc
+    return materialized
+
+
 def auto_convert_dtypes_spark(
     df: psDataFrame,
     na_values: list = None,
     category_threshold: float = 0.3,
     convert_threshold: float = 0.6,
     sample_ratio: float = 0.1,
+    skip_columns: list = None,
 ) -> tuple[psDataFrame, dict]:
     """Automatically convert data types in a PySpark DataFrame using heuristics.
 
     This function analyzes a sample of the DataFrame to infer appropriate data types
-    and applies the conversions. It handles timestamps, numeric values, booleans,
-    and categorical fields.
+    and applies the conversions. It handles timestamps, numeric values, and
+    categorical (low-cardinality) string fields. Already-typed boolean columns are
+    coerced to ``int`` (Spark ``bool``→``int``) so downstream pipelines that expect
+    numeric features keep working; boolean *detection* from string values
+    (``"true"``/``"false"``/``"yes"``/``"no"``/``"0"``/``"1"``) is **not**
+    performed — such columns are inferred as ``"category"`` (low cardinality) or
+    ``"int"`` (``"0"``/``"1"`` strings cast through ``try_cast(... as int)``)
+    depending on the values present.
 
     Args:
         df: A PySpark DataFrame to convert.
@@ -713,6 +1076,10 @@ def auto_convert_dtypes_spark(
         convert_threshold: Minimum ratio of successfully converted values required
             to apply a type conversion. Defaults to 0.6.
         sample_ratio: Fraction of data to sample for type inference. Defaults to 0.1.
+        skip_columns: Optional iterable of column names to leave untouched.
+            Listed columns are not analyzed, not NA-normalized, and keep their
+            original Spark dtype. They still appear in the returned schema
+            dict with their existing dtype. Defaults to None (no skipping).
 
     Returns:
         tuple: (The DataFrame with converted types, A dictionary mapping column names to
@@ -722,91 +1089,349 @@ def auto_convert_dtypes_spark(
         - 'category' in the schema dict is conceptual as PySpark doesn't have a true
             category type like pandas
         - The function uses sampling for efficiency with large datasets
+        - Numeric and timestamp candidates must also meet convert_threshold on the
+            full non-null column. An accepted conversion can coerce nonmatching
+            values to null; use skip_columns to preserve a column unchanged.
     """
+    if not (0 < sample_ratio <= 1):
+        # Match the pandas-path validation so misuses are caught
+        # consistently across both code paths. ``0`` or negative
+        # values would silently bottom out on the 100-row floor in
+        # the sampling math below, and values greater than 1 would
+        # silently become a full sample — surprising callers either
+        # way. Validate BEFORE ``df.count()`` so an invalid call
+        # doesn't trigger a Spark job (full-input scan) only to
+        # immediately fail.
+        raise ValueError(f"sample_ratio must be in (0, 1], got {sample_ratio!r}")
     n_rows = df.count()
     if na_values is None:
         na_values = ["NA", "na", "NULL", "null", ""]
+    na_values = _validate_na_values_list(na_values)
+    skip_columns = _validate_skip_columns(skip_columns, require_str=True)
+    skip_set = set(skip_columns) if skip_columns else set()
+    # Precompute the lowered NA values once; reused for every string column
+    # below so we don't rebuild the list per column inside the Spark loop.
+    na_values_lowered = [v.lower() for v in na_values]
 
-    # Normalize NA-like values
+    # Empty DataFrame: there's no data to sample, infer from, or normalize;
+    # still apply the same dtype rules (notably boolean → int) so the
+    # returned schema/dtypes are consistent with the non-empty path. Reaching
+    # the main loop below would compute ``100 / n_rows`` and divide by zero.
+    if n_rows == 0:
+        original_dtypes = dict(df.dtypes)
+        schema = {}
+        for colname in df.columns:
+            if colname in skip_set:
+                schema[colname] = original_dtypes[colname]
+            else:
+                schema[colname] = "int" if original_dtypes[colname] == "boolean" else original_dtypes[colname]
+        for colname, inferred_type in schema.items():
+            if colname in skip_set:
+                continue
+            if inferred_type == "int":
+                df = df.withColumn(colname, _spark_try_cast(colname, "int"))
+        return df, schema
+
+    # Normalize NA-like values (skip columns in ``skip_set``)
     for colname, coltype in df.dtypes:
-        if coltype == "string":
+        if coltype == "string" and colname not in skip_set:
             df = df.withColumn(
                 colname,
-                F.when(F.trim(F.lower(F.col(colname))).isin([v.lower() for v in na_values]), None).otherwise(
-                    F.col(colname)
+                F.when(F.trim(F.lower(_spark_column(colname))).isin(na_values_lowered), None).otherwise(
+                    _spark_column(colname)
                 ),
             )
 
     schema = {}
+    original_dtypes = dict(df.dtypes)
+    # ``sample_ratio_to_use`` depends only on ``n_rows`` and ``sample_ratio``
+    # (constant across all columns), so compute it once outside the loop
+    # rather than re-deriving it per column. ``n_rows`` is guaranteed > 0
+    # here because the empty-DataFrame early-return short-circuited above.
+    sample_ratio_to_use = min(1.0, sample_ratio if n_rows * sample_ratio > 100 else 100 / n_rows)
     for colname in df.columns:
-        # Sample once at an appropriate ratio
-        sample_ratio_to_use = min(1.0, sample_ratio if n_rows * sample_ratio > 100 else 100 / n_rows)
-        col_sample = df.select(colname).sample(withReplacement=False, fraction=sample_ratio_to_use).dropna()
-        sample_count = col_sample.count()
+        # Honor skip_columns: record the existing dtype and move on.
+        if colname in skip_set:
+            schema[colname] = original_dtypes[colname]
+            continue
+
+        # Sample once at an appropriate ratio (constant across columns).
+        col_sample = (
+            df.select(_spark_column(colname))
+            .sample(withReplacement=False, fraction=sample_ratio_to_use, seed=0)
+            .filter(_spark_column(colname).isNotNull())
+        )
 
         inferred_type = "string"  # Default
 
         if col_sample.dtypes[0][1] != "string":
-            schema[colname] = col_sample.dtypes[0][1]
+            existing = col_sample.dtypes[0][1]
+            # Cast already-boolean columns to int (1/0/null). FLAML's
+            # downstream estimators treat booleans as numeric features
+            # anyway, and a bool dtype trips sklearn's early-conversion
+            # path when mixed with string categoricals in a single
+            # ColumnTransformer.
+            if existing == "boolean":
+                schema[colname] = "int"
+            else:
+                schema[colname] = existing
             continue
+
+        # Consolidate ALL per-column metrics into a single ``.agg(...)``
+        # so the entire inference for this column requires exactly one
+        # Spark action (one job) instead of the historical 2-3 actions
+        # Integer inference uses the original literal, not a rounded double.
+        # Invalid casts remain null under ANSI mode; NaN/Infinity are not whole values.
+        double_col = _spark_try_cast(colname, "double")
+        is_finite_num = double_col.isNotNull() & ~F.isnan(double_col) & ~double_col.isin(float("inf"), float("-inf"))
+        integral_value = _spark_integral_value(colname)
+        ts_parsed = _spark_try_cast(colname, "timestamp")
+        metrics = col_sample.agg(
+            F.count("*").alias("sample_count"),
+            F.sum(F.when(is_finite_num, 1).otherwise(0)).alias("numeric_count"),
+            F.sum(
+                F.when(is_finite_num & (_spark_decimal_key(_spark_column(colname))["exponent"] >= 0), 1).otherwise(0)
+            ).alias("whole_count"),
+            F.sum(F.when(integral_value.between(-(2**31), 2**31 - 1), 1).otherwise(0)).alias("int32_count"),
+            F.sum(F.when(integral_value.isNotNull(), 1).otherwise(0)).alias("int64_count"),
+            F.sum(F.when(ts_parsed.isNotNull(), 1).otherwise(0)).alias("ts_count"),
+            F.countDistinct(_spark_column(colname)).alias("distinct_count"),
+        ).collect()[0]
+        sample_count = metrics["sample_count"]
+        numeric_count = metrics["numeric_count"] or 0
+        whole_count = metrics["whole_count"] or 0
+        int32_count = metrics["int32_count"] or 0
+        int64_count = metrics["int64_count"] or 0
+        ts_count = metrics["ts_count"] or 0
+        distinct_count = metrics["distinct_count"] or 0
 
         if sample_count == 0:
             schema[colname] = "string"
             continue
 
-        # Check if timestamp
-        ts_col = col_sample.withColumn("parsed", F.to_timestamp(F.col(colname)))
+        if numeric_count >= sample_count * convert_threshold:
+            all_whole = whole_count == numeric_count
+            if not all_whole:
+                inferred_type = "double"
+            elif int32_count == numeric_count:
+                inferred_type = "int"
+            elif int64_count == numeric_count:
+                inferred_type = "bigint"
+            else:
+                logger.warning(
+                    "Column %r cannot be represented as signed 64-bit integers; preserving strings.", colname
+                )
 
-        # Check numeric
-        if (
-            col_sample.withColumn("n", F.col(colname).cast("double")).filter("n is not null").count()
-            >= sample_count * convert_threshold
-        ):
-            # All whole numbers?
-            all_whole = (
-                col_sample.withColumn("n", F.col(colname).cast("double"))
-                .filter("n is not null")
-                .withColumn("frac", F.abs(F.col("n") % 1))
-                .filter("frac > 0.000001")
-                .count()
-                == 0
-            )
-            inferred_type = "int" if all_whole else "double"
+        # Check if timestamp BEFORE the low-cardinality check: a column of
+        # string timestamps with limited diversity (e.g., daily timestamps
+        # over a short window, or repeated event timestamps) would otherwise
+        # be classified as ``category`` and never converted to ``timestamp``,
+        # losing all temporal semantics for downstream feature engineering /
+        # forecasting. The numeric check above stays first because a column
+        # that parses as numeric AND as timestamp (rare, e.g., Unix epoch
+        # seconds as digit-only strings) is almost always meant as numeric;
+        # the timestamp check is what users actually want for strings like
+        # ``"2024-01-15"``.
+        elif ts_count >= sample_count * convert_threshold:
+            inferred_type = "timestamp"
 
         # Check low-cardinality (category-like)
-        elif (
-            sample_count > 0
-            and col_sample.select(F.countDistinct(F.col(colname))).collect()[0][0] / sample_count <= category_threshold
-        ):
+        elif sample_count > 0 and distinct_count / sample_count <= category_threshold:
             inferred_type = "category"  # Will just be string, but marked as such
-
-        # Check if timestamp
-        elif ts_col.filter(F.col("parsed").isNotNull()).count() >= sample_count * convert_threshold:
-            inferred_type = "timestamp"
 
         schema[colname] = inferred_type
 
+    conversion_columns = [
+        name
+        for name, dtype in schema.items()
+        if name not in skip_set
+        and original_dtypes[name] == "string"
+        and dtype in {"int", "bigint", "double", "timestamp"}
+    ]
+    if conversion_columns:
+        # Revalidate candidate types together; a biased sample must not choose
+        # a cast whose full-column support is below the requested threshold.
+        checks = []
+        for index, name in enumerate(conversion_columns):
+            value = _spark_integral_value(name)
+            numeric = _spark_try_cast(name, "double")
+            finite = numeric.isNotNull() & ~F.isnan(numeric) & ~numeric.isin(float("inf"), float("-inf"))
+            supported = _spark_try_cast(name, "timestamp").isNotNull() if schema[name] == "timestamp" else finite
+            checks.extend(
+                [
+                    F.count(_spark_column(name)).alias(f"total_{index}"),
+                    F.sum(F.when(supported, 1).otherwise(0)).alias(f"supported_{index}"),
+                ]
+            )
+            if schema[name] in {"int", "bigint"}:
+                precision_loss = _spark_numeric_precision_loss(name)
+                fractional = F.coalesce(_spark_decimal_key(_spark_column(name))["exponent"] < 0, F.lit(False))
+                checks.extend(
+                    [
+                        F.max(
+                            F.when(value.isNotNull() & ~value.between(-(2**31), 2**31 - 1), 1).otherwise(0)
+                        ).alias(f"wide_{index}"),
+                        F.sum(
+                            F.when(
+                                (finite & value.isNull() & ~fractional) | (~finite & precision_loss),
+                                1,
+                            ).otherwise(0)
+                        ).alias(f"invalid_{index}"),
+                        F.max(F.when(finite & fractional & value.isNull(), 1).otherwise(0)).alias(
+                            f"fractional_{index}"
+                        ),
+                        F.max(F.when(precision_loss, 1).otherwise(0)).alias(f"lossy_{index}"),
+                    ]
+                )
+            elif schema[name] == "double":
+                checks.append(
+                    F.max(F.when(_spark_numeric_precision_loss(name), 1).otherwise(0)).alias(f"lossy_{index}")
+                )
+        validation = df.agg(*checks).collect()[0]
+        for index, name in enumerate(conversion_columns):
+            total = validation[f"total_{index}"]
+            supported = validation[f"supported_{index}"] or 0
+            if total == 0 or supported < total * convert_threshold:
+                logger.warning(
+                    "Column %r does not meet the full-column %s conversion threshold; preserving strings.",
+                    name,
+                    schema[name],
+                )
+                schema[name] = "string"
+            elif schema[name] in {"int", "bigint"}:
+                if validation[f"invalid_{index}"]:
+                    raise ValueError(
+                        f"Column {name!r} has finite numeric values incompatible with its inferred integer type. "
+                        "Use skip_columns to preserve the original values."
+                    )
+                if validation[f"fractional_{index}"]:
+                    schema[name] = "string" if validation[f"lossy_{index}"] else "double"
+                    if schema[name] == "string":
+                        logger.warning("Column %r cannot be widened losslessly to double; preserving strings.", name)
+                elif validation[f"wide_{index}"]:
+                    schema[name] = "bigint"
+            elif schema[name] == "double" and validation[f"lossy_{index}"]:
+                logger.warning("Column %r cannot be converted losslessly to double; preserving strings.", name)
+                schema[name] = "string"
+
     # Apply inferred schema
     for colname, inferred_type in schema.items():
-        if inferred_type == "int":
-            df = df.withColumn(colname, F.col(colname).cast(T.IntegerType()))
+        if colname in skip_set:
+            continue
+        # Use ``try_cast`` for numeric conversions so any rows that survived
+        # the sampling-based inference but are not actually castable become
+        # NULL rather than raising under Spark ANSI mode.
+        if inferred_type == "int" and original_dtypes[colname] == "boolean":
+            df = df.withColumn(colname, _spark_column(colname).cast("int"))
+        elif inferred_type in {"int", "bigint"} and original_dtypes[colname] == "string":
+            df = df.withColumn(colname, _spark_integral_value(colname).cast(inferred_type))
         elif inferred_type == "double":
-            df = df.withColumn(colname, F.col(colname).cast(T.DoubleType()))
-        elif inferred_type == "boolean":
-            df = df.withColumn(
-                colname,
-                F.when(F.lower(F.col(colname)).isin("true", "yes", "1"), True)
-                .when(F.lower(F.col(colname)).isin("false", "no", "0"), False)
-                .otherwise(None),
-            )
+            df = df.withColumn(colname, _spark_try_cast(colname, "double"))
         elif inferred_type == "timestamp":
-            df = df.withColumn(colname, F.to_timestamp(F.col(colname)))
+            df = df.withColumn(colname, _spark_try_cast(colname, "timestamp"))
         elif inferred_type == "category":
-            df = df.withColumn(colname, F.col(colname).cast(T.StringType()))  # Marked conceptually
+            df = df.withColumn(colname, _spark_column(colname).cast(T.StringType()))  # Marked conceptually
 
         # otherwise keep as string (or original type)
 
     return df, schema
+
+
+# Regex used by ``auto_convert_dtypes_pandas`` to decide whether a string value
+# plausibly represents a timedelta before delegating to ``pd.to_timedelta``.
+# ``pd.to_timedelta`` is overly permissive: it interprets bare integers as
+# nanoseconds and silently extracts a leading signed number from strings such
+# as "31-40" or "60+", which would otherwise mis-classify categorical labels
+# as timedeltas. The pattern is matched with ``str.fullmatch`` so the entire
+# string must match — substrings like ``"v1:2"`` or ``"foo1:2bar"`` cannot
+# accidentally satisfy it. A value is accepted only if it matches one of:
+#   * an ISO 8601 duration like ``P1DT2H`` / ``PT30S`` (must contain at least
+#     one valid ``<number><Y|M|W|D|H|S>`` token, so ``"P31-40"`` is rejected),
+#   * one or more ``<number><unit>`` segments — possibly compact like
+#     ``"2h30m"`` or ``"1d2h"``, possibly followed by a ``HH:MM:SS`` clock,
+#   * a bare ``HH:MM:SS[.fff]`` clock segment.
+# Recognized units: ``days``, ``weeks``, ``hours``, ``hrs``, ``minutes``,
+# ``mins``, ``min``, ``seconds``, ``secs``, ``sec``, ``milliseconds``,
+# ``microseconds``, ``nanoseconds``, ``ms``, ``us``, ``µs``, ``ns``, or
+# single-letter ``d``/``h``/``m``/``s``/``w``.
+_TIMEDELTA_UNIT = (
+    r"days?|weeks?|hours?|hrs?|minutes?|mins?|min|seconds?|secs?|sec"
+    r"|milliseconds?|microseconds?|nanoseconds?"
+    r"|ms|us|µs|ns"
+    r"|[dhmsw]"
+)
+_TIMEDELTA_LIKE_PATTERN = re.compile(
+    r"\s*[+-]?(?:"
+    # ISO 8601 duration. Requires a date part with valid letters [WD] and/or
+    # a time part introduced by ``T`` with valid letters [HMS]. We exclude
+    # years (``Y``) and the date-part ``M`` (months) here because
+    # ``pd.to_timedelta`` does not support them as unambiguous timedeltas —
+    # accepting them would inflate the timedelta-like count during
+    # thresholding and then fail (or become NaT) during the actual
+    # ``pd.to_timedelta`` conversion. The time-part ``M`` (minutes) is still
+    # accepted because it appears AFTER the ``T`` separator. Strings like
+    # ``"P31-40"`` are still rejected because ``-`` is not a valid ISO
+    # unit letter.
+    r"P(?:(?:\d+(?:\.\d+)?[WD])+(?:T(?:\d+(?:\.\d+)?[HMS])+)?" r"|T(?:\d+(?:\.\d+)?[HMS])+)" r"|"
+    # One or more ``<number><unit>`` segments, optionally followed by a clock
+    # segment. Whitespace and a single comma between segments are tolerated.
+    # The clock allows 1- or 2-digit minutes/seconds (``"1:2:3"``, ``"0:0:5"``)
+    # to mirror what ``pd.to_timedelta`` actually parses.
+    rf"(?:\d+(?:\.\d+)?\s*(?:{_TIMEDELTA_UNIT})\s*,?\s*)+" r"(?:\d{1,4}:\d{1,2}:\d{1,2}(?:\.\d+)?)?" r"|"
+    # Bare ``HH:MM:SS[.fff]`` clock (pandas requires the seconds segment).
+    r"\d{1,4}:\d{1,2}:\d{1,2}(?:\.\d+)?" r")\s*",
+    re.IGNORECASE,
+)
+
+# Cheap "does this string smell like a date?" pre-check used before handing a
+# column to ``pd.to_datetime``. A genuine date or datetime string almost
+# always contains AT LEAST one of:
+#   * a 4-digit run (a year, e.g. "2024" in "2024-01-15" or "01/15/2024"),
+#   * a colon (a time component, e.g. "14:30:00"), or
+#   * a 3+ letter alphabetic run (a month or weekday name, e.g. "Jan", "Sun"), or
+#   * a complete three-component numeric date with a two-digit year.
+# Strings like ``"1-2"``, ``"31-40"``, ``"60+"``, ``"S+"`` and other range or
+# bucket labels match NONE of these and historically tripped permissive
+# ``pd.to_datetime`` parsing on some platforms (e.g. Windows + pandas 3.x
+# parses ``"5-6"`` as ``0005-06-01``), causing categorical columns to be
+# silently coerced to ``datetime64``. The guard is intentionally
+# conservative: we only skip the datetime branch when EVERY non-null value
+# fails the smell test, so any column with even one date-shaped entry still
+# gets a chance to be classified as a timestamp.
+_DATETIME_LIKE_HINT = re.compile(r"\d{4}|:|[A-Za-z]{3,}|^\s*\d{1,2}[./-]\d{1,2}[./-]\d{2}\s*$")
+
+
+def _numeric_conversion_loses_precision(source, parsed):
+    if isinstance(source, str):
+        try:
+            exact = Decimal(source.strip())
+        except InvalidOperation:
+            return False
+    elif isinstance(source, Decimal):
+        exact = source
+    elif isinstance(source, (int, np.integer)):
+        exact = Decimal(int(source))
+    else:
+        return False
+    if not exact.is_finite():
+        return False
+    try:
+        value = float(parsed)
+    except (TypeError, ValueError, OverflowError):
+        return True
+    return not math.isfinite(value) or (
+        Decimal(str(value)) != exact
+        or value.is_integer()
+        and exact != exact.to_integral_value()
+        or exact.copy_abs() >= _FLOAT64_SAFE_INT_CEILING
+        and Decimal.from_float(value) != exact
+    )
+
+
+def _has_datetime_hint(values):
+    values = values.dropna()
+    strings = values[values.map(lambda value: isinstance(value, str))]
+    return len(strings) != len(values) or strings.empty or strings.str.contains(_DATETIME_LIKE_HINT, regex=True).any()
 
 
 def auto_convert_dtypes_pandas(
@@ -814,13 +1439,19 @@ def auto_convert_dtypes_pandas(
     na_values: list = None,
     category_threshold: float = 0.3,
     convert_threshold: float = 0.6,
-    sample_ratio: float = 1.0,
+    sample_ratio: float = 0.1,
+    skip_columns: list = None,
 ) -> tuple[DataFrame, dict]:
     """Automatically convert data types in a pandas DataFrame using heuristics.
 
     This function analyzes the DataFrame to infer appropriate data types
     and applies the conversions. It handles timestamps, timedeltas, numeric values,
     and categorical fields.
+
+    Integer and numeric decisions always inspect the full column to preserve
+    values. Sampling supplies cheap datetime hints only; timedelta, datetime,
+    and categorical decisions are validated on the full column without
+    repeating expensive parsing on a sample.
 
     Args:
         df: A pandas DataFrame to convert.
@@ -830,97 +1461,595 @@ def auto_convert_dtypes_pandas(
             to consider a column categorical. Defaults to 0.3.
         convert_threshold: Minimum ratio of successfully converted values required
             to apply a type conversion. Defaults to 0.6.
-        sample_ratio: Fraction of data to sample for type inference. Not used in pandas version
-            but included for API compatibility. Defaults to 1.0.
+        sample_ratio: Fraction of rows used by the initial datetime, timedelta,
+            and categorical heuristics. Integer/numeric decisions and final
+            conversion checks always use the full column. Must be in ``(0, 1]``.
+            Defaults to 0.1, matching ``auto_convert_dtypes_spark``. The effective
+            ratio is ``min(1.0, sample_ratio if n_rows * sample_ratio > 100 else
+            100 / n_rows)`` so small frames (``n_rows <= 100``) are always
+            inferred in full and larger frames see at least 100 rows. Pass
+            ``sample_ratio=1.0`` to force full-frame inference (the previous
+            default behavior).
+        skip_columns: Optional iterable of column names to leave untouched.
+            Listed columns are not analyzed, not NA-normalized, and keep their
+            original dtype and values in the returned DataFrame. They still
+            appear in the returned schema dict with their existing dtype.
+            Defaults to None (no skipping).
 
     Returns:
         tuple: (The DataFrame with converted types, A dictionary mapping column names to
                 their inferred types as strings)
     """
+    if not (0 < sample_ratio <= 1.0):
+        raise ValueError(f"sample_ratio must be in (0, 1], got {sample_ratio!r}")
+
     if na_values is None:
-        na_values = {"NA", "na", "NULL", "null", ""}
-    # Remove the empty string separately (handled by the regex `^\s*$`)
+        na_values = ["NA", "na", "NULL", "null", ""]
+    na_values = _validate_na_values_list(na_values)
+    skip_columns = _validate_skip_columns(skip_columns)
+    skip_set = set(skip_columns) if skip_columns else set()
+    has_blank = "" in na_values
+    # Remove the empty string separately; whitespace-only strings should
+    # only be treated as NA when the caller includes ``""`` in
+    # ``na_values`` — matching the Spark path, which only normalizes
+    # whitespace-only values to NULL when ``""`` is in ``na_values``.
     vals = [re.escape(v) for v in na_values if v != ""]
-    # Build inner alternation group
+    # Build inner alternation group. Match case-insensitively so callers
+    # supplying ``["NA"]`` also normalize lowercase ``"na"`` — consistent
+    # with the Spark path which lowercases values for comparison.
     inner = "|".join(vals) if vals else ""
     if inner:
-        pattern = re.compile(rf"^\s*(?:{inner})?\s*$")
-    else:
+        if has_blank:
+            # Whitespace-only OR any of the explicit NA tokens (possibly
+            # padded by whitespace) match.
+            pattern = re.compile(rf"^(?:\s*$|\s*(?:{inner})\s*)$", re.IGNORECASE)
+        else:
+            # Only the explicit NA tokens (with optional surrounding
+            # whitespace) match; whitespace-only strings are kept as-is.
+            pattern = re.compile(rf"^\s*(?:{inner})\s*$", re.IGNORECASE)
+    elif has_blank:
         pattern = re.compile(r"^\s*$")
+    else:
+        # No NA tokens at all — use a pattern that never matches.
+        pattern = re.compile(r"(?!)")
 
-    df_converted = df.convert_dtypes()
+    # ``df.copy()`` (shallow-data-but-distinct-frame) is used here instead of
+    # ``df.convert_dtypes()`` because EVERY column in the loop below
+    # explicitly overwrites ``df_converted[col]`` along one of the
+    # inference branches (Int64 fast path, numeric, timedelta, datetime,
+    # category, string fallback, ``except`` fallback). The
+    # ``convert_dtypes()`` call would do a full-frame nullable-dtype
+    # rewrite up front, then every column is overwritten anyway — pure
+    # wasted work (and memory) proportional to the input size, with no
+    # observable behavior change. ``df.copy()`` preserves the
+    # frame-level structure (column order, index) without the per-column
+    # dtype-inference pass.
+    df_converted = df.copy()
     schema = {}
 
-    # Sample if needed (for API compatibility)
-    if sample_ratio < 1.0:
-        df = df.sample(frac=sample_ratio)
+    n_full = len(df)
 
-    n_rows = len(df)
+    # Apply the same floor formula as ``auto_convert_dtypes_spark``: use at
+    # least ~100 rows for inference when the frame is large enough, and never
+    # exceed ``sample_ratio=1.0`` (i.e., always inferred in full for small
+    # frames). Empty frames skip the formula to avoid division by zero. Use
+    # ceil + clamping so the documented "at least 100 rows" floor is not
+    # violated by floating-point rounding (e.g., 99.999... -> 99).
+    if n_full > 0:
+        sample_ratio_to_use = min(1.0, sample_ratio if n_full * sample_ratio > 100 else 100 / n_full)
+        target_n = max(1, min(n_full, math.ceil(n_full * sample_ratio_to_use)))
+    else:
+        sample_ratio_to_use = 1.0
+        target_n = 0
+    candidate_columns = [
+        name
+        for name in df.columns
+        if name not in skip_set and (df[name].dtype == object or isinstance(df[name].dtype, pd.StringDtype))
+    ]
+    if 0 < target_n < n_full and candidate_columns:
+        inference_df = df[candidate_columns].sample(n=target_n, random_state=0)
+    else:
+        inference_df = df
+
+    sampled = inference_df is not df
 
     for col in df.columns:
-        series = df[col]
-        # Replace NA-like values if string
-        if series.dtype == object:
-            mask = series.astype(str).str.match(pattern)
-            series_cleaned = series.where(~mask, np.nan)
-        else:
-            series_cleaned = series
-
-        # Skip conversion if already non-object data type, except bool which can potentially be categorical
-        if (
-            not isinstance(series_cleaned.dtype, pd.BooleanDtype)
-            and not isinstance(series_cleaned.dtype, pd.StringDtype)
-            and series_cleaned.dtype != "object"
-        ):
-            # Keep the original data type for non-object dtypes
-            df_converted[col] = series
-            schema[col] = str(series_cleaned.dtype)
+        # Honor skip_columns: preserve the original column verbatim.
+        if col in skip_set:
+            df_converted[col] = df[col]
+            schema[col] = str(df[col].dtype)
             continue
 
-        # print(f"type: {series_cleaned.dtype}, column: {series_cleaned.name}")
+        full_series = df[col]
+        inf_series = inference_df[col] if sampled and col in inference_df else full_series
 
-        if not isinstance(series_cleaned.dtype, pd.BooleanDtype):
-            # Try numeric (int or float)
-            numeric = pd.to_numeric(series_cleaned, errors="coerce")
-            if numeric.notna().sum() >= n_rows * convert_threshold:
-                if (numeric.dropna() % 1 == 0).all():
+        # Replace NA-like values for any string-like dtype (``object`` *or*
+        # pandas ``StringDtype``). Without this, ``StringDtype`` columns
+        # would keep literal ``"NA"`` / ``"null"`` strings and skew the
+        # downstream nunique / category-threshold checks.
+        is_string_like = full_series.dtype == object or isinstance(full_series.dtype, pd.StringDtype)
+        if is_string_like and not isinstance(full_series.dtype, pd.CategoricalDtype):
+            if isinstance(full_series.dtype, pd.StringDtype):
+                # ``StringDtype`` is guaranteed to contain ``str`` (or
+                # NA) values, so ``.str.match`` is safe without an
+                # ``isinstance(v, str)`` pre-filter. ``fillna(False)``
+                # collapses any NA returned by ``str.match`` (for NA
+                # cells) so the result is a plain bool mask.
+                #
+                # Use ``pd.NA`` (the canonical missing-value sentinel
+                # for ``StringDtype``) rather than ``np.nan`` when
+                # masking out NA-like tokens — assigning ``np.nan``
+                # into a ``StringDtype`` Series coerces it to
+                # ``object`` dtype, silently dropping the
+                # ``StringDtype`` extension dtype that downstream
+                # callers may rely on. ``pd.NA`` preserves
+                # ``StringDtype`` through the ``.where`` call so the
+                # column stays on the same extension dtype it
+                # entered with.
+                full_mask = full_series.str.match(pattern).fillna(False)
+                full_cleaned = full_series.where(~full_mask, pd.NA)
+                if sampled:
+                    inf_mask = inf_series.str.match(pattern).fillna(False)
+                    inf_cleaned = inf_series.where(~inf_mask, pd.NA)
+                else:
+                    inf_cleaned = full_cleaned
+            else:
+                # Object dtype may contain arbitrary non-string objects
+                # (lists, dicts, custom classes, numbers). The previous
+                # ``full_series.astype(str).str.match(pattern)`` forced
+                # ``str()`` on every element, which (a) can raise when
+                # an element's ``__str__`` itself raises, and (b)
+                # applies the NA-token regex to representations like
+                # ``"[1, 2]"`` / ``"<MyObj 0x...>"`` that have no
+                # business being treated as NA tokens. Restrict the
+                # match to elements that are ALREADY ``str``: use
+                # ``isinstance`` masking and only apply ``.str.match``
+                # to the string subset. Non-string elements stay
+                # unmasked (and hence un-NA-replaced), which is the
+                # correct behavior — they aren't string NA tokens
+                # regardless of their repr.
+                is_str_full = full_series.map(lambda v: isinstance(v, str))
+                full_mask = pd.Series(False, index=full_series.index)
+                if is_str_full.any():
+                    full_mask.loc[is_str_full] = full_series.loc[is_str_full].str.match(pattern).fillna(False).values
+                full_cleaned = full_series.where(~full_mask, np.nan)
+                if sampled:
+                    is_str_inf = inf_series.map(lambda v: isinstance(v, str))
+                    inf_mask = pd.Series(False, index=inf_series.index)
+                    if is_str_inf.any():
+                        inf_mask.loc[is_str_inf] = inf_series.loc[is_str_inf].str.match(pattern).fillna(False).values
+                    inf_cleaned = inf_series.where(~inf_mask, np.nan)
+                else:
+                    inf_cleaned = full_cleaned
+        else:
+            full_cleaned = full_series
+            inf_cleaned = inf_series
+
+        # Skip conversion if already non-object dtype. Boolean columns
+        # (``bool`` numpy or ``BooleanDtype`` pandas extension) are cast to
+        # ``Int64`` (nullable int) instead of being left as-is, because
+        # ``is_bool_dtype``-True columns trip sklearn's pandas
+        # early-conversion path (e.g. ``SimpleImputer`` inside a
+        # ``ColumnTransformer`` that also handles string-typed categoricals
+        # fails with "Cannot cast string dtype to float64"). FLAML's own
+        # ``DataTransformer`` routes booleans down its numeric branch
+        # anyway, so the int representation is consistent end-to-end and
+        # preserves ``pd.NA``.
+        if pd.api.types.is_bool_dtype(full_cleaned.dtype) and not isinstance(full_cleaned.dtype, pd.CategoricalDtype):
+            df_converted[col] = full_series.astype("Int64")
+            schema[col] = "int"
+            continue
+        if not isinstance(full_cleaned.dtype, pd.StringDtype) and full_cleaned.dtype != "object":
+            # Keep the original data type for non-object dtypes, but record
+            # a canonical schema label so the schema dict doesn't mix raw
+            # dtype strings (e.g. ``"datetime64[ns]"``, ``"Int64"``) with
+            # the inferred labels (``"timestamp"``, ``"int"``) used by the
+            # conversion paths below.
+            df_converted[col] = full_series
+            dtype = full_cleaned.dtype
+            if pd.api.types.is_datetime64_any_dtype(dtype) or isinstance(dtype, pd.DatetimeTZDtype):
+                schema[col] = "timestamp"
+            elif pd.api.types.is_timedelta64_dtype(dtype):
+                schema[col] = "timedelta"
+            elif pd.api.types.is_integer_dtype(dtype) and not pd.api.types.is_bool_dtype(dtype):
+                schema[col] = "int"
+            elif pd.api.types.is_float_dtype(dtype):
+                schema[col] = "double"
+            elif isinstance(dtype, pd.CategoricalDtype):
+                schema[col] = "category"
+            else:
+                schema[col] = str(dtype)
+            continue
+
+        # Compute the non-null counts ONCE per column for the threshold
+        # checks below. Using the non-null count as the denominator
+        # (instead of the raw row count ``n_full`` / ``n_inference``)
+        # matches the Spark backend, which calls ``col_sample.dropna()``
+        # before its own threshold check. Without this, a column whose
+        # non-null values are entirely parseable can still be misclassified
+        # as ``string`` purely because of a high fraction of missing
+        # values — e.g., 60% NA + 100% of the remaining 40% parseable
+        # would yield ``0.4 >= 0.6`` (False) under the old denominator,
+        # versus ``1.0 >= 0.6`` (True) under the non-null denominator,
+        # matching user intent and matching Spark. Columns with zero
+        # non-null values fall through to the ``string`` default.
+        n_full_nonnull = full_cleaned.notna().sum()
+        n_inf_nonnull = inf_cleaned.notna().sum() if sampled else n_full_nonnull
+
+        # Try integer parsing FIRST without a ``float64`` intermediate.
+        # ``pd.to_numeric(..., errors="coerce")`` produces ``float64``
+        # whenever NA values are present, and casting a ``float64``
+        # series to pandas' nullable ``Int64`` silently loses precision
+        # for integers > ``2**53`` (the float64 mantissa limit) — a
+        # surveyed customer DataFrame with 19-digit IDs would round to
+        # the nearest representable double and back. Match a strict
+        # integer shape (optional sign + digits, with an optional
+        # ``.0+`` tail so ``"3.0"`` still counts as int), strip the
+        # trailing zeros, and parse directly to ``Int64`` via
+        # ``pd.array(..., dtype="Int64")`` so arbitrarily-large valid
+        # integers round-trip exactly. Only fall through to the
+        # ``pd.to_numeric`` / ``double`` path when the column doesn't
+        # match the integer shape.
+        int_parsed = False
+        int_overflow = False
+        try:
+            s_str = full_cleaned.astype("string")
+            int_like = s_str.str.fullmatch(r"\s*[+-]?\d+(?:\.0+)?\s*").fillna(False)
+            # Require EVERY non-null value to be integer-shaped before
+            # taking the direct-Int64 fast path. The existing
+            # ``pd.to_numeric`` path below uses ``(numeric.dropna() % 1
+            # == 0).all()`` to gate the int branch, which means a
+            # single decimal value (e.g., ``"1.5"`` among "1", "2",
+            # "3") flips the inferred type to ``double`` to preserve
+            # the fractional value. A threshold check here (e.g.,
+            # ``>= n_full_nonnull * convert_threshold``) would let a
+            # 60%-int column infer as ``int`` and silently null out
+            # the fractional rows, contradicting the documented
+            # all-or-nothing int-vs-double rule and breaking the
+            # corresponding regression test.
+            if n_full_nonnull > 0 and int_like.sum() == n_full_nonnull:
+                try:
+                    ints = s_str.where(int_like).str.strip().str.replace(r"\.0+$", "", regex=True)
+                    # ``pd.array(dtype="Int64")`` returns an ``IntegerArray``
+                    # which exposes ``isna()`` but not ``notna()``. Wrap in
+                    # a ``Series`` so the subsequent threshold check uses
+                    # the same ``notna()`` API as the ``numeric_full`` path
+                    # below.
+                    int_full = pd.Series(pd.array(ints, dtype="Int64"), index=full_cleaned.index)
+                except (OverflowError, TypeError, ValueError):
+                    # The column was confirmed integer-shaped by the
+                    # ``int_like`` regex (every non-null value matches
+                    # ``\s*[+-]?\d+(?:\.0+)?\s*``), yet
+                    # ``pd.array(dtype="Int64")`` still rejected at least
+                    # one element:
+                    #   * ``OverflowError`` — value outside the int64
+                    #     range (e.g., a 20+ digit ID column).
+                    #   * ``TypeError`` / ``ValueError`` — defensive
+                    #     catch for any element the regex accepted but
+                    #     pandas' ``Int64`` parser declined (unlikely
+                    #     after the regex prefilter, but treat it
+                    #     symmetrically with overflow so a future
+                    #     pandas/numpy stricter parser doesn't silently
+                    #     flip the column to ``double``).
+                    # In either case, falling through to ``pd.to_numeric``
+                    # → ``float64`` → ``astype('double')`` would round
+                    # large integers above ``2**53`` (~16 decimal
+                    # digits) and silently corrupt ID values. Mark for
+                    # the string-preservation branch below instead so
+                    # the exact original digits round-trip.
+                    int_overflow = True
+                else:
+                    if int_full.notna().sum() >= n_full_nonnull * convert_threshold:
+                        df_converted[col] = int_full
+                        schema[col] = "int"
+                        int_parsed = True
+        except MemoryError:
+            # Process-wide memory exhaustion is NOT a per-column
+            # stringification failure — masking it as "not int-like"
+            # and continuing the conversion would either retry the
+            # allocation in a downstream branch (same OOM, possibly
+            # with a less informative traceback) or silently truncate
+            # the conversion mid-frame. Re-raise so the caller sees
+            # the actual condition. ``MemoryError`` IS a subclass of
+            # ``Exception`` so without this explicit branch the
+            # broad ``except Exception`` below would swallow it.
+            raise
+        except Exception:  # noqa: BLE001
+            # ``astype("string")`` / ``str.fullmatch`` can invoke per-
+            # element ``__str__`` on object-dtype columns. A single
+            # element whose ``__str__`` itself raises (potentially
+            # with a non-TypeError exception — e.g. a custom class
+            # whose ``__str__`` raises ``RuntimeError`` /
+            # ``AttributeError`` / a library-specific subclass) would
+            # otherwise abort the WHOLE column's dtype conversion.
+            # Catch ``Exception`` broadly here and treat the result
+            # as "not int-like" so the offending column falls through
+            # to the other inference branches (numeric / timedelta /
+            # datetime / category) instead of crashing the whole
+            # auto_convert_dtypes_pandas call.
+            #
+            # Int64-construction failures (``OverflowError`` /
+            # ``TypeError`` / ``ValueError``) are caught by the INNER
+            # ``try/except`` above so they still trigger the
+            # ``int_overflow`` string-preservation branch — only
+            # genuine stringification errors land here.
+            pass
+        if int_parsed:
+            continue
+        if int_overflow:
+            # Column is uniformly integer-shaped but holds at least one
+            # value beyond int64 range. Skip numeric / timedelta /
+            # datetime / category inference and persist as ``string``
+            # so the original lossless digit sequence survives. Going
+            # through ``pd.to_numeric`` here would coerce to
+            # ``float64`` and silently round the value (e.g.,
+            # ``"123456789012345678901"`` → ``1.2345678901234568e+20``),
+            # which is exactly the data-corruption risk the
+            # direct-Int64 fast path was added to prevent — falling
+            # through would defeat the entire fast-path mitigation.
+            # ``category`` is also skipped: huge-ID columns are
+            # typically high-cardinality so the category branch would
+            # land at ``string`` anyway, and even in the rare low-
+            # cardinality case the safer choice for out-of-range
+            # integers is to preserve the verbatim string rather
+            # than introduce a category-code encoding that obscures
+            # the original value.
+            df_converted[col] = full_cleaned.astype("string")
+            schema[col] = "string"
+            continue
+
+        # Try numeric (int or float). The integer-vs-double decision is made
+        # from the FULL converted series so a sample that happened to miss
+        # decimal values can't cause silent truncation via ``astype("int")``.
+        # Validate against the FULL column even when sampling is enabled:
+        # gating the full check on the sample passing first (the pre-iter-63
+        # behavior) meant an unlucky sample could miss enough numeric-looking
+        # values to drop below ``convert_threshold`` and prevent a numeric
+        # conversion that would have met the threshold on the full data —
+        # a real risk now that ``sample_ratio`` defaults to ``0.1``.
+        # ``pd.to_numeric`` itself can raise ``TypeError`` when the column
+        # contains non-scalar objects (lists, dicts, custom objects) that
+        # ``errors='coerce'`` can't reduce. Treat that as "not numeric" so
+        # the function can keep going and try datetime / timedelta /
+        # category / string instead of aborting the whole DataFrame.
+        try:
+            numeric_full = pd.to_numeric(full_cleaned, errors="coerce")
+        except (TypeError, ValueError):
+            numeric_full = None
+        if (
+            numeric_full is not None
+            and n_full_nonnull > 0
+            and numeric_full.notna().sum() >= n_full_nonnull * convert_threshold
+        ):
+            if (numeric_full.dropna() % 1 == 0).all():
+                # ``pd.to_numeric(..., errors='coerce')`` on string/object
+                # input routes through ``float64`` (NA support requires a
+                # nullable container, and the non-Int64 fast path lands
+                # here precisely because some values failed the strict
+                # integer regex above and were coerced to NaN). For
+                # mixed columns, exact strings/Decimals can lose fractional
+                # parts even below 2**53. Validate their source integrality,
+                # not just the already-rounded float projection.
+                nf_nonnull = numeric_full.dropna()
+                needs_precision_preserve = (not nf_nonnull.empty) and (
+                    (nf_nonnull.abs() >= _FLOAT64_SAFE_INT_CEILING).any()
+                    or any(isinstance(value, (str, Decimal)) for value in full_cleaned)
+                )
+                if needs_precision_preserve:
                     try:
-                        df_converted[col] = numeric.astype("int")  # Nullable integer
+                        # Re-parse each source value via Python ``int``
+                        # so values above 2**53 keep full precision. NA
+                        # markers (and source values that ``pd.to_numeric``
+                        # coerced to NaN — the < convert_threshold tail
+                        # we tolerate) map to ``pd.NA`` so the Int64 array
+                        # stays index-aligned with the source. A source
+                        # value like ``"1.0"`` would not match strict
+                        # ``int(...)``; route those through the float64
+                        # value only when the float is within the safe
+                        # range and is exactly an integer.
+                        #
+                        # For non-string numeric sources (``float``,
+                        # ``np.floating``, ``Decimal``, ``np.integer``),
+                        # the safe-integer ceiling check does NOT apply
+                        # to the value itself — those types ARE the
+                        # source representation, so whatever value the
+                        # caller stored (even one already truncated by
+                        # an earlier float64 cast) IS the truth and
+                        # writing it back as Int64 preserves the
+                        # observed semantics. The safe-integer ceiling
+                        # guard exists specifically to prevent
+                        # rewriting a STRING source's high-precision
+                        # digits as a rounded float; it should not drop
+                        # valid float-source rows (e.g.,
+                        # ``pd.Series([9007199254740992.0])`` is a
+                        # perfectly representable IEEE-754 value and
+                        # the user explicitly stored it as a float —
+                        # there's nothing more precise to recover).
+                        def _precise_int_or_na(src, parsed_float):
+                            if isinstance(src, (str, Decimal)):
+                                try:
+                                    exact = src if isinstance(src, Decimal) else Decimal(src.strip())
+                                except InvalidOperation as exc:
+                                    if pd.isna(parsed_float):
+                                        return pd.NA
+                                    raise ValueError("Numeric input cannot be parsed losslessly") from exc
+                                if not exact.is_finite() and pd.isna(parsed_float):
+                                    return pd.NA
+                                if not exact.is_finite() or exact != exact.to_integral_value():
+                                    raise ValueError("Numeric input is not an exact integer")
+                                limits = np.iinfo(np.int64)
+                                if exact < int(limits.min) or exact > int(limits.max):
+                                    raise OverflowError("Numeric input is outside the nullable Int64 range")
+                                return int(exact)
+                            if pd.isna(parsed_float):
+                                return pd.NA
+                            if isinstance(src, (bool, np.bool_)):
+                                return int(src)
+                            # Integer sources (``int``, ``np.integer``)
+                            # are already exact — no float64
+                            # intermediate to lose precision through.
+                            if isinstance(src, (int, np.integer)):
+                                try:
+                                    return int(src)
+                                except (TypeError, ValueError, OverflowError):
+                                    return pd.NA
+                            # Other numeric sources (``float``,
+                            # ``np.floating``, ``Decimal``, anything
+                            # exposing ``__int__``): the source IS the
+                            # precision ceiling — there's no
+                            # higher-precision representation to
+                            # recover. Accept any finite whole-number
+                            # value WITHOUT the safe-integer ceiling
+                            # guard so that, e.g.,
+                            # ``pd.Series([9007199254740992.0])``
+                            # round-trips intact instead of dropping
+                            # to NA.
+                            try:
+                                f = float(src)
+                            except (TypeError, ValueError, OverflowError):
+                                return pd.NA
+                            if math.isfinite(f) and f == int(f):
+                                try:
+                                    return int(src)
+                                except (TypeError, ValueError, OverflowError):
+                                    try:
+                                        return int(f)
+                                    except (TypeError, ValueError, OverflowError):
+                                        return pd.NA
+                            return pd.NA
+
+                        precise_ints = [
+                            _precise_int_or_na(src, parsed) for src, parsed in zip(full_cleaned, numeric_full)
+                        ]
+                        precise = pd.Series(pd.array(precise_ints, dtype="Int64"), index=full_cleaned.index)
+                        if precise.notna().sum() < n_full_nonnull * convert_threshold:
+                            raise ValueError("Lossless integer conversion did not meet the conversion threshold")
+                        df_converted[col] = precise
                         schema[col] = "int"
                         continue
-                    except Exception:
-                        pass
-                df_converted[col] = numeric.astype("double")
-                schema[col] = "double"
-                continue
-
-            # Try datetime
-            datetime_converted = pd.to_datetime(series_cleaned, errors="coerce")
-            if datetime_converted.notna().sum() >= n_rows * convert_threshold:
-                df_converted[col] = datetime_converted
-                schema[col] = "timestamp"
-                continue
-
-            # Try timedelta
-            try:
-                timedelta_converted = pd.to_timedelta(series_cleaned, errors="coerce")
-                if timedelta_converted.notna().sum() >= n_rows * convert_threshold:
-                    df_converted[col] = timedelta_converted
-                    schema[col] = "timedelta"
+                    except MemoryError:
+                        # Process-wide OOM during precision-preserving
+                        # parse — re-raise rather than masking as
+                        # ``not int-like`` (would either retry the
+                        # allocation downstream or silently truncate).
+                        raise
+                    except (TypeError, ValueError, OverflowError):
+                        logger.warning("Column %r cannot be converted losslessly to Int64; preserving strings.", col)
+                        df_converted[col] = full_cleaned.astype("string")
+                        schema[col] = "string"
+                        continue
+                try:
+                    # ``"Int64"`` is pandas' nullable integer dtype, which
+                    # preserves NA semantics. ``"int"`` (numpy int64) is
+                    # NOT nullable and raises on series containing NaN,
+                    # silently routing integer columns with NAs into the
+                    # ``double`` fallback below. (Reached only when the
+                    # direct-Int64 fast path above didn't apply, e.g.,
+                    # numeric source ``Series[float64]`` whose values
+                    # happen to all be whole numbers — small enough to
+                    # round-trip through float64 without precision loss.)
+                    df_converted[col] = numeric_full.astype("Int64")
+                    schema[col] = "int"
                     continue
-            except TypeError:
-                pass
+                except (TypeError, ValueError, OverflowError):
+                    # Narrowly scoped: only swallow the dtype-conversion
+                    # errors ``astype("Int64")`` can legitimately raise
+                    # (e.g., out-of-range values). Programmer errors
+                    # like ``AttributeError`` / ``NameError`` propagate.
+                    pass
+            if any(
+                _numeric_conversion_loses_precision(value, parsed) for value, parsed in zip(full_cleaned, numeric_full)
+            ):
+                logger.warning("Column %r cannot be converted losslessly to double; preserving strings.", col)
+                df_converted[col] = full_cleaned.astype("string")
+                schema[col] = "string"
+                continue
+            df_converted[col] = numeric_full.astype("double")
+            schema[col] = "double"
+            continue
 
-        # Try category
+        # Check durations before dates so time-only values do not become today's timestamps.
         try:
-            unique_ratio = series_cleaned.nunique(dropna=True) / n_rows if n_rows > 0 else 1.0
-            if unique_ratio <= category_threshold:
-                df_converted[col] = series_cleaned.astype("category")
+            if n_full_nonnull > 0:
+                if pd.api.types.infer_dtype(full_cleaned, skipna=True) == "string":
+                    full_matches = full_cleaned.str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).astype(bool)
+                else:
+                    is_str_full = full_cleaned.map(lambda value: isinstance(value, str))
+                    full_matches = pd.Series(False, index=full_cleaned.index)
+                    if is_str_full.any():
+                        full_matches.loc[is_str_full] = (
+                            full_cleaned.loc[is_str_full].str.fullmatch(_TIMEDELTA_LIKE_PATTERN).fillna(False).values
+                        )
+                if full_matches.sum() >= n_full_nonnull * convert_threshold:
+                    timedelta_full = pd.to_timedelta(full_cleaned.where(full_matches, np.nan), errors="coerce")
+                    if timedelta_full.notna().sum() >= n_full_nonnull * convert_threshold:
+                        df_converted[col] = timedelta_full
+                        schema[col] = "timedelta"
+                        continue
+        except (TypeError, ValueError):
+            pass
+
+        # A failed sample hint cannot rule out valid dates elsewhere in the column.
+        datetime_full = None
+        try:
+            if n_full_nonnull > 0 and (
+                n_inf_nonnull > 0 and _has_datetime_hint(inf_cleaned) or sampled and _has_datetime_hint(full_cleaned)
+            ):
+                datetime_full = pd.to_datetime(full_cleaned, errors="coerce")
+        except (TypeError, ValueError):
+            datetime_full = None
+
+        if (
+            datetime_full is not None
+            and n_full_nonnull > 0
+            and datetime_full.notna().sum() >= n_full_nonnull * convert_threshold
+        ):
+            df_converted[col] = datetime_full
+            schema[col] = "timestamp"
+            continue
+
+        # Full-column, non-null cardinality avoids sample and missing-value bias.
+        try:
+            unique_ratio_full = full_cleaned.nunique(dropna=True) / n_full_nonnull if n_full_nonnull > 0 else 1.0
+            if unique_ratio_full <= category_threshold:
+                df_converted[col] = full_cleaned.astype("category")
                 schema[col] = "category"
                 continue
-        except Exception:
+        except (TypeError, ValueError, ArithmeticError):
+            # Narrow set: ``nunique`` / division / ``astype("category")``
+            # may legitimately fail with these for exotic value
+            # combinations; anything else (e.g., AttributeError from a
+            # malformed object) is a programming bug and should surface.
             pass
-        df_converted[col] = series_cleaned.astype("string")
-        schema[col] = "string"
+        # Final fallback: cast to pandas ``StringDtype``. This call
+        # invokes per-element ``__str__`` on object-dtype columns, so
+        # an element whose ``__str__`` itself raises (a custom class
+        # raising e.g. ``RuntimeError`` / ``AttributeError``) would
+        # otherwise abort the WHOLE ``auto_convert_dtypes_pandas`` call
+        # at the very last step — even though earlier branches
+        # (direct-Int64 fast path, NA normalization) already
+        # defensively guarded against the same hazard. Wrap in a broad
+        # ``except Exception`` and fall back to leaving the column as
+        # the original object dtype so a single misbehaving cell can't
+        # corrupt the entire conversion for the rest of the frame.
+        try:
+            df_converted[col] = full_cleaned.astype("string")
+            schema[col] = "string"
+        except MemoryError:
+            # Same rationale as the direct-Int64 fast path's MemoryError
+            # branch: process-wide OOM is NOT a per-column ``__str__``
+            # failure. Silently falling back to the original object
+            # dtype would discard the genuine memory-exhaustion signal
+            # and leave the caller with an unexpected mix of converted
+            # and unconverted columns (depending on which column happened
+            # to trigger the allocation that finally pushed the process
+            # over the limit). Re-raise so the actual condition is
+            # visible. ``MemoryError`` is a subclass of ``Exception`` so
+            # this explicit branch is required to escape the broad
+            # ``except Exception`` below.
+            raise
+        except Exception:  # noqa: BLE001
+            df_converted[col] = full_series
+            schema[col] = str(full_series.dtype)
 
     return df_converted, schema

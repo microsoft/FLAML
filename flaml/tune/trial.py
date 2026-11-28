@@ -17,8 +17,34 @@
 # Copyright (c) Microsoft Corporation.
 import time
 import uuid
-from collections import deque
+from collections import Counter, OrderedDict, defaultdict, deque
 from numbers import Number
+
+
+def _copy_result(value, memo=None):
+    """Snapshot report containers without cloning opaque model or artifact payloads."""
+    container_type = type(value)
+    if container_type not in (dict, list, tuple, Counter, defaultdict, OrderedDict):
+        return value
+    if memo is None:
+        memo = {}
+    identity = id(value)
+    if identity in memo:
+        return memo[identity]
+    if isinstance(value, dict):
+        result = memo[identity] = (
+            defaultdict(value.default_factory) if container_type is defaultdict else container_type()
+        )
+        for key, item in value.items():
+            result[key] = _copy_result(item, memo)
+    elif isinstance(value, list):
+        result = memo[identity] = []
+        result.extend(_copy_result(item, memo) for item in value)
+    else:
+        items = [_copy_result(item, memo) for item in value]
+        if identity not in memo:
+            memo[identity] = tuple(items)
+    return memo[identity]
 
 
 def flatten_dict(dt, delimiter="/", prevent_delimiter=False):

@@ -1,0 +1,90 @@
+"""Smoke-test an installed public package from outside its source checkout."""
+
+import argparse
+import importlib.util
+from pathlib import Path
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--automl", action="store_true")
+    parser.add_argument("--autofe", action="store_true")
+    parser.add_argument("--autozero", action="store_true")
+    args = parser.parse_args()
+
+    import flaml
+    from flaml import tune
+
+    assert not Path(flaml.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
+    assert flaml.has_automl is (args.automl or args.autofe or args.autozero)
+    from flaml.automl.training_log import training_log_reader
+
+    assert callable(training_log_reader)
+    public = {}
+    exec("from flaml.automl import *", public)
+    assert callable(public["register_automl_pipeline"])
+    assert ("AutoML" in public) is flaml.has_automl
+    assert importlib.util.find_spec("mlflow") is None
+    assert importlib.util.find_spec("pyspark") is None
+    analysis = tune.run(
+        lambda config: {"loss": 1.0},
+        config={"x": 1},
+        metric="loss",
+        mode="min",
+        num_samples=1,
+        use_ray=False,
+        verbose=0,
+    )
+    assert len(analysis.trials) == 1
+
+    if args.automl:
+        import numpy as np
+
+        from flaml import AutoML
+        from flaml.automl import register_automl_pipeline
+
+        automl = AutoML(estimator_list=["rf"], max_iter=1, n_jobs=1, verbose=0)
+        assert automl._settings["model_history"] is False
+        assert automl._settings["featurization"] == "off"
+        X = np.arange(80).reshape(40, 2)
+        automl.fit(X, np.tile([0, 1], 20))
+        assert len(automl.predict(X[:3])) == 3
+        assert automl.mlflow_integration is None
+        assert callable(register_automl_pipeline)
+
+    if args.autofe:
+        import numpy as np
+        import pandas as pd
+
+        from flaml.automl import Featurization
+
+        data = pd.DataFrame({"feature": [1.0, 2.0, 3.0]})
+        features = Featurization(params={"fe.numerical": "scaler_standard"}).fit_transform(data)
+        np.testing.assert_allclose(features["feature"], [-1.22474487, 0.0, 1.22474487])
+        automl = flaml.AutoML(
+            estimator_list=["rf"],
+            max_iter=2,
+            n_jobs=1,
+            featurization="auto",
+            verbose=0,
+            starting_points={"rf": {"n_estimators": 4}},
+        )
+        X = pd.DataFrame({"first": np.arange(60.0), "second": np.arange(60.0) ** 2})
+        automl.fit(X, np.tile([0, 1], 30))
+        assert automl.automl_pipeline is not None
+        np.testing.assert_array_equal(automl.automl_pipeline.predict(X), automl.predict(X))
+
+    if args.autozero:
+        import numpy as np
+
+        from flaml.default import RandomForestClassifier
+
+        assert importlib.util.find_spec("xgboost") is None
+        assert importlib.util.find_spec("lightgbm") is None
+        X = np.arange(80).reshape(40, 2)
+        model = RandomForestClassifier(n_estimators=4, max_depth=2, n_jobs=1).fit(X, np.tile([0, 1], 20))
+        assert len(model.predict(X[:3])) == 3
+
+
+if __name__ == "__main__":
+    main()

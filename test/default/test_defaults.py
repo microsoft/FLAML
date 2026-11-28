@@ -1,6 +1,7 @@
 import pickle
 import sys
 from copy import deepcopy
+from test._artifact_paths import artifact_path
 
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ def test_iris(as_frame=True):
         "time_budget": 2,
         "metric": "accuracy",
         "task": "classification",
-        "log_file_name": "test/iris.log",
+        "log_file_name": artifact_path(__file__, "test/iris.log"),
         "n_jobs": 1,
         "starting_points": "data",
     }
@@ -59,12 +60,14 @@ def test_housing(as_frame=True):
         "time_budget": 2,
         "task": "regression",
         "estimator_list": ["xgboost", "lgbm"],
-        "log_file_name": "test/housing.log",
+        "log_file_name": artifact_path(__file__, "housing.log"),
         "n_jobs": 1,
         "starting_points": "data",
         "max_iter": 0,
     }
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=as_frame, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=as_frame, data_home=artifact_path(__file__, "datasets")
+    )
     automl.fit(X_train, y_train, **automl_settings)
 
 
@@ -119,7 +122,9 @@ def test_suggest_classification():
 
 def test_suggest_regression():
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets")
+    )
     suggested = suggest_hyperparams("regression", X_train, y_train, "lgbm", location=location)
     print(suggested)
     suggested = preprocess_and_suggest_hyperparams("regression", X_train, y_train, "xgboost", location=location)
@@ -141,7 +146,9 @@ def test_rf():
     print(rf)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets")
+    )
     rf = RandomForestRegressor(default_location=location)
     rf.fit(X_train[:100], y_train[:100])
     rf.predict(X_train)
@@ -159,7 +166,9 @@ def test_extratrees():
     print(classifier)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets")
+    )
     regressor = ExtraTreesRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
@@ -179,7 +188,9 @@ def test_lgbm():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets")
+    )
     regressor = LGBMRegressor(default_location=location)
     regressor.fit(X_train, y_train)
     regressor.predict(X_train)
@@ -200,7 +211,9 @@ def test_xgboost():
     print(classifier.classes_)
 
     location = "test/default"
-    X_train, y_train = fetch_california_housing(return_X_y=True, as_frame=True, data_home="test")
+    X_train, y_train = fetch_california_housing(
+        return_X_y=True, as_frame=True, data_home=artifact_path(__file__, "datasets")
+    )
     regressor = XGBRegressor(default_location=location)
     regressor.fit(X_train[:100], y_train[:100])
     regressor.predict(X_train)
