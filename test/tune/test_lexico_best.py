@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from fractions import Fraction
 
 import numpy as np
@@ -7,6 +7,12 @@ import pytest
 from flaml import tune
 from flaml.tune.trial_runner import SimpleTrial
 from flaml.tune.tune import ExperimentAnalysis
+
+
+# The Decimal cases depend on the context precision and rounding, so the tests pin the default ones in case a
+# caller or an earlier test changed them.
+def _decimal_context():
+    return localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN))
 
 
 def _analysis(results, metrics, modes, tolerances):
@@ -224,9 +230,10 @@ def _analysis(results, metrics, modes, tolerances):
     ],
 )
 def test_lexico_best_percentage_tolerance(results, metrics, modes, tolerances, best_index):
-    analysis = _analysis(results, metrics, modes, tolerances)
-    assert analysis.best_trial is analysis.trials[best_index]
-    assert analysis.best_result == results[best_index]
+    with _decimal_context():
+        analysis = _analysis(results, metrics, modes, tolerances)
+        assert analysis.best_trial is analysis.trials[best_index]
+        assert analysis.best_result == results[best_index]
 
 
 def test_lexico_best_invalid_percentage_with_infinite_best():
@@ -272,9 +279,10 @@ def test_lexico_best_invalid_percentage_with_infinite_best():
     ],
 )
 def test_lexico_best_absolute_tolerance_decimal_digits(results, metrics, modes, tolerances, best_index):
-    analysis = _analysis(results, metrics, modes, tolerances)
-    assert analysis.best_trial is analysis.trials[best_index]
-    assert analysis.best_result == results[best_index]
+    with _decimal_context():
+        analysis = _analysis(results, metrics, modes, tolerances)
+        assert analysis.best_trial is analysis.trials[best_index]
+        assert analysis.best_result == results[best_index]
 
 
 def test_tune_run_max_objective_percentage_tolerance():
